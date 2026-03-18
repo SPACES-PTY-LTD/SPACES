@@ -1,0 +1,37 @@
+{
+  "merchant_id": "11111111-1111-1111-1111-111111111111",
+  "merchant_order_ref": "ORDER-123",
+  "delivery_note_number": "DN-123",
+  "pickup_address": {
+    "name": "Pickup Name",
+    "phone": "+27123456789",
+    "line1": "1 Main Road",
+    "city": "Cape Town",
+    "country": "ZA"
+  },
+  "dropoff_address": {
+    "name": "Dropoff Name",
+    "phone": "+27123456789",
+    "line1": "2 Side Street",
+    "city": "Cape Town",
+    "country": "ZA"
+  },
+  "parcels": [
+    {
+      "weight": 1.2,
+      "weight_measurement": "kg",
+      "type": "parcel",
+      "length_cm": 10,
+      "width_cm": 10,
+      "height_cm": 5,
+      "declared_value": 500,
+      "contents_description": "Books"
+    }
+  ],
+  "pickup_instructions": "Ring the bell",
+  "dropoff_instructions": "Leave at reception",
+  "ready_at": "2026-02-05T10:00:00Z",
+  "metadata": {
+    "channel": "api"
+  }
+}

@@ -1,0 +1,11 @@
+$kind: http-request
+name: POST /api/v1/tracking-providers/activate
+url: "{{base_url}}/api/v1/tracking-providers/activate"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 112000

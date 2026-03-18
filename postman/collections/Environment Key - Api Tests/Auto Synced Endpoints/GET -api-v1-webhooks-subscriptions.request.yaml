@@ -1,0 +1,7 @@
+$kind: http-request
+name: GET /api/v1/webhooks/subscriptions
+url: "{{base_url}}/api/v1/webhooks/subscriptions"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+order: 120000

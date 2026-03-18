@@ -1,0 +1,37 @@
+$kind: http-request
+name: PATCH /api/v1/location-types
+url: "{{base_url}}/api/v1/location-types"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "merchant_id": "{{merchant_id}}",
+      "types": [
+        {
+          "location_type_id": "{{location_type_uuid}}",
+          "slug": "pickup",
+          "title": "Pickup",
+          "collection_point": true,
+          "delivery_point": false,
+          "sequence": 1,
+          "icon": "map-pin",
+          "color": "#16A34A",
+          "default": true
+        },
+        {
+          "slug": "dropoff",
+          "title": "Dropoff",
+          "collection_point": false,
+          "delivery_point": true,
+          "sequence": 2,
+          "icon": "flag",
+          "color": "#2563EB",
+          "default": false
+        }
+      ]
+    }
+order: 69000

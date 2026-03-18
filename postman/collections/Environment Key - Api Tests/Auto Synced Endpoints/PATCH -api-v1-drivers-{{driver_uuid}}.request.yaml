@@ -1,0 +1,11 @@
+$kind: http-request
+name: PATCH /api/v1/drivers/{{driver_uuid}}
+url: "{{base_url}}/api/v1/drivers/{{driver_uuid}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 58000

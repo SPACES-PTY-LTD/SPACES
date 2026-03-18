@@ -1,0 +1,2663 @@
+---
+info:
+  _postman_id: 9cfcac6e-72a1-459b-9162-d5ea46a00a61
+  name: Courier Integrate API - Drivers
+  schema: https://schema.getpostman.com/json/collection/v3.0.0/collection.json
+item:
+- name: Auth
+  id: ce3456b1-b936-4303-b371-94fda7ce3093
+  item:
+  - name: Auth Login
+    event:
+    - listen: test
+      script:
+        id: 5c52cad8-515d-49a4-8049-6dc1fe49de79
+        type: text/javascript
+        exec:
+        - "// Parse the JSON response"
+        - const jsonData = pm.response.json();
+        - ''
+        - "// Extract token from common response locations"
+        - let token = null;
+        - ''
+        - if (jsonData.token) {
+        - "    token = jsonData.token;"
+        - "}"
+        - ''
+        - "// Save token to environment variable"
+        - if (token) {
+        - '    pm.environment.set("token", token);'
+        - '    pm.environment.set("bearer_token", token);'
+        - '    console.log("Token saved to environment variables \"token\" and \"bearer_token\"");'
+        - "}"
+        - ''
+        - "// Test to verify token was received"
+        - pm.test("Token is present in response", function () {
+        - "    pm.expect(token).to.not.be.null;"
+        - '    pm.expect(token).to.be.a("string");'
+        - "    pm.expect(token.length).to.be.greaterThan(0);"
+        - "});"
+    - listen: prerequest
+      script:
+        id: c5b7c2ca-d2f7-48bd-b7c2-a8265116e5bf
+        exec:
+        - ''
+        type: text/javascript
+        packages: []
+        requests: []
+    id: 2da7b7a0-8948-49b2-8c09-8bedb5b170dc
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "email": "driver@example.com",
+            "password": "password"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/auth/login"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - auth
+        - login
+    response: []
+  - name: Auth Logout
+    id: 4a046256-4738-48ab-91c2-0b4b53f0ef74
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/auth/logout"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - auth
+        - logout
+    response: []
+  - name: Auth Refresh
+    id: 6f8f61f5-53a6-4261-ae7c-6b2a5bed6182
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "refresh_token": "{{refresh_token}}"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/auth/refresh"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - auth
+        - refresh
+    response: []
+- name: Me
+  id: 92b3a387-3818-4075-b996-7298e5c6e0e8
+  item:
+  - name: Get Me
+    id: 8124fc54-63d9-410a-af18-f93df52d69ab
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/me"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - me
+    response: []
+- name: Driver
+  id: b3563c0b-44c6-457b-9b07-7ce68aedc95f
+  item:
+  - name: Driver List Bookings
+    id: 0bca5d8d-32f1-4341-b4dd-2fbb71cf0d78
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+    response: []
+  - name: Driver Get Booking
+    id: 92a0726d-20fa-4ea2-8b97-e51bfd2c527a
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_id}}"
+    response: []
+  - name: Driver Update Booking Status
+    id: 712ad0b0-c5cc-4ae9-9ac5-5d025a17c46e
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "status": "picked_up",
+            "note": "Collected from sender"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_id}}/status"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_id}}"
+        - status
+    response: []
+  - name: Driver Scan Booking
+    id: d42c698f-25c9-4a62-ada0-1e8df0eace9e
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "event_code": "picked_up",
+            "event_description": "Package collected",
+            "payload": {"scanner": "driver_app"}
+          }
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_id}}/scan"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_id}}"
+        - scan
+    response: []
+  - name: Driver Upload POD
+    id: 9d5ad871-7338-41e5-b223-b4443fe1ad8c
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "file_key": "{{booking_id}}.jpg",
+            "file_type": "image/jpeg",
+            "signed_by": "Jane Doe"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_id}}/pod"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_id}}"
+        - pod
+    response: []
+  - name: Driver Cancel Booking
+    id: e5cecc61-df4c-4a48-a840-6e6880428caf
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "reason_code": "other",
+            "reason": "Vehicle breakdown",
+            "note": "Unable to complete pickup"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_id}}/cancel"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_id}}"
+        - cancel
+    response: []
+  - name: Driver List Vehicles
+    id: f7c652e5-5695-47ea-b29c-458ffdc1f9f7
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+    response: []
+  - name: Driver Get Assigned Vehicle
+    id: dea28d50-4442-4ce6-b307-c9b0b16fb578
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles/{{vehicle_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+        - "{{vehicle_id}}"
+    response: []
+  - name: Driver Assign Vehicle
+    id: 7dcba36d-160c-4a70-9254-072f543262be
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "vehicle_id": "{{vehicle_id}}"
+          }
+        options:
+          raw:
+            language: json
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+    response: []
+  - name: Driver Update Assigned Vehicle
+    id: 3367d1fc-0e15-4e49-b80f-9a7d2845bc41
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "vehicle_id": "{{vehicle_id}}"
+          }
+        options:
+          raw:
+            language: json
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles/{{vehicle_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+        - "{{vehicle_id}}"
+    response: []
+  - name: Driver Unassign Vehicle
+    id: 736a8ef7-4e91-4b2a-9587-7026edb61e21
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles/{{vehicle_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+        - "{{vehicle_id}}"
+    response: []
+- name: Auto Synced Endpoints
+  item:
+  - name: GET /api/v1/activity-logs
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/activity-logs"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - activity-logs
+    response: []
+  - name: GET /api/v1/admin/bookings
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/bookings"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - bookings
+    response: []
+  - name: POST /api/v1/admin/bookings/{{booking_uuid}}/assign-driver
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/admin/bookings/{{booking_uuid}}/assign-driver"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - bookings
+        - "{{booking_uuid}}"
+        - assign-driver
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/admin/bookings/{{booking_uuid}}/unassign-driver
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/admin/bookings/{{booking_uuid}}/unassign-driver"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - bookings
+        - "{{booking_uuid}}"
+        - unassign-driver
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/admin/merchants
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/merchants"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - merchants
+    response: []
+  - name: GET /api/v1/admin/shipments
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/shipments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - shipments
+    response: []
+  - name: POST /api/v1/admin/tracking-providers
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/admin/tracking-providers/{{provider_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+    response: []
+  - name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+    response: []
+  - name: PATCH /api/v1/admin/tracking-providers/{{provider_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - integration-form-fields
+    response: []
+  - name: POST /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - integration-form-fields
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - integration-form-fields
+        - "{{field_uuid}}"
+    response: []
+  - name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - integration-form-fields
+        - "{{field_uuid}}"
+    response: []
+  - name: PATCH /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - integration-form-fields
+        - "{{field_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}/options
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - options
+    response: []
+  - name: POST /api/v1/admin/tracking-providers/{{provider_uuid}}/options
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - options
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - options
+        - "{{option_uuid}}"
+    response: []
+  - name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - options
+        - "{{option_uuid}}"
+    response: []
+  - name: PATCH /api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - options
+        - "{{option_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/admin/users
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/users"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - users
+    response: []
+  - name: POST /api/v1/admin/vehicle-types
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/admin/vehicle-types"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - vehicle-types
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/admin/vehicle-types/{{vehicle_type_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/vehicle-types/{{vehicle_type_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - vehicle-types
+        - "{{vehicle_type_uuid}}"
+    response: []
+  - name: GET /api/v1/admin/vehicle-types/{{vehicle_type_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/vehicle-types/{{vehicle_type_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - vehicle-types
+        - "{{vehicle_type_uuid}}"
+    response: []
+  - name: PATCH /api/v1/admin/vehicle-types/{{vehicle_type_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/admin/vehicle-types/{{vehicle_type_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - vehicle-types
+        - "{{vehicle_type_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/admin/webhook-deliveries
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/webhook-deliveries"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - webhook-deliveries
+    response: []
+  - name: POST /api/v1/auth/register
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/auth/register"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - auth
+        - register
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/bookings
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/bookings"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - bookings
+    response: []
+  - name: GET /api/v1/bookings/{{booking_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/bookings/{{booking_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - bookings
+        - "{{booking_uuid}}"
+    response: []
+  - name: GET /api/v1/cancel-reasons
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+    response: []
+  - name: POST /api/v1/cancel-reasons
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/cancel-reasons/{{cancel_reason_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+        - "{{cancel_reason_uuid}}"
+    response: []
+  - name: GET /api/v1/cancel-reasons/{{cancel_reason_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+        - "{{cancel_reason_uuid}}"
+    response: []
+  - name: PATCH /api/v1/cancel-reasons/{{cancel_reason_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+        - "{{cancel_reason_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/carriers
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/carriers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+    response: []
+  - name: POST /api/v1/carriers
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/carriers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/carriers/{{carrier_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/carriers/{{carrier_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+        - "{{carrier_uuid}}"
+    response: []
+  - name: GET /api/v1/carriers/{{carrier_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/carriers/{{carrier_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+        - "{{carrier_uuid}}"
+    response: []
+  - name: PATCH /api/v1/carriers/{{carrier_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/carriers/{{carrier_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+        - "{{carrier_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/driver/bookings/{{booking_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_uuid}}"
+    response: []
+  - name: POST /api/v1/driver/bookings/{{booking_uuid}}/cancel
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}/cancel"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_uuid}}"
+        - cancel
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/driver/bookings/{{booking_uuid}}/pod
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}/pod"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_uuid}}"
+        - pod
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/driver/bookings/{{booking_uuid}}/scan
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}/scan"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_uuid}}"
+        - scan
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: PATCH /api/v1/driver/bookings/{{booking_uuid}}/status
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}/status"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_uuid}}"
+        - status
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/driver/vehicles/{{vehicle_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: GET /api/v1/driver/vehicles/{{vehicle_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: PATCH /api/v1/driver/vehicles/{{vehicle_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+        - "{{vehicle_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/drivers
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+    response: []
+  - name: POST /api/v1/drivers
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/drivers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/drivers/{{driver_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+    response: []
+  - name: GET /api/v1/drivers/{{driver_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+    response: []
+  - name: PATCH /api/v1/drivers/{{driver_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/drivers/{{driver_uuid}}/vehicles
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+    response: []
+  - name: POST /api/v1/drivers/{{driver_uuid}}/vehicles
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: PATCH /api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+        - "{{vehicle_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/locations
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/locations"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - locations
+    response: []
+  - name: POST /api/v1/locations
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/locations"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - locations
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/locations/{{location_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/locations/{{location_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - locations
+        - "{{location_uuid}}"
+    response: []
+  - name: GET /api/v1/locations/{{location_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/locations/{{location_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - locations
+        - "{{location_uuid}}"
+    response: []
+  - name: PATCH /api/v1/locations/{{location_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/locations/{{location_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - locations
+        - "{{location_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/location-types
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/location-types?merchant_id={{merchant_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - location-types
+        query:
+        - key: merchant_id
+          value: "{{merchant_id}}"
+    response: []
+  - name: PATCH /api/v1/location-types
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/location-types"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - location-types
+      body:
+        mode: raw
+        raw: |-
+          {
+            "merchant_id": "{{merchant_id}}",
+            "types": [
+              {
+                "location_type_id": "{{location_type_uuid}}",
+                "slug": "pickup",
+                "title": "Pickup",
+                "collection_point": true,
+                "delivery_point": false,
+                "sequence": 1,
+                "icon": "map-pin",
+                "color": "#16A34A",
+                "default": true
+              },
+              {
+                "slug": "dropoff",
+                "title": "Dropoff",
+                "collection_point": false,
+                "delivery_point": true,
+                "sequence": 2,
+                "icon": "flag",
+                "color": "#2563EB",
+                "default": false
+              }
+            ]
+          }
+    response: []
+  - name: POST /api/v1/merchant-invites/accept
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchant-invites/accept"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchant-invites
+        - accept
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/merchants
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+    response: []
+  - name: POST /api/v1/merchants
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchants"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/merchants/{{merchant_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+    response: []
+  - name: GET /api/v1/merchants/{{merchant_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+    response: []
+  - name: PATCH /api/v1/merchants/{{merchant_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/merchants/{{merchant_uuid}}/environments
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+    response: []
+  - name: POST /api/v1/merchants/{{merchant_uuid}}/environments
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+        - "{{environment_uuid}}"
+    response: []
+  - name: GET /api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+        - "{{environment_uuid}}"
+    response: []
+  - name: PATCH /api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+        - "{{environment_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}/token
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}/token"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+        - "{{environment_uuid}}"
+        - token
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/merchants/{{merchant_uuid}}/invites
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/invites"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - invites
+    response: []
+  - name: POST /api/v1/merchants/{{merchant_uuid}}/invites/{{invite_uuid}}/resend
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/invites/{{invite_uuid}}/resend"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - invites
+        - "{{invite_uuid}}"
+        - resend
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/merchants/{{merchant_uuid}}/invites/{{invite_uuid}}/revoke
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/invites/{{invite_uuid}}/revoke"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - invites
+        - "{{invite_uuid}}"
+        - revoke
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/merchants/{{merchant_uuid}}/members
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/members"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - members
+    response: []
+  - name: DELETE /api/v1/merchants/{{merchant_uuid}}/members/{{user_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/members/{{user_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - members
+        - "{{user_uuid}}"
+    response: []
+  - name: PATCH /api/v1/merchants/{{merchant_uuid}}/members/{{user_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/members/{{user_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - members
+        - "{{user_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/merchants/{{merchant_uuid}}/members/invite
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/members/invite"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - members
+        - invite
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: PATCH /api/v1/merchants/{{merchant_uuid}}/settings
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/settings"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - settings
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/quotes
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/quotes"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - quotes
+    response: []
+  - name: POST /api/v1/quotes
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/quotes"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - quotes
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/quotes/{{quote_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/quotes/{{quote_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - quotes
+        - "{{quote_uuid}}"
+    response: []
+  - name: GET /api/v1/reports/created_over_time
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/reports/created_over_time"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - reports
+        - created_over_time
+    response: []
+  - name: GET /api/v1/reports/dashboard_stats
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/reports/dashboard_stats"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - reports
+        - dashboard_stats
+    response: []
+  - name: GET /api/v1/shipments
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+    response: []
+  - name: POST /api/v1/shipments
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/shipments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/shipments/{{shipment_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+    response: []
+  - name: GET /api/v1/shipments/{{shipment_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+    response: []
+  - name: PATCH /api/v1/shipments/{{shipment_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/shipments/{{shipment_uuid}}/book
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/book"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - book
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/shipments/{{shipment_uuid}}/cancel
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/cancel"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - cancel
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/shipments/{{shipment_uuid}}/label
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/label"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - label
+    response: []
+  - name: GET /api/v1/shipments/{{shipment_uuid}}/quotes
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/quotes"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - quotes
+    response: []
+  - name: POST /api/v1/shipments/{{shipment_uuid}}/rebook
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/rebook"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - rebook
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/shipments/{{shipment_uuid}}/tracking
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/tracking"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - tracking
+    response: []
+  - name: POST /api/v1/shipments/on-demand
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/shipments/on-demand"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - on-demand
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/tracking-providers
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+    response: []
+  - name: POST /api/v1/tracking-providers/{{provider_id}}/import_drivers
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/import_drivers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - "{{provider_id}}"
+        - import_drivers
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/tracking-providers/{{provider_id}}/import_locations
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/import_locations"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - "{{provider_id}}"
+        - import_locations
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/tracking-providers/{{provider_id}}/import_vehicles
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/import_vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - "{{provider_id}}"
+        - import_vehicles
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: PUT /api/v1/tracking-providers/{{provider_id}}/options_data
+    request:
+      method: PUT
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/options_data"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - "{{provider_id}}"
+        - options_data
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/tracking-providers/activate
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/activate"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - activate
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/vehicle-types
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicle-types"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicle-types
+    response: []
+  - name: GET /api/v1/vehicles
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+    response: []
+  - name: POST /api/v1/vehicles
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/vehicles/{{vehicle_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: GET /api/v1/vehicles/{{vehicle_uuid}}
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: PATCH /api/v1/vehicles/{{vehicle_uuid}}
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+        - "{{vehicle_uuid}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: POST /api/v1/webhooks/carriers/{{carrier_code}}
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/webhooks/carriers/{{carrier_code}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - webhooks
+        - carriers
+        - "{{carrier_code}}"
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: GET /api/v1/webhooks/subscriptions
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/webhooks/subscriptions"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - webhooks
+        - subscriptions
+    response: []
+  - name: POST /api/v1/webhooks/subscriptions
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/webhooks/subscriptions"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - webhooks
+        - subscriptions
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+  - name: DELETE /api/v1/webhooks/subscriptions/{{subscription_uuid}}
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/webhooks/subscriptions/{{subscription_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - webhooks
+        - subscriptions
+        - "{{subscription_uuid}}"
+    response: []
+  - name: POST /api/v1/webhooks/subscriptions/{{subscription_uuid}}/test
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/webhooks/subscriptions/{{subscription_uuid}}/test"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - webhooks
+        - subscriptions
+        - "{{subscription_uuid}}"
+        - test
+      body:
+        mode: raw
+        raw: "{}"
+    response: []
+auth:
+  type: bearer
+  bearer:
+  - key: token
+    value: "{{bearer_token}}"
+    type: string
+variable:
+- id: b1562a43-d4ff-45f5-8dce-f6e0b602df33
+  key: base_url
+  value: http://localhost
+- id: e19d3812-f34b-430b-bcdc-261b99d997a1
+  key: token
+  value: ''
+- id: c533d8b2-e0fb-40ab-9ad3-cb8fe1d3c5a8
+  key: bearer_token
+  value: ''
+- id: 39294ec2-e203-436e-ba79-a6c3fafac14e
+  key: booking_id
+  value: ''
+- id: ed6000c3-8f46-4e67-962c-4ea6f22c0f5b
+  key: vehicle_id
+  value: ''
+- id: c7876814-fac6-430d-82be-f09abd98570f
+  key: vehicle_type_id
+  value: ''

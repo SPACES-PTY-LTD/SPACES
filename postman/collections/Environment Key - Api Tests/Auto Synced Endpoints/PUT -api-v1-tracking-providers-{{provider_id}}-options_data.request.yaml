@@ -1,0 +1,11 @@
+$kind: http-request
+name: PUT /api/v1/tracking-providers/{{provider_id}}/options_data
+url: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/options_data"
+method: PUT
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 111000

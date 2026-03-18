@@ -1,0 +1,11 @@
+$kind: http-request
+name: PATCH /api/v1/driver/bookings/{{booking_uuid}}/status
+url: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}/status"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 48000

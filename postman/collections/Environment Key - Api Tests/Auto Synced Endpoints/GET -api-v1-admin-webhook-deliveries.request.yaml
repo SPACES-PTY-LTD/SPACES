@@ -1,0 +1,7 @@
+$kind: http-request
+name: GET /api/v1/admin/webhook-deliveries
+url: "{{base_url}}/api/v1/admin/webhook-deliveries"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+order: 26000

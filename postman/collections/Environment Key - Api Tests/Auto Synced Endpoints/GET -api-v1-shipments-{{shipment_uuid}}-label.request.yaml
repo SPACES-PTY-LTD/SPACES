@@ -1,0 +1,7 @@
+$kind: http-request
+name: GET /api/v1/shipments/{{shipment_uuid}}/label
+url: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/label"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+order: 102000

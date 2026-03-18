@@ -1,0 +1,5 @@
+.codeBlock {
+  font-family: var(--font-docs-mono);
+  font-size: 11px;
+  line-height: 1.35;
+}

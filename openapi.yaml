@@ -1,0 +1,1985 @@
+openapi: 3.0.3
+info:
+  title: Courier Integrate API
+  version: 1.0.0
+servers:
+  - url: http://localhost/api/v1
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    ApiEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          nullable: true
+        meta:
+          type: object
+          properties:
+            request_id:
+              type: string
+        error:
+          nullable: true
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+            request_id:
+              type: string
+    User:
+      type: object
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        telephone:
+          type: string
+        role:
+          type: string
+    Merchant:
+      type: object
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        legal_name:
+          type: string
+        status:
+          type: string
+    Location:
+      type: object
+      properties:
+        location_id:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+        company:
+          type: string
+        address_line_1:
+          type: string
+        address_line_2:
+          type: string
+        town:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+        province:
+          type: string
+        post_code:
+          type: string
+        latitude:
+          type: number
+          format: float
+        longitude:
+          type: number
+          format: float
+        polygon_bounds:
+          type: array
+          description: Array of [latitude, longitude] pairs.
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              type: number
+        google_place_id:
+          type: string
+    LocationInput:
+      type: object
+      required: [address_line_1, city, province, post_code]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        company:
+          type: string
+        address_line_1:
+          type: string
+        address_line_2:
+          type: string
+        town:
+          type: string
+        city:
+          type: string
+        country:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+        province:
+          type: string
+        post_code:
+          type: string
+        latitude:
+          type: number
+          format: float
+        longitude:
+          type: number
+          format: float
+        polygon_bounds:
+          type: array
+          description: Array of [latitude, longitude] pairs.
+          items:
+            type: array
+            minItems: 2
+            maxItems: 2
+            items:
+              type: number
+        google_place_id:
+          type: string
+    Shipment:
+      type: object
+      properties:
+        uuid:
+          type: string
+        merchant_uuid:
+          type: string
+        merchant_order_ref:
+          type: string
+        status:
+          type: string
+        pickup_location:
+          $ref: '#/components/schemas/Location'
+        dropoff_location:
+          $ref: '#/components/schemas/Location'
+        pickup_instructions:
+          type: string
+        dropoff_instructions:
+          type: string
+        ready_at:
+          type: string
+          format: date-time
+        collection_date:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+    Quote:
+      type: object
+      properties:
+        uuid:
+          type: string
+        status:
+          type: string
+        collection_date:
+          type: string
+          format: date-time
+        selected_option:
+          $ref: '#/components/schemas/QuoteOption'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteOption'
+    QuoteOption:
+      type: object
+      properties:
+        uuid:
+          type: string
+        carrier_code:
+          type: string
+        service_code:
+          type: string
+        currency:
+          type: string
+        amount:
+          type: number
+          format: float
+        tax_amount:
+          type: number
+          format: float
+        total_amount:
+          type: number
+          format: float
+        eta_from:
+          type: string
+          format: date-time
+        eta_to:
+          type: string
+          format: date-time
+        rules:
+          type: array
+    Booking:
+      type: object
+      properties:
+        uuid:
+          type: string
+        status:
+          type: string
+        current_driver_uuid:
+          type: string
+        booked_at:
+          type: string
+          format: date-time
+        collected_at:
+          type: string
+          format: date-time
+        delivered_at:
+          type: string
+          format: date-time
+        returned_at:
+          type: string
+          format: date-time
+        cancelled_at:
+          type: string
+          format: date-time
+        odometer_at_request:
+          type: integer
+        odometer_at_collection:
+          type: integer
+        odometer_at_delivery:
+          type: integer
+        odometer_at_return:
+          type: integer
+        total_km_from_collection:
+          type: number
+          format: float
+        cancel_reason:
+          type: string
+    Carrier:
+      type: object
+      properties:
+        uuid:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        enabled:
+          type: boolean
+    VehicleType:
+      type: object
+      properties:
+        uuid:
+          type: string
+        code:
+          type: string
+        name:
+          type: string
+        enabled:
+          type: boolean
+    TrackingProvider:
+      type: object
+      properties:
+        provider_id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        activated:
+          type: boolean
+        integration_data:
+          type: object
+        integration_options_data:
+          type: object
+        logo_file_name:
+          type: string
+        website:
+          type: string
+        documentation:
+          type: string
+        form_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackingProviderFormField'
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrackingProviderOption'
+    TrackingProviderFormField:
+      type: object
+      properties:
+        field_id:
+          type: string
+        provider_id:
+          type: string
+        label:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        is_required:
+          type: boolean
+        options:
+          type: array
+        order_id:
+          type: integer
+    TrackingProviderOption:
+      type: object
+      properties:
+        option_id:
+          type: string
+        provider_id:
+          type: string
+        label:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+        options:
+          type: array
+        order_id:
+          type: integer
+    TrackingProviderActivationRequest:
+      type: object
+      required: [provider_id, integration_data]
+      properties:
+        provider_id:
+          type: string
+        integration_data:
+          type: object
+    TrackingProviderOptionsDataUpdateRequest:
+      type: object
+      required: [merchant_id, integration_options_data]
+      properties:
+        merchant_id:
+          type: string
+        integration_options_data:
+          type: object
+    TrackingProviderImportVehiclesRequest:
+      type: object
+      required: [merchant_id]
+      properties:
+        merchant_id:
+          type: string
+    TrackingProviderImportDriversRequest:
+      type: object
+      required: [merchant_id]
+      properties:
+        merchant_id:
+          type: string
+    Vehicle:
+      type: object
+      properties:
+        uuid:
+          type: string
+        vehicle_type_uuid:
+          type: string
+        make:
+          type: string
+        model:
+          type: string
+        color:
+          type: string
+        plate_number:
+          type: string
+        vin_number:
+          type: string
+        engine_number:
+          type: string
+        ref_code:
+          type: string
+        odometer:
+          type: integer
+        year:
+          type: integer
+        last_location_address:
+          type: string
+        location_updated_at:
+          type: string
+          format: date-time
+        intergration_id:
+          type: string
+        photo_key:
+          type: string
+        is_active:
+          type: boolean
+        metadata:
+          type: object
+    CancelReason:
+      type: object
+      properties:
+        uuid:
+          type: string
+        code:
+          type: string
+        title:
+          type: string
+        enabled:
+          type: boolean
+    Driver:
+      type: object
+      properties:
+        driver_id:
+          type: string
+        intergration_id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        telephone:
+          type: string
+        is_active:
+          type: boolean
+        notes:
+          type: string
+    DriverVehicle:
+      type: object
+      properties:
+        driver_uuid:
+          type: string
+        vehicle_uuid:
+          type: string
+        vehicle_type_uuid:
+          type: string
+        make:
+          type: string
+        model:
+          type: string
+        color:
+          type: string
+        plate_number:
+          type: string
+        vin_number:
+          type: string
+        engine_number:
+          type: string
+        ref_code:
+          type: string
+        odometer:
+          type: integer
+        year:
+          type: integer
+        last_location_address:
+          type: string
+        location_updated_at:
+          type: string
+          format: date-time
+        intergration_id:
+          type: string
+        photo_key:
+          type: string
+        is_active:
+          type: boolean
+        metadata:
+          type: object
+    DriverAssignment:
+      type: object
+      properties:
+        uuid:
+          type: string
+        booking_uuid:
+          type: string
+        driver_uuid:
+          type: string
+        assigned_by_user_uuid:
+          type: string
+        assigned_at:
+          type: string
+          format: date-time
+        unassigned_at:
+          type: string
+          format: date-time
+    BookingPod:
+      type: object
+      properties:
+        uuid:
+          type: string
+        booking_uuid:
+          type: string
+        file_key:
+          type: string
+        file_type:
+          type: string
+        signed_by:
+          type: string
+paths:
+  /auth/register:
+    post:
+      summary: Register user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, password_confirmation]
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiEnvelope'
+  /auth/login:
+    post:
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+      responses:
+        '200':
+          description: OK
+  /auth/refresh:
+    post:
+      summary: Refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: OK
+  /auth/logout:
+    post:
+      summary: Logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /me:
+    get:
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /merchants:
+    post:
+      summary: Create merchant
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Created
+    get:
+      summary: List merchants
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: per_page
+          schema: { type: integer }
+      responses:
+        '200':
+          description: OK
+  /merchants/{merchant_uuid}:
+    get:
+      summary: Get merchant
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: merchant_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update merchant
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: merchant_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete merchant
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: merchant_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /merchants/{merchant_uuid}/members/invite:
+    post:
+      summary: Invite member
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: merchant_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '201':
+          description: Created
+  /merchant-invites/accept:
+    post:
+      summary: Accept invite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+      responses:
+        '200':
+          description: OK
+  /quotes:
+    post:
+      summary: Request quote
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [merchant_id, pickup_address, dropoff_address, parcels]
+              properties:
+                merchant_id:
+                  type: string
+                environment_id:
+                  type: string
+                merchant_order_ref:
+                  type: string
+                pickup_address:
+                  $ref: '#/components/schemas/LocationInput'
+                dropoff_address:
+                  $ref: '#/components/schemas/LocationInput'
+                parcels:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      weight_kg:
+                        type: number
+                        format: float
+                      length_cm:
+                        type: number
+                        format: float
+                      width_cm:
+                        type: number
+                        format: float
+                      height_cm:
+                        type: number
+                        format: float
+                      declared_value:
+                        type: number
+                        format: float
+                      contents_description:
+                        type: string
+                service_level:
+                  type: string
+                collection_date:
+                  type: string
+                  format: date-time
+                metadata:
+                  type: object
+                shipment_id:
+                  type: string
+      responses:
+        '202':
+          description: Accepted
+  /quotes/{quote_uuid}:
+    get:
+      summary: Get quote
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: quote_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /shipments:
+    post:
+      summary: Create shipment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [merchant_id, merchant_order_ref, pickup_address, dropoff_address, parcels]
+              properties:
+                merchant_id:
+                  type: string
+                environment_id:
+                  type: string
+                merchant_order_ref:
+                  type: string
+                pickup_address:
+                  $ref: '#/components/schemas/LocationInput'
+                dropoff_address:
+                  $ref: '#/components/schemas/LocationInput'
+                pickup_instructions:
+                  type: string
+                dropoff_instructions:
+                  type: string
+                ready_at:
+                  type: string
+                  format: date-time
+                collection_date:
+                  type: string
+                  format: date-time
+                metadata:
+                  type: object
+                parcels:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      weight_kg:
+                        type: number
+                        format: float
+                      length_cm:
+                        type: number
+                        format: float
+                      width_cm:
+                        type: number
+                        format: float
+                      height_cm:
+                        type: number
+                        format: float
+                      declared_value:
+                        type: number
+                        format: float
+                      contents_description:
+                        type: string
+      responses:
+        '201':
+          description: Created
+    get:
+      summary: List shipments
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /shipments/{shipment_uuid}:
+    get:
+      summary: Get shipment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: shipment_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update shipment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pickup_address:
+                  $ref: '#/components/schemas/LocationInput'
+                dropoff_address:
+                  $ref: '#/components/schemas/LocationInput'
+                pickup_instructions:
+                  type: string
+                dropoff_instructions:
+                  type: string
+                ready_at:
+                  type: string
+                  format: date-time
+                collection_date:
+                  type: string
+                  format: date-time
+                metadata:
+                  type: object
+                parcels:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      weight_kg:
+                        type: number
+                        format: float
+                      length_cm:
+                        type: number
+                        format: float
+                      width_cm:
+                        type: number
+                        format: float
+                      height_cm:
+                        type: number
+                        format: float
+                      declared_value:
+                        type: number
+                        format: float
+                      contents_description:
+                        type: string
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete shipment
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /shipments/{shipment_uuid}/book:
+    post:
+      summary: Book shipment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string }
+      responses:
+        '202':
+          description: Accepted
+  /bookings:
+    get:
+      summary: List bookings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /bookings/{booking_uuid}:
+    get:
+      summary: Get booking
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: booking_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /shipments/{shipment_uuid}/cancel:
+    post:
+      summary: Cancel shipment
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /webhooks/carriers/{carrier_code}:
+    post:
+      summary: Carrier webhook
+      parameters:
+        - in: path
+          name: carrier_code
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-Carrier-Secret
+          required: true
+          schema: { type: string }
+      responses:
+        '202':
+          description: Accepted
+  /webhooks/subscriptions:
+    post:
+      summary: Create webhook subscription
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Created
+    get:
+      summary: List webhook subscriptions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /webhooks/subscriptions/{subscription_uuid}:
+    delete:
+      summary: Delete webhook subscription
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: subscription_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /webhooks/subscriptions/{subscription_uuid}/test:
+    post:
+      summary: Test webhook subscription
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: subscription_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /admin/users:
+    get:
+      summary: Admin list users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /admin/merchants:
+    get:
+      summary: Admin list merchants
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /admin/shipments:
+    get:
+      summary: Admin list shipments
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /admin/bookings:
+    get:
+      summary: Admin list bookings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /admin/webhook-deliveries:
+    get:
+      summary: Admin list webhook deliveries
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /carriers:
+    get:
+      summary: List carriers
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create carrier
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Carrier'
+      responses:
+        '201':
+          description: Created
+  /carriers/{carrier_uuid}:
+    get:
+      summary: Get carrier
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: carrier_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update carrier
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: carrier_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Carrier'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete carrier
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: carrier_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /vehicle-types:
+    get:
+      summary: List vehicle types
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create vehicle type
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleType'
+      responses:
+        '201':
+          description: Created
+  /vehicle-types/{vehicle_type_uuid}:
+    get:
+      summary: Get vehicle type
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_type_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update vehicle type
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_type_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehicleType'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete vehicle type
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_type_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /admin/tracking-providers:
+    get:
+      summary: List tracking providers
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: merchant_id
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create tracking provider
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingProvider'
+      responses:
+        '201':
+          description: Created
+  /admin/tracking-providers/{provider_uuid}:
+    get:
+      summary: Get tracking provider
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+        - in: query
+          name: merchant_id
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update tracking provider
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingProvider'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete tracking provider
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /admin/tracking-providers/{provider_uuid}/integration-form-fields:
+    get:
+      summary: List tracking provider form fields
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create tracking provider form field
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingProviderFormField'
+      responses:
+        '201':
+          description: Created
+  /admin/tracking-providers/{provider_uuid}/integration-form-fields/{field_uuid}:
+    get:
+      summary: Get tracking provider form field
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+        - in: path
+          name: field_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update tracking provider form field
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+        - in: path
+          name: field_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingProviderFormField'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete tracking provider form field
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+        - in: path
+          name: field_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /admin/tracking-providers/{provider_uuid}/options:
+    get:
+      summary: List tracking provider options
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create tracking provider option
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingProviderOption'
+      responses:
+        '201':
+          description: Created
+  /admin/tracking-providers/{provider_uuid}/options/{option_uuid}:
+    get:
+      summary: Get tracking provider option
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+        - in: path
+          name: option_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update tracking provider option
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+        - in: path
+          name: option_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingProviderOption'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete tracking provider option
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_uuid
+          required: true
+          schema: { type: string }
+        - in: path
+          name: option_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /tracking-providers/activate:
+    post:
+      summary: Activate tracking provider
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingProviderActivationRequest'
+      responses:
+        '201':
+          description: Created
+  /tracking-providers/{provider_id}/options_data:
+    put:
+      summary: Update tracking provider options data
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingProviderOptionsDataUpdateRequest'
+      responses:
+        '200':
+          description: OK
+  /tracking-providers/{provider_id}/import_vehicles:
+    post:
+      summary: Import tracking provider vehicles
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingProviderImportVehiclesRequest'
+      responses:
+        '200':
+          description: OK
+  /tracking-providers/{provider_id}/import_drivers:
+    post:
+      summary: Import tracking provider drivers
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrackingProviderImportDriversRequest'
+      responses:
+        '200':
+          description: OK
+  /cancel-reasons:
+    get:
+      summary: List cancel reasons
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create cancel reason
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelReason'
+      responses:
+        '201':
+          description: Created
+  /cancel-reasons/{cancel_reason_uuid}:
+    get:
+      summary: Get cancel reason
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cancel_reason_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update cancel reason
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cancel_reason_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelReason'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete cancel reason
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: cancel_reason_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /drivers:
+    get:
+      summary: List drivers
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: merchant_id
+          schema:
+            type: string
+          description: Merchant UUID to scope drivers.
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Searches driver name and email.
+        - in: query
+          name: sort_by
+          schema:
+            type: string
+            enum: [created_at, name, email, telephone, intergration_id, is_active, imported_at]
+        - in: query
+          name: sort_direction
+          schema:
+            type: string
+            enum: [asc, desc]
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create driver
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Driver'
+      responses:
+        '201':
+          description: Created
+  /drivers/{driver_uuid}:
+    get:
+      summary: Get driver
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: driver_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update driver
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: driver_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Driver'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete driver
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: driver_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /admin/bookings/{booking_uuid}/assign-driver:
+    post:
+      summary: Admin assign driver to booking
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: booking_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [driver_uuid]
+              properties:
+                driver_uuid:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: OK
+  /admin/bookings/{booking_uuid}/unassign-driver:
+    post:
+      summary: Admin unassign driver from booking
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: booking_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /driver/shipments:
+    get:
+      summary: Driver list assigned shipments
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+  /driver/shipments/{shipment_uuid}:
+    get:
+      summary: Driver get shipment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: shipment_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /driver/shipments/{shipment_uuid}/status:
+    patch:
+      summary: Driver update shipment status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: shipment_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                note:
+                  type: string
+      responses:
+        '200':
+          description: OK
+  /driver/shipments/{shipment_uuid}/scan:
+    post:
+      summary: Driver scan shipment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: shipment_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event_code:
+                  type: string
+                event_description:
+                  type: string
+                occurred_at:
+                  type: string
+                  format: date-time
+                payload:
+                  type: object
+      responses:
+        '200':
+          description: OK
+  /driver/shipments/{shipment_uuid}/pod:
+    post:
+      summary: Driver upload shipment POD
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: shipment_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingPod'
+      responses:
+        '200':
+          description: OK
+  /driver/shipments/{shipment_uuid}/cancel:
+    post:
+      summary: Driver cancel shipment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: shipment_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason_code]
+              properties:
+                reason_code:
+                  type: string
+                reason:
+                  type: string
+                note:
+                  type: string
+      responses:
+        '200':
+          description: OK
+  /vehicles:
+    get:
+      summary: List vehicles
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Create vehicle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Vehicle'
+      responses:
+        '201':
+          description: Created
+  /vehicles/{vehicle_uuid}:
+    get:
+      summary: Get vehicle
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update vehicle
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Vehicle'
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Delete vehicle
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /driver/vehicles:
+    get:
+      summary: Driver list assigned vehicles
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Driver assign vehicle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicle_uuid]
+              properties:
+                vehicle_uuid:
+                  type: string
+      responses:
+        '201':
+          description: Created
+  /driver/vehicles/{vehicle_uuid}:
+    get:
+      summary: Driver get assigned vehicle
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Driver update assigned vehicle
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicle_uuid]
+              properties:
+                vehicle_uuid:
+                  type: string
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Driver unassign vehicle
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: vehicle_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+  /drivers/{driver_uuid}/vehicles:
+    get:
+      summary: List driver assigned vehicles
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: driver_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Assign vehicle to driver
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: driver_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicle_uuid]
+              properties:
+                vehicle_uuid:
+                  type: string
+      responses:
+        '201':
+          description: Created
+  /drivers/{driver_uuid}/vehicles/{vehicle_uuid}:
+    patch:
+      summary: Update driver vehicle assignment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: driver_uuid
+          required: true
+          schema: { type: string }
+        - in: path
+          name: vehicle_uuid
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicle_uuid]
+              properties:
+                vehicle_uuid:
+                  type: string
+      responses:
+        '200':
+          description: OK
+    delete:
+      summary: Unassign driver vehicle
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: driver_uuid
+          required: true
+          schema: { type: string }
+        - in: path
+          name: vehicle_uuid
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK

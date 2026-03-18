@@ -1,0 +1,13 @@
+$kind: http-request
+name: POST
+  /api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}/token
+url: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments/{{environmen\
+  t_uuid}}/token"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 82000

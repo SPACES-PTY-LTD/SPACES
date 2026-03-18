@@ -1,0 +1,13 @@
+$kind: http-request
+name: PATCH
+  /api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}
+url: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{\
+  option_uuid}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 20000

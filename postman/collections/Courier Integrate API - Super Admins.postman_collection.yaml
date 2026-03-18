@@ -1,0 +1,3585 @@
+---
+info:
+  _postman_id: 566ff152-b21c-44bc-82f5-3f75e5f233a7
+  name: Courier Integrate API - Super Admins
+  schema: https://schema.getpostman.com/json/collection/v3.0.0/collection.json
+item:
+- name: Auth
+  item:
+  - name: Auth Login (Super Admin)
+    event:
+    - listen: prerequest
+      script:
+        id: 9248b313-0c56-4a8c-90e0-fc6f69131419
+        exec:
+        - ''
+        type: text/javascript
+        packages: []
+        requests: []
+    - listen: test
+      script:
+        id: e08c65c8-3e06-4597-ba87-6234b91aabe1
+        exec:
+        - "// Parse the JSON response"
+        - const jsonData = pm.response.json();
+        - ''
+        - "// Extract token from common response locations"
+        - let token = null;
+        - ''
+        - if (jsonData.data.token) {
+        - "    token = jsonData.data.token;"
+        - "}"
+        - ''
+        - "// Save token to environment variable"
+        - if (token) {
+        - '    pm.environment.set("bearer_token", token);'
+        - '    console.log("Token saved to environment variable ''bearer_token''");'
+        - "}"
+        - ''
+        - "// Test to verify token was received"
+        - pm.test("Token is present in response", function () {
+        - "    pm.expect(token).to.not.be.null;"
+        - "    pm.expect(token).to.be.a('string');"
+        - "    pm.expect(token.length).to.be.greaterThan(0);"
+        - "});"
+        type: text/javascript
+        packages: []
+        requests: []
+    id: 061ee91f-0f01-464e-9650-ac803243a7dd
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "email": "super_admin@example.com",
+            "password": "password1234"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/auth/login"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - auth
+        - login
+    response: []
+  - name: Auth Refresh
+    id: 52270e6c-81a8-4409-93f8-34ef009ecacb
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "refresh_token": "{{refresh_token}}"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/auth/refresh"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - auth
+        - refresh
+    response: []
+  id: aecefa89-95a3-4eb2-b849-eaad673fb680
+- name: Admin
+  item:
+  - name: List Users
+    id: 00e67e83-778f-4f62-bdac-f2e65f008631
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/users"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - users
+    response: []
+  - name: List Merchants
+    id: f1aeb666-373c-4741-b639-91a214bbbbd2
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/merchants"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - merchants
+    response: []
+  - name: List Shipments
+    id: ffcc50ac-af63-47a7-89ff-8488dee7f4ca
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/shipments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - shipments
+    response: []
+  - name: List Bookings
+    id: 3810131f-c1d3-4163-9ad6-9ee25d2e5a9d
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/bookings"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - bookings
+    response: []
+  - name: List Webhook Deliveries
+    id: f5e3f26d-01bb-4973-9e20-d702580429e0
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/webhook-deliveries"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - webhook-deliveries
+    response: []
+  - name: Admin List Driver Assigned Vehicles
+    id: d5ae8f2b-3595-4d9c-b6f9-585135aed626
+    request:
+      method: GET
+      header:
+      - key: Accept
+        value: application/json
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+    response: []
+  - name: Admin Assign Vehicle To Driver
+    id: 3632c724-3d4f-4d1a-b22b-016c830d27dc
+    request:
+      method: POST
+      header:
+      - key: Accept
+        value: application/json
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "vehicle_id": "{{vehicle_id}}"
+          }
+        options:
+          raw:
+            language: json
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+    response: []
+  - name: Admin Update Driver Vehicle Assignment
+    id: 6e306f22-3756-440c-a299-4e6b2efcc590
+    request:
+      method: PATCH
+      header:
+      - key: Accept
+        value: application/json
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "vehicle_id": "{{vehicle_id}}"
+          }
+        options:
+          raw:
+            language: json
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: Admin Unassign Driver Vehicle
+    id: 151659e2-d65a-4ba3-ac11-89274facfe6a
+    request:
+      method: DELETE
+      header:
+      - key: Accept
+        value: application/json
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  id: 05d74515-036f-4b92-89e3-b0a662d066e3
+- name: Admin Carriers
+  item:
+  - name: Admin List Carriers
+    id: 5281fe7c-4633-4ec8-8b54-bd95ae5aba21
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/carriers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+    response: []
+  - name: Admin Get Carrier
+    id: 681f3fbb-dca1-4bc6-9076-5c8349f3ce1a
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/carriers/{{carrier_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+        - "{{carrier_id}}"
+    response: []
+  - name: Admin Create Carrier
+    id: 355e0adc-9ef5-4b6e-8768-222f54cf5db7
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "code": "internal",
+            "name": "Internal Carrier",
+            "type": "internal",
+            "enabled": true
+          }
+      url:
+        raw: "{{base_url}}/api/v1/carriers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+    response: []
+  - name: Admin Update Carrier
+    id: bdf3baf8-c4dc-43e7-a2ed-8fdb7680da26
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "name": "Internal Carrier (Updated)",
+            "enabled": true
+          }
+      url:
+        raw: "{{base_url}}/api/v1/carriers/{{carrier_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+        - "{{carrier_id}}"
+    response: []
+  - name: Admin Delete Carrier
+    id: b6bed3e8-7678-429b-afaf-bf3dbad70a90
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/carriers/{{carrier_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+        - "{{carrier_id}}"
+    response: []
+  id: c3a19efb-1c89-4f03-9712-c6d3eb20fbff
+- name: Admin Vehicle Types
+  item:
+  - name: Admin List Vehicle Types
+    id: c5cd8d5f-746a-4f1e-bfbf-52209f802729
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicle-types"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicle-types
+    response: []
+  - name: Admin Get Vehicle Type
+    id: 9854329c-1902-45ed-a6a3-8cc64931c922
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicle-types/{{vehicle_type_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicle-types
+        - "{{vehicle_type_id}}"
+    response: []
+  - name: Admin Create Vehicle Type
+    id: 1a05a6c3-bbf4-411e-81f7-2bd3feb18204
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "code": "motorcycle",
+            "name": "Motorcycle",
+            "enabled": true
+          }
+      url:
+        raw: "{{base_url}}/api/v1/vehicle-types"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicle-types
+    response: []
+  - name: Admin Update Vehicle Type
+    id: 8357b756-a37d-4ae9-a197-53a5e441f5a4
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "name": "Motorbike"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/vehicle-types/{{vehicle_type_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicle-types
+        - "{{vehicle_type_id}}"
+    response: []
+  - name: Admin Delete Vehicle Type
+    id: 6382cf30-8de5-4f31-8614-b822df7930b9
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicle-types/{{vehicle_type_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicle-types
+        - "{{vehicle_type_id}}"
+    response: []
+  id: fb037263-ab33-4554-aca0-03f6e065a5c0
+- name: Admin Tracking Providers
+  item:
+  - name: Fields
+    item:
+    - name: Admin List Tracking Provider Form Fields
+      id: 76681b9f-4d97-4807-a6d3-19afd9020fa6
+      request:
+        method: GET
+        header:
+        - key: Authorization
+          value: Bearer {{token}}
+        url:
+          raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/integration-form-fields"
+          host:
+          - "{{base_url}}"
+          path:
+          - api
+          - v1
+          - admin
+          - tracking-providers
+          - "{{provider_id}}"
+          - integration-form-fields
+      response: []
+    - name: Admin Get Tracking Provider Form Field
+      id: 107bbb1f-e499-40ad-b6b6-6ae42d43609e
+      request:
+        method: GET
+        header:
+        - key: Authorization
+          value: Bearer {{token}}
+        url:
+          raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/integration-form-fields/{{field_id}}"
+          host:
+          - "{{base_url}}"
+          path:
+          - api
+          - v1
+          - admin
+          - tracking-providers
+          - "{{provider_id}}"
+          - integration-form-fields
+          - "{{field_id}}"
+      response: []
+    - name: Admin Create Tracking Provider Form Field
+      id: 8489080e-6b2f-44f9-aaee-ff454ac5ba18
+      request:
+        method: POST
+        header:
+        - key: Authorization
+          value: Bearer {{token}}
+        - key: Content-Type
+          value: application/json
+        body:
+          mode: raw
+          raw: |-
+            {
+              "label": "API Key",
+              "name": "api_key",
+              "type": "text",
+              "is_required": true,
+              "order_id": 1
+            }
+        url:
+          raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/integration-form-fields"
+          host:
+          - "{{base_url}}"
+          path:
+          - api
+          - v1
+          - admin
+          - tracking-providers
+          - "{{provider_id}}"
+          - integration-form-fields
+      response: []
+    - name: Admin Update Tracking Provider Form Field
+      id: 40a29292-ab70-4068-b220-c7d808409395
+      request:
+        method: PATCH
+        header:
+        - key: Authorization
+          value: Bearer {{token}}
+        - key: Content-Type
+          value: application/json
+        body:
+          mode: raw
+          raw: |-
+            {
+              "label": "API Key Updated",
+              "is_required": false
+            }
+        url:
+          raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/integration-form-fields/{{field_id}}"
+          host:
+          - "{{base_url}}"
+          path:
+          - api
+          - v1
+          - admin
+          - tracking-providers
+          - "{{provider_id}}"
+          - integration-form-fields
+          - "{{field_id}}"
+      response: []
+    - name: Admin Delete Tracking Provider Form Field
+      id: 02bb076e-c392-4c80-8735-bae970aeedeb
+      request:
+        method: DELETE
+        header:
+        - key: Authorization
+          value: Bearer {{token}}
+        url:
+          raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/integration-form-fields/{{field_id}}"
+          host:
+          - "{{base_url}}"
+          path:
+          - api
+          - v1
+          - admin
+          - tracking-providers
+          - "{{provider_id}}"
+          - integration-form-fields
+          - "{{field_id}}"
+      response: []
+    id: 37a7044a-3369-44cb-ae93-6a48898faf89
+  - name: Options
+    item:
+    - name: Admin List Tracking Provider Options
+      id: f0aa180e-450c-44d2-8b5e-142de1887be1
+      request:
+        method: GET
+        header:
+        - key: Authorization
+          value: Bearer {{token}}
+        url:
+          raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/options"
+          host:
+          - "{{base_url}}"
+          path:
+          - api
+          - v1
+          - admin
+          - tracking-providers
+          - "{{provider_id}}"
+          - options
+      response: []
+    - name: Admin Get Tracking Provider Option
+      id: be59ce9b-1ef8-42ac-8ad8-3772d3ce9b31
+      request:
+        method: GET
+        header:
+        - key: Authorization
+          value: Bearer {{token}}
+        url:
+          raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/options/{{option_id}}"
+          host:
+          - "{{base_url}}"
+          path:
+          - api
+          - v1
+          - admin
+          - tracking-providers
+          - "{{provider_id}}"
+          - options
+          - "{{option_id}}"
+      response: []
+    - name: Admin Create Tracking Provider Option
+      id: 52efea09-e96d-4929-b7e1-c66ecf2f6db5
+      request:
+        method: POST
+        header:
+        - key: Authorization
+          value: Bearer {{token}}
+        - key: Content-Type
+          value: application/json
+        body:
+          mode: raw
+          raw: |-
+            {
+              "label": "Timezone",
+              "name": "timezone",
+              "type": "select",
+              "options": [
+                "Africa/Johannesburg",
+                "UTC"
+              ],
+              "order_id": 1
+            }
+        url:
+          raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/options"
+          host:
+          - "{{base_url}}"
+          path:
+          - api
+          - v1
+          - admin
+          - tracking-providers
+          - "{{provider_id}}"
+          - options
+      response: []
+    - name: Admin Update Tracking Provider Option
+      id: 9dadf170-36a3-4028-adf8-fd3e150af8ad
+      request:
+        method: PATCH
+        header:
+        - key: Authorization
+          value: Bearer {{token}}
+        - key: Content-Type
+          value: application/json
+        body:
+          mode: raw
+          raw: |-
+            {
+              "label": "Provider Timezone"
+            }
+        url:
+          raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/options/{{option_id}}"
+          host:
+          - "{{base_url}}"
+          path:
+          - api
+          - v1
+          - admin
+          - tracking-providers
+          - "{{provider_id}}"
+          - options
+          - "{{option_id}}"
+      response: []
+    - name: Admin Delete Tracking Provider Option
+      id: fb68a236-4530-439f-b57f-cf0d68af7030
+      request:
+        method: DELETE
+        header:
+        - key: Authorization
+          value: Bearer {{token}}
+        url:
+          raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/options/{{option_id}}"
+          host:
+          - "{{base_url}}"
+          path:
+          - api
+          - v1
+          - admin
+          - tracking-providers
+          - "{{provider_id}}"
+          - options
+          - "{{option_id}}"
+      response: []
+    id: 59bbbf65-7ded-4646-b4f4-e9c2750c07ef
+  - name: Admin List Tracking Providers
+    id: e5074374-0a5b-4d85-a836-37e9730accda
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers?merchant_id={{merchant_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        query:
+        - key: merchant_id
+          value: "{{merchant_id}}"
+          uuid: d563a292-8ca1-4617-9c15-57eae4afd378
+    response: []
+  - name: Admin Get Tracking Provider
+    id: 6e3f5880-deb4-4506-8bb0-33d11b5a4b78
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}?merchant_id={{merchant_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_id}}"
+        query:
+        - key: merchant_id
+          value: "{{merchant_id}}"
+          uuid: a11403eb-22d3-4b1d-bed3-f71f9ff414f2
+    response: []
+  - name: Admin Create Tracking Provider
+    id: b6fe2232-865f-48d9-915e-56c95a9c78f3
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "name": "Demo Provider",
+            "status": "active",
+            "logo_file_name": "logo.png",
+            "website": "https://example.com",
+            "documentation": "https://example.com/docs"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+    response: []
+  - name: Admin Update Tracking Provider
+    id: ce438914-2009-4e90-81eb-38a422f1097d
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "name": "Demo Provider Updated",
+            "status": "disabled"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - "{{provider_id}}"
+    response: []
+  - name: Admin Delete Tracking Provider
+    id: cc8de335-76d5-4ea9-b3a3-1fea01e6b5f4
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - "{{provider_id}}"
+    response: []
+  id: 30420ef8-0884-446f-8278-37d91af68e42
+- name: Admin Vehicles
+  item:
+  - name: Admin List Vehicles
+    id: 6d341880-672d-46e9-8c05-7402907bc212
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+    response: []
+  - name: Admin Get Vehicle
+    id: 88232ed6-3528-4b88-9076-b4eaed4c0a1b
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicles/{{vehicle_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+        - "{{vehicle_id}}"
+    response: []
+  - name: Admin Create Vehicle
+    id: a0695a58-0735-4702-a284-22da29d1136e
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      body:
+        mode: raw
+        raw: |-
+          {
+            "vehicle_type_id": "{{vehicle_type_id}}",
+            "make": "Yamaha",
+            "model": "MT-07",
+            "color": "Black",
+            "plate_number": "ABC-123",
+            "vin_number": "VIN123456789",
+            "engine_number": "ENG987654",
+            "ref_code": "REF-001",
+            "odometer": 125000,
+            "year": 2022,
+            "last_location_address": "1 Main Rd, Cape Town",
+            "location_updated_at": "2026-02-12T10:00:00Z",
+            "intergration_id": "INT-123",
+            "photo_key": "vehicles/mt-07.jpg",
+            "is_active": true
+          }
+        options:
+          raw:
+            language: json
+      url:
+        raw: "{{base_url}}/api/v1/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+    response: []
+  - name: Admin Update Vehicle
+    id: c1e1c7d0-791f-4ed9-a353-b51ba006fc2d
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      body:
+        mode: raw
+        raw: |-
+          {
+            "color": "Blue",
+            "last_location_address": "2 Long St, Cape Town",
+            "location_updated_at": "2026-02-12T12:00:00Z"
+          }
+        options:
+          raw:
+            language: json
+      url:
+        raw: "{{base_url}}/api/v1/vehicles/{{vehicle_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+        - "{{vehicle_id}}"
+    response: []
+  - name: Admin Delete Vehicle
+    id: 321e4c1e-04dd-4928-a555-7ccbb1aef4e1
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicles/{{vehicle_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+        - "{{vehicle_id}}"
+    response: []
+  id: 6c2e0785-f57b-4e2c-8235-a56d0dc8ca63
+- name: Admin Cancel Reasons
+  item:
+  - name: Admin List Cancel Reasons
+    id: 2488ef89-9679-4389-b0b8-b2d792ce24f5
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+    response: []
+  - name: Admin Get Cancel Reason
+    id: b27976f3-ae8a-4726-a671-87991108c18e
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+        - "{{cancel_reason_id}}"
+    response: []
+  - name: Admin Create Cancel Reason
+    id: b76886fc-a894-4af9-8c7d-111fa77e7ffc
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "code": "other",
+            "title": "Other",
+            "enabled": true
+          }
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+    response: []
+  - name: Admin Update Cancel Reason
+    id: 9c272721-1f30-4ebd-83a6-64786e08c64a
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "title": "Other (Updated)"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+        - "{{cancel_reason_id}}"
+    response: []
+  - name: Admin Delete Cancel Reason
+    id: 6b6d4609-f02c-48ea-8202-834da54ef6bf
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+        - "{{cancel_reason_id}}"
+    response: []
+  id: 6f2bf4e1-59b6-404f-b717-547a1890b57f
+- name: Admin Drivers
+  item:
+  - name: Admin List Drivers
+    id: '04780913-89a8-4dfa-a303-386c6418bf47'
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+    response: []
+  - name: Admin Get Driver
+    id: 18502fc6-b8f7-4c34-bbd9-4d4d329e822e
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_id}}"
+    response: []
+  - name: Admin Create Driver
+    id: 833a082e-1967-4cce-8d15-c2ce8aa28119
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "name": "Driver One",
+            "email": "driver1@example.com",
+            "password": "password123",
+            "telephone": "+27123456789",
+            "carrier_id": "{{carrier_id}}",
+            "vehicle_type_id": "{{vehicle_type_id}}",
+            "is_active": true
+          }
+      url:
+        raw: "{{base_url}}/api/v1/drivers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+    response: []
+  - name: Admin Update Driver
+    id: c004860b-4a59-4905-b374-f8160b88e7d8
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "name": "Driver One Updated",
+            "telephone": "+27111111111"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_id}}"
+    response: []
+  - name: Admin Delete Driver
+    id: bcb2b776-f1eb-4256-9db3-f5547acb3b87
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_id}}"
+    response: []
+  - name: Admin Assign Driver
+    id: cd06f753-28a0-4d05-9d33-539c03bc4b86
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "driver_id": "{{driver_id}}",
+            "notes": "Morning shift"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/admin/bookings/{{booking_id}}/assign-driver"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - bookings
+        - "{{booking_id}}"
+        - assign-driver
+    response: []
+  - name: Admin Unassign Driver
+    id: d24288bf-65fb-4599-94a2-21b501a10de5
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/bookings/{{booking_id}}/unassign-driver"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - bookings
+        - "{{booking_id}}"
+        - unassign-driver
+    response: []
+  id: 891697cc-40f2-4d1d-abe0-8799fa072198
+- name: Merchant Environments
+  item:
+  - name: List Merchant Environments
+    id: f84b0fe0-d382-4fd4-a4ed-e3d52722b4c6
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_id}}/environments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_id}}"
+        - environments
+    response: []
+  - name: Create Merchant Environment
+    id: b37fb413-afab-4bd8-a395-06a7faf08a11
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "name": "Production",
+            "color": "#1F2937",
+            "url": "https://merchant.example.com"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_id}}/environments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_id}}"
+        - environments
+    response: []
+  - name: Get Merchant Environment
+    id: 97327985-ccac-4105-a5c7-6071e0810cd6
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_id}}/environments/{{environment_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_id}}"
+        - environments
+        - "{{environment_id}}"
+    response: []
+  - name: Update Merchant Environment
+    id: '0149bd98-86ab-4f83-a34e-f64fc1834edc'
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "name": "Production Updated"
+          }
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_id}}/environments/{{environment_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_id}}"
+        - environments
+        - "{{environment_id}}"
+    response: []
+  - name: Delete Merchant Environment
+    id: 8d8b4d78-6697-4ae8-bec9-1a13af718fc3
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_id}}/environments/{{environment_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_id}}"
+        - environments
+        - "{{environment_id}}"
+    response: []
+  - name: Rotate Merchant Environment Token
+    id: 5c4ed73c-b9bc-419a-8f65-c1ae5eeebdd3
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_id}}/environments/{{environment_id}}/token"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_id}}"
+        - environments
+        - "{{environment_id}}"
+        - token
+    response: []
+  id: 8bac6f6f-12b7-4678-a5ca-55f725aba1c8
+- name: Auto Synced Endpoints
+  item:
+  - name: GET /api/v1/activity-logs
+    id: c05174af-5159-4f90-832c-554eced077de
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/activity-logs"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - activity-logs
+    response: []
+  - name: POST /api/v1/admin/bookings/{{booking_uuid}}/assign-driver
+    id: 687262ee-034b-48dc-b05a-e5f8b27ce10c
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/admin/bookings/{{booking_uuid}}/assign-driver"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - bookings
+        - "{{booking_uuid}}"
+        - assign-driver
+    response: []
+  - name: POST /api/v1/admin/bookings/{{booking_uuid}}/unassign-driver
+    id: 1801d562-9b27-4bbe-8b90-6f9179e840d3
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/admin/bookings/{{booking_uuid}}/unassign-driver"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - bookings
+        - "{{booking_uuid}}"
+        - unassign-driver
+    response: []
+  - name: DELETE /api/v1/admin/tracking-providers/{{provider_uuid}}
+    id: 59b4c1a6-a19f-4b42-b08c-eaf7ac36526a
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+    response: []
+  - name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}
+    id: d1bedb34-d038-4e94-aba6-84bf8e3d7819
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+    response: []
+  - name: PATCH /api/v1/admin/tracking-providers/{{provider_uuid}}
+    id: 5c564e99-02d3-47ea-b4f6-6a8e2c4625cb
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+    response: []
+  - name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields
+    id: 2940bf4d-4a35-4eb2-89f8-ae7ef31f9653
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - integration-form-fields
+    response: []
+  - name: POST /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields
+    id: ba49ef00-e6ff-45a2-9a03-217ab3468171
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - integration-form-fields
+    response: []
+  - name: DELETE /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}
+    id: 44e56a7b-14bd-4142-8077-60bf3029b2f8
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - integration-form-fields
+        - "{{field_uuid}}"
+    response: []
+  - name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}
+    id: f89504f3-4c24-443c-a084-708155153799
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - integration-form-fields
+        - "{{field_uuid}}"
+    response: []
+  - name: PATCH /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}
+    id: a0ce30d7-23aa-4a5b-ac70-0d440c123929
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields/{{field_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - integration-form-fields
+        - "{{field_uuid}}"
+    response: []
+  - name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}/options
+    id: 76cf2a9c-3820-4646-b671-3e565997bb79
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - options
+    response: []
+  - name: POST /api/v1/admin/tracking-providers/{{provider_uuid}}/options
+    id: 9988b4a2-01d9-4f3e-93f9-9e1eb53cc70c
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - options
+    response: []
+  - name: DELETE /api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}
+    id: 2da965c3-4ed7-4f2e-9912-2fe540dca17b
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - options
+        - "{{option_uuid}}"
+    response: []
+  - name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}
+    id: 33b8f9bc-eb5a-4713-8dca-214063ae0f3d
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - options
+        - "{{option_uuid}}"
+    response: []
+  - name: PATCH /api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}
+    id: 6f6c9960-fafb-484f-a662-943bfef2fcd9
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options/{{option_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - tracking-providers
+        - "{{provider_uuid}}"
+        - options
+        - "{{option_uuid}}"
+    response: []
+  - name: POST /api/v1/admin/vehicle-types
+    id: 49741a38-bef3-4659-a20d-6b5e712437be
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/admin/vehicle-types"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - vehicle-types
+    response: []
+  - name: DELETE /api/v1/admin/vehicle-types/{{vehicle_type_uuid}}
+    id: 0be501bc-8713-4160-a0c8-d0478e918750
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/vehicle-types/{{vehicle_type_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - vehicle-types
+        - "{{vehicle_type_uuid}}"
+    response: []
+  - name: GET /api/v1/admin/vehicle-types/{{vehicle_type_uuid}}
+    id: c6d27d9d-b757-4644-824a-1cfea58bc9f5
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/admin/vehicle-types/{{vehicle_type_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - vehicle-types
+        - "{{vehicle_type_uuid}}"
+    response: []
+  - name: PATCH /api/v1/admin/vehicle-types/{{vehicle_type_uuid}}
+    id: 05cfcdd3-d20a-471e-ae9f-a0cb32a9172d
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/admin/vehicle-types/{{vehicle_type_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - admin
+        - vehicle-types
+        - "{{vehicle_type_uuid}}"
+    response: []
+  - name: POST /api/v1/auth/logout
+    id: ca03f807-89d7-47fd-9218-15fb59a7d583
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/auth/logout"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - auth
+        - logout
+    response: []
+  - name: POST /api/v1/auth/register
+    id: 7e1509af-5514-4677-9185-382ce2c9e25d
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/auth/register"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - auth
+        - register
+    response: []
+  - name: GET /api/v1/bookings
+    id: c7f0a1b4-6701-4657-a6ac-779fa6cc8c13
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/bookings"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - bookings
+    response: []
+  - name: GET /api/v1/bookings/{{booking_uuid}}
+    id: 4e9d3af1-d52a-4b5c-b1d1-0e21dd295d5e
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/bookings/{{booking_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - bookings
+        - "{{booking_uuid}}"
+    response: []
+  - name: DELETE /api/v1/cancel-reasons/{{cancel_reason_uuid}}
+    id: dca294aa-acad-4a83-8c72-6f70be354457
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+        - "{{cancel_reason_uuid}}"
+    response: []
+  - name: GET /api/v1/cancel-reasons/{{cancel_reason_uuid}}
+    id: 827fd074-184f-4c05-bf36-1f35f1992e29
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+        - "{{cancel_reason_uuid}}"
+    response: []
+  - name: PATCH /api/v1/cancel-reasons/{{cancel_reason_uuid}}
+    id: cf77d24a-afd7-4545-a6dd-aa337b16394f
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - cancel-reasons
+        - "{{cancel_reason_uuid}}"
+    response: []
+  - name: DELETE /api/v1/carriers/{{carrier_uuid}}
+    id: 362e669b-53d1-417b-8cd7-a72a1885312d
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/carriers/{{carrier_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+        - "{{carrier_uuid}}"
+    response: []
+  - name: GET /api/v1/carriers/{{carrier_uuid}}
+    id: 9013929f-4fe4-4541-85e1-c4c4c249f3e1
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/carriers/{{carrier_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+        - "{{carrier_uuid}}"
+    response: []
+  - name: PATCH /api/v1/carriers/{{carrier_uuid}}
+    id: 9041b92d-f316-404b-b001-9b234e78b1da
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/carriers/{{carrier_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - carriers
+        - "{{carrier_uuid}}"
+    response: []
+  - name: GET /api/v1/driver/bookings
+    id: 836fa1fd-f674-4fb7-9519-48ad57c6aa77
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+    response: []
+  - name: GET /api/v1/driver/bookings/{{booking_uuid}}
+    id: 5f8be34d-3d4b-4f96-acac-8538d8cf5f40
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_uuid}}"
+    response: []
+  - name: POST /api/v1/driver/bookings/{{booking_uuid}}/cancel
+    id: ac95be0c-4127-4f2a-89c8-92095d7ab0f7
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}/cancel"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_uuid}}"
+        - cancel
+    response: []
+  - name: POST /api/v1/driver/bookings/{{booking_uuid}}/pod
+    id: f8a17248-10d5-48ef-acdd-52d18f0d96bc
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}/pod"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_uuid}}"
+        - pod
+    response: []
+  - name: POST /api/v1/driver/bookings/{{booking_uuid}}/scan
+    id: 7bb8f577-3704-43d8-b6e3-1dba575d3fc9
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}/scan"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_uuid}}"
+        - scan
+    response: []
+  - name: PATCH /api/v1/driver/bookings/{{booking_uuid}}/status
+    id: 071b1efa-29b5-479d-a083-b0799b055d7c
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}/status"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - bookings
+        - "{{booking_uuid}}"
+        - status
+    response: []
+  - name: GET /api/v1/driver/vehicles
+    id: 3d3ef0f6-cdd9-47e4-b1a8-ebbdc4c5e44d
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+    response: []
+  - name: POST /api/v1/driver/vehicles
+    id: de2f6673-a5c9-4231-93b1-c1ac957b798c
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+    response: []
+  - name: DELETE /api/v1/driver/vehicles/{{vehicle_uuid}}
+    id: c7f2704b-cccc-4e5d-87b9-5802e921ead2
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: GET /api/v1/driver/vehicles/{{vehicle_uuid}}
+    id: d051213f-fee6-4f06-9a4a-d8b2bca6bb00
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: PATCH /api/v1/driver/vehicles/{{vehicle_uuid}}
+    id: 63dfdc10-78d3-4c1e-b6f3-5b5734f5021a
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/driver/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - driver
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: DELETE /api/v1/drivers/{{driver_uuid}}
+    id: 7b3149ae-559b-4fc9-9009-b5e6cbf33347
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+    response: []
+  - name: GET /api/v1/drivers/{{driver_uuid}}
+    id: 7e09fc18-63a5-436d-81cb-c4f73ae42006
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+    response: []
+  - name: PATCH /api/v1/drivers/{{driver_uuid}}
+    id: '09316462-4250-4c2b-ac1d-d1ade5ea256d'
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+    response: []
+  - name: GET /api/v1/drivers/{{driver_uuid}}/vehicles
+    id: b01ce65f-bd26-43b9-b06b-6fb9ac7114be
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+    response: []
+  - name: POST /api/v1/drivers/{{driver_uuid}}/vehicles
+    id: f8cdb13b-de5f-4bd3-9014-e5535c700fd3
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+    response: []
+  - name: DELETE /api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}
+    id: 72b2799c-0f1e-474d-80b8-667fefd79b8b
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: PATCH /api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}
+    id: 800d2a1b-a97b-44a0-9b28-419f2d82c9f4
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - drivers
+        - "{{driver_uuid}}"
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: GET /api/v1/locations
+    id: 94d05a84-eeff-46ab-8963-3f6844043fc1
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/locations"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - locations
+    response: []
+  - name: POST /api/v1/locations
+    id: 782c68b5-2f04-48c1-89d3-160460b24e9b
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/locations"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - locations
+    response: []
+  - name: DELETE /api/v1/locations/{{location_uuid}}
+    id: 66a4e5e0-2dec-4532-8985-ed39cac436e2
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/locations/{{location_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - locations
+        - "{{location_uuid}}"
+    response: []
+  - name: GET /api/v1/locations/{{location_uuid}}
+    id: af6d9263-a135-4b77-ac93-fe522263f695
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/locations/{{location_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - locations
+        - "{{location_uuid}}"
+    response: []
+  - name: PATCH /api/v1/locations/{{location_uuid}}
+    id: 59273388-14aa-4c13-8213-17f8f579be47
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/locations/{{location_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - locations
+        - "{{location_uuid}}"
+    response: []
+  - name: GET /api/v1/me
+    id: 6fd9e574-6cba-4be0-baa6-c05255ae0d79
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/me"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - me
+    response: []
+  - name: GET /api/v1/location-types
+    id: 944aed90-7916-4be2-b514-7188c2d1aa83
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/location-types?merchant_id={{merchant_id}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - location-types
+        query:
+        - key: merchant_id
+          value: "{{merchant_id}}"
+    response: []
+  - name: PATCH /api/v1/location-types
+    id: 47ee59f6-7f61-42df-97bd-1832682f1dfc
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "merchant_id": "{{merchant_id}}",
+            "types": [
+              {
+                "location_type_id": "{{location_type_uuid}}",
+                "slug": "pickup",
+                "title": "Pickup",
+                "collection_point": true,
+                "delivery_point": false,
+                "sequence": 1,
+                "icon": "map-pin",
+                "color": "#16A34A",
+                "default": true
+              },
+              {
+                "slug": "dropoff",
+                "title": "Dropoff",
+                "collection_point": false,
+                "delivery_point": true,
+                "sequence": 2,
+                "icon": "flag",
+                "color": "#2563EB",
+                "default": false
+              }
+            ]
+          }
+      url:
+        raw: "{{base_url}}/api/v1/location-types"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - location-types
+    response: []
+  - name: POST /api/v1/merchant-invites/accept
+    id: 7d830ef7-bf2a-4ebd-bb3d-85077f7ded97
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchant-invites/accept"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchant-invites
+        - accept
+    response: []
+  - name: GET /api/v1/merchants
+    id: 4c14f97a-4a6c-4d55-8740-1a2c3985a58e
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+    response: []
+  - name: POST /api/v1/merchants
+    id: bb7f392c-d888-4d07-ae35-c7f004e627d4
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchants"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+    response: []
+  - name: DELETE /api/v1/merchants/{{merchant_uuid}}
+    id: 01aa2a24-e14e-4caf-b60e-02d6d6a5c5c0
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+    response: []
+  - name: GET /api/v1/merchants/{{merchant_uuid}}
+    id: a405e8cd-b0f1-40ee-9711-b678ab32c958
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+    response: []
+  - name: PATCH /api/v1/merchants/{{merchant_uuid}}
+    id: 03d5ac80-a33d-4aa1-b0ce-7411a22af132
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+    response: []
+  - name: GET /api/v1/merchants/{{merchant_uuid}}/environments
+    id: 98240685-62bc-4c4e-9004-98223639d9e8
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+    response: []
+  - name: POST /api/v1/merchants/{{merchant_uuid}}/environments
+    id: 517b2571-0911-4359-b9f2-6ec29c452ca7
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+    response: []
+  - name: DELETE /api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}
+    id: 2c52efb0-a30c-4d16-b38b-26df3052a907
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+        - "{{environment_uuid}}"
+    response: []
+  - name: GET /api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}
+    id: 98a2725e-36ee-4042-96ab-4340c88ed90b
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+        - "{{environment_uuid}}"
+    response: []
+  - name: PATCH /api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}
+    id: '09f2f57d-03b9-4d50-8d55-a7036ce21e89'
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+        - "{{environment_uuid}}"
+    response: []
+  - name: POST /api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}/token
+    id: 49da139c-347c-45cd-b2fe-878b0b589b01
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}/token"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - environments
+        - "{{environment_uuid}}"
+        - token
+    response: []
+  - name: GET /api/v1/merchants/{{merchant_uuid}}/invites
+    id: fdfdb99b-f134-440e-8515-a338ee444ca5
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/invites"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - invites
+    response: []
+  - name: POST /api/v1/merchants/{{merchant_uuid}}/invites/{{invite_uuid}}/resend
+    id: 3e8d62ec-4556-4f98-8414-109af711a1f0
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/invites/{{invite_uuid}}/resend"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - invites
+        - "{{invite_uuid}}"
+        - resend
+    response: []
+  - name: POST /api/v1/merchants/{{merchant_uuid}}/invites/{{invite_uuid}}/revoke
+    id: d4a71e29-d5f4-4998-a6cb-92c4e070d5cc
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/invites/{{invite_uuid}}/revoke"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - invites
+        - "{{invite_uuid}}"
+        - revoke
+    response: []
+  - name: GET /api/v1/merchants/{{merchant_uuid}}/members
+    id: 6d8fb239-86f8-446b-800c-9523b8da9444
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/members"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - members
+    response: []
+  - name: DELETE /api/v1/merchants/{{merchant_uuid}}/members/{{user_uuid}}
+    id: 2157b55a-0c34-4546-ad88-3ffcb3f28ac1
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/members/{{user_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - members
+        - "{{user_uuid}}"
+    response: []
+  - name: PATCH /api/v1/merchants/{{merchant_uuid}}/members/{{user_uuid}}
+    id: bae082d9-9dbf-4fbf-ad6e-c288f2e303e1
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/members/{{user_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - members
+        - "{{user_uuid}}"
+    response: []
+  - name: POST /api/v1/merchants/{{merchant_uuid}}/members/invite
+    id: 5df0c4ed-ad6a-4cf3-88ff-dd911458b1b3
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/members/invite"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - members
+        - invite
+    response: []
+  - name: PATCH /api/v1/merchants/{{merchant_uuid}}/settings
+    id: f0f9ebad-a0e5-4cc0-a8d9-b7a80737365e
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/settings"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - merchants
+        - "{{merchant_uuid}}"
+        - settings
+    response: []
+  - name: GET /api/v1/quotes
+    id: a1953e42-8874-4c7d-997f-9b90f3cc837c
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/quotes"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - quotes
+    response: []
+  - name: POST /api/v1/quotes
+    id: 854866d0-b370-4605-a368-1b9905de4645
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/quotes"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - quotes
+    response: []
+  - name: GET /api/v1/quotes/{{quote_uuid}}
+    id: b8f60fe8-d97b-475a-a28a-380069c71c04
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/quotes/{{quote_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - quotes
+        - "{{quote_uuid}}"
+    response: []
+  - name: GET /api/v1/reports/created_over_time
+    id: e92ea0ba-c25c-40c9-97ce-8a8212ef2517
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/reports/created_over_time"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - reports
+        - created_over_time
+    response: []
+  - name: GET /api/v1/reports/dashboard_stats
+    id: a0cb140f-f7f8-4c12-9634-df5e3655d396
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/reports/dashboard_stats"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - reports
+        - dashboard_stats
+    response: []
+  - name: GET /api/v1/shipments
+    id: 77cea666-cfe8-445e-948f-f6c0fd6c641e
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+    response: []
+  - name: POST /api/v1/shipments
+    id: 4c351c9e-95e4-4150-92d6-0225d6a1b018
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/shipments"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+    response: []
+  - name: DELETE /api/v1/shipments/{{shipment_uuid}}
+    id: 84073982-90be-420c-804a-f845b99d8169
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+    response: []
+  - name: GET /api/v1/shipments/{{shipment_uuid}}
+    id: ec545926-701c-4362-baf3-659454e970d9
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+    response: []
+  - name: PATCH /api/v1/shipments/{{shipment_uuid}}
+    id: c713034d-3ada-4625-9519-cf3f16ad4fef
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+    response: []
+  - name: POST /api/v1/shipments/{{shipment_uuid}}/book
+    id: f96b1216-d243-46e8-819b-dfc8aeb2c065
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/book"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - book
+    response: []
+  - name: POST /api/v1/shipments/{{shipment_uuid}}/cancel
+    id: 538da2a3-8ddb-4069-8fd3-f4d4978e0543
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/cancel"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - cancel
+    response: []
+  - name: GET /api/v1/shipments/{{shipment_uuid}}/label
+    id: a002d40b-20e1-4ef5-9798-a5e7fac399f3
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/label"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - label
+    response: []
+  - name: GET /api/v1/shipments/{{shipment_uuid}}/quotes
+    id: 89e76a15-2f9e-4f16-bd86-fd6e682a2141
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/quotes"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - quotes
+    response: []
+  - name: POST /api/v1/shipments/{{shipment_uuid}}/rebook
+    id: 04aecd13-d46f-4d0a-8643-37ab2e293336
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/rebook"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - rebook
+    response: []
+  - name: GET /api/v1/shipments/{{shipment_uuid}}/tracking
+    id: 9daac97c-c15a-45e5-81fe-158307b6f4a1
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/shipments/{{shipment_uuid}}/tracking"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - "{{shipment_uuid}}"
+        - tracking
+    response: []
+  - name: POST /api/v1/shipments/on-demand
+    id: d3a05904-bcf3-4f7f-805c-701bcd86faa7
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/shipments/on-demand"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - shipments
+        - on-demand
+    response: []
+  - name: GET /api/v1/tracking-providers
+    id: 2be14797-9925-41fb-9a9d-36484682603d
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+    response: []
+  - name: POST /api/v1/tracking-providers/{{provider_id}}/import_drivers
+    id: 39f81b39-7e7a-4679-a661-b0dc6b249775
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/import_drivers"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - "{{provider_id}}"
+        - import_drivers
+    response: []
+  - name: POST /api/v1/tracking-providers/{{provider_id}}/import_locations
+    id: 773d33f9-6b92-4b09-8598-18d03199c519
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/import_locations"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - "{{provider_id}}"
+        - import_locations
+    response: []
+  - name: POST /api/v1/tracking-providers/{{provider_id}}/import_vehicles
+    id: b6679ce3-5bda-4a8e-9886-e33bf33491a3
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/import_vehicles"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - "{{provider_id}}"
+        - import_vehicles
+    response: []
+  - name: PUT /api/v1/tracking-providers/{{provider_id}}/options_data
+    id: 1034f476-51cc-4d4c-81d8-f378e49536a0
+    request:
+      method: PUT
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/options_data"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - "{{provider_id}}"
+        - options_data
+    response: []
+  - name: POST /api/v1/tracking-providers/activate
+    id: abbee880-37db-4bd6-a968-caa9094983b7
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/tracking-providers/activate"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - tracking-providers
+        - activate
+    response: []
+  - name: DELETE /api/v1/vehicles/{{vehicle_uuid}}
+    id: '09d73a6c-404c-4cc8-93ff-119d83758a1b'
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: GET /api/v1/vehicles/{{vehicle_uuid}}
+    id: 377b942f-f142-453b-a369-eaffb0f2c44f
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: PATCH /api/v1/vehicles/{{vehicle_uuid}}
+    id: 5fdc7dc6-9f2a-432f-9259-29c2734ec512
+    request:
+      method: PATCH
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/vehicles/{{vehicle_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - vehicles
+        - "{{vehicle_uuid}}"
+    response: []
+  - name: POST /api/v1/webhooks/carriers/{{carrier_code}}
+    id: a8effb09-0d3a-4c49-93c6-ca221da62fe4
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/webhooks/carriers/{{carrier_code}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - webhooks
+        - carriers
+        - "{{carrier_code}}"
+    response: []
+  - name: GET /api/v1/webhooks/subscriptions
+    id: 8e0c493b-065a-4766-90f8-cb861456ba3d
+    request:
+      method: GET
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/webhooks/subscriptions"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - webhooks
+        - subscriptions
+    response: []
+  - name: POST /api/v1/webhooks/subscriptions
+    id: 8b954e4d-40b7-4028-8818-4d28758c97f0
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/webhooks/subscriptions"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - webhooks
+        - subscriptions
+    response: []
+  - name: DELETE /api/v1/webhooks/subscriptions/{{subscription_uuid}}
+    id: 02f61a53-da7c-41e1-85a6-b53e86992bcc
+    request:
+      method: DELETE
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      url:
+        raw: "{{base_url}}/api/v1/webhooks/subscriptions/{{subscription_uuid}}"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - webhooks
+        - subscriptions
+        - "{{subscription_uuid}}"
+    response: []
+  - name: POST /api/v1/webhooks/subscriptions/{{subscription_uuid}}/test
+    id: 4bcf35c0-ff0d-42f3-8f0e-fab37d389ce0
+    request:
+      method: POST
+      header:
+      - key: Authorization
+        value: Bearer {{token}}
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: "{}"
+      url:
+        raw: "{{base_url}}/api/v1/webhooks/subscriptions/{{subscription_uuid}}/test"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - v1
+        - webhooks
+        - subscriptions
+        - "{{subscription_uuid}}"
+        - test
+    response: []
+  id: 20f14d74-0eda-4e2d-84f8-c8963f28a036
+auth:
+  type: bearer
+  bearer:
+  - key: token
+    value: "{{bearer_token}}"
+    type: string
+variable:
+- id: 73b4a0ea-1317-4ce7-aabc-07b993a71e70
+  key: base_url
+  value: http://localhost
+- id: a94dcf56-4854-42bb-85e7-b238789d346b
+  key: token
+  value: ''
+- id: bb6cc06b-8e84-4600-ac36-593d63bb87c1
+  key: vehicle_type_id
+  value: ''
+  type: default
+- id: 75283bf4-6fb7-4d4f-b638-d21f5cdef684
+  key: driver_id
+  value: ''
+  type: default
+- id: 2780af79-c154-44c3-a07e-03d554f56dfc
+  key: merchant_id
+  value: ''
+  type: default

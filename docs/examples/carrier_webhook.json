@@ -1,0 +1,9 @@
+{
+  "shipment_id": "33333333-3333-3333-3333-333333333333",
+  "event_code": "picked_up",
+  "event_description": "Shipment picked up",
+  "occurred_at": "2026-02-05T12:00:00Z",
+  "carrier_payload": {
+    "driver_name": "John Doe"
+  }
+}

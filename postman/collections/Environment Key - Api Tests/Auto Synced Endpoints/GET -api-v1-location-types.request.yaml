@@ -1,0 +1,9 @@
+$kind: http-request
+name: GET /api/v1/location-types
+url: "{{base_url}}/api/v1/location-types?merchant_id={{merchant_id}}"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+queryParams:
+  merchant_id: "{{merchant_id}}"
+order: 68000

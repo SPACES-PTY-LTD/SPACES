@@ -1,0 +1,11 @@
+$kind: http-request
+name: POST /api/v1/cancel-reasons
+url: "{{base_url}}/api/v1/cancel-reasons"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 34000

@@ -1,0 +1,7 @@
+$kind: http-request
+name: GET /api/v1/cancel-reasons/{{cancel_reason_uuid}}
+url: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_uuid}}"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+order: 36000

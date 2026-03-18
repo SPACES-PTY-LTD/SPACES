@@ -1,0 +1,790 @@
+"use client"
+
+import * as React from "react"
+import Link from "next/link"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import moment from "moment"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import { DatePicker } from "@/components/common/date-picker"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { StatusBadge } from "@/components/common/status-badge"
+import { cn } from "@/lib/utils"
+import { format, parseISO } from "date-fns"
+import { ArrowDown, ArrowUp, ArrowUpDown, Filter, ImageIcon, MoreHorizontal, Search } from "lucide-react"
+import { Button } from "../ui/button"
+
+export type Column<T> = {
+  key: keyof T | string
+  label: string
+  className?: string
+  type?: "text" | "status" | "date_time" | "count_array" | "image"
+  size?: "sm" | "md" | "lg"
+  format?: string
+  customValue?: (row: T) => React.ReactNode
+  link?: keyof T | string
+}
+
+export type Filter<T> = {
+  key: keyof T | string
+  label: string
+  value?: string
+  url_param_name?: string
+  type?: "select" | "date" | "text"
+  placeholder?: string
+  options?: { label: string; value: string }[]
+}
+
+export type RowAction<T> = {
+  label: string
+  href?: string
+  hrefKey?: keyof T | string
+  variant?: "default" | "destructive"
+}
+
+export type DataTableView = {
+  label: string
+  href?: string
+  link?: string
+  match?: "exact" | "subset"
+  ignoreParams?: string[]
+}
+
+function getValue<T extends Record<string, unknown>>(
+  row: T,
+  key: keyof T | string
+) {
+  const path = String(key)
+  if (!path.includes(".")) {
+    return row[key as keyof T]
+  }
+
+  return path
+    .split(".")
+    .reduce<unknown>((value, segment) => {
+      if (value && typeof value === "object" && segment in value) {
+        return (value as Record<string, unknown>)[segment]
+      }
+      return undefined
+    }, row)
+}
+
+function parseFilterDate(value?: string) {
+  if (!value) return undefined
+  const parsed = parseISO(value)
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed
+}
+
+export function DataTable<T extends Record<string, unknown>>({
+  data,
+  columns,
+  searchKeys,
+  filters,
+  views,
+  rowActions,
+  emptyMessage = "No matching records found.",
+  loading_error,
+  meta,
+  enableSorting = false,
+  sortableColumns,
+  width = null,
+  sortKeyMap,
+  sortByParam = "sort_by",
+  sortDirParam = "sort_dir",
+}: {
+  data: T[]
+  columns: Column<T>[]
+  searchKeys?: Array<keyof T | string>
+  filters?: Filter<T>[]
+  views?: DataTableView[]
+  rowActions?: RowAction<T>[]
+  pageSize?: number
+  emptyMessage?: string
+  loading_error?: string | null,
+  meta?: {
+    current_page: number,
+    last_page: number,
+    per_page: number,
+    total: number,
+  },
+  enableSorting?: boolean
+  sortableColumns?: Array<keyof T | string>
+  width?: string | null
+  sortKeyMap?: Record<string, string>
+  sortByParam?: string
+  sortDirParam?: string
+}) {
+  const [query, setQuery] = React.useState("");
+  const [show_filters, setShowFilters] = React.useState(false)
+  const [filterValues, setFilterValues] = React.useState<Record<string, string>>(
+    {}
+  )
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const columnsByKey = React.useMemo(() => {
+    const map = new Map<string, Column<T>>()
+    columns.forEach((column) => {
+      map.set(String(column.key), column)
+    })
+    return map
+  }, [columns])
+
+  const getCellValue = React.useCallback(
+    (row: T, key: keyof T | string) => {
+      const column = columnsByKey.get(String(key))
+      if (column?.customValue) {
+        return column.customValue(row)
+      }
+      return getValue(row, key)
+    },
+    [columnsByKey]
+  )
+
+  const getDisplayValue = React.useCallback(
+    (row: T, column: Column<T>) => {
+      const value = getCellValue(row, column.key)
+      const type = column.type ?? "text"
+      if (type === "date_time") {
+        if (!value) return "-"
+        return moment(String(value)).format(column.format ?? "YYYY-MM-DD HH:mm")
+      }
+      if (type === "count_array") {
+        return Array.isArray(value) ? value.length : 0
+      }
+      return value
+    },
+    [getCellValue]
+  )
+
+  const renderValue = React.useCallback((value: unknown): React.ReactNode => {
+    if (value === null || value === undefined) return "-"
+    if (React.isValidElement(value)) return value
+    if (["string", "number", "boolean"].includes(typeof value)) return value as React.ReactNode
+    return String(value)
+  }, [])
+
+  const renderImageValue = React.useCallback(
+    (row: T, column: Column<T>): React.ReactNode => {
+      const rawValue = getCellValue(row, column.key)
+      const imageUrl = typeof rawValue === "string" ? rawValue.trim() : ""
+      const hrefValue = column.link ? getValue(row, column.link) : undefined
+      const href =
+        typeof hrefValue === "string" && hrefValue.trim().length > 0
+          ? hrefValue.trim()
+          : undefined
+      const sizeClasses =
+        column.size === "lg"
+          ? "h-14 w-14"
+          : column.size === "md"
+            ? "h-10 w-10"
+            : "h-8 w-8"
+      const content = imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl}
+          alt={column.label}
+          className={cn("rounded-md object-cover border border-border", sizeClasses)}
+          loading="lazy"
+        />
+      ) : (
+        <div
+          className={cn(
+            "rounded-md border border-dashed border-border bg-muted/40 text-muted-foreground inline-flex items-center justify-center",
+            sizeClasses
+          )}
+          aria-label={`No ${column.label} available`}
+        >
+          <ImageIcon className="h-4 w-4" />
+        </div>
+      )
+
+      if (!href) return content
+      return (
+        <Link href={href} className="inline-flex">
+          {content}
+        </Link>
+      )
+    },
+    [getCellValue]
+  )
+
+  const getFilterValue = React.useCallback(
+    (filter: Filter<T>) => {
+      if (filter.url_param_name) {
+        return searchParams.get(filter.url_param_name) ?? filter.value ?? ""
+      }
+
+      return filterValues[String(filter.key)] ?? filter.value ?? ""
+    },
+    [filterValues, searchParams]
+  )
+
+  React.useEffect(() => {
+    const hasActiveUrlFilter = (filters ?? []).some((filter) => {
+      if (!filter.url_param_name) {
+        return false
+      }
+
+      const value = searchParams.get(filter.url_param_name)
+      return value !== null && value.trim() !== ""
+    })
+
+    if (hasActiveUrlFilter) {
+      setShowFilters(true)
+    }
+  }, [filters, searchParams])
+
+  const filtered = React.useMemo(() => {
+    let result = [...data]
+    if (query && searchKeys?.length) {
+      const lowered = query.toLowerCase()
+      result = result.filter((row) =>
+        searchKeys.some((key) =>
+          String(
+            getDisplayValue(row, columnsByKey.get(String(key)) ?? { key, label: "" })
+          )
+            .toLowerCase()
+            .includes(lowered)
+        )
+      )
+    }
+
+    if (filters?.length) {
+      filters.forEach((filter) => {
+        if (filter.url_param_name) {
+          return
+        }
+
+        const value = getFilterValue(filter)
+        if (value) {
+          result = result.filter(
+            (row) =>
+              String(
+                getDisplayValue(
+                  row,
+                  columnsByKey.get(String(filter.key)) ?? {
+                    key: filter.key,
+                    label: "",
+                  }
+                )
+              ) === value
+          )
+        }
+      })
+    }
+
+    return result
+  }, [data, query, searchKeys, filters, getFilterValue, getDisplayValue, columnsByKey])
+
+  const parsedLastPage = Number(meta?.last_page)
+  const parsedCurrentPage = Number(meta?.current_page)
+  const lastPage =
+    Number.isFinite(parsedLastPage) && parsedLastPage > 0
+      ? Math.floor(parsedLastPage)
+      : 1
+  const unclampedCurrentPage =
+    Number.isFinite(parsedCurrentPage) && parsedCurrentPage > 0
+      ? Math.floor(parsedCurrentPage)
+      : 1
+  const currentPage = Math.min(Math.max(unclampedCurrentPage, 1), lastPage)
+  const hasMetaPagination = Boolean(meta && lastPage > 1)
+  const paginationItems = React.useMemo(() => {
+    if (lastPage <= 0) return []
+
+    const siblingCount = 2
+    const edgeWindowSize = 6
+    if (lastPage <= edgeWindowSize + 2) {
+      return Array.from({ length: lastPage }, (_, index) => index + 1)
+    }
+
+    let start = Math.max(1, currentPage - siblingCount)
+    let end = Math.min(lastPage, currentPage + siblingCount)
+
+    if (currentPage <= siblingCount + 1) {
+      start = 1
+      end = Math.min(lastPage, edgeWindowSize)
+    } else if (currentPage >= lastPage - siblingCount) {
+      start = Math.max(1, lastPage - (edgeWindowSize - 1))
+      end = lastPage
+    }
+
+    const pages = new Set<number>([1, lastPage])
+    for (let page = start; page <= end; page += 1) {
+      pages.add(page)
+    }
+
+    const sortedPages = [...pages].sort((a, b) => a - b)
+    const items: Array<number | string> = []
+
+    sortedPages.forEach((page, index) => {
+      if (index > 0) {
+        const previousPage = sortedPages[index - 1]
+        const gap = page - previousPage
+
+        if (gap === 2) {
+          items.push(previousPage + 1)
+        } else if (gap > 2) {
+          items.push(`ellipsis-${previousPage}-${page}`)
+        }
+      }
+
+      items.push(page)
+    })
+
+    return items
+  }, [currentPage, lastPage])
+  const rows = filtered
+  const currentSortBy = searchParams.get(sortByParam) ?? ""
+  const rawSortDir = (searchParams.get(sortDirParam) ?? "").toLowerCase()
+  const currentSortDir: "asc" | "desc" | "" =
+    rawSortDir === "asc" || rawSortDir === "desc" ? rawSortDir : ""
+  const sortableColumnSet = React.useMemo(() => {
+    if (!sortableColumns?.length) return null
+    return new Set(sortableColumns.map((column) => String(column)))
+  }, [sortableColumns])
+
+  const buildPageHref = React.useCallback(
+    (targetPage: number) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (targetPage <= 1) {
+        params.delete("page")
+      } else {
+        params.set("page", String(targetPage))
+      }
+      const queryString = params.toString()
+      return queryString ? `${pathname}?${queryString}` : pathname
+    },
+    [pathname, searchParams]
+  )
+
+  const buildSortHref = React.useCallback(
+    (column: Column<T>) => {
+      const params = new URLSearchParams(searchParams.toString())
+      const columnKey = String(column.key)
+      const sortKey = sortKeyMap?.[columnKey] ?? columnKey
+      const isActive = currentSortBy === sortKey
+      const nextDir = isActive && currentSortDir === "asc" ? "desc" : "asc"
+      params.set(sortByParam, sortKey)
+      params.set(sortDirParam, nextDir)
+      params.delete("page")
+      const queryString = params.toString()
+      return queryString ? `${pathname}?${queryString}` : pathname
+    },
+    [
+      pathname,
+      searchParams,
+      sortKeyMap,
+      currentSortBy,
+      currentSortDir,
+      sortByParam,
+      sortDirParam,
+    ]
+  )
+
+  const updateFilterParam = React.useCallback(
+    (filter: Filter<T>, value: string) => {
+      if (!filter.url_param_name) {
+        setFilterValues((prev) => ({
+          ...prev,
+          [String(filter.key)]: value,
+        }))
+        return
+      }
+
+      const params = new URLSearchParams(searchParams.toString())
+      if (!value) {
+        params.delete(filter.url_param_name)
+      } else {
+        params.set(filter.url_param_name, value)
+      }
+      params.delete("page")
+
+      const queryString = params.toString()
+      router.push(queryString ? `${pathname}?${queryString}` : pathname)
+    },
+    [pathname, router, searchParams]
+  )
+
+  const isViewActive = React.useCallback(
+    (view: DataTableView) => {
+      const rawHref = view.href ?? view.link
+      if (!rawHref) return false
+
+      const targetUrl = new URL(rawHref, "http://localhost")
+      if (targetUrl.pathname !== pathname) {
+        return false
+      }
+
+      const ignoredParams = new Set([
+        "page",
+        sortByParam,
+        sortDirParam,
+        ...(view.ignoreParams ?? []),
+      ])
+
+      const currentParams = new URLSearchParams(searchParams.toString())
+      ignoredParams.forEach((param) => {
+        currentParams.delete(param)
+      })
+
+      const targetParams = new URLSearchParams(targetUrl.search)
+      ignoredParams.forEach((param) => {
+        targetParams.delete(param)
+      })
+
+      const matchMode =
+        view.match ??
+        (Array.from(targetParams.keys()).length > 0 ? "subset" : "exact")
+
+      const targetEntries = Array.from(targetParams.entries())
+      const matchesTarget = targetEntries.every(
+        ([key, value]) => currentParams.get(key) === value
+      )
+
+      if (!matchesTarget) {
+        return false
+      }
+
+      if (matchMode === "subset") {
+        return true
+      }
+
+      const currentEntries = Array.from(currentParams.entries())
+      return (
+        currentEntries.length === targetEntries.length &&
+        currentEntries.every(([key, value]) => targetParams.get(key) === value)
+      )
+    },
+    [pathname, searchParams, sortByParam, sortDirParam]
+  )
+
+  return (
+    <div className="space-y-4 w-full min-w-0">
+      
+      <div className="w-full min-w-0 rounded-lg border overflow-hidden">
+
+        <div className="border-b px-3 py-2 flex items-center justify-between">
+
+          <div className="flex flex-wrap gap-2 flex-row flex-1">
+            {views && views.length > 0 && (
+              <>
+                {views.map((view) => {
+                  const href = view.href ?? view.link ?? "#"
+                  const active = isViewActive(view)
+
+                  return (
+                    <Link
+                      key={`${view.label}-${href}`}
+                      href={href}
+                      className={cn(
+                        "inline-flex min-h-7 items-center rounded-md px-3 text-sm transition-colors",
+                        active
+                          ? "bg-border font-medium text-foreground "
+                          : "text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                      )}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      {view.label}
+                    </Link>
+                  )
+                })}
+              </>
+            )}
+
+
+            {show_filters && searchKeys?.length ? (
+              <Input
+                placeholder="Search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                className="max-w-sm"
+              />
+            ) : null}
+          </div>
+
+          <Button
+            onClick={() => setShowFilters(!show_filters)}
+            variant="outline" size={"sm"}
+          >
+            <Search className="h-4 w-4" />
+            <Filter className="h-4 w-4" />
+          </Button>
+
+        </div>
+
+        {show_filters && (
+          <div className="border-b px-3 py-2">
+            <div className="flex items-center space-x-2">
+              {filters?.map((filter) => {
+                if (filter.type === "date") {
+                  return (
+                    <DatePicker
+                      key={String(filter.key)}
+                      value={parseFilterDate(getFilterValue(filter))}
+                      onChange={(date) =>
+                        updateFilterParam(filter, date ? format(date, "yyyy-MM-dd") : "")
+                      }
+                      className="h-8 w-[220px] justify-start text-sm"
+                      placeholder={filter.placeholder ?? filter.label}
+                    />
+                  )
+                }
+
+                if (filter.type === "text") {
+                  return (
+                    <Input
+                      key={String(filter.key)}
+                      value={getFilterValue(filter)}
+                      onChange={(event) => updateFilterParam(filter, event.target.value)}
+                      className="h-9 w-[220px] text-sm"
+                      placeholder={filter.placeholder ?? filter.label}
+                    />
+                  )
+                }
+
+                return (
+                  <Select
+                    key={String(filter.key)}
+                    value={getFilterValue(filter)}
+                    onValueChange={(value) =>
+                      updateFilterParam(filter, value === "all" ? "" : value)
+                    }
+                  >
+                    <SelectTrigger className="h-auto! text-sm border-dashed border-border p-1! px-3!">
+                      <SelectValue
+                        placeholder={filter.placeholder ?? filter.label}
+                      >
+                        {(() => {
+                          const value = getFilterValue(filter)
+                          if (!value) return filter.placeholder ?? filter.label
+                          const option = filter.options?.find(
+                            (opt) => opt.value === value
+                          )
+                          if (value) {
+                            return filter.label + ": " + value
+                          }
+                          return option ? option.label : value
+                        })()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      {(filter.options ?? []).map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              })}
+            </div>
+          </div>
+        )}
+  
+        <Table className={cn(width ? `table-auto` : "table-auto")} style={width ? { width } : undefined}>
+          <TableHeader className="bg-muted/30">
+            <TableRow>
+              {columns.map((column, columnIndex) => (
+                <TableHead
+                  key={String(column.key)}
+                  className={cn(
+                    "sticky top-0 z-20",
+                    column.className,
+                    columnIndex === columns.length - 1 &&
+                    "right-0"
+                  )}
+                >
+                  {enableSorting &&
+                    (!sortableColumnSet || sortableColumnSet.has(String(column.key))) ? (
+                    (() => {
+                      const columnKey = String(column.key)
+                      const sortKey = sortKeyMap?.[columnKey] ?? columnKey
+                      const isActive = currentSortBy === sortKey
+                      return (
+                        <Link
+                          href={buildSortHref(column)}
+                          className="inline-flex items-center gap-1 text-foreground hover:text-primary"
+                        >
+                          <span>{column.label}</span>
+                          {isActive ? (
+                            currentSortDir === "desc" ? (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                        </Link>
+                      )
+                    })()
+                  ) : (
+                    column.label
+                  )}
+                </TableHead>
+              ))}
+              {rowActions?.length ? (
+                <TableHead className="sticky top-0 right-0 z-20 bg-background" />
+              ) : null}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading_error ? (
+              <TableRow>
+                <TableCell colSpan={columns.length + 1} className="py-10">
+                  <div className="text-center text-sm text-destructive">
+                    {loading_error}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={columns.length + 1} className="py-10">
+                  <div className="text-center text-sm text-muted-foreground">
+                    {emptyMessage}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((row, rowIndex) => (
+                <TableRow key={rowIndex}>
+                  {columns.map((column, columnIndex) => (
+                    <TableCell
+                      key={String(column.key)}
+                      className={cn(
+                        columnIndex === columns.length - 1 &&
+                        "sticky right-0 bg-background"
+                      )}
+                    >
+                      {column.type === "status" ? (
+                        <StatusBadge
+                          status={String(getCellValue(row, column.key) ?? "")}
+                        />
+                      ) : column.type === "image" ? (
+                        renderImageValue(row, column)
+                      ) : (
+                        (() => {
+                          const value = getDisplayValue(row, column)
+                          if (!column.link) return renderValue(value)
+                          const href = getValue(row, column.link)
+                          if (typeof href === "string" && href.length > 0) {
+                            return (
+                              <Link href={href} className="text-primary underline-offset-4 hover:underline">
+                                {renderValue(value)}
+                              </Link>
+                            )
+                          }
+                          return renderValue(value)
+                        })()
+                      )}
+                    </TableCell>
+                  ))}
+                  {rowActions?.length ? (
+                    <TableCell className="sticky right-0 bg-background text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background shadow-xs">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {rowActions.map((action) => {
+                            const href =
+                              action.href ??
+                              (action.hrefKey
+                                ? String(getValue(row, action.hrefKey) ?? "")
+                                : "")
+                            return (
+                              <DropdownMenuItem
+                                key={action.label}
+                                className={cn(
+                                  action.variant === "destructive" &&
+                                  "text-destructive"
+                                )}
+                                asChild={Boolean(href)}
+                              >
+                                {href ? (
+                                  <Link href={href}>{action.label}</Link>
+                                ) : (
+                                  action.label
+                                )}
+                              </DropdownMenuItem>
+                            )
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      {hasMetaPagination ? (
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href={currentPage > 1 ? buildPageHref(currentPage - 1) : "#"}
+                aria-disabled={currentPage <= 1}
+                className={cn(currentPage <= 1 && "pointer-events-none opacity-50")}
+              />
+            </PaginationItem>
+            {paginationItems.map((item) =>
+              typeof item === "number" ? (
+                <PaginationItem key={item}>
+                  <PaginationLink
+                    href={buildPageHref(item)}
+                    isActive={currentPage === item}
+                  >
+                    {item}
+                  </PaginationLink>
+                </PaginationItem>
+              ) : (
+                <PaginationItem key={item}>
+                  <PaginationEllipsis />
+                </PaginationItem>
+              )
+            )}
+            <PaginationItem>
+              <PaginationNext
+                href={currentPage < lastPage ? buildPageHref(currentPage + 1) : "#"}
+                aria-disabled={currentPage >= lastPage}
+                className={cn(currentPage >= lastPage && "pointer-events-none opacity-50")}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      ) : null}
+    </div>
+  )
+}

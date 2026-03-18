@@ -1,0 +1,7 @@
+$kind: collection
+auth:
+  - id: ""
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{merchant_environme_token}}"

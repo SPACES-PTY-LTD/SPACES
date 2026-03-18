@@ -1,0 +1,7 @@
+$kind: http-request
+name: DELETE /api/v1/merchants/{{merchant_uuid}}/members/{{user_uuid}}
+url: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/members/{{user_uuid}}"
+method: DELETE
+headers:
+  Authorization: Bearer {{token}}
+order: 87000

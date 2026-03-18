@@ -1,0 +1,10 @@
+$kind: http-request
+name: POST /api/v1/webhooks/carriers/{{carrier_code}}
+url: "{{base_url}}/api/v1/webhooks/carriers/{{carrier_code}}"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 119000

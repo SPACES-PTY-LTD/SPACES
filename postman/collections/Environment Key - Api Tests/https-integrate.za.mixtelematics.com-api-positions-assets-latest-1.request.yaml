@@ -1,0 +1,20 @@
+$kind: http-request
+name: https://integrate.za.mixtelematics.com/api/positions/assets/latest/1
+url: https://integrate.za.mixtelematics.com/api/positions/assets/latest/1
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+        "assetIds": [
+            "1372326491215163392",
+            "1372326491215163392"
+        ]
+    }
+auth:
+  type: bearer
+  credentials:
+    token: eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IjdpNXRielA2YnU5VXhjR0F5MGhPVWZIX3M4SSIsImtpZCI6IjdpNXRielA2YnU5VXhjR0F5MGhPVWZIX3M4SSJ9.eyJpc3MiOiJodHRwczovL2lkZW50aXR5LnphLm1peHRlbGVtYXRpY3MuY29tL2NvcmUiLCJleHAiOjE3NzExNDc4OTEsIm5iZiI6MTc3MTE0NDI5MSwiY2xpZW50X2lkIjoic2VzZmlnaWxlLmludGVncmF0ZSIsInNjb3BlIjpbIk1pWC5JbnRlZ3JhdGUiLCJvZmZsaW5lX2FjY2VzcyJdLCJzdWIiOiItMzU5ODc1NzgzOTQ0MjQ0MjYxMyIsImF1dGhfdGltZSI6MTc3MTE0NDI5MSwiaWRwIjoiaWRzcnYiLCJBdXRoVG9rZW4iOiIxOTUwMjYwYi1lZjgwLTRjNGUtOTQ2ZC04ZDQ1MjEwYWNkYzQiLCJqdGkiOiI3OGIxZjU4ZTQ4YjRjNDgzNDEyYTRiN2FjZTUxMzYxZSIsImFtciI6WyJwYXNzd29yZCJdfQ.GgbjlzRCSEjN2B4_b383Ti5WzXqYBqxdlmnU9pqFgrkeJbXFv6ZfeOj6httNINy7d-vwyCia5KuXxEXSWIMii5EMKV9ezPhBh864VE8ros0Lf_gDZLy-uk--vs7eAU8BWBmcJ3quB7PvP98RJGMhJ1A8DIjpqYLn12TPVW86xBgD6VwEm_QsB8XKd6CbME9hUl84ouPZYq86vCVDUbCN67TN7IvIQLcEv2z1CU1RQSvZYpXk8fUUVJUaAt2yTpJRBB5rv1hAn01ofDYq-1R5DLVC2-8cOIbiTNCFYwWzGQkVbblLxcFBwu2i7sQoyWBc_-ppXG960__FRtbTjzW_3FTevYBR-358dJRFsUy-HXW7Ii-L3ZR-3itj3UAM6bLruB_djwPTx3BacpgHfbWXIS0hKa9GHSYDCipnicxF5jz7oYfaR_Ie0syxsJr08FpjKxpTCPkylTMFCPZUUx1uOqxX1XTZWHlLs8ttbfP6u5yuqd837jqv4gbLDPLk13ewUIuJtAtpvsHJktY3F6fLMOFm9WbnwLopMh2maRGQ3JFnduO4njdrVPV3JpTteX-ZHiEtJakJveJYcH45kiHL-TcmlF_kxEvqsRV2oMDHdsZJU5VEJEU4fxqXi_QajrT5ySOKE1qGT0mZy3WhIq-zKgYR-kggd0uZ07wb-VNAuSk
+order: 2000

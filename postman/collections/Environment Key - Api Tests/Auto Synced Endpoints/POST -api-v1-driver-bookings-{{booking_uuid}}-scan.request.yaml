@@ -1,0 +1,11 @@
+$kind: http-request
+name: POST /api/v1/driver/bookings/{{booking_uuid}}/scan
+url: "{{base_url}}/api/v1/driver/bookings/{{booking_uuid}}/scan"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 47000

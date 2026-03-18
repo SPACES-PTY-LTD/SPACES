@@ -1,0 +1,3 @@
+intergration_id,plate_number,ref_code,vehicle_type_id,make,model,color,vin_number,engine_number,odometer,year,photo_key,is_active,metadata_json
+veh-001,CA12345,TRK-001,,Toyota,Hilux,White,VIN123,ENG123,125000,2022,,true,"{""source"":""csv"",""fleet"":""north""}"
+veh-002,CA54321,TRK-002,,Ford,Ranger,Blue,VIN456,ENG456,98000,2021,,false,

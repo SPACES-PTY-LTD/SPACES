@@ -1,0 +1,7 @@
+$kind: http-request
+name: GET /api/v1/vehicles/{{vehicle_uuid}}
+url: "{{base_url}}/api/v1/vehicles/{{vehicle_uuid}}"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+order: 117000

@@ -1,0 +1,33 @@
+{
+  "merchant_id": "11111111-1111-1111-1111-111111111111",
+  "pickup_address": {
+    "name": "Pickup Name",
+    "phone": "+27123456789",
+    "line1": "1 Main Road",
+    "city": "Cape Town",
+    "country": "ZA"
+  },
+  "dropoff_address": {
+    "name": "Dropoff Name",
+    "phone": "+27123456789",
+    "line1": "2 Side Street",
+    "city": "Cape Town",
+    "country": "ZA"
+  },
+  "parcels": [
+    {
+      "weight": 2,
+      "weight_measurement": "kg",
+      "type": "parcel",
+      "length_cm": 20,
+      "width_cm": 15,
+      "height_cm": 10,
+      "declared_value": 1000,
+      "contents_description": "Electronics"
+    }
+  ],
+  "service_level": "same_day",
+  "metadata": {
+    "channel": "api"
+  }
+}

@@ -1,0 +1,12 @@
+$kind: http-request
+name: POST /api/v1/admin/tracking-providers/{{provider_uuid}}/integration-form-fields
+url: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/integratio\
+  n-form-fields"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 12000

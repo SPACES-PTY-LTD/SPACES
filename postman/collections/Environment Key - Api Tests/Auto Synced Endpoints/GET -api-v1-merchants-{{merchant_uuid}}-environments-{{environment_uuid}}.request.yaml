@@ -1,0 +1,8 @@
+$kind: http-request
+name: GET /api/v1/merchants/{{merchant_uuid}}/environments/{{environment_uuid}}
+url: "{{base_url}}/api/v1/merchants/{{merchant_uuid}}/environments/{{environmen\
+  t_uuid}}"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+order: 80000

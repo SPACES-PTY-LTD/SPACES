@@ -1,0 +1,17 @@
+name: Local
+values:
+  - key: bearer_token
+    value: ''
+    enabled: true
+  - key: base_url
+    value: ''
+    enabled: true
+  - key: merchant_environme_token
+    value: ''
+    enabled: true
+  - key: vehicle_type_id
+    value: ''
+    enabled: true
+  - key: provider_id
+    value: ''
+    enabled: true

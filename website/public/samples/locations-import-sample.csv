@@ -1,0 +1,3 @@
+company,code,is_loading_location,first_name,last_name,phone,town,name,address_line_1,address_line_2,city,province,postcode,country,latitude,longitude,polygon_wkt,polygon_coordinates_json
+Acme Foods DC,ACM-DC-01,Yes,John,Doe,+1-555-0101,North Yard,Main Gate,12 Industrial Ave,Unit 4,Dallas,TX,75201,US,32.7767,-96.7970,"POLYGON((-96.7980 32.7755,-96.7960 32.7755,-96.7960 32.7775,-96.7980 32.7775,-96.7980 32.7755))","[[32.7755,-96.798],[32.7755,-96.796],[32.7775,-96.796],[32.7775,-96.798],[32.7755,-96.798]]"
+Beta Retail Hub,BTR-HUB-02,No,Jane,Smith,+1-555-0202,South Zone,Receiving Dock,88 Market St,,Austin,TX,73301,US,30.2672,-97.7431,,"[]"

@@ -1,0 +1,206 @@
+You are a senior frontend engineer. Build a new Next.js 15 (App Router) frontend that connects to the API endpoints listed below. Use Tailwind CSS and shadcn/ui components throughout. The public landing page design must be clearly inspired by the Nexus Work Management Platform template: https://v0.app/templates/nexus-work-management-platform-ALfQrxyrJ8b . The admin area UI must follow the shadcn dashboard example: https://ui.shadcn.com/examples/dashboard .
+
+Deliverables
+- A Next.js 15 project scaffold with App Router and TypeScript.
+- Tailwind + shadcn/ui configured and used across all pages.
+- Landing page (public) inspired by the Nexus template (layout, sections, and visual rhythm) but original copy.
+- Auth flows and admin area with role-based access: Admin and Super Admin.
+- A complete set of admin pages aligned to the API endpoints below, with sidebar navigation and routes.
+- API client layer with auth handling, typed responses, and loading/error states.
+
+Project Setup Requirements
+- Use `app/` router, server components by default, client components only where needed.
+- Configure Tailwind and shadcn/ui (button, card, table, dialog, sheet, badge, tabs, dropdown, toast, input, select, textarea, date picker where appropriate).
+- Use `@/` alias for imports.
+- Add `.env.local` with `NEXT_PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_APP_ENV`.
+- Create a thin API client using fetch with token handling (access + refresh) and a safe retry flow.
+- Persist auth tokens in httpOnly cookies via Next.js route handlers (preferred), or fallback to secure storage.
+- Protect routes by role and redirect unauthenticated users.
+
+User Roles
+- `admin` and `super_admin` roles.
+- Both use the same login form, but redirect to different landing dashboards.
+- Super Admin has access to all admin pages; Admin sees only non-super-admin sections.
+
+Routes and Pages
+Public
+- `/` Landing page inspired by the Nexus template.
+- `/auth/login` Login form for Admin/Super Admin.
+- `/auth/forgot` and `/auth/reset` (UI only placeholders unless API endpoints exist).
+
+Admin Area (layout with sidebar, topbar, shadcn dashboard style)
+- `/admin` Admin dashboard (KPIs, quick links, recent activity, status cards).
+
+Admin (Shared)
+- `/admin/merchants` list + create.
+- `/admin/merchants/[merchantId]` details, edit, environments, members, invites.
+- `/admin/shipments` list.
+- `/admin/shipments/[shipmentId]` details + tracking + label download.
+- `/admin/quotes` list.
+- `/admin/quotes/[quoteId]` details.
+- `/admin/bookings` list.
+- `/admin/bookings/[bookingId]` details, cancel, assign/unassign driver.
+- `/admin/webhooks/subscriptions` list + create + test + delete.
+
+Super Admin Only
+- `/admin/users` list.
+- `/admin/webhook-deliveries` list + details.
+- `/admin/carriers` list + create.
+- `/admin/carriers/[carrierId]` details, edit, delete.
+- `/admin/vehicle-types` list + create.
+- `/admin/vehicle-types/[vehicleTypeId]` details, edit, delete.
+- `/admin/cancel-reasons` list + create.
+- `/admin/cancel-reasons/[cancelReasonId]` details, edit, delete.
+- `/admin/drivers` list + create.
+- `/admin/drivers/[driverId]` details, edit, delete, vehicles.
+
+Driver (Optional UI only; do not add to admin sidebar)
+- `/driver/bookings` list.
+- `/driver/bookings/[bookingId]` details, status update, scan, POD upload, cancel.
+- `/driver/vehicles` list + create.
+- `/driver/vehicles/[vehicleId]` details + edit + delete.
+
+Sidebar Navigation
+- Group sections: Dashboard, Merchants, Shipments, Quotes, Bookings, Webhooks, Admin Tools, Settings.
+- Show/hide menu items based on role.
+- Use shadcn `Sidebar`, `Accordion`, `Dropdown` patterns.
+
+API Endpoints (source of truth)
+Auth
+- POST `/api/v1/auth/register`
+- POST `/api/v1/auth/login`
+- POST `/api/v1/auth/logout`
+- POST `/api/v1/auth/refresh`
+- GET  `/api/v1/me`
+
+Merchants
+- POST `/api/v1/merchants`
+- GET  `/api/v1/merchants`
+- GET  `/api/v1/merchants/{merchant_uuid}`
+- PATCH `/api/v1/merchants/{merchant_uuid}`
+- DELETE `/api/v1/merchants/{merchant_uuid}`
+
+Merchant Members
+- POST `/api/v1/merchants/{merchant_uuid}/members/invite`
+- GET  `/api/v1/merchants/{merchant_uuid}/members`
+- PATCH `/api/v1/merchants/{merchant_uuid}/members/{user_uuid}`
+- DELETE `/api/v1/merchants/{merchant_uuid}/members/{user_uuid}`
+
+Merchant Invites
+- POST `/api/v1/merchant-invites/accept`
+- GET  `/api/v1/merchants/{merchant_uuid}/invites`
+- POST `/api/v1/merchants/{merchant_uuid}/invites/{invite_uuid}/resend`
+- POST `/api/v1/merchants/{merchant_uuid}/invites/{invite_uuid}/revoke`
+
+Merchant Environments
+- GET  `/api/v1/merchants/{merchant_uuid}/environments`
+- POST `/api/v1/merchants/{merchant_uuid}/environments`
+- GET  `/api/v1/merchants/{merchant_uuid}/environments/{environment_uuid}`
+- PATCH `/api/v1/merchants/{merchant_uuid}/environments/{environment_uuid}`
+- DELETE `/api/v1/merchants/{merchant_uuid}/environments/{environment_uuid}`
+- POST `/api/v1/merchants/{merchant_uuid}/environments/{environment_uuid}/token`
+
+Quotes
+- POST `/api/v1/quotes`
+- GET  `/api/v1/quotes/{quote_uuid}`
+- GET  `/api/v1/shipments/{shipment_uuid}/quotes`
+
+Shipments
+- POST `/api/v1/shipments`
+- GET  `/api/v1/shipments`
+- GET  `/api/v1/shipments/{shipment_uuid}`
+- PATCH `/api/v1/shipments/{shipment_uuid}`
+- DELETE `/api/v1/shipments/{shipment_uuid}`
+- GET  `/api/v1/shipments/{shipment_uuid}/label`
+- GET  `/api/v1/shipments/{shipment_uuid}/tracking`
+
+Bookings
+- POST `/api/v1/shipments/{shipment_uuid}/book`
+- GET  `/api/v1/bookings/{booking_uuid}`
+- POST `/api/v1/shipments/{shipment_uuid}/cancel`
+
+Webhook Subscriptions
+- POST `/api/v1/webhooks/subscriptions`
+- GET  `/api/v1/webhooks/subscriptions`
+- DELETE `/api/v1/webhooks/subscriptions/{subscription_uuid}`
+- POST `/api/v1/webhooks/subscriptions/{subscription_uuid}/test`
+
+Carrier Webhooks (internal)
+- POST `/api/v1/webhooks/carriers/dummy`
+
+Driver
+- GET  `/api/v1/driver/bookings`
+- GET  `/api/v1/driver/bookings/{booking_uuid}`
+- PATCH `/api/v1/driver/bookings/{booking_uuid}/status`
+- POST `/api/v1/driver/bookings/{booking_uuid}/scan`
+- POST `/api/v1/driver/bookings/{booking_uuid}/pod`
+- POST `/api/v1/driver/bookings/{booking_uuid}/cancel`
+- GET  `/api/v1/driver/vehicles`
+- GET  `/api/v1/driver/vehicles/{vehicle_uuid}`
+- POST `/api/v1/driver/vehicles`
+- PATCH `/api/v1/driver/vehicles/{vehicle_uuid}`
+- DELETE `/api/v1/driver/vehicles/{vehicle_uuid}`
+
+Super Admin
+- GET  `/api/v1/admin/users`
+- GET  `/api/v1/admin/merchants`
+- GET  `/api/v1/admin/shipments`
+- GET  `/api/v1/admin/webhook-deliveries`
+
+Admin Carriers
+- GET  `/api/v1/admin/carriers`
+- GET  `/api/v1/admin/carriers/{carrier_uuid}`
+- POST `/api/v1/admin/carriers`
+- PATCH `/api/v1/admin/carriers/{carrier_uuid}`
+- DELETE `/api/v1/admin/carriers/{carrier_uuid}`
+
+Admin Vehicle Types
+- GET  `/api/v1/admin/vehicle-types`
+- GET  `/api/v1/admin/vehicle-types/{vehicle_type_uuid}`
+- POST `/api/v1/admin/vehicle-types`
+- PATCH `/api/v1/admin/vehicle-types/{vehicle_type_uuid}`
+- DELETE `/api/v1/admin/vehicle-types/{vehicle_type_uuid}`
+
+Admin Cancel Reasons
+- GET  `/api/v1/admin/cancel-reasons`
+- GET  `/api/v1/admin/cancel-reasons/{cancel_reason_uuid}`
+- POST `/api/v1/admin/cancel-reasons`
+- PATCH `/api/v1/admin/cancel-reasons/{cancel_reason_uuid}`
+- DELETE `/api/v1/admin/cancel-reasons/{cancel_reason_uuid}`
+
+Admin Drivers
+- GET  `/api/v1/admin/drivers`
+- GET  `/api/v1/admin/drivers/{driver_uuid}`
+- POST `/api/v1/admin/drivers`
+- PATCH `/api/v1/admin/drivers/{driver_uuid}`
+- DELETE `/api/v1/admin/drivers/{driver_uuid}`
+- POST `/api/v1/admin/bookings/{booking_uuid}/assign-driver`
+- POST `/api/v1/admin/bookings/{booking_uuid}/unassign-driver`
+
+UI/UX Requirements
+- Use shadcn tables with search, filter, pagination, and row actions where appropriate.
+- Use dialogs/sheets for create/edit flows.
+- Provide empty states and loading skeletons.
+- Ensure all forms have validation and error display.
+- Provide a consistent breadcrumb pattern on detail pages.
+- Use a consistent status badge system for shipment/booking statuses.
+
+Data Modeling & State
+- Create typed models/interfaces for all API resources.
+- Centralize API calls in `lib/api/` with individual modules per resource.
+- Prefer server actions for mutations where appropriate, otherwise use route handlers and SWR/React Query.
+
+Notes
+- Do not add a driver app to the main admin sidebar (optional screens only).
+- Ensure role-based access is enforced in layout and routes.
+- Use realistic placeholder data for any endpoint not yet wired.
+- Keep the landing page marketing content cohesive and logistics-focused.
+
+Next.js 15 Guidance (avoid legacy patterns)
+- Use App Router only. Do not create a `pages/` directory.
+- Prefer Server Components by default; only add `"use client"` where needed.
+- Use Route Handlers (`app/api/*/route.ts`) for server-side auth cookie management and token refresh flows.
+- Avoid global middleware for auth gating unless absolutely necessary; prefer layout-level checks and server actions.
+- Use Server Actions for mutations where appropriate; don’t rely on `getServerSideProps` or `getInitialProps`.
+
+Also look at 
