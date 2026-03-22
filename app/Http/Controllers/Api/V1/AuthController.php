@@ -18,15 +18,43 @@ class AuthController extends Controller
 {
     public function register(RegisterRequest $request, AuthService $authService)
     {
+        $requestId = ApiResponse::requestId();
+        $validated = $request->validated();
+        Log::info('Register endpoint invoked', [
+            'request_id' => $requestId,
+            'path' => $request->path(),
+            'method' => $request->method(),
+            'origin' => $request->headers->get('origin'),
+            'referer' => $request->headers->get('referer'),
+            'content_type' => $request->headers->get('content-type'),
+            'accept' => $request->headers->get('accept'),
+            'email' => $validated['email'] ?? null,
+            'name' => $validated['name'] ?? null,
+            'has_password' => array_key_exists('password', $validated),
+            'has_password_confirmation' => array_key_exists('password_confirmation', $request->all()),
+        ]);
+
         try {
-            $result = $authService->register($request->validated());
+            $result = $authService->register($validated);
+            Log::info('Register endpoint succeeded', [
+                'request_id' => $requestId,
+                'user_id' => $result['user']->id ?? null,
+                'user_uuid' => $result['user']->user_uuid ?? null,
+                'email' => $result['user']->email ?? null,
+            ]);
 
             return ApiResponse::success([
                 'token' => $result['token'],
                 'user' => new UserResource($result['user']),
             ], [], Response::HTTP_CREATED);
         } catch (Throwable $e) {
-            Log::error('Register failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+            Log::error('Register failed', [
+                'request_id' => $requestId,
+                'error' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
             return $this->apiError($e, 'REGISTER_FAILED', 'Unable to register.', Response::HTTP_BAD_REQUEST);
         }
     }

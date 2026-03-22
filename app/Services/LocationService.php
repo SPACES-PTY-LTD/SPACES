@@ -660,6 +660,11 @@ class LocationService
             return $this->resolveLocationTypeId($merchant, trim($locationTypeUuid));
         }
 
+        $locationTypeSlug = $address['location_type'] ?? $address['location_type_slug'] ?? null;
+        if (is_string($locationTypeSlug) && trim($locationTypeSlug) !== '') {
+            return $this->firstOrCreateLocationTypeBySlug($merchant, trim($locationTypeSlug))->id;
+        }
+
         return $this->firstOrCreateLocationTypeBySlug($merchant, $defaultSlug)->id;
     }
 

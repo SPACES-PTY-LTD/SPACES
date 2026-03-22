@@ -16,6 +16,10 @@ class UserResource extends JsonResource
             'telephone' => $this->telephone,
             'role' => $this->role,
             'last_login_at' => optional($this->last_login_at)?->toIso8601String(),
+            'last_accessed_merchant_id' => $this->whenLoaded(
+                'lastAccessedMerchant',
+                fn () => $this->lastAccessedMerchant?->uuid
+            ),
             'merchants' => MerchantMemberResource::collection($this->whenLoaded('merchants')),
         ];
     }

@@ -75,7 +75,10 @@ class ShipmentService
                 'status' => 'draft',
                 'pickup_location_id' => $pickupLocation->id,
                 'dropoff_location_id' => $dropoffLocation->id,
-                'requested_vehicle_type_id' => $this->resolveVehicleTypeId($data['requested_vehicle_type_id'] ?? null),
+                'requested_vehicle_type_id' => $this->resolveVehicleTypeId(
+                    $data['requested_vehicle_type_id'] ?? null,
+                    $data['requested_vehicle_type'] ?? null
+                ),
                 'pickup_instructions' => $data['pickup_instructions'] ?? null,
                 'dropoff_instructions' => $data['dropoff_instructions'] ?? null,
                 'ready_at' => $data['ready_at'] ?? null,
@@ -293,8 +296,14 @@ class ShipmentService
                 'metadata',
             ]));
 
-            if (array_key_exists('requested_vehicle_type_id', $data)) {
-                $shipment->requested_vehicle_type_id = $this->resolveVehicleTypeId($data['requested_vehicle_type_id']);
+            if (
+                array_key_exists('requested_vehicle_type_id', $data) ||
+                array_key_exists('requested_vehicle_type', $data)
+            ) {
+                $shipment->requested_vehicle_type_id = $this->resolveVehicleTypeId(
+                    $data['requested_vehicle_type_id'] ?? null,
+                    $data['requested_vehicle_type'] ?? null
+                );
             }
 
             if (array_key_exists('invoice_number', $data) || array_key_exists('invoiced_at', $data)) {
@@ -362,12 +371,22 @@ class ShipmentService
         return $currentInvoicedAt ? Carbon::parse($currentInvoicedAt) : null;
     }
 
-    private function resolveVehicleTypeId(?string $vehicleTypeUuid): ?int
+    private function resolveVehicleTypeId(
+        ?string $vehicleTypeUuid,
+        ?string $vehicleTypeCode = null
+    ): ?int
     {
-        if (!$vehicleTypeUuid) {
-            return null;
+        if ($vehicleTypeUuid) {
+            $vehicleTypeId = VehicleType::where('uuid', $vehicleTypeUuid)->value('id');
+            if ($vehicleTypeId) {
+                return $vehicleTypeId;
+            }
         }
 
-        return VehicleType::where('uuid', $vehicleTypeUuid)->value('id');
+        if ($vehicleTypeCode) {
+            return VehicleType::where('code', $vehicleTypeCode)->value('id');
+        }
+
+        return null;
     }
 }

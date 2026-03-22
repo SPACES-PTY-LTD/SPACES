@@ -9,9 +9,12 @@ use App\Support\MerchantAccess;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class MerchantService
 {
@@ -38,6 +41,12 @@ class MerchantService
             $merchant->users()->syncWithoutDetaching([
                 $user->id => ['role' => MerchantAccess::ROLE_ACCOUNT_HOLDER],
             ]);
+
+            if ($user->role === 'user') {
+                $user->forceFill([
+                    'last_accessed_merchant_id' => $merchant->id,
+                ])->save();
+            }
 
             return $merchant;
         });
@@ -116,6 +125,25 @@ class MerchantService
             'driver_offline_timeout_minutes',
             'setup_completed_at',
         ]));
+        $merchant->save();
+
+        return $merchant;
+    }
+
+    public function updateMerchantLogo(Merchant $merchant, UploadedFile $logo): Merchant
+    {
+        $disk = Storage::disk('s3');
+        $extension = $logo->getClientOriginalExtension();
+        $filename = (string) Str::uuid().($extension ? '.'.$extension : '');
+        $path = sprintf('merchant-logos/%s/%s', $merchant->uuid, $filename);
+
+        $disk->putFileAs(dirname($path), $logo, basename($path), ['visibility' => 'public']);
+
+        if (!empty($merchant->logo_path) && $merchant->logo_path !== $path) {
+            $disk->delete($merchant->logo_path);
+        }
+
+        $merchant->logo_path = $path;
         $merchant->save();
 
         return $merchant;

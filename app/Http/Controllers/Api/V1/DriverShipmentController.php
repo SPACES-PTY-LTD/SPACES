@@ -29,6 +29,12 @@ use Throwable;
 
 class DriverShipmentController extends Controller
 {
+    private const COMPLETED_SHIPMENT_STATUSES = [
+        'delivered',
+        'failed',
+        'cancelled',
+    ];
+
     private const STATUS_FLOW = [
         'booked',
         'pickup_scheduled',
@@ -48,8 +54,19 @@ class DriverShipmentController extends Controller
             }
 
             $perPage = min((int) $request->get('per_page', 15), 100);
+            $statusFilter = strtolower((string) $request->get('status', 'active'));
 
-            $shipments = $this->queryDriverShipments($driver)
+            $query = $this->queryDriverShipments($driver);
+
+            if ($statusFilter === 'active') {
+                $query->whereNotIn('shipments.status', self::COMPLETED_SHIPMENT_STATUSES);
+            } elseif ($statusFilter === 'completed') {
+                $query->whereIn('shipments.status', self::COMPLETED_SHIPMENT_STATUSES);
+            } elseif (in_array($statusFilter, self::COMPLETED_SHIPMENT_STATUSES, true)) {
+                $query->where('shipments.status', $statusFilter);
+            }
+
+            $shipments = $query
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
 

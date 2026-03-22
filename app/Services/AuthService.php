@@ -7,41 +7,86 @@ use App\Models\RefreshToken;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class AuthService
 {
     private const REFRESH_TTL_DAYS = 30;
+    private const ADMIN_LOGIN_ROLES = ['user', 'super_admin'];
 
     public function register(array $data): array
     {
-        $user = DB::transaction(function () use ($data) {
-            $user = User::create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'telephone' => $data['telephone'] ?? null,
-                'password' => $data['password'],
-                'role' => 'user',
+        Log::info('AuthService register started', [
+            'email' => $data['email'] ?? null,
+            'name' => $data['name'] ?? null,
+            'has_telephone' => array_key_exists('telephone', $data) && !empty($data['telephone']),
+        ]);
+
+        try {
+            $user = DB::transaction(function () use ($data) {
+                $user = User::create([
+                    'name' => $data['name'],
+                    'email' => $data['email'],
+                    'telephone' => $data['telephone'] ?? null,
+                    'password' => $data['password'],
+                    'role' => 'user',
+                ]);
+
+                Log::info('AuthService register user created', [
+                    'user_id' => $user->id,
+                    'user_uuid' => $user->user_uuid,
+                    'email' => $user->email,
+                ]);
+
+                $account = Account::create([
+                    'owner_user_id' => $user->id,
+                ]);
+
+                Log::info('AuthService register account created', [
+                    'account_id' => $account->id,
+                    'owner_user_id' => $account->owner_user_id,
+                ]);
+
+                $user->forceFill(['account_id' => $account->id])->save();
+
+                return $user;
+            });
+
+            $token = $user->createToken('api')->plainTextToken;
+
+            Log::info('AuthService register token created', [
+                'user_id' => $user->id,
+                'user_uuid' => $user->user_uuid,
             ]);
 
-            $account = Account::create([
-                'owner_user_id' => $user->id,
+            return ['user' => $user, 'token' => $token];
+        } catch (Throwable $e) {
+            Log::error('AuthService register failed', [
+                'email' => $data['email'] ?? null,
+                'error' => $e->getMessage(),
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
-
-            $user->forceFill(['account_id' => $account->id])->save();
-
-            return $user;
-        });
-
-        $token = $user->createToken('api')->plainTextToken;
-
-        return ['user' => $user, 'token' => $token];
+            throw $e;
+        }
     }
 
     public function login(array $data): ?array
     {
         $user = User::where('email', $data['email'])->first();
         if (!$user || !Hash::check($data['password'], $user->password)) {
+            return null;
+        }
+
+        $loginContext = $data['login_context'] ?? null;
+        if ($loginContext === 'admin' && !in_array($user->role, self::ADMIN_LOGIN_ROLES, true)) {
+            return null;
+        }
+
+        if ($loginContext === 'driver' && $user->role !== 'driver') {
             return null;
         }
 

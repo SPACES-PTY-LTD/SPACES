@@ -1,12 +1,16 @@
 "use client"
 
 import { AdminLinks } from "@/lib/routes/admin"
+import { createMerchant, listMerchants } from "@/lib/api/merchants"
+import { isApiErrorResponse } from "@/lib/api/client"
+import type { Merchant } from "@/lib/types"
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
-import { signIn } from "next-auth/react"
+import { getSession, signIn, useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -35,11 +39,10 @@ const schema = z
 
 type FormValues = z.infer<typeof schema>
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.example.com"
-
 export function RegisterForm() {
   const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+  const { update } = useSession()
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -53,16 +56,21 @@ export function RegisterForm() {
   const onSubmit = async (values: FormValues) => {
     setError(null)
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
+      const response = await fetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
           name: values.name,
           email: values.email,
           password: values.password,
           password_confirmation: values.password_confirmation,
         }),
-      })
+      });
+
+      console.log("Registration response", response);
 
       if (!response.ok) {
         let message = "Registration failed"
@@ -74,7 +82,18 @@ export function RegisterForm() {
           if (typeof maybeError?.message === "string") {
             message = maybeError.message
           }
+        } else if (
+          payload &&
+          typeof payload === "object" &&
+          typeof (payload as { message?: unknown }).message === "string"
+        ) {
+          message = (payload as { message: string }).message
         }
+
+        console.error("Registration failed", {
+          status: response.status,
+          payload,
+        })
         setError(message)
         return
       }
@@ -83,13 +102,54 @@ export function RegisterForm() {
         email: values.email,
         password: values.password,
         callbackUrl: AdminLinks.dashboard,
-        redirect: true,
+        redirect: false,
       })
 
       if (result?.error) {
+        console.error("Auto-login after registration failed", result)
         setError("Registration succeeded, but login failed.")
+        return
+      }
+
+      const activeSession = await getSession()
+      const accessToken = activeSession?.accessToken ?? null
+      if (activeSession?.user?.role === "user" && accessToken) {
+        const merchantsResponse = await listMerchants(accessToken)
+        if (isApiErrorResponse(merchantsResponse)) {
+          console.error("Failed to load merchants after registration", merchantsResponse)
+        } else {
+          let merchants = merchantsResponse.data
+          if (merchants.length === 0) {
+            const created = await createMerchant({ name: "Main" }, accessToken)
+            if (isApiErrorResponse(created)) {
+              console.error("Failed to create default merchant after registration", created)
+            } else {
+              merchants = [created]
+            }
+          }
+
+          if (merchants.length > 0) {
+            const selected =
+              merchants.find(
+                (merchant) =>
+                  merchant.merchant_id === activeSession?.selected_merchant?.merchant_id
+              ) ?? merchants[0]
+
+            await update({
+              merchants: merchants as Merchant[],
+              selected_merchant: selected,
+            })
+          }
+        }
+      }
+
+      if (result?.url) {
+        router.push(result.url)
+      } else {
+        router.push(AdminLinks.dashboard)
       }
     } catch (err) {
+      console.error("Registration request crashed", err)
       setError(err instanceof Error ? err.message : "Registration failed")
     }
   }

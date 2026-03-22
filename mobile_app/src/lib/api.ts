@@ -226,6 +226,14 @@ export type DriverPresence = {
   active_offers: DeliveryOffer[];
 };
 
+export type DriverOnlineStatusResponse = {
+  user_device_id: string;
+  platform: string;
+  push_provider: string | null;
+  push_token: string | null;
+  last_seen_at: string | null;
+};
+
 export type CancelReason = {
   cancel_reason_id: string;
   code: string;
@@ -311,8 +319,14 @@ async function requestWithMeta<T>(path: string, options: RequestOptions = {}): P
 
 async function performRequest<T>(path: string, options: RequestOptions = {}): Promise<ApiEnvelope<T>> {
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const method = options.method ?? 'GET';
+  const url = `${apiBaseUrl}${path}`;
+  console.log(`[api] ${method} ${url}`, {
+    bodyType: isFormData ? 'form-data' : 'json',
+    hasToken: Boolean(options.token),
+  });
   const response = await fetch(`${apiBaseUrl}${path}`, {
-    method: options.method ?? 'GET',
+    method,
     headers: {
       Accept: 'application/json',
       ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
@@ -325,6 +339,11 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
   const payload = (await response.json()) as ApiEnvelope<T>;
 
   if (!response.ok || !payload.success) {
+    console.error(`[api] request failed: ${method} ${url}`, {
+      status: response.status,
+      error: payload.error,
+      meta: payload.meta,
+    });
     const error = new Error(payload.error?.message || 'Request failed.') as ApiRequestError;
 
     error.code = payload.error?.code;
@@ -341,6 +360,7 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
 export const authApi = {
   apiBaseUrl,
   async login(credentials: { email: string; password: string }) {
+    console.log("Attempting login with credentials", credentials, '/auth/login');
     return request<AuthPayload>('/auth/login', {
       body: credentials,
       method: 'POST',
@@ -366,6 +386,19 @@ export const authApi = {
 };
 
 export const driverApi = {
+  async updateProfile(
+    token: string,
+    payload: {
+      name?: string;
+      telephone?: string | null;
+    },
+  ) {
+    return request<AuthUser>('/driver/profile', {
+      body: payload,
+      method: 'PATCH',
+      token,
+    });
+  },
   async registerDevice(
     token: string,
     payload: {
@@ -406,12 +439,28 @@ export const driverApi = {
       token,
     });
   },
-  async updateOnlineStatus(token: string, isOnline: boolean) {
-    return request<DriverPresence>('/driver/presence/status', {
-      body: { is_online: isOnline },
+  async updateOnlineStatus(
+    token: string,
+    isOnline: boolean,
+    payload?: {
+      is_available?: boolean;
+      latitude?: number | null;
+      longitude?: number | null;
+      platform?: string;
+      user_device_id?: string;
+    },
+  ) {
+    const response = await request<DriverOnlineStatusResponse>('/driver/presence/status', {
+      body: {
+        is_online: isOnline,
+        ...(payload ?? {}),
+      },
       method: 'POST',
       token,
     });
+
+    console.log('update response', JSON.stringify(response, null, 2));
+    return response;
   },
   async listOffers(token: string) {
     return request<DeliveryOffer[]>('/driver/offers', { token });
@@ -429,8 +478,18 @@ export const driverApi = {
       token,
     });
   },
-  async listShipments(token: string, perPage = 20) {
-    return requestWithMeta<DriverShipment[]>(`/driver/shipments?per_page=${perPage}`, { token });
+  async listShipments(token: string, options: { perPage?: number; status?: string } = {}) {
+    const params = new URLSearchParams();
+    params.set('per_page', String(options.perPage ?? 20));
+
+    if (options.status) {
+      params.set('status', options.status);
+    }
+
+    const final_url = `/driver/shipments?${params.toString()}`;
+    console.log('Fetching shipments with URL:', final_url);
+
+    return requestWithMeta<DriverShipment[]>(final_url, { token });
   },
   async getShipment(token: string, shipmentId: string) {
     return request<DriverShipment>(`/driver/shipments/${shipmentId}`, { token });

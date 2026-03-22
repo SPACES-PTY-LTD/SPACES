@@ -58,11 +58,11 @@ export const adminNavGroups: NavGroup[] = [
         href: AdminLinks.shipments,
         icon: CreditCard,
         subItems: [
-          {
-            title: "Quotes",
-            href: AdminLinks.quotes,
-            icon: CreditCard,
-          },
+          // {
+          //   title: "Quotes",
+          //   href: AdminLinks.quotes,
+          //   icon: CreditCard,
+          // },
 
           {
             title: "Shipments Report",
@@ -272,6 +272,12 @@ export const adminNavGroups: NavGroup[] = [
         icon: CogIcon,
         subItems: [
           {
+            title: "Genral",
+            href: AdminLinks.settings,
+            icon: CogIcon,
+            roles: ["super_admin"],
+          },
+          {
             title: "Merchants",
             href: AdminLinks.merchants,
             icon: Users,
@@ -333,7 +339,7 @@ export const adminNavGroups: NavGroup[] = [
             roles: ["user"],
           },
           {
-            title: "Subscriptions",
+            title: "Webhooks",
             href: AdminLinks.webhookSubscriptions,
             icon: Plug,
           },
@@ -356,18 +362,18 @@ export const adminNavGroups: NavGroup[] = [
     ],
   },
 
-  {
-    id: "apps",
-    title: "Apps",
-    items: [
-      {
-        title: "Active Apps",
-        href: AdminLinks.apps,
-        icon: Blocks,
-        roles: ["user"],
-      },
-    ],
-  },
+  // {
+  //   id: "apps",
+  //   title: "Apps",
+  //   items: [
+  //     {
+  //       title: "Active Apps",
+  //       href: AdminLinks.apps,
+  //       icon: Blocks,
+  //       roles: ["user"],
+  //     },
+  //   ],
+  // },
   
 ]
 

@@ -15,15 +15,23 @@ export default async function InvoicedShipmentsPage({
   const session = await requireAuth()
   const merchantId = getScopedMerchantId(session)
   const resolvedSearchParams = searchParams ? await searchParams : {}
+  const pageParam = resolvedSearchParams.page
   const sortByParam = resolvedSearchParams.sort_by
   const sortDirParam = resolvedSearchParams.sort_dir
+  const rawPage = Array.isArray(pageParam) ? pageParam[0] : pageParam
   const sortBy = Array.isArray(sortByParam) ? sortByParam[0] : sortByParam
   const rawSortDir = Array.isArray(sortDirParam) ? sortDirParam[0] : sortDirParam
   const sortDir = rawSortDir === "asc" || rawSortDir === "desc" ? rawSortDir : undefined
+  const parsedPage = rawPage ? Number(rawPage) : undefined
+  const pageNumber =
+    parsedPage && Number.isFinite(parsedPage) && parsedPage > 0
+      ? Math.floor(parsedPage)
+      : undefined
   const canLoad = session.user.role === "super_admin" || Boolean(merchantId)
 
   const response = canLoad
     ? await listShipments(session.accessToken, {
+        page: pageNumber,
         merchant_id: merchantId,
         invoiced: true,
         sort_by: sortBy,

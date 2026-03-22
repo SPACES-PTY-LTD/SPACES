@@ -17,7 +17,7 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const { colorScheme } = useColorScheme();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -25,7 +25,7 @@ export default function RootLayout() {
         <AuthProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <RootNavigator />
-            <StatusBar style="auto" />
+            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           </ThemeProvider>
         </AuthProvider>
       </BottomSheetModalProvider>
@@ -46,7 +46,7 @@ function RootNavigator() {
 
   if (isHydrating || !navigationState?.key) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#111111]">
+      <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator color="#F54A4A" size="large" />
       </View>
     );
@@ -69,6 +69,7 @@ function RootNavigator() {
         <Stack.Screen name="shipments/[shipment_id]" />
         <Stack.Screen name="shipments/[shipment_id]/scan" />
         <Stack.Screen name="shipments/completed" />
+        <Stack.Screen name="account/edit-profile" />
         <Stack.Screen name="vehicles/[vehicle_id]" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>

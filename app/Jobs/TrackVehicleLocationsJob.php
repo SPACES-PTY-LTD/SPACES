@@ -2,11 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Models\Driver;
 use App\Models\MerchantIntegration;
 use App\Models\TrackingProvider;
 use App\Models\Vehicle;
 use App\Services\ActivityLogService;
 use App\Services\AutoRunLifecycleService;
+use App\Services\DriverVehicleService;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -14,6 +16,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -32,7 +35,8 @@ class TrackVehicleLocationsJob implements ShouldQueue
 
     public function handle(
         ActivityLogService $activityLogService,
-        AutoRunLifecycleService $autoRunLifecycleService
+        AutoRunLifecycleService $autoRunLifecycleService,
+        DriverVehicleService $driverVehicleService
     ): void
     {
         $integration = null;
@@ -119,6 +123,13 @@ class TrackVehicleLocationsJob implements ShouldQueue
 
                 $vehicle->forceFill($args)->save();
                 $updatedVehicles++;
+
+                $this->syncDetectedDriver(
+                    vehicle: $vehicle,
+                    merchantIntegration: $integration,
+                    driverIntegrationId: $driverIntegrationId,
+                    driverVehicleService: $driverVehicleService,
+                );
 
                 if ($integration->merchant) {
                     $insideGeofence = $autoRunLifecycleService->processVehiclePosition(
@@ -278,6 +289,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
     {
         $address = $position['address']
             ?? $position['formatted_address']
+            ?? $position['FormattedAddress']
             ?? Arr::get($position, 'position.address');
 
         if (is_array($address)) {
@@ -352,16 +364,65 @@ class TrackVehicleLocationsJob implements ShouldQueue
     private function extractDriverIntegrationId(array $position): ?string
     {
         $value = $position['driver_integration_id']
+            ?? $position['DriverIntegrationId']
             ?? $position['driverId']
             ?? $position['DriverId']
+            ?? $position['driver_id']
+            ?? $position['DriverID']
             ?? Arr::get($position, 'position.driver_integration_id')
-            ?? Arr::get($position, 'position.driverId');
+            ?? Arr::get($position, 'position.driverId')
+            ?? Arr::get($position, 'position.driver_id');
 
         if ($value === null || $value === '') {
             return null;
         }
 
         return (string) $value;
+    }
+
+    private function syncDetectedDriver(
+        Vehicle $vehicle,
+        MerchantIntegration $merchantIntegration,
+        ?string $driverIntegrationId,
+        DriverVehicleService $driverVehicleService
+    ): void {
+        if (!$merchantIntegration->merchant || blank($driverIntegrationId)) {
+            return;
+        }
+
+        $driver = Driver::query()
+            ->where(function ($builder) use ($merchantIntegration) {
+                $builder->where('merchant_id', $merchantIntegration->merchant_id)
+                    ->orWhere(function ($legacyBuilder) use ($merchantIntegration) {
+                        $legacyBuilder->whereNull('merchant_id')
+                            ->where('account_id', $merchantIntegration->account_id);
+                    });
+            })
+            ->where('intergration_id', $driverIntegrationId)
+            ->first();
+
+        if (!$driver) {
+            return;
+        }
+
+        DB::transaction(function () use ($driver, $vehicle, $driverVehicleService) {
+            $driver = Driver::query()->whereKey($driver->id)->lockForUpdate()->first();
+            $vehicle = Vehicle::query()->whereKey($vehicle->id)->lockForUpdate()->first();
+
+            if (!$driver || !$vehicle) {
+                return;
+            }
+
+            if (!$driver->is_active) {
+                $driver->forceFill([
+                    'is_active' => true,
+                ])->save();
+            }
+
+            if (!$driver->vehicles()->whereKey($vehicle->id)->exists()) {
+                $driverVehicleService->assignVehicle($driver, $vehicle);
+            }
+        });
     }
 
     private function extractLatitude(array $position): ?float

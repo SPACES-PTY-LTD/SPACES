@@ -1,7 +1,7 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 
 import { getEnvironmentConfig } from '@/src/config/env';
-import { authApi, SessionState } from '@/src/lib/api';
+import { authApi, AuthUser, SessionState } from '@/src/lib/api';
 import { clearSession, readSession, writeSession } from '@/src/lib/auth-storage';
 
 type LoginInput = {
@@ -16,6 +16,7 @@ type AuthContextValue = {
   session: SessionState | null;
   signIn: (input: LoginInput) => Promise<void>;
   signOut: () => Promise<void>;
+  updateSessionUser: (user: AuthUser) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function hydrate() {
       try {
         const storedSession = (await readSession()) as SessionState | null;
+        console.log('Restored session from storage:', storedSession);
 
         if (!storedSession) {
           return;
@@ -154,6 +156,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateSessionUser = async (user: AuthUser) => {
+    if (!session) {
+      return;
+    }
+
+    const nextSession = {
+      ...session,
+      user,
+    };
+
+    setSession(nextSession);
+    await writeSession(nextSession);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -163,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         signIn,
         signOut,
+        updateSessionUser,
       }}>
       {children}
     </AuthContext.Provider>

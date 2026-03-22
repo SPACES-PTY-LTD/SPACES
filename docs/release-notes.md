@@ -20,6 +20,851 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-03-22 | Version: unreleased
+
+### Summary
+- Added website middleware that forces requests on `app.spaces.za.com` into the admin area instead of rendering the public-facing site.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Requests to the Next.js website on host `app.spaces.za.com` now redirect to `/admin` unless they are already under `/admin`.
+- Next.js API routes, internal asset routes, and common metadata files remain accessible without this redirect so admin auth and assets continue to work.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `website/middleware.ts`
+  - `docs/release-notes.md`
+- Verification target:
+  - Confirm `app.spaces.za.com/` redirects to `/admin`.
+  - Confirm `app.spaces.za.com/admin` does not redirect again.
+  - Confirm Next.js API and asset paths remain unaffected by middleware matching.
+
+## 2026-03-22 | Version: unreleased
+
+### Summary
+- Added persisted last accessed merchant selection for regular admin users so the website restores the previously selected merchant after a new login.
+
+### API Changes
+- Added authenticated endpoint `PATCH /api/v1/me/last-accessed-merchant` to save the current user’s preferred merchant by merchant UUID.
+- `/api/v1/me` now includes `last_accessed_merchant_id` as the preferred merchant UUID when available.
+
+### Database Changes
+- Added nullable `users.last_accessed_merchant_id` foreign key referencing `merchants.id` with `nullOnDelete()`.
+
+### Behavior Changes
+- Admin merchant switching now persists the selected merchant in Laravel before the website session updates.
+- NextAuth merchant bootstrap now falls back to the persisted preferred merchant when no newer in-session selection exists.
+- Creating a merchant as a regular user now also marks that merchant as the user’s last accessed merchant.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/MeController.php`
+  - `app/Http/Requests/UpdateLastAccessedMerchantRequest.php`
+  - `app/Http/Resources/UserResource.php`
+  - `app/Models/User.php`
+  - `app/Services/MerchantService.php`
+  - `database/migrations/2026_03_22_000001_add_last_accessed_merchant_id_to_users_table.php`
+  - `routes/api.php`
+  - `website/src/components/layout/admin-shell.tsx`
+  - `website/src/lib/api/merchants.ts`
+  - `website/src/lib/types.ts`
+  - `website/src/types/next-auth.d.ts`
+  - `tests/Feature/LastAccessedMerchantTest.php`
+  - `docs/release-notes.md`
+- Verification target:
+  - Backend feature tests cover save success, authorization rejection, `/me` payload exposure, and null-on-delete behavior.
+
+## 2026-03-21 | Version: unreleased
+
+### Summary
+- Extended vehicle tracking address parsing to persist Mix Telematics `FormattedAddress` values into the vehicle's last known location address.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `TrackVehicleLocationsJob` now checks Mix Telematics `FormattedAddress` in addition to the existing address keys when saving `vehicles.last_location_address`.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Jobs/TrackVehicleLocationsJob.php`
+  - `docs/release-notes.md`
+- Verified by code review:
+  - `extractAddress()` now accepts `FormattedAddress` before falling back to lat/long-only storage.
+- Not run:
+  - Live Mix Telematics payload sync in this shell session.
+
+## 2026-03-21 | Version: unreleased
+
+### Summary
+- Updated vehicle tracking sync so provider-detected drivers are marked active and automatically linked to the detected vehicle when that driver-vehicle pairing does not already exist.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- When `TrackVehicleLocationsJob` receives a provider position with a resolvable driver integration ID, the matched driver now has `drivers.is_active` set to `true`.
+- The same tracking sync now creates a `driver_vehicles` assignment for that driver and vehicle if one does not already exist, preserving historical multi-vehicle relationships for drivers who operate different trucks.
+- Expanded tracking payload parsing to recognize additional driver identifier keys such as `DriverIntegrationId`, `driver_id`, and `DriverID`.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Jobs/TrackVehicleLocationsJob.php`
+  - `docs/release-notes.md`
+- Verified by code review:
+  - Detected drivers are resolved within the merchant/account scope before status or assignment changes are applied.
+  - Assignment creation remains deduplicated through the existing `DriverVehicleService::assignVehicle()` flow.
+- Not run:
+  - End-to-end provider sync test against a live tracking payload in this shell session.
+
+## 2026-03-21 | Version: unreleased
+
+### Summary
+- Switched the Expo mobile app theme source to NativeWind `useColorScheme` / `colorScheme`, added an in-app account screen theme toggle, and started replacing hard-coded mobile colors with semantic design tokens plus a shared text primitive.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Mobile app root navigation theme and status bar now follow NativeWind's active color scheme instead of the plain React Native appearance hook.
+- Account screen now includes a theme control that toggles NativeWind between light and dark mode at runtime.
+- Existing themed helper components now read the NativeWind-backed color scheme object so shared theme-aware UI keeps working.
+- The active theme now propagates across the app shell and major driver flows, including auth, dashboard, shipments, documents, vehicles, and shipment scan/completion screens.
+- Mobile styling now has shared semantic color tokens such as `background`, `card`, `primary`, `secondary`, `muted`, `destructive`, `warning`, and `success` defined in `global.css` / Tailwind.
+- Converted the main tab, auth, account edit, vehicle detail, shipment detail, shipment scan, and shipment completion screens away from raw Tailwind hex background/text classes to semantic utilities like `bg-background`, `bg-card`, `bg-secondary`, and `text-card-foreground`.
+- Added `@/component/ui/Text` as the shared app text primitive with default `text-foreground`, and updated app screens to use it so foreground text color is inherited centrally while still allowing extra classes per usage.
+- Replaced unsupported slash-opacity token usage like `text-secondary-foreground/80` with explicit opacity utilities so NativeWind resolves the semantic text colors correctly.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `mobile_app/app/_layout.tsx`
+  - `mobile_app/global.css`
+  - `mobile_app/tailwind.config.js`
+  - `mobile_app/component/ui/Text.tsx`
+  - `mobile_app/app/(tabs)/_layout.tsx`
+  - `mobile_app/app/(tabs)/index.tsx`
+  - `mobile_app/app/(tabs)/bookings.tsx`
+  - `mobile_app/app/(tabs)/vehicles.tsx`
+  - `mobile_app/app/(tabs)/documents.tsx`
+  - `mobile_app/app/(tabs)/explore.tsx`
+  - `mobile_app/app/(auth)/login.tsx`
+  - `mobile_app/app/(auth)/register.tsx`
+  - `mobile_app/app/account/edit-profile.tsx`
+  - `mobile_app/app/vehicles/[vehicle_id].tsx`
+  - `mobile_app/app/shipments/[shipment_id].tsx`
+  - `mobile_app/app/shipments/[shipment_id]/scan.tsx`
+  - `mobile_app/app/shipments/completed.tsx`
+  - `mobile_app/hooks/use-color-scheme.ts`
+  - `mobile_app/hooks/use-color-scheme.web.ts`
+  - `mobile_app/hooks/use-theme-color.ts`
+  - `mobile_app/components/ui/collapsible.tsx`
+  - `mobile_app/components/parallax-scroll-view.tsx`
+  - `docs/release-notes.md`
+- Verified by:
+  - `npx expo lint` in `mobile_app` completed with 0 errors.
+  - Root layout now consumes NativeWind `colorScheme` for navigation theme + status bar style.
+  - Account screen toggle calls NativeWind `toggleColorScheme()`.
+  - Main app screens now use NativeWind semantic color utilities or scheme-aware icon/input colors so toggling applies beyond a single screen.
+  - App screens now import the shared `@/component/ui/Text` wrapper instead of raw React Native `Text`.
+  - Repo search confirms no remaining hard-coded Tailwind page color classes under `mobile_app/app` / `mobile_app/components`.
+- Remaining:
+  - Runtime verification on device/simulator was not run in this shell session.
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Fixed mobile auth session persistence crash caused by incompatible AsyncStorage native module linkage in Expo.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Mobile app no longer throws `AsyncStorageError: Native module is null, cannot access legacy storage` during session read/write.
+- Session storage now auto-falls back to in-memory storage if native AsyncStorage binding is unavailable at runtime.
+- Removed verbose auth storage debug logs to reduce console noise.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `mobile_app/package.json`
+  - `mobile_app/package-lock.json`
+  - `mobile_app/src/lib/auth-storage.ts`
+  - `docs/release-notes.md`
+- Verified by dependency check:
+  - `npx expo install --check` now reports AsyncStorage version compatibility issue resolved (`@react-native-async-storage/async-storage` expected `2.2.0`).
+- Not run:
+  - Full Expo app runtime smoke test on device/simulator in this shell session.
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Audited `DataTable` pagination wiring across app/admin pages and fixed missing URL page forwarding on invoiced shipments.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/shipments/invoiced?page=<n>` now fetches and renders the correct API page instead of always returning page 1.
+- Verified other `DataTable` pages with server-backed pagination are already parsing and forwarding `page` correctly.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `website/src/app/admin/logistics/shipments/invoiced/page.tsx`
+  - `docs/release-notes.md`
+- Verified by code audit:
+  - Reviewed all `DataTable` usages under `website/src/app`.
+  - Confirmed page passthrough on all paginated server data pages after this fix.
+- Not run:
+  - Automated tests/lint for this audit task.
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Fixed admin shipments pagination so URL query `?page=<n>` is passed to the shipments API and loads the correct page.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Navigating directly to routes like `/admin/logistics/shipments?page=3` now fetches and displays page 3 results instead of always showing page 1.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `website/src/app/admin/logistics/shipments/page.tsx`
+  - `docs/release-notes.md`
+- Verified logic:
+  - `searchParams.page` is parsed and forwarded to `listShipments(..., { page })`.
+- Not run:
+  - Automated tests/lint for this page (not requested in this task).
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Added targeted mobile diagnostics for the driver online/offline toggle to trace where `Unable to update online status.` originates.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Mobile app now logs online-toggle flow milestones:
+  - toggle start metadata
+  - geolocation availability/success/failure details
+  - outgoing `/driver/presence/status` payload
+  - successful status response payload
+  - structured API error metadata (`status`, `code`, `requestId`, `details`) on failure
+- API client request logs now include method + URL and structured failure output for non-success responses.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `mobile_app/app/(tabs)/index.tsx`
+  - `mobile_app/src/lib/api.ts`
+  - `docs/release-notes.md`
+- Could not run:
+  - Mobile lint/typecheck/tests (`node`/`npm` not available in shell PATH)
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Added driver profile editing in the mobile app with an `Edit profile` action and save flow backed by a new driver profile update endpoint.
+
+### API Changes
+- Added `PATCH /api/v1/driver/profile` (driver-role only) to update authenticated driver user profile fields:
+  - `name` (`sometimes`, string, max 255)
+  - `telephone` (`nullable`, string, max 50)
+- Mobile app now calls this endpoint when saving profile updates.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Account tab now includes an `Edit profile` button.
+- New mobile screen `/account/edit-profile` allows editing:
+  - name
+  - telephone
+- Save updates backend profile data and refreshes local session user data immediately.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Http/Requests/UpdateDriverProfileRequest.php`
+  - `app/Http/Controllers/Api/V1/MeController.php`
+  - `routes/api.php`
+  - `mobile_app/src/lib/api.ts`
+  - `mobile_app/src/providers/auth-provider.tsx`
+  - `mobile_app/app/(tabs)/explore.tsx`
+  - `mobile_app/app/account/edit-profile.tsx`
+  - `mobile_app/app/_layout.tsx`
+  - `docs/release-notes.md`
+- Could not run:
+  - PHP lint (`php` not available in shell PATH)
+  - Mobile lint/typecheck/tests (`node`/`npm` not available in shell PATH)
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Added shipment status tab filtering on the driver bookings screen with backend support for `active` and `completed` status filters.
+
+### API Changes
+- Updated `GET /api/v1/driver/shipments` to support query param `status` values:
+  - `active` (returns non-completed statuses)
+  - `completed` (returns `delivered`, `failed`, `cancelled`)
+  - direct completed values (`delivered`, `failed`, `cancelled`)
+- Mobile app now calls `GET /api/v1/driver/shipments?per_page=20&status=<tab>` when loading/switching booking tabs.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Driver Bookings tab defaults to `Active` and fetches active shipments on load.
+- Switching to `Completed` refetches shipments with `status=completed`.
+- Pull-to-refresh now respects the currently selected shipment tab filter.
+- Empty state messaging now changes based on selected tab.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/DriverShipmentController.php`
+  - `mobile_app/src/lib/api.ts`
+  - `mobile_app/app/(tabs)/bookings.tsx`
+  - `docs/release-notes.md`
+- Could not run:
+  - PHP lint (`php` not available in shell PATH)
+  - Mobile lint/typecheck/tests (`node`/`npm` not available in shell PATH)
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Enhanced driver online toggle to include current location/device context when updating presence status.
+
+### API Changes
+- No backend endpoint contract changes.
+- Mobile client now sends additional fields to `POST /api/v1/driver/presence/status` when toggling online/offline:
+  - `is_available`
+  - `latitude`
+  - `longitude`
+  - `platform`
+  - `user_device_id`
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Going online now attempts to fetch current coordinates before status update and submits them immediately.
+- Dispatch can receive a fresh location at online-toggle time instead of waiting for the next heartbeat cycle.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `mobile_app/src/lib/api.ts`
+  - `mobile_app/app/(tabs)/index.tsx`
+  - `docs/release-notes.md`
+- Could not run:
+  - Mobile lint/typecheck/tests (`node`/`npm` not available in shell PATH)
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Fixed driver mobile app online toggle flow to handle the `/driver/presence/status` response shape correctly and avoid false failure messages.
+
+### API Changes
+- No backend endpoint contract changes.
+- Mobile client now expects `/driver/presence/status` response as device status payload (`user_device_id`, `platform`, `push_provider`, `push_token`, `last_seen_at`) instead of assuming full `DriverPresence`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Toggling online/offline no longer throws when status response does not include `active_offers` and other presence fields.
+- App now updates existing in-memory presence fields safely and waits for heartbeat to refresh full presence/offers payload.
+- Removed misleading Promise logging by awaiting the status request before logging response.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `mobile_app/src/lib/api.ts`
+  - `mobile_app/app/(tabs)/index.tsx`
+  - `docs/release-notes.md`
+- Could not run:
+  - Mobile lint/typecheck/tests (`node`/`npm` not available in shell PATH)
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Added `login_context` support to auth login and enforced admin-only sign-in for the admin web app.
+
+### API Changes
+- Updated `POST /api/v1/auth/login` to accept optional `login_context`:
+  - `admin`
+  - `driver`
+- Context enforcement:
+  - `admin` accepts only `user` and `super_admin` roles.
+  - `driver` accepts only `driver` role.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- NextAuth credentials login now sends `login_context: "admin"` for admin web sign-in.
+- Admin layout now enforces server-side role guard `["user", "super_admin"]` for all `/admin` routes.
+- Driver-role users are blocked from establishing admin web sessions and from rendering admin pages.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Http/Requests/LoginRequest.php`
+  - `app/Services/AuthService.php`
+  - `website/src/lib/nextauth.ts`
+  - `website/src/components/auth/login-form.tsx`
+  - `website/src/app/admin/layout.tsx`
+- Passed:
+  - `/opt/homebrew/bin/php -l app/Http/Requests/LoginRequest.php`
+  - `/opt/homebrew/bin/php -l app/Services/AuthService.php`
+- Could not run:
+  - Frontend lint/typecheck (`node`/`npm` not available in shell PATH)
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Added an admin action on the driver detail page to update a driver password via a dedicated dialog and endpoint.
+
+### API Changes
+- Added `PATCH /api/v1/drivers/{driver_uuid}/password` for updating a driver password.
+- Request payload:
+  - `password` (required)
+  - `password_confirmation` (required via `confirmed` validation)
+- Endpoint is inside admin API role middleware (`role:user,super_admin`), so it is not accessible to driver-role users.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Driver detail `Actions` dropdown now includes `Update password`.
+- Selecting it opens a dialog with:
+  - New password
+  - Confirm new password
+- Saving calls the new password endpoint and refreshes driver detail on success.
+- Password update activity is logged as `Driver password updated`.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Http/Requests/UpdateDriverPasswordRequest.php`
+  - `app/Http/Controllers/Api/V1/DriverController.php`
+  - `app/Services/DriverService.php`
+  - `routes/api.php`
+  - `website/src/lib/api/drivers.ts`
+  - `website/src/components/drivers/update-driver-password-dialog.tsx`
+  - `website/src/components/drivers/driver-detail-actions.tsx`
+- Passed:
+  - `/opt/homebrew/bin/php -l app/Http/Requests/UpdateDriverPasswordRequest.php`
+  - `/opt/homebrew/bin/php -l app/Http/Controllers/Api/V1/DriverController.php`
+  - `/opt/homebrew/bin/php -l app/Services/DriverService.php`
+  - `/opt/homebrew/bin/php -l routes/api.php`
+- Could not run:
+  - `cd website && npm run lint -- --file src/components/drivers/update-driver-password-dialog.tsx --file src/components/drivers/driver-detail-actions.tsx --file src/lib/api/drivers.ts` (Node/NPM not installed in shell PATH)
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Switched merchant logo storage and retrieval to AWS S3 disk usage.
+
+### API Changes
+- No endpoint shape changes.
+- `logo_url` in merchant responses is now generated from S3 storage URLs.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Merchant logo uploads are now written to `s3` disk instead of local/public disk.
+- Merchant list/detail logo URLs now resolve from the `s3` disk.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Services/MerchantService.php`
+  - `app/Http/Resources/MerchantResource.php`
+- Passed:
+  - `/opt/homebrew/bin/php -l app/Services/MerchantService.php`
+  - `/opt/homebrew/bin/php -l app/Http/Resources/MerchantResource.php`
+
+## 2026-03-19 | Version: unreleased
+
+### Summary
+- Refactored admin setup timezone and country inputs into reusable shared components and reused them on the admin settings page.
+- Implemented end-to-end settings persistence for merchant name, timezone, operating countries, and merchant logo upload.
+- Added merchant logo support to merchant API resources so merchant list responses include logo URL data.
+
+### API Changes
+- Added `POST /api/v1/merchants/{merchant_uuid}/logo` (multipart form upload with `logo` image file).
+- Updated merchant resource payloads (including list endpoints using `MerchantResource`) to include:
+  - `logo_url`
+
+### Database Changes
+- Added nullable `logo_path` column to `merchants` table.
+  - Migration: `database/migrations/2026_03_19_120000_add_logo_path_to_merchants_table.php`
+
+### Behavior Changes
+- `Settings` page now loads selected merchant context and saves:
+  - organization name
+  - timezone
+  - operating countries
+  - merchant logo (image upload)
+- Setup wizard and settings now share the same country/timezone selector behavior and option sources.
+- Uploading a new logo replaces the previous stored merchant logo file path.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `website/src/components/settings/timezone-select.tsx`
+  - `website/src/components/settings/country-multi-select.tsx`
+  - `website/src/lib/geo-options.ts`
+  - `website/src/components/settings/admin-setup-wizard.tsx`
+  - `website/src/components/settings/organization-settings-form.tsx`
+  - `website/src/app/admin/settings/page.tsx`
+  - `website/src/lib/api/merchants.ts`
+  - `website/src/lib/types.ts`
+  - `app/Http/Requests/UploadMerchantLogoRequest.php`
+  - `app/Http/Controllers/Api/V1/MerchantController.php`
+  - `app/Services/MerchantService.php`
+  - `app/Http/Resources/MerchantResource.php`
+  - `app/Models/Merchant.php`
+  - `routes/api.php`
+  - `database/migrations/2026_03_19_120000_add_logo_path_to_merchants_table.php`
+- Passed:
+  - `php -l app/Http/Controllers/Api/V1/MerchantController.php`
+  - `php -l app/Services/MerchantService.php`
+  - `php -l app/Http/Resources/MerchantResource.php`
+  - `php -l app/Http/Requests/UploadMerchantLogoRequest.php`
+  - `php -l app/Models/Merchant.php`
+  - `php -l database/migrations/2026_03_19_120000_add_logo_path_to_merchants_table.php`
+  - `php -l routes/api.php`
+  - `cd website && npm run lint` (warnings only, no errors)
+
+## 2026-03-18 | Version: unreleased
+
+### Summary
+- Normalized `tracking.updated` webhook event identifiers to UUID-based values and removed numeric tracking event ID leakage.
+
+### API Changes
+- Webhook payload contract change for `tracking.updated` event payloads:
+  - Removed `event.id`
+  - Replaced `event.uuid` with `event.event_id`
+  - `event.account_id`, `event.merchant_id`, `event.shipment_id`, and `event.booking_id` now carry UUID strings (or `null` for `booking_id` when no booking exists)
+- Top-level `shipment_id` and `shipment_uuid` remain unchanged.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `ProcessCarrierWebhookJob` now constructs an explicit outbound `event` payload map instead of forwarding `TrackingEvent::toArray()`.
+- Outbound event metadata keeps non-ID fields (`event_code`, `event_description`, `occurred_at`, `payload`, `created_at`, `updated_at`) while ensuring identifier fields are UUID-oriented.
+
+### Breaking Changes
+- Webhook consumers relying on numeric `event.id` or `event.uuid` must migrate to `event.event_id` and UUID-based identifier values.
+
+### Verification
+- Updated files:
+  - `app/Jobs/ProcessCarrierWebhookJob.php`
+  - `tests/Feature/CarrierWebhookTest.php`
+- Passed:
+  - `php -l app/Jobs/ProcessCarrierWebhookJob.php`
+  - `php -l tests/Feature/CarrierWebhookTest.php`
+- Attempted:
+  - `php artisan test --filter=CarrierWebhookTest` (fails in test bootstrap due existing SQLite-incompatible migration `2026_02_06_000004_update_quote_status_enum_add_booked.php` using `ALTER TABLE ... MODIFY ... ENUM ...`)
+
+## 2026-03-18 | Version: unreleased
+
+### Summary
+- Added support for address-level location type slug input on shipment create/on-demand/update payloads.
+
+### API Changes
+- `POST /api/v1/shipments`
+- `POST /api/v1/shipments/on-demand`
+- `PATCH /api/v1/shipments/{shipment_uuid}`
+- `pickup_address` and `dropoff_address` now accept:
+  - `location_type` (slug, e.g. `"dropoff"`)
+  - `location_type_slug` (slug alias)
+  - alongside existing `location_type_id` (UUID).
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Address location type resolution now supports this precedence:
+  - `location_type_id` / `location_type_uuid` (UUID) first
+  - then `location_type` / `location_type_slug` (slug)
+  - then endpoint default slug fallback (`pickup`/`dropoff`/`waypoint` as applicable).
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Http/Requests/StoreShipmentRequest.php`
+  - `app/Http/Requests/UpdateShipmentRequest.php`
+  - `app/Services/LocationService.php`
+- Passed:
+  - `php -l app/Http/Requests/StoreShipmentRequest.php`
+  - `php -l app/Http/Requests/UpdateShipmentRequest.php`
+  - `php -l app/Services/LocationService.php`
+
+## 2026-03-18 | Version: unreleased
+
+### Summary
+- Added support for vehicle type code input on shipment create/on-demand/update payloads.
+
+### API Changes
+- `POST /api/v1/shipments`
+- `POST /api/v1/shipments/on-demand`
+- `PATCH /api/v1/shipments/{shipment_uuid}`
+- These endpoints now accept `requested_vehicle_type` (vehicle type `code`, e.g. `"motorcycle"`) in addition to `requested_vehicle_type_id` (UUID).
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Shipment requested vehicle type resolution now supports:
+  - `requested_vehicle_type_id` (UUID) first priority
+  - fallback `requested_vehicle_type` (code) when UUID is not supplied.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Http/Requests/StoreShipmentRequest.php`
+  - `app/Http/Requests/UpdateShipmentRequest.php`
+  - `app/Services/ShipmentService.php`
+- Passed:
+  - `php -l app/Http/Requests/StoreShipmentRequest.php`
+  - `php -l app/Http/Requests/UpdateShipmentRequest.php`
+  - `php -l app/Services/ShipmentService.php`
+
+## 2026-03-18 | Version: unreleased
+
+### Summary
+- Updated registration auto-login flow to explicitly load merchants and set the selected merchant in session, mirroring login initialization behavior.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- After successful register + auto-login, the frontend now:
+  - fetches merchants using the new session access token,
+  - creates a default `Main` merchant if none exist,
+  - updates NextAuth session with `merchants` and `selected_merchant` before redirecting to dashboard.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated file:
+  - `website/src/components/auth/register-form.tsx`
+- Passed:
+  - `cd website && npm run lint`
+
+## 2026-03-18 | Version: unreleased
+
+### Summary
+- Fixed registration flow termination caused by an accidental hard `exit()` in the account-id model trait used during user creation.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Removed debug termination statements from `HasAccountId` so `User::create()` can complete normally during registration and downstream logs/DB writes continue.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated file:
+  - `app/Http/Traits/HasAccountId.php`
+- Passed:
+  - `php -l app/Http/Traits/HasAccountId.php`
+  - `php -l app/Services/AuthService.php`
+  - `php -l app/Http/Controllers/Api/V1/AuthController.php`
+  - `php -l app/Http/Requests/RegisterRequest.php`
+
+## 2026-03-18 | Version: unreleased
+
+### Summary
+- Added end-to-end registration debug logging across Next.js proxy and Laravel auth flow to trace upstream responses, CORS headers, validation failures, and DB write execution.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `POST /api/auth/register` (Next.js proxy) now logs full upstream response diagnostics: status, headers, raw body, timing, and CORS-related headers (`access-control-allow-*`) with an origin match check.
+- Laravel registration now logs:
+  - register endpoint invocation metadata in `AuthController@register`
+  - validation failure details in `RegisterRequest::failedValidation`
+  - service-layer registration milestones (user creation, account creation, token creation) and exceptions in `AuthService::register`.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `website/src/app/api/auth/register/route.ts`
+  - `app/Http/Controllers/Api/V1/AuthController.php`
+  - `app/Http/Requests/RegisterRequest.php`
+  - `app/Services/AuthService.php`
+- Passed:
+  - `php -l app/Http/Controllers/Api/V1/AuthController.php`
+  - `php -l app/Http/Requests/RegisterRequest.php`
+  - `php -l app/Services/AuthService.php`
+  - `cd website && npm run lint`
+
+## 2026-03-18 | Version: unreleased
+
+### Summary
+- Added structured observability logs for the frontend register proxy route to improve debugging of upstream signup failures.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `POST /api/auth/register` now logs request lifecycle events in the Next.js server runtime (`requestId`, duration, upstream status/content-type, and fetch failure details) without logging passwords.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated file:
+  - `website/src/app/api/auth/register/route.ts`
+- Passed:
+  - `cd website && npm run lint`
+
+## 2026-03-18 | Version: unreleased
+
+### Summary
+- Updated frontend registration flow to always attempt automatic login after successful signup and improved registration failure observability.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- After `POST /api/auth/register` succeeds, the register form now automatically signs in with credentials using `signIn(..., { redirect: false })` and performs explicit client navigation to the dashboard callback URL.
+- Registration failures now both display an error in the UI and log structured failure details (`status` and parsed `payload`) to the browser console.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated file:
+  - `website/src/components/auth/register-form.tsx`
+- Passed:
+  - `cd website && npm run lint`
+
+## 2026-03-18 | Version: unreleased
+
+### Summary
+- Fixed frontend registration CORS failures by moving signup calls to a same-origin Next.js API proxy route.
+
+### API Changes
+- Added frontend proxy endpoint `POST /api/auth/register` (Next.js route) to forward registration payloads to backend `POST /api/v1/auth/register`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Registration from `website` now posts to same-origin `/api/auth/register` instead of calling `NEXT_PUBLIC_API_BASE_URL` directly from the browser, eliminating browser CORS preflight dependency for signup.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `website/src/app/api/auth/register/route.ts`
+  - `website/src/components/auth/register-form.tsx`
+- Passed:
+  - `cd website && npm run lint`
+
 ## 2026-03-12 | Version: unreleased
 
 ### Summary

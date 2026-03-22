@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMerchantRequest;
+use App\Http\Requests\UploadMerchantLogoRequest;
 use App\Http\Requests\UpdateMerchantRequest;
 use App\Http\Requests\UpdateMerchantLocationAutomationRequest;
 use App\Http\Requests\UpdateMerchantSettingsRequest;
@@ -102,6 +103,21 @@ class MerchantController extends Controller
         } catch (Throwable $e) {
             Log::error('Merchant settings update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'MERCHANT_SETTINGS_UPDATE_FAILED', 'Unable to update merchant settings.');
+        }
+    }
+
+    public function updateLogo(UploadMerchantLogoRequest $request, string $merchant_uuid, MerchantService $service)
+    {
+        try {
+            $merchant = Merchant::where('uuid', $merchant_uuid)->firstOrFail();
+            $this->authorize('update', $merchant);
+
+            $merchant = $service->updateMerchantLogo($merchant, $request->file('logo'));
+
+            return ApiResponse::success(new MerchantResource($merchant->load('owner')));
+        } catch (Throwable $e) {
+            Log::error('Merchant logo update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+            return $this->apiError($e, 'MERCHANT_LOGO_UPDATE_FAILED', 'Unable to update merchant logo.');
         }
     }
 

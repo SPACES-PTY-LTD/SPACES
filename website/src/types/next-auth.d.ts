@@ -25,6 +25,7 @@ declare module "next-auth/jwt" {
     role?: string
     merchants?: Merchant[]
     selected_merchant?: Merchant
+    lastAccessedMerchantId?: string
     merchantsLoaded?: boolean
     accessTokenExpiresAt?: number
   }

@@ -3,9 +3,11 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/component/ui/Text';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ApiRequestError, CancelReason, DriverEntityFile, DriverFileType, DriverShipment, driverApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
 
@@ -16,6 +18,8 @@ export default function ShipmentDetailScreen() {
   const router = useRouter();
   const { shipment_id } = useLocalSearchParams<{ shipment_id: string }>();
   const { session } = useAuth();
+  const { colorScheme } = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
   const [shipment, setShipment] = useState<DriverShipment | null>(null);
   const [cancelReasons, setCancelReasons] = useState<CancelReason[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -236,50 +240,50 @@ export default function ShipmentDetailScreen() {
   }
 
   return (
-    <View className="flex-1 bg-[#F3EFE7]">
+    <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
 
       <Pressable
         onPress={() => router.back()}
-        className="absolute left-5 z-20 h-12 w-12 items-center justify-center rounded-full bg-white"
+        className="bg-card absolute left-5 z-20 h-12 w-12 items-center justify-center rounded-full"
         style={{ top: insets.top + 10 }}>
-        <Feather name="chevron-left" size={24} color="#111" />
+        <Feather name="chevron-left" size={24} color={isDarkMode ? '#FFFFFF' : '#111111'} />
       </Pressable>
 
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 18, paddingTop: insets.top + 72, paddingBottom: insets.bottom + 24 }}
         showsVerticalScrollIndicator={false}>
-        <View className="rounded-[32px] bg-[#111111] px-6 py-6">
-          <Text className="text-sm uppercase tracking-[3px] text-[#F54A4A]">Shipment detail</Text>
-          <Text className="mt-4 text-3xl font-semibold leading-tight text-white">
+        <View className="bg-secondary rounded-xl px-6 py-6">
+          <Text className="text-primary text-sm uppercase tracking-[3px]">Shipment detail</Text>
+          <Text className="text-secondary-foreground mt-4 text-3xl font-semibold leading-tight">
             {shipment?.merchant_order_ref || shipment?.delivery_note_number || shipment_id}
           </Text>
-          <Text className="mt-3 text-base leading-6 text-[#C8C8C8]">
+          <Text className="text-secondary-foreground mt-3 text-base leading-6 opacity-80">
             Current status: {shipment ? formatStatus(shipment.booking?.status || shipment.status) : 'Loading'}
           </Text>
         </View>
 
         {isLoading ? (
-          <View className="mt-6 items-center rounded-[28px] bg-white px-5 py-12">
+          <View className="bg-card mt-6 items-center rounded-xl px-5 py-12">
             <ActivityIndicator color="#F54A4A" />
           </View>
         ) : errorMessage ? (
-          <View className="mt-6 rounded-[28px] border border-[#FECACA] bg-[#FEE2E2] px-5 py-5">
-            <Text className="text-base font-semibold text-[#991B1B]">{errorMessage}</Text>
+          <View className="border-destructive bg-destructive mt-6 rounded-xl border px-5 py-5">
+            <Text className="text-destructive-foreground text-base font-semibold">{errorMessage}</Text>
           </View>
         ) : shipment ? (
           <>
             {!shipment.booking ? (
-              <View className="mt-6 rounded-[28px] border border-[#FDE68A] bg-[#FEF3C7] px-5 py-5">
-                <Text className="text-base font-semibold text-[#92400E]">
+              <View className="border-warning bg-warning mt-6 rounded-xl border px-5 py-5">
+                <Text className="text-warning-foreground text-base font-semibold">
                   Driver actions are unavailable because this shipment does not have a booking yet.
                 </Text>
               </View>
             ) : (
-              <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
-                <Text className="text-lg font-semibold text-[#111111]">Driver actions</Text>
-                <Text className="mt-2 text-sm leading-6 text-[#57534E]">
+              <View className="bg-card mt-6 rounded-xl px-5 py-5">
+                <Text className="text-card-foreground text-lg font-semibold">Driver actions</Text>
+                <Text className="text-muted-foreground mt-2 text-sm leading-6">
                   Record scans, update delivery status, attach POD details, or cancel the shipment.
                 </Text>
 
@@ -291,8 +295,8 @@ export default function ShipmentDetailScreen() {
                 </View>
 
                 {actionMessage ? (
-                  <View className="mt-4 rounded-[20px] bg-[#DCFCE7] px-4 py-3">
-                    <Text className="text-sm font-medium text-[#166534]">{actionMessage}</Text>
+                  <View className="bg-success mt-4 rounded-[20px] px-4 py-3">
+                    <Text className="text-success-foreground text-sm font-medium">{actionMessage}</Text>
                   </View>
                 ) : null}
 
@@ -422,16 +426,16 @@ export default function ShipmentDetailScreen() {
               value={`${shipment.scanned_parcel_count ?? 0} of ${shipment.total_parcel_count ?? shipment.parcels?.length ?? 0} parcels scanned`}
               subtitle={shipment.all_parcels_scanned ? 'All parcels scanned. Shipment is in transit.' : 'Every parcel must be scanned before pickup is complete.'}
             />
-            <View className="mt-4 rounded-[28px] bg-white px-5 py-5">
-              <Text className="text-lg font-semibold text-[#111111]">Parcels</Text>
+            <View className="bg-card mt-4 rounded-xl px-5 py-5">
+              <Text className="text-card-foreground text-lg font-semibold">Parcels</Text>
               <View className="mt-4 gap-3">
                 {(shipment.parcels || []).map((parcel) => (
-                  <View key={parcel.parcel_id} className="rounded-[20px] border border-[#E7E5E4] px-4 py-4">
-                    <Text className="text-sm font-semibold uppercase tracking-[2px] text-[#57534E]">{parcel.parcel_code || 'No code'}</Text>
-                    <Text className="mt-2 text-base font-medium text-[#111111]">
+                  <View key={parcel.parcel_id} className="border-border rounded-[20px] border px-4 py-4">
+                    <Text className="text-muted-foreground text-sm font-semibold uppercase tracking-[2px]">{parcel.parcel_code || 'No code'}</Text>
+                    <Text className="text-card-foreground mt-2 text-base font-medium">
                       {parcel.contents_description || parcel.type || 'Parcel'}
                     </Text>
-                    <Text className="mt-1 text-sm text-[#57534E]">
+                    <Text className="text-muted-foreground mt-1 text-sm">
                       {parcel.is_picked_up_scanned ? `Scanned at ${parcel.picked_up_scanned_at || 'pickup'}` : 'Pending pickup scan'}
                     </Text>
                   </View>
@@ -439,37 +443,37 @@ export default function ShipmentDetailScreen() {
               </View>
             </View>
 
-            <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
+            <View className="bg-card mt-6 rounded-xl px-5 py-5">
               <View className="flex-row items-center justify-between">
-                <Text className="text-lg font-semibold text-[#111111]">Shipment files</Text>
+                <Text className="text-card-foreground text-lg font-semibold">Shipment files</Text>
                 <Pressable
                   onPress={() => {
                     resetShipmentFileForm();
                     setFileModalVisible(true);
                   }}
-                  className="rounded-full bg-[#111111] px-4 py-3">
-                  <Text className="text-sm font-semibold text-white">Upload</Text>
+                  className="bg-secondary rounded-full px-4 py-3">
+                  <Text className="text-secondary-foreground text-sm font-semibold">Upload</Text>
                 </Pressable>
               </View>
 
               {shipmentFilesError ? (
-                <Text className="mt-4 text-sm font-medium text-[#B91C1C]">{shipmentFilesError}</Text>
+                <Text className="text-destructive-foreground mt-4 text-sm font-medium">{shipmentFilesError}</Text>
               ) : shipmentFiles.length === 0 ? (
-                <Text className="mt-4 text-base text-[#57534E]">No shipment files uploaded yet.</Text>
+                <Text className="text-muted-foreground mt-4 text-base">No shipment files uploaded yet.</Text>
               ) : (
                 <View className="mt-4 gap-3">
                   {shipmentFiles.map((file) => (
                     <Pressable
                       key={file.file_id}
                       onPress={() => openShipmentFile(file.file_id)}
-                      className="rounded-[20px] border border-[#E7E5E4] px-4 py-4">
-                      <Text className="text-sm uppercase tracking-[2px] text-[#57534E]">
+                      className="border-border rounded-[20px] border px-4 py-4">
+                      <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">
                         {file.file_type?.name || 'Shipment file'}
                       </Text>
-                      <Text className="mt-2 text-base font-medium text-[#111111]">
+                      <Text className="text-card-foreground mt-2 text-base font-medium">
                         {file.original_name || 'Unnamed file'}
                       </Text>
-                      <Text className="mt-1 text-sm text-[#57534E]">
+                      <Text className="text-muted-foreground mt-1 text-sm">
                         {file.expires_at ? `Expires ${file.expires_at.slice(0, 10)}` : 'No expiry'}
                       </Text>
                     </Pressable>
@@ -478,8 +482,8 @@ export default function ShipmentDetailScreen() {
               )}
             </View>
 
-            <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
-              <Text className="text-lg font-semibold text-[#111111]">Timeline</Text>
+            <View className="bg-card mt-6 rounded-xl px-5 py-5">
+              <Text className="text-card-foreground text-lg font-semibold">Timeline</Text>
               <InfoRow label="Booked at" value={shipment.booking?.booked_at} />
               <InfoRow label="Collected at" value={shipment.booking?.collected_at} />
               <InfoRow label="Delivered at" value={shipment.booking?.delivered_at} />
@@ -487,8 +491,8 @@ export default function ShipmentDetailScreen() {
               <InfoRow label="Cancelled at" value={shipment.booking?.cancelled_at} />
             </View>
 
-            <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
-              <Text className="text-lg font-semibold text-[#111111]">Shipment info</Text>
+            <View className="bg-card mt-6 rounded-xl px-5 py-5">
+              <Text className="text-card-foreground text-lg font-semibold">Shipment info</Text>
               <InfoRow label="Service type" value={shipment.service_type} />
               <InfoRow label="Priority" value={shipment.priority} />
               <InfoRow label="Invoice" value={shipment.invoice_number} />
@@ -501,8 +505,8 @@ export default function ShipmentDetailScreen() {
               />
             </View>
 
-            <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
-              <Text className="text-lg font-semibold text-[#111111]">Proof of delivery</Text>
+            <View className="bg-card mt-6 rounded-xl px-5 py-5">
+              <Text className="text-card-foreground text-lg font-semibold">Proof of delivery</Text>
               <InfoRow label="Signed by" value={shipment.booking?.pod?.signed_by} />
               <InfoRow label="File type" value={shipment.booking?.pod?.file_type} />
               <InfoRow label="Captured at" value={shipment.booking?.pod?.created_at} />
@@ -517,19 +521,19 @@ export default function ShipmentDetailScreen() {
         transparent={false}
         visible={fileModalVisible}
         onRequestClose={() => setFileModalVisible(false)}>
-        <View className="flex-1 bg-[#F3EFE7]">
+        <View className="flex-1 bg-background">
           <ScrollView
             contentContainerStyle={{ paddingHorizontal: 18, paddingTop: insets.top + 16, paddingBottom: 32 }}
             showsVerticalScrollIndicator={false}>
             <View className="flex-row items-center justify-between">
-              <Text className="text-3xl font-semibold text-[#111111]">Upload shipment file</Text>
+              <Text className="text-foreground text-3xl font-semibold">Upload shipment file</Text>
               <Pressable onPress={() => setFileModalVisible(false)}>
-                <Text className="text-base font-semibold text-[#F54A4A]">Close</Text>
+                <Text className="text-primary text-base font-semibold">Close</Text>
               </Pressable>
             </View>
 
-            <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
-              <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">File type</Text>
+            <View className="bg-card mt-6 rounded-xl px-5 py-5">
+              <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">File type</Text>
               <View className="mt-4 gap-3">
                 {shipmentFileTypes.map((fileType) => {
                   const isSelected = fileType.file_type_id === selectedFileTypeId;
@@ -538,11 +542,11 @@ export default function ShipmentDetailScreen() {
                       key={fileType.file_type_id}
                       onPress={() => setSelectedFileTypeId(fileType.file_type_id)}
                       className={`rounded-[22px] border px-4 py-4 ${
-                        isSelected ? 'border-[#F54A4A] bg-[#FFF1F1]' : 'border-[#E7E5E4] bg-[#FAFAF9]'
+                        isSelected ? 'border-primary bg-accent' : 'border-border bg-muted'
                       }`}>
-                      <Text className="text-base font-semibold text-[#111111]">{fileType.name}</Text>
+                      <Text className="text-card-foreground text-base font-semibold">{fileType.name}</Text>
                       {fileType.description ? (
-                        <Text className="mt-1 text-sm leading-6 text-[#57534E]">{fileType.description}</Text>
+                        <Text className="text-muted-foreground mt-1 text-sm leading-6">{fileType.description}</Text>
                       ) : null}
                     </Pressable>
                   );
@@ -550,47 +554,47 @@ export default function ShipmentDetailScreen() {
               </View>
             </View>
 
-            <View className="mt-4 rounded-[28px] bg-white px-5 py-5">
-              <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">Selected file</Text>
-              <Pressable onPress={pickShipmentFile} className="mt-4 rounded-full bg-[#111111] px-4 py-4">
-                <Text className="text-center text-base font-semibold text-white">
+            <View className="bg-card mt-4 rounded-xl px-5 py-5">
+              <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Selected file</Text>
+              <Pressable onPress={pickShipmentFile} className="bg-secondary mt-4 rounded-full px-4 py-4">
+                <Text className="text-secondary-foreground text-center text-base font-semibold">
                   {selectedDocument ? 'Choose a different file' : 'Choose file'}
                 </Text>
               </Pressable>
-              <Text className="mt-3 text-base text-[#57534E]">
+              <Text className="text-muted-foreground mt-3 text-base">
                 {selectedDocument ? selectedDocument.name : 'No file selected'}
               </Text>
             </View>
 
             {selectedShipmentFileType?.requires_expiry ? (
-              <View className="mt-4 rounded-[28px] bg-white px-5 py-5">
-                <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">Expiry date</Text>
+              <View className="bg-card mt-4 rounded-xl px-5 py-5">
+                <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Expiry date</Text>
                 <TextInput
                   autoCapitalize="none"
                   keyboardType="numbers-and-punctuation"
                   onChangeText={setFileExpiresAt}
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor="#A8A29E"
+                  placeholderTextColor={isDarkMode ? '#71717A' : '#A8A29E'}
                   value={fileExpiresAt}
-                  className="mt-4 rounded-[18px] border border-[#E7E5E4] bg-[#FAFAF9] px-4 py-4 text-base text-[#111111]"
+                  className="border-input-border bg-input text-input-foreground mt-4 rounded-[18px] border px-4 py-4 text-base"
                 />
               </View>
             ) : null}
 
             {fileFormError ? (
-              <View className="mt-4 rounded-[24px] border border-[#FECACA] bg-[#FEE2E2] px-4 py-4">
-                <Text className="text-sm font-semibold text-[#991B1B]">{fileFormError}</Text>
+              <View className="border-destructive bg-destructive mt-4 rounded-[24px] border px-4 py-4">
+                <Text className="text-destructive-foreground text-sm font-semibold">{fileFormError}</Text>
               </View>
             ) : null}
 
             <Pressable
               disabled={isMutating}
               onPress={uploadShipmentFile}
-              className={`mt-6 items-center rounded-full px-6 py-4 ${isMutating ? 'bg-[#FCA5A5]' : 'bg-[#F54A4A]'}`}>
+              className={`mt-6 items-center rounded-full px-6 py-4 ${isMutating ? 'bg-destructive' : 'bg-primary'}`}>
               {isMutating ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text className="text-base font-semibold text-white">Upload</Text>
+                <Text className="text-primary-foreground text-base font-semibold">Upload</Text>
               )}
             </Pressable>
           </ScrollView>
@@ -602,10 +606,10 @@ export default function ShipmentDetailScreen() {
 
 function DetailCard({ title, value, subtitle }: { title: string; value: string; subtitle?: string }) {
   return (
-    <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
-      <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">{title}</Text>
-      <Text className="mt-2 text-lg font-semibold leading-7 text-[#111111]">{value}</Text>
-      {subtitle ? <Text className="mt-2 text-base text-[#57534E]">{subtitle}</Text> : null}
+    <View className="bg-card mt-6 rounded-xl px-5 py-5">
+      <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">{title}</Text>
+      <Text className="text-card-foreground mt-2 text-lg font-semibold leading-7">{value}</Text>
+      {subtitle ? <Text className="text-muted-foreground mt-2 text-base">{subtitle}</Text> : null}
     </View>
   );
 }
@@ -620,9 +624,9 @@ function ActionCard({
   title: string;
 }) {
   return (
-    <View className="mt-5 rounded-[24px] bg-[#F5F5F4] px-4 py-4">
-      <Text className="text-base font-semibold text-[#111111]">{title}</Text>
-      <Text className="mt-1 text-sm leading-6 text-[#57534E]">{description}</Text>
+    <View className="bg-muted mt-5 rounded-[24px] px-4 py-4">
+      <Text className="text-card-foreground text-base font-semibold">{title}</Text>
+      <Text className="text-muted-foreground mt-1 text-sm leading-6">{description}</Text>
       <View className="mt-4 gap-4">{children}</View>
     </View>
   );
@@ -642,8 +646,8 @@ function ActionChip({
   return (
     <Pressable
       onPress={onPress}
-      className={`rounded-full px-4 py-3 ${isActive ? (destructive ? 'bg-[#FEE2E2]' : 'bg-[#111111]') : 'bg-[#F5F5F4]'}`}>
-      <Text className={`text-sm font-semibold ${isActive ? (destructive ? 'text-[#B91C1C]' : 'text-white') : 'text-[#111111]'}`}>
+      className={`rounded-full px-4 py-3 ${isActive ? (destructive ? 'bg-destructive' : 'bg-secondary') : 'bg-muted'}`}>
+      <Text className={`text-sm font-semibold ${isActive ? (destructive ? 'text-destructive-foreground' : 'text-secondary-foreground') : 'text-foreground'}`}>
         {label}
       </Text>
     </Pressable>
@@ -653,8 +657,8 @@ function ActionChip({
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <View className="mt-4 flex-row justify-between gap-4">
-      <Text className="flex-1 text-sm uppercase tracking-[2px] text-[#78716C]">{label}</Text>
-      <Text className="flex-1 text-right text-base font-medium text-[#111111]">{value || 'Not available'}</Text>
+      <Text className="text-muted-foreground flex-1 text-sm uppercase tracking-[2px]">{label}</Text>
+      <Text className="text-card-foreground flex-1 text-right text-base font-medium">{value || 'Not available'}</Text>
     </View>
   );
 }
@@ -674,7 +678,7 @@ function Input({
 }) {
   return (
     <View>
-      <Text className="mb-2 text-sm uppercase tracking-[2px] text-[#78716C]">{label}</Text>
+      <Text className="text-muted-foreground mb-2 text-sm uppercase tracking-[2px]">{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -682,7 +686,7 @@ function Input({
         textAlignVertical={multiline ? 'top' : 'center'}
         placeholder={placeholder}
         placeholderTextColor="#A8A29E"
-        className={`rounded-[18px] bg-white px-4 py-4 text-base text-[#111111] ${multiline ? 'min-h-24' : ''}`}
+        className={`bg-input text-input-foreground rounded-[18px] px-4 py-4 text-base ${multiline ? 'min-h-24' : ''}`}
       />
     </View>
   );
@@ -702,7 +706,7 @@ function OptionRow({
   selected: string;
 }) {
   if (options.length === 0) {
-    return <Text className="text-sm text-[#78716C]">{emptyLabel || 'No options available'}</Text>;
+    return <Text className="text-muted-foreground text-sm">{emptyLabel || 'No options available'}</Text>;
   }
 
   return (
@@ -714,8 +718,8 @@ function OptionRow({
           <Pressable
             key={option}
             onPress={() => onSelect(option)}
-            className={`rounded-full px-4 py-3 ${isSelected ? 'bg-[#111111]' : 'bg-white'}`}>
-            <Text className={`text-sm font-medium ${isSelected ? 'text-white' : 'text-[#111111]'}`}>
+            className={`rounded-full px-4 py-3 ${isSelected ? 'bg-secondary' : 'bg-card'}`}>
+            <Text className={`text-sm font-medium ${isSelected ? 'text-secondary-foreground' : 'text-card-foreground'}`}>
               {renderLabel ? renderLabel(option) : formatStatus(option)}
             </Text>
           </Pressable>
@@ -740,8 +744,8 @@ function SubmitButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      className={`items-center rounded-full px-5 py-4 ${disabled ? 'bg-[#D6D3D1]' : destructive ? 'bg-[#B91C1C]' : 'bg-[#111111]'}`}>
-      <Text className="text-base font-semibold text-white">{label}</Text>
+      className={`items-center rounded-full px-5 py-4 ${disabled ? 'bg-muted' : destructive ? 'bg-destructive' : 'bg-secondary'}`}>
+      <Text className={`text-base font-semibold ${disabled ? 'text-muted-foreground' : destructive ? 'text-destructive-foreground' : 'text-secondary-foreground'}`}>{label}</Text>
     </Pressable>
   );
 }

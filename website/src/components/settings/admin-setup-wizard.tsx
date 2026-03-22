@@ -5,36 +5,25 @@ import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import {
-  Check,
   ChevronLeft,
   ChevronRight,
-  ChevronsUpDown,
   Globe2,
   MapPin,
-  Sparkles,
   Trash2,
-  X,
 } from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+import { CountryMultiSelect } from "@/components/settings/country-multi-select"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { TimezoneSelect } from "@/components/settings/timezone-select"
 import { Switch } from "@/components/ui/switch"
 import { updateMerchantSettings } from "@/lib/api/merchants"
 import { isApiErrorResponse } from "@/lib/api/client"
+import { getDefaultTimezone } from "@/lib/geo-options"
 import { listLocationTypes, patchLocationTypes } from "@/lib/api/location-types"
 import { AdminLinks } from "@/lib/routes/admin"
 import type { LocationType, Merchant } from "@/lib/types"
-import { cn } from "@/lib/utils"
 
 type EditableLocationType = {
   location_type_id?: string | null
@@ -48,110 +37,8 @@ type EditableLocationType = {
   default: boolean
 }
 
-type CountryOption = {
-  code: string
-  name: string
-}
-
-const FALLBACK_COUNTRIES: CountryOption[] = [
-  { code: "US", name: "United States" },
-  { code: "CA", name: "Canada" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "ZA", name: "South Africa" },
-  { code: "AU", name: "Australia" },
-  { code: "NZ", name: "New Zealand" },
-  { code: "NG", name: "Nigeria" },
-  { code: "KE", name: "Kenya" },
-  { code: "IN", name: "India" },
-  { code: "AE", name: "United Arab Emirates" },
-]
-
-const NON_COUNTRY_REGION_CODES = new Set([
-  "EU",
-  "EZ",
-  "UN",
-  "XA",
-  "XB",
-  "XC",
-  "XD",
-  "XE",
-  "XF",
-  "XG",
-  "XH",
-  "XI",
-  "XJ",
-  "XL",
-  "XM",
-  "XN",
-  "XO",
-  "XP",
-  "XQ",
-  "XR",
-  "XS",
-  "XT",
-  "XU",
-  "XV",
-  "XW",
-  "XX",
-  "XZ",
-])
-
-const FALLBACK_TIMEZONES = [
-  "UTC",
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "Europe/London",
-  "Africa/Johannesburg",
-]
-
 function normalizeText(value: string | null | undefined) {
   return (value ?? "").trim()
-}
-
-function getDefaultTimezone() {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
-  } catch {
-    return "UTC"
-  }
-}
-
-function getTimezones() {
-  if (typeof Intl.supportedValuesOf === "function") {
-    const values = Intl.supportedValuesOf("timeZone")
-    if (values.length > 0) {
-      return values
-    }
-  }
-  return FALLBACK_TIMEZONES
-}
-
-function getCountryOptions() {
-  if (typeof Intl.DisplayNames !== "function") {
-    return FALLBACK_COUNTRIES
-  }
-
-  const displayNames = new Intl.DisplayNames(["en"], { type: "region" })
-  const values: CountryOption[] = []
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-  for (const firstChar of alphabet) {
-    for (const secondChar of alphabet) {
-      const code = `${firstChar}${secondChar}`
-      if (NON_COUNTRY_REGION_CODES.has(code)) continue
-      const name = displayNames.of(code)
-      if (!name || name === code) continue
-      values.push({ code, name })
-    }
-  }
-
-  if (values.length === 0) {
-    return FALLBACK_COUNTRIES
-  }
-
-  return values.sort((a, b) => a.name.localeCompare(b.name))
 }
 
 function fromLocationType(item: LocationType, sequence: number): EditableLocationType {
@@ -189,8 +76,6 @@ export function AdminSetupWizard({
   const [saving, setSaving] = React.useState(false)
   const [loadingTypes, setLoadingTypes] = React.useState(false)
   const [locationTypesLoaded, setLocationTypesLoaded] = React.useState(false)
-  const [timezoneOpen, setTimezoneOpen] = React.useState(false)
-  const [countryOpen, setCountryOpen] = React.useState(false)
   const [timezone, setTimezone] = React.useState(initialTimezone || getDefaultTimezone())
   const [countries, setCountries] = React.useState<string[]>(
     initialCountries?.length ? initialCountries : []
@@ -198,24 +83,6 @@ export function AdminSetupWizard({
   const [locationTypes, setLocationTypes] = React.useState<EditableLocationType[]>([])
   const [autoCreateShipment, setAutoCreateShipment] = React.useState(
     Boolean(initialAutoCreateShipment)
-  )
-
-  const timezoneOptions = React.useMemo(() => getTimezones(), [])
-  const countryOptions = React.useMemo(() => getCountryOptions(), [])
-  const countryByCode = React.useMemo(
-    () =>
-      new Map<string, CountryOption>(
-        countryOptions.map((country) => [country.code, country] as const)
-      ),
-    [countryOptions]
-  )
-  const selectedCountries = React.useMemo(
-    () =>
-      countries.map((code) => {
-        const option = countryByCode.get(code)
-        return option ?? { code, name: code }
-      }),
-    [countries, countryByCode]
   )
 
   const loadLocationTypes = React.useCallback(async () => {
@@ -258,14 +125,6 @@ export function AdminSetupWizard({
     if (step !== 2 || locationTypesLoaded) return
     loadLocationTypes()
   }, [loadLocationTypes, locationTypesLoaded, step])
-
-  const addCountry = (code: string) => {
-    setCountries((prev) => (prev.includes(code) ? prev : [...prev, code]))
-  }
-
-  const removeCountry = (code: string) => {
-    setCountries((prev) => prev.filter((value) => value !== code))
-  }
 
   const updateType = (
     index: number,
@@ -423,45 +282,7 @@ export function AdminSetupWizard({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Popover open={timezoneOpen} onOpenChange={setTimezoneOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={timezoneOpen}
-                  className="w-full justify-between font-normal"
-                >
-                  {timezone || "Choose timezone"}
-                  <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                <Command>
-                  <CommandInput placeholder="Search timezone..." />
-                  <CommandList>
-                    <CommandEmpty>No timezone found.</CommandEmpty>
-                    {timezoneOptions.map((zone) => (
-                      <CommandItem
-                        key={zone}
-                        value={zone}
-                        onSelect={() => {
-                          setTimezone(zone)
-                          setTimezoneOpen(false)
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            timezone === zone ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {zone}
-                      </CommandItem>
-                    ))}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <TimezoneSelect value={timezone} onChange={setTimezone} />
             <p className="text-xs text-muted-foreground">
               This sets default timestamps and scheduling behavior.
             </p>
@@ -478,63 +299,7 @@ export function AdminSetupWizard({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Popover open={countryOpen} onOpenChange={setCountryOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={countryOpen}
-                  className="w-full justify-between font-normal"
-                >
-                  Select a country
-                  <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                <Command>
-                  <CommandInput placeholder="Search countries..." />
-                  <CommandList>
-                    <CommandEmpty>No country found.</CommandEmpty>
-                    {countryOptions.map((country) => (
-                      <CommandItem
-                        key={country.code}
-                        value={`${country.name} ${country.code}`}
-                        onSelect={() => {
-                          addCountry(country.code)
-                          setCountryOpen(false)
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            countries.includes(country.code) ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {country.name}
-                      </CommandItem>
-                    ))}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <div className="flex flex-wrap gap-2">
-              {selectedCountries.map((country) => (
-                <div
-                  key={country.code}
-                  className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm text-primary"
-                >
-                  {country.name}
-                  <button
-                    type="button"
-                    aria-label={`Remove ${country.name}`}
-                    onClick={() => removeCountry(country.code)}
-                    className="rounded-full p-0.5 hover:bg-primary/20"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
+            <CountryMultiSelect value={countries} onChange={setCountries} />
             <div className="text-xs text-muted-foreground">
               These countries will be used for map search and address filtering.
             </div>

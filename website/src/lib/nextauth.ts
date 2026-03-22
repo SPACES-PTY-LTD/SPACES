@@ -2,7 +2,7 @@ import type { NextAuthOptions } from "next-auth"
 import type { JWT } from "next-auth/jwt"
 import CredentialsProvider from "next-auth/providers/credentials"
 import type { LoginResponse, Merchant } from "@/lib/types"
-import { createMerchant, listMerchants } from "@/lib/api/merchants"
+import { createMerchant, getCurrentUserProfile, listMerchants } from "@/lib/api/merchants"
 import { isApiErrorResponse } from "@/lib/api/client"
 
 const API_BASE_URL =
@@ -77,11 +77,14 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        login_context: { label: "Login Context", type: "text" },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials.password) {
           return null
         }
+
+        const loginContext = credentials.login_context ?? "admin"
 
         const loginUrl = `${API_BASE_URL}/api/v1/auth/login`
         const response = await fetch(loginUrl, {
@@ -92,6 +95,7 @@ export const authOptions: NextAuthOptions = {
           body: JSON.stringify({
             email: credentials.email,
             password: credentials.password,
+            login_context: loginContext,
           }),
         })
 
@@ -109,6 +113,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         const data = (await response.json()).data as AuthPayload
+        if (!data?.user?.role || !["user", "super_admin"].includes(data.user.role)) {
+          return null
+        }
+
         return {
           id: data.user.user_id,
           name: data.user.name,
@@ -140,6 +148,7 @@ export const authOptions: NextAuthOptions = {
         }
         if (session.selected_merchant) {
           token.selected_merchant = session.selected_merchant
+          token.lastAccessedMerchantId = session.selected_merchant.merchant_id
         }
       }
 
@@ -166,11 +175,22 @@ export const authOptions: NextAuthOptions = {
       const isUserRole = token.role === "user"
       if (isUserRole && token.accessToken && !token.merchantsLoaded) {
         try {
-          const response = await listMerchants(String(token.accessToken))
+          const [profileResponse, response] = await Promise.all([
+            getCurrentUserProfile(String(token.accessToken)),
+            listMerchants(String(token.accessToken), { per_page: 100 }),
+          ])
+
           if (isApiErrorResponse(response)) {
             console.error("Failed to load merchants for session", response.message)
             return token
           }
+
+          const persistedMerchantId = isApiErrorResponse(profileResponse)
+            ? undefined
+            : profileResponse.last_accessed_merchant_id ?? undefined
+
+          token.lastAccessedMerchantId = persistedMerchantId
+
           let merchants = response.data
           if (merchants.length === 0) {
             const created = await createMerchant(
@@ -189,6 +209,10 @@ export const authOptions: NextAuthOptions = {
             merchants.find(
               (merchant) =>
                 merchant.merchant_id === existingSelection?.merchant_id
+            ) ??
+            merchants.find(
+              (merchant) =>
+                merchant.merchant_id === token.lastAccessedMerchantId
             ) ?? merchants[0]
           
             // console.log("!!!!!!!!!!!!!!Loaded merchants for session", { merchants, selected })

@@ -597,6 +597,7 @@ class MixIntegrateService
             'speed_limit' => $item['speedLimit'] ?? $item['SpeedLimit'] ?? null,
             'driver_integration_id' => $item['driver_integration_id'] ?? $item['DriverId'] ?? null,
             'vehicle_integration_id' => $assetId ?? null,
+            'formatted_address' => $item['FormattedAddress'] ?? $item['formattedAddress'] ?? null,
             'odometer_kilometres' => $item['odometer_kilometres'] ?? $item['OdometerKilometres'] ?? null,
         ];
     }

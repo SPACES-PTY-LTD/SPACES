@@ -6,6 +6,7 @@ use App\Http\Resources\Concerns\FormatsMerchantTimestamps;
 use App\Support\MerchantAccess;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class MerchantResource extends JsonResource
 {
@@ -24,6 +25,7 @@ class MerchantResource extends JsonResource
             'delivery_offers_expiry_time' => $this->delivery_offers_expiry_time,
             'driver_offline_timeout_minutes' => $this->driver_offline_timeout_minutes,
             'default_webhook_url' => $this->default_webhook_url,
+            'logo_url' => $this->logo_path ? Storage::disk('s3')->url($this->logo_path) : null,
             'timezone' => $this->timezone ?? 'UTC',
             'operating_countries' => $this->operating_countries ?? [],
             'allow_auto_shipment_creations_at_locations' => (bool) $this->allow_auto_shipment_creations_at_locations,

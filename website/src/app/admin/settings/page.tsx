@@ -1,56 +1,36 @@
+import { OrganizationSettingsForm } from "@/components/settings/organization-settings-form"
 import { PageHeader } from "@/components/layout/page-header"
-import { Card, CardContent } from "@/components/ui/card"
-import Link from "next/link"
-import { AdminLinks } from "@/lib/routes/admin"
+import { requireAuth } from "@/lib/auth"
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const session = await requireAuth()
+  const merchant = session.selected_merchant
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Settings"
         description="System health and workspace configuration."
       />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Link href={AdminLinks.settingsFileTypes}>
-          <Card className="transition-colors hover:border-foreground/30">
-            <CardContent className="space-y-2">
-              <div className="text-sm font-semibold">File Types</div>
-              <div className="text-sm text-muted-foreground">
-                Configure shipment, driver, and vehicle upload requirements.
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href={AdminLinks.settingsLocationTypes}>
-          <Card className="transition-colors hover:border-foreground/30">
-            <CardContent className="space-y-2">
-              <div className="text-sm font-semibold">Location Types</div>
-              <div className="text-sm text-muted-foreground">
-                Manage merchant-specific location type definitions.
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href={AdminLinks.settingsLocationAutomation}>
-          <Card className="transition-colors hover:border-foreground/30">
-            <CardContent className="space-y-2">
-              <div className="text-sm font-semibold">Location Automation</div>
-              <div className="text-sm text-muted-foreground">
-                Configure ordered entry and exit actions for each merchant location type.
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href={AdminLinks.settingsEnvironments}>
-          <Card className="transition-colors hover:border-foreground/30">
-            <CardContent className="space-y-2">
-              <div className="text-sm font-semibold">Environments</div>
-              <div className="text-sm text-muted-foreground">
-                Manage merchant environments and API tokens.
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+      <div className="max-w-3xl mx-auto">
+        <div className="border border-border overflow-hidden rounded-xl">
+          <div className="p-6 bg-secondary/50">
+            <h3 className="font-bold">General</h3>
+            <p className="text-sm text-muted-foreground ">
+              General settings related to this organization.
+            </p>
+          </div>
+          {merchant ? (
+            <OrganizationSettingsForm
+              accessToken={session.accessToken}
+              merchant={merchant}
+            />
+          ) : (
+            <div className="p-6 text-sm text-muted-foreground">
+              Select a merchant to manage settings.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

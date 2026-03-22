@@ -44,6 +44,7 @@ export interface User {
   email: string
   role: Role
   status: Status
+  last_accessed_merchant_id?: UUID | null
 }
 
 export interface Merchant {
@@ -54,6 +55,7 @@ export interface Merchant {
   memberCount: number
   environmentCount: number
   createdAt: string
+  logo_url?: string | null
   timezone?: string | null
   operating_countries?: string[] | null
   allow_auto_shipment_creations_at_locations?: boolean

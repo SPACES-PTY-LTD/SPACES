@@ -24,6 +24,7 @@ class User extends Authenticatable
     protected $fillable = [
         'uuid',
         'account_id',
+        'last_accessed_merchant_id',
         'name',
         'email',
         'password',
@@ -76,6 +77,11 @@ class User extends Authenticatable
     public function ownedMerchants()
     {
         return $this->hasMany(Merchant::class, 'owner_user_id');
+    }
+
+    public function lastAccessedMerchant()
+    {
+        return $this->belongsTo(Merchant::class, 'last_accessed_merchant_id');
     }
 
     public function driver()

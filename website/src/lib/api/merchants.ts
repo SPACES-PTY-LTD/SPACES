@@ -10,16 +10,49 @@ import type {
   MerchantMember,
   MerchantPerson,
   MerchantAccessRole,
+  User,
 } from "@/lib/types"
 
 export async function listMerchants(
   token?: string | null,
-  params?: { page?: number }
+  params?: { page?: number; per_page?: number }
 ) {
   return apiFetch<ApiListResponse<Merchant>>("/api/v1/merchants", {
     token,
     params,
   })
+}
+
+export async function getCurrentUserProfile(token?: string | null) {
+  const response = await apiFetch<ApiEnvelope<User>>("/api/v1/me", {
+    token,
+  })
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
+}
+
+export async function updateLastAccessedMerchant(
+  merchantId: string,
+  token?: string | null
+) {
+  const response = await apiFetch<ApiEnvelope<User>>(
+    "/api/v1/me/last-accessed-merchant",
+    {
+      method: "PATCH",
+      body: { merchant_id: merchantId },
+      token,
+    }
+  )
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
 }
 
 export async function getMerchant(merchantId: string, token?: string | null) {
@@ -37,11 +70,17 @@ export async function createMerchant(
   payload: Partial<Merchant>,
   token?: string | null
 ) {
-  return apiFetch<Merchant>("/api/v1/merchants", {
+  const response = await apiFetch<ApiEnvelope<Merchant>>("/api/v1/merchants", {
     method: "POST",
     body: payload,
     token,
   })
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
 }
 
 export async function updateMerchant(
@@ -49,11 +88,17 @@ export async function updateMerchant(
   payload: Partial<Merchant>,
   token?: string | null
 ) {
-  return apiFetch<Merchant>(`/api/v1/merchants/${merchantId}`, {
+  const response = await apiFetch<ApiEnvelope<Merchant>>(`/api/v1/merchants/${merchantId}`, {
     method: "PATCH",
     body: payload,
     token,
   })
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
 }
 
 export type UpdateMerchantSettingsPayload = {
@@ -73,6 +118,30 @@ export async function updateMerchantSettings(
     {
       method: "PATCH",
       body: payload,
+      token,
+    }
+  )
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
+}
+
+export async function uploadMerchantLogo(
+  merchantId: string,
+  payload: { logo: File },
+  token?: string | null
+) {
+  const formData = new FormData()
+  formData.append("logo", payload.logo)
+
+  const response = await apiFetch<ApiEnvelope<Merchant>>(
+    `/api/v1/merchants/${merchantId}/logo`,
+    {
+      method: "POST",
+      body: formData,
       token,
     }
   )

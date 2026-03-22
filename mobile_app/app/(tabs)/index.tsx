@@ -1,16 +1,18 @@
-import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/component/ui/Text';
 import { ApiRequestError, DeliveryOffer, DriverPresence, driverApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
+
+const ONLINE_STATUS_LOG_TAG = '[driver-online-status]';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { apiBaseUrl, environmentName, session } = useAuth();
+  const { session } = useAuth();
   const user = session?.user;
   const [presence, setPresence] = useState<DriverPresence | null>(null);
   const [activeOffers, setActiveOffers] = useState<DeliveryOffer[]>([]);
@@ -108,6 +110,7 @@ export default function HomeScreen() {
 
   async function toggleOnline() {
     if (!session?.token) {
+      console.warn(`${ONLINE_STATUS_LOG_TAG} toggle aborted: no session token`);
       return;
     }
 
@@ -115,13 +118,56 @@ export default function HomeScreen() {
     setIsSyncing(true);
 
     try {
-      const response = await driverApi.updateOnlineStatus(session.token, nextOnline);
-      setPresence(response);
-      setActiveOffers(nextOnline ? response.active_offers || [] : []);
+      console.log(`${ONLINE_STATUS_LOG_TAG} toggle started`, {
+        currentOnline: isOnline,
+        nextOnline,
+        hasDeviceId: Boolean(deviceId),
+      });
+      const coords = nextOnline ? await getCurrentCoordinates() : null;
+      console.log(`${ONLINE_STATUS_LOG_TAG} coordinates resolved`, {
+        requested: nextOnline,
+        hasCoordinates: Boolean(coords),
+        latitude: coords?.latitude ?? null,
+        longitude: coords?.longitude ?? null,
+      });
+
+      const statusPayload = {
+        is_available: nextOnline,
+        latitude: coords?.latitude ?? null,
+        longitude: coords?.longitude ?? null,
+        platform: Platform.OS,
+        user_device_id: deviceId ?? undefined,
+      };
+      console.log(`${ONLINE_STATUS_LOG_TAG} sending updateOnlineStatus`, statusPayload);
+
+      const response = await driverApi.updateOnlineStatus(session.token, nextOnline, statusPayload);
+      console.log(`${ONLINE_STATUS_LOG_TAG} updateOnlineStatus succeeded`, response);
+      const lastSeenAt = response?.last_seen_at ?? null;
+      setPresence((current) => {
+        if (!current) {
+          return current;
+        }
+
+        return {
+          ...current,
+          is_online: nextOnline,
+          is_available: nextOnline,
+          last_seen_at: lastSeenAt ?? current.last_seen_at,
+          active_offers: nextOnline ? current.active_offers : [],
+        };
+      });
+      setActiveOffers((current) => (nextOnline ? current : []));
       setIsOnline(nextOnline);
       setErrorMessage(null);
     } catch (error) {
       const requestError = error as ApiRequestError;
+      console.error(`${ONLINE_STATUS_LOG_TAG} updateOnlineStatus failed`, {
+        message: requestError.message,
+        code: requestError.code,
+        status: requestError.status,
+        requestId: requestError.requestId,
+        details: requestError.details,
+      });
       setErrorMessage(requestError.message || 'Unable to update online status.');
     } finally {
       setIsSyncing(false);
@@ -169,45 +215,31 @@ export default function HomeScreen() {
   }
 
   return (
-    <View className="flex-1 bg-[#F3EFE7]" id="main_container">
+    <View className="flex-1 bg-background" id="main_container">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 18, paddingTop: insets.top + 8, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}>
-        <View className="rounded-[32px] bg-[#111111] px-6 pb-6 pt-6">
-          <Text className="text-sm uppercase tracking-[3px] text-[#F54A4A]">Driver Dashboard</Text>
-          <Text className="mt-4 text-4xl font-semibold leading-tight text-white">
-            Welcome back{user?.name ? `, ${user.name}` : ''}.
-          </Text>
-          <Text className="mt-3 text-base leading-6 text-[#C8C8C8]">
-            Go online to receive timed delivery offers and keep this screen open so presence heartbeats stay active.
+        <View className="bg-secondary rounded-xl px-6 pb-6 pt-6">
+
+          <Text className="text-secondary-foreground mt-4 text-3xl font-semibold leading-tight">
+            Welcome{user?.name ? `, ${user.name}` : ''}
           </Text>
 
-          <View className="mt-8 flex-row gap-3">
-            <View className="flex-1 rounded-[24px] bg-[#1C1C1F] px-4 py-4">
-              <Text className="text-sm uppercase tracking-[2px] text-[#A1A1AA]">Role</Text>
-              <Text className="mt-3 text-2xl font-semibold text-white">{user?.role ?? 'driver'}</Text>
-            </View>
-            <View className="flex-1 rounded-[24px] bg-[#1C1C1F] px-4 py-4">
-              <Text className="text-sm uppercase tracking-[2px] text-[#A1A1AA]">Environment</Text>
-              <Text className="mt-3 text-2xl font-semibold capitalize text-white">{environmentName}</Text>
-            </View>
-          </View>
-
-          <View className="mt-6 rounded-[24px] bg-[#1C1C1F] px-4 py-4">
+          <View className="mt-3 py-4">
             <View className="flex-row items-center justify-between">
               <View>
-                <Text className="text-sm uppercase tracking-[2px] text-[#A1A1AA]">Dispatch status</Text>
-                <Text className="mt-2 text-2xl font-semibold text-white">{isOnline ? 'Online' : 'Offline'}</Text>
-                <Text className="mt-1 text-sm text-[#C8C8C8]">
+                <Text className="text-secondary-foreground opacity-80 text-sm uppercase tracking-[2px]">Dispatch status</Text>
+                <Text className="text-secondary-foreground mt-2 text-2xl font-semibold">{isOnline ? 'Online' : 'Offline'}</Text>
+                <Text className="text-secondary-foreground opacity-80 mt-1 text-sm">
                   {presence?.last_seen_at ? `Last heartbeat: ${presence.last_seen_at}` : 'No heartbeat sent yet'}
                 </Text>
               </View>
               <Pressable
                 onPress={toggleOnline}
                 disabled={isSyncing}
-                className={`rounded-full px-5 py-3 ${isOnline ? 'bg-[#F54A4A]' : 'bg-white'}`}>
-                <Text className={`text-sm font-semibold ${isOnline ? 'text-white' : 'text-[#111111]'}`}>
+                className={`rounded-full px-5 py-3 ${isOnline ? 'bg-primary' : 'bg-card'}`}>
+                <Text className={`text-sm font-semibold ${isOnline ? 'text-primary-foreground' : 'text-card-foreground'}`}>
                   {isSyncing ? 'Syncing...' : isOnline ? 'Go offline' : 'Go online'}
                 </Text>
               </Pressable>
@@ -216,52 +248,52 @@ export default function HomeScreen() {
         </View>
 
         {errorMessage ? (
-          <View className="mt-6 rounded-[28px] border border-[#FECACA] bg-[#FEE2E2] px-5 py-5">
-            <Text className="text-base font-semibold text-[#991B1B]">{errorMessage}</Text>
+          <View className="border-destructive bg-destructive mt-6 rounded-xl border px-5 py-5">
+            <Text className="text-destructive-foreground text-base font-semibold">{errorMessage}</Text>
           </View>
         ) : null}
 
-        <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
-          <Text className="text-lg font-semibold text-[#111111]">Active delivery offer</Text>
+        <View className="bg-card mt-6 rounded-xl px-5 py-5">
+          <Text className="text-card-foreground text-lg font-semibold">Active delivery offer</Text>
           {isSyncing && isOnline && !nextOffer ? (
             <View className="mt-4 items-center py-8">
               <ActivityIndicator color="#F54A4A" />
             </View>
           ) : nextOffer ? (
-            <View className="mt-4 rounded-[24px] bg-[#F5F5F4] px-4 py-4">
-              <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">Offer #{nextOffer.sequence}</Text>
-              <Text className="mt-2 text-xl font-semibold text-[#111111]">
+            <View className="bg-muted mt-4 rounded-[24px] px-4 py-4">
+              <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Offer #{nextOffer.sequence}</Text>
+              <Text className="text-card-foreground mt-2 text-xl font-semibold">
                 {nextOffer.shipment?.merchant_order_ref || nextOffer.shipment?.delivery_note_number || nextOffer.shipment_id}
               </Text>
-              <Text className="mt-2 text-sm text-[#57534E]">
+              <Text className="text-muted-foreground mt-2 text-sm">
                 Pickup: {nextOffer.shipment?.pickup_location?.full_address || 'Unknown'}
               </Text>
-              <Text className="mt-1 text-sm text-[#57534E]">
+              <Text className="text-muted-foreground mt-1 text-sm">
                 Dropoff: {nextOffer.shipment?.dropoff_location?.full_address || 'Unknown'}
               </Text>
-              <Text className="mt-1 text-sm text-[#57534E]">Expires: {nextOffer.expires_at || 'Soon'}</Text>
+              <Text className="text-muted-foreground mt-1 text-sm">Expires: {nextOffer.expires_at || 'Soon'}</Text>
 
               <View className="mt-4 flex-row gap-3">
                 <Pressable
                   onPress={() => declineOffer(nextOffer)}
                   disabled={isMutatingOffer === nextOffer.offer_id}
-                  className="flex-1 rounded-full bg-[#FEE2E2] px-4 py-4">
-                  <Text className="text-center text-base font-semibold text-[#B91C1C]">
+                  className="bg-destructive flex-1 rounded-full px-4 py-4">
+                  <Text className="text-destructive-foreground text-center text-base font-semibold">
                     {isMutatingOffer === nextOffer.offer_id ? 'Please wait...' : 'Decline'}
                   </Text>
                 </Pressable>
                 <Pressable
                   onPress={() => acceptOffer(nextOffer)}
                   disabled={isMutatingOffer === nextOffer.offer_id}
-                  className="flex-1 rounded-full bg-[#111111] px-4 py-4">
-                  <Text className="text-center text-base font-semibold text-white">
+                  className="bg-secondary flex-1 rounded-full px-4 py-4">
+                  <Text className="text-secondary-foreground text-center text-base font-semibold">
                     {isMutatingOffer === nextOffer.offer_id ? 'Please wait...' : 'Accept'}
                   </Text>
                 </Pressable>
               </View>
             </View>
           ) : (
-            <Text className="mt-4 text-base leading-7 text-[#57534E]">
+            <Text className="text-muted-foreground mt-4 text-base leading-7">
               {isOnline
                 ? 'No active offers right now. Heartbeats continue every 30 seconds while you stay online.'
                 : 'Go online to become eligible for timed delivery offers.'}
@@ -269,41 +301,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-        <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
-          <Text className="text-lg font-semibold text-[#111111]">Session details</Text>
-
-          <View className="mt-4 gap-4">
-            <View className="flex-row items-start gap-3">
-              <View className="mt-1 h-10 w-10 items-center justify-center rounded-full bg-[#FDE8E8]">
-                <Feather name="user" size={18} color="#F54A4A" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">Driver name</Text>
-                <Text className="mt-1 text-lg font-semibold text-[#111111]">{user?.name ?? 'Not loaded'}</Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-start gap-3">
-              <View className="mt-1 h-10 w-10 items-center justify-center rounded-full bg-[#FDE8E8]">
-                <Feather name="mail" size={18} color="#F54A4A" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">Email</Text>
-                <Text className="mt-1 text-lg font-semibold text-[#111111]">{user?.email ?? 'Not loaded'}</Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-start gap-3">
-              <View className="mt-1 h-10 w-10 items-center justify-center rounded-full bg-[#FDE8E8]">
-                <Feather name="smartphone" size={18} color="#F54A4A" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">Registered device</Text>
-                <Text className="mt-1 text-base font-semibold text-[#111111]">{deviceId ?? 'Pending registration'}</Text>
-              </View>
-            </View>
-          </View>
-        </View>
+        
       </ScrollView>
     </View>
   );
@@ -313,18 +311,30 @@ async function getCurrentCoordinates(): Promise<{ latitude: number; longitude: n
   const geolocation = globalThis.navigator?.geolocation;
 
   if (!geolocation) {
+    console.warn(`${ONLINE_STATUS_LOG_TAG} geolocation unavailable on this device/runtime`);
     return null;
   }
 
   return await new Promise((resolve) => {
     geolocation.getCurrentPosition(
       (position) => {
+        console.log(`${ONLINE_STATUS_LOG_TAG} geolocation success`, {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+        });
         resolve({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
       },
-      () => resolve(null),
+      (geoError) => {
+        console.warn(`${ONLINE_STATUS_LOG_TAG} geolocation failed`, {
+          code: geoError.code,
+          message: geoError.message,
+        });
+        resolve(null);
+      },
       { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 },
     );
   });

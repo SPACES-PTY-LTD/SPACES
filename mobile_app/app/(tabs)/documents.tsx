@@ -8,12 +8,13 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Text } from '@/component/ui/Text';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ApiRequestError, DriverEntityFile, DriverFileType, driverApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
 
@@ -45,6 +46,8 @@ function formatDate(value?: string | null) {
 export default function DocumentsScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
+  const { colorScheme } = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
   const [files, setFiles] = useState<DriverEntityFile[]>([]);
   const [fileTypes, setFileTypes] = useState<DriverFileType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -183,16 +186,16 @@ export default function DocumentsScreen() {
   };
 
   return (
-    <View className="flex-1 bg-[#F3EFE7]">
+    <View className="flex-1 bg-background">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 18, paddingTop: insets.top + 8, paddingBottom: 24 }}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => loadDocuments('refresh')} />}
         showsVerticalScrollIndicator={false}>
-        <View className="rounded-[32px] bg-[#111111] px-6 py-6">
-          <Text className="text-sm uppercase tracking-[3px] text-[#F54A4A]">Documents</Text>
-          <Text className="mt-4 text-4xl font-semibold leading-tight text-white">Driver files</Text>
-          <Text className="mt-3 text-base leading-6 text-[#C8C8C8]">
+        <View className="bg-secondary rounded-xl px-6 py-6">
+          <Text className="text-primary text-sm uppercase tracking-[3px]">Documents</Text>
+          <Text className="text-secondary-foreground mt-4 text-4xl font-semibold leading-tight">Driver files</Text>
+          <Text className="text-secondary-foreground mt-3 text-base leading-6 opacity-80">
             Upload only the file types your merchant allows drivers to submit.
           </Text>
 
@@ -201,58 +204,58 @@ export default function DocumentsScreen() {
               resetUploadForm();
               setModalVisible(true);
             }}
-            className="mt-6 self-start rounded-full bg-white px-5 py-3">
-            <Text className="text-sm font-semibold text-[#111111]">Upload document</Text>
+            className="bg-card mt-6 self-start rounded-full px-5 py-3">
+            <Text className="text-card-foreground text-sm font-semibold">Upload document</Text>
           </Pressable>
         </View>
 
         {errorMessage ? (
-          <View className="mt-6 rounded-[28px] border border-[#FECACA] bg-[#FEE2E2] px-5 py-5">
-            <Text className="text-base font-semibold text-[#991B1B]">{errorMessage}</Text>
+          <View className="border-destructive bg-destructive mt-6 rounded-xl border px-5 py-5">
+            <Text className="text-destructive-foreground text-base font-semibold">{errorMessage}</Text>
           </View>
         ) : null}
 
         {isLoading ? (
-          <View className="mt-6 items-center rounded-[28px] bg-white px-5 py-12">
+          <View className="bg-card mt-6 items-center rounded-xl px-5 py-12">
             <ActivityIndicator color="#F54A4A" />
           </View>
         ) : files.length === 0 ? (
-          <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
-            <Text className="text-lg font-semibold text-[#111111]">No uploaded files</Text>
-            <Text className="mt-2 text-base leading-7 text-[#57534E]">
+          <View className="bg-card mt-6 rounded-xl px-5 py-5">
+            <Text className="text-card-foreground text-lg font-semibold">No uploaded files</Text>
+            <Text className="text-muted-foreground mt-2 text-base leading-7">
               Uploaded driver documents will appear here once submitted.
             </Text>
           </View>
         ) : (
           <View className="mt-6 gap-4">
             {files.map((file) => (
-              <View key={file.file_id} className="rounded-[28px] bg-white px-5 py-5">
+              <View key={file.file_id} className="bg-card rounded-xl px-5 py-5">
                 <View className="flex-row items-start justify-between gap-4">
                   <View className="flex-1">
-                    <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">
+                    <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">
                       {file.file_type?.name || 'Driver document'}
                     </Text>
-                    <Text className="mt-2 text-xl font-semibold text-[#111111]">
+                    <Text className="text-card-foreground mt-2 text-xl font-semibold">
                       {file.original_name || 'Unnamed file'}
                     </Text>
-                    <Text className="mt-2 text-sm text-[#57534E]">
+                    <Text className="text-muted-foreground mt-2 text-sm">
                       Uploaded {formatDate(file.created_at)} by {file.uploaded_by_user?.name || file.uploaded_by_role || 'Unknown'}
                     </Text>
                   </View>
                   <View
                     className={`rounded-full px-4 py-2 ${
-                      file.is_expired ? 'bg-[#FEE2E2]' : file.expires_at ? 'bg-[#FEF3C7]' : 'bg-[#E7E5E4]'
+                      file.is_expired ? 'bg-destructive' : file.expires_at ? 'bg-warning' : 'bg-muted'
                     }`}>
                     <Text
                       className={`text-sm font-semibold uppercase ${
-                        file.is_expired ? 'text-[#B91C1C]' : file.expires_at ? 'text-[#92400E]' : 'text-[#57534E]'
+                        file.is_expired ? 'text-destructive-foreground' : file.expires_at ? 'text-warning-foreground' : 'text-muted-foreground'
                       }`}>
                       {file.is_expired ? 'Expired' : file.expires_at ? 'Has expiry' : 'No expiry'}
                     </Text>
                   </View>
                 </View>
 
-                <View className="mt-5 rounded-[24px] bg-[#F5F5F4] px-4 py-4">
+                <View className="bg-muted mt-5 rounded-[24px] px-4 py-4">
                   <InfoLine label="Size" value={formatBytes(file.size_bytes)} />
                   <InfoLine label="Expiry" value={formatDate(file.expires_at)} />
                   <InfoLine label="Type" value={file.mime_type || 'Unknown'} />
@@ -260,8 +263,8 @@ export default function DocumentsScreen() {
 
                 <Pressable
                   onPress={() => handleDownload(file.file_id)}
-                  className="mt-4 items-center rounded-full bg-[#111111] px-4 py-4">
-                  <Text className="text-base font-semibold text-white">Download</Text>
+                  className="bg-secondary mt-4 items-center rounded-full px-4 py-4">
+                  <Text className="text-secondary-foreground text-base font-semibold">Download</Text>
                 </Pressable>
               </View>
             ))}
@@ -275,7 +278,7 @@ export default function DocumentsScreen() {
         transparent={false}
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}>
-        <View className="flex-1 bg-[#F3EFE7]">
+        <View className="flex-1 bg-background">
           <ScrollView
             contentContainerStyle={{
               paddingTop: insets.top + 16,
@@ -284,14 +287,14 @@ export default function DocumentsScreen() {
             }}
             showsVerticalScrollIndicator={false}>
             <View className="flex-row items-center justify-between">
-              <Text className="text-3xl font-semibold text-[#111111]">Upload document</Text>
+              <Text className="text-foreground text-3xl font-semibold">Upload document</Text>
               <Pressable onPress={() => setModalVisible(false)}>
-                <Text className="text-base font-semibold text-[#F54A4A]">Close</Text>
+                <Text className="text-primary text-base font-semibold">Close</Text>
               </Pressable>
             </View>
 
-            <View className="mt-6 rounded-[28px] bg-white px-5 py-5">
-              <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">File type</Text>
+            <View className="bg-card mt-6 rounded-xl px-5 py-5">
+              <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">File type</Text>
               <View className="mt-4 gap-3">
                 {fileTypes.map((fileType) => {
                   const isSelected = fileType.file_type_id === selectedFileTypeId;
@@ -300,14 +303,14 @@ export default function DocumentsScreen() {
                       key={fileType.file_type_id}
                       onPress={() => setSelectedFileTypeId(fileType.file_type_id)}
                       className={`rounded-[22px] border px-4 py-4 ${
-                        isSelected ? 'border-[#F54A4A] bg-[#FFF1F1]' : 'border-[#E7E5E4] bg-[#FAFAF9]'
+                        isSelected ? 'border-primary bg-accent' : 'border-border bg-muted'
                       }`}>
-                      <Text className="text-base font-semibold text-[#111111]">{fileType.name}</Text>
+                      <Text className="text-card-foreground text-base font-semibold">{fileType.name}</Text>
                       {fileType.description ? (
-                        <Text className="mt-1 text-sm leading-6 text-[#57534E]">{fileType.description}</Text>
+                        <Text className="text-muted-foreground mt-1 text-sm leading-6">{fileType.description}</Text>
                       ) : null}
                       {fileType.requires_expiry ? (
-                        <Text className="mt-2 text-xs font-semibold uppercase tracking-[2px] text-[#B45309]">
+                        <Text className="text-warning-foreground mt-2 text-xs font-semibold uppercase tracking-[2px]">
                           Expiry required
                         </Text>
                       ) : null}
@@ -317,47 +320,47 @@ export default function DocumentsScreen() {
               </View>
             </View>
 
-            <View className="mt-4 rounded-[28px] bg-white px-5 py-5">
-              <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">Selected file</Text>
-              <Pressable onPress={openPicker} className="mt-4 rounded-full bg-[#111111] px-4 py-4">
-                <Text className="text-center text-base font-semibold text-white">
+            <View className="bg-card mt-4 rounded-xl px-5 py-5">
+              <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Selected file</Text>
+              <Pressable onPress={openPicker} className="bg-secondary mt-4 rounded-full px-4 py-4">
+                <Text className="text-secondary-foreground text-center text-base font-semibold">
                   {selectedDocument ? 'Choose a different file' : 'Choose file'}
                 </Text>
               </Pressable>
-              <Text className="mt-3 text-base text-[#57534E]">
+              <Text className="text-muted-foreground mt-3 text-base">
                 {selectedDocument ? selectedDocument.name : 'No file selected'}
               </Text>
             </View>
 
             {selectedFileType?.requires_expiry ? (
-              <View className="mt-4 rounded-[28px] bg-white px-5 py-5">
-                <Text className="text-sm uppercase tracking-[2px] text-[#78716C]">Expiry date</Text>
+              <View className="bg-card mt-4 rounded-xl px-5 py-5">
+                <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Expiry date</Text>
                 <TextInput
                   autoCapitalize="none"
                   keyboardType="numbers-and-punctuation"
                   onChangeText={setExpiresAt}
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor="#A8A29E"
+                  placeholderTextColor={isDarkMode ? '#71717A' : '#A8A29E'}
                   value={expiresAt}
-                  className="mt-4 rounded-[18px] border border-[#E7E5E4] bg-[#FAFAF9] px-4 py-4 text-base text-[#111111]"
+                  className="border-input-border bg-input text-input-foreground mt-4 rounded-[18px] border px-4 py-4 text-base"
                 />
               </View>
             ) : null}
 
             {formError ? (
-              <View className="mt-4 rounded-[24px] border border-[#FECACA] bg-[#FEE2E2] px-4 py-4">
-                <Text className="text-sm font-semibold text-[#991B1B]">{formError}</Text>
+              <View className="border-destructive bg-destructive mt-4 rounded-[24px] border px-4 py-4">
+                <Text className="text-destructive-foreground text-sm font-semibold">{formError}</Text>
               </View>
             ) : null}
 
             <Pressable
               disabled={isUploading}
               onPress={handleUpload}
-              className={`mt-6 items-center rounded-full px-6 py-4 ${isUploading ? 'bg-[#FCA5A5]' : 'bg-[#F54A4A]'}`}>
+              className={`mt-6 items-center rounded-full px-6 py-4 ${isUploading ? 'bg-destructive' : 'bg-primary'}`}>
               {isUploading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text className="text-base font-semibold text-white">Upload</Text>
+                <Text className="text-primary-foreground text-base font-semibold">Upload</Text>
               )}
             </Pressable>
           </ScrollView>
@@ -370,8 +373,8 @@ export default function DocumentsScreen() {
 function InfoLine({ label, value }: { label: string; value: string }) {
   return (
     <View className="mt-3 first:mt-0">
-      <Text className="text-xs uppercase tracking-[2px] text-[#A8A29E]">{label}</Text>
-      <Text className="mt-1 text-base font-medium text-[#111111]">{value}</Text>
+      <Text className="text-muted-foreground text-xs uppercase tracking-[2px]">{label}</Text>
+      <Text className="text-card-foreground mt-1 text-base font-medium">{value}</Text>
     </View>
   );
 }

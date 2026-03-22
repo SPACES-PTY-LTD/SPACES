@@ -26,7 +26,9 @@ class ProcessCarrierWebhookJob implements ShouldQueue
             return;
         }
 
-        $shipment = Shipment::where('uuid', $shipmentUuid)->first();
+        $shipment = Shipment::with(['merchant.account', 'account', 'booking'])
+            ->where('uuid', $shipmentUuid)
+            ->first();
         if (!$shipment) {
             return;
         }
@@ -42,10 +44,22 @@ class ProcessCarrierWebhookJob implements ShouldQueue
             'payload' => $this->payload,
         ]);
 
+        $accountUuid = $shipment->account?->uuid ?? $shipment->merchant?->account?->uuid;
         $webhookService->fanout($shipment->merchant, 'tracking.updated', [
             'shipment_id' => $shipment->uuid,
-            'shipment_uuid' => $shipment->uuid,
-            'event' => $event->toArray(),
+            'event' => [
+                'event_id' => $event->uuid,
+                'account_id' => $accountUuid,
+                'merchant_id' => $shipment->merchant?->uuid,
+                'shipment_id' => $shipment->uuid,
+                'booking_id' => $shipment->booking?->uuid,
+                'event_code' => $event->event_code,
+                'event_description' => $event->event_description,
+                'occurred_at' => optional($event->occurred_at)?->toIso8601String(),
+                'payload' => $event->payload,
+                'created_at' => optional($event->created_at)?->toIso8601String(),
+                'updated_at' => optional($event->updated_at)?->toIso8601String(),
+            ],
         ]);
     }
 }

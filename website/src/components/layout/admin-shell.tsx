@@ -37,6 +37,7 @@ import { isMerchantSetupComplete } from "@/lib/merchant-setup"
 import { ChevronDown, EllipsisVertical, Settings, Truck } from "lucide-react"
 import { CreateMerchantDialog } from "@/components/merchants/create-merchant-dialog"
 import { Button } from "../ui/button"
+import { updateLastAccessedMerchant } from "@/lib/api/merchants"
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Pick n Drop"
 
@@ -115,6 +116,19 @@ export function AdminShell({
                         onClick={async () => {
                           const toastId = toast.loading("Switching merchant...")
                           try {
+                            if (!activeSession.accessToken) {
+                              throw new Error("Missing access token.")
+                            }
+
+                            const persisted = await updateLastAccessedMerchant(
+                              merchant.merchant_id,
+                              activeSession.accessToken
+                            )
+
+                            if ("error" in persisted && persisted.error) {
+                              throw new Error(persisted.message || "Failed to save merchant selection.")
+                            }
+
                             await update({
                               merchants,
                               selected_merchant: merchant,

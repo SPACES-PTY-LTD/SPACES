@@ -57,12 +57,14 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware('auth.api')->group(function () {
         Route::get('me', [MeController::class, 'show']);
+        Route::patch('me/last-accessed-merchant', [MeController::class, 'updateLastAccessedMerchant']);
 
         Route::post('merchants', [MerchantController::class, 'store']);
         Route::get('merchants', [MerchantController::class, 'index']);
         Route::get('merchants/{merchant_uuid}', [MerchantController::class, 'show']);
         Route::patch('merchants/{merchant_uuid}', [MerchantController::class, 'update']);
         Route::patch('merchants/{merchant_uuid}/settings', [MerchantController::class, 'updateSettings']);
+        Route::post('merchants/{merchant_uuid}/logo', [MerchantController::class, 'updateLogo']);
         Route::get('merchants/{merchant_uuid}/location-automation', [MerchantController::class, 'showLocationAutomation']);
         Route::patch('merchants/{merchant_uuid}/location-automation', [MerchantController::class, 'updateLocationAutomation']);
         Route::delete('merchants/{merchant_uuid}', [MerchantController::class, 'destroy']);
@@ -224,6 +226,7 @@ Route::prefix('v1')->group(function () {
             Route::get('drivers/{driver_uuid}', [DriverController::class, 'show']);
             Route::post('drivers', [DriverController::class, 'store']);
             Route::patch('drivers/{driver_uuid}', [DriverController::class, 'update']);
+            Route::patch('drivers/{driver_uuid}/password', [DriverController::class, 'updatePassword']);
             Route::delete('drivers/{driver_uuid}', [DriverController::class, 'destroy']);
             Route::get('vehicles', [VehicleController::class, 'index'])->middleware('merchant.context');
             Route::post('vehicles/import', [VehicleController::class, 'import']);
@@ -270,6 +273,7 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('role:driver')->prefix('driver')->group(function () {
+            Route::patch('profile', [MeController::class, 'updateDriverProfile']);
             Route::post('devices/register', [DriverDeviceController::class, 'store']);
             Route::post('presence/heartbeat', [DriverPresenceController::class, 'heartbeat']);
             Route::post('presence/status', [DriverPresenceController::class, 'status']);

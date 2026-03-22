@@ -145,12 +145,7 @@ export default async function EnvironmentsSettingsPage({
       <Card>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="text-sm font-medium">Merchant workspace</div>
-              <div className="text-xs text-muted-foreground">
-                Select which merchant environments you want to manage.
-              </div>
-            </div>
+
             <form className="flex items-center gap-3" method="get">
               <select
                 name="merchantId"

@@ -25,6 +25,7 @@ class Merchant extends Model
         'delivery_offers_expiry_time',
         'driver_offline_timeout_minutes',
         'default_webhook_url',
+        'logo_path',
         'timezone',
         'operating_countries',
         'allow_auto_shipment_creations_at_locations',

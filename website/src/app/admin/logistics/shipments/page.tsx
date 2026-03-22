@@ -50,6 +50,7 @@ export default async function ShipmentsPage({
   const invoicedParam = resolvedSearchParams.invoiced
   const fromParam = resolvedSearchParams.from
   const toParam = resolvedSearchParams.to
+  const pageParam = resolvedSearchParams.page
   const perPageParam = resolvedSearchParams.per_page
   const sortByParam = resolvedSearchParams.sort_by
   const sortDirParam = resolvedSearchParams.sort_dir
@@ -61,14 +62,21 @@ export default async function ShipmentsPage({
   const invoiced = Array.isArray(invoicedParam) ? invoicedParam[0] : invoicedParam
   const from = Array.isArray(fromParam) ? fromParam[0] : fromParam
   const to = Array.isArray(toParam) ? toParam[0] : toParam
+  const page = Array.isArray(pageParam) ? pageParam[0] : pageParam
   const perPage = Array.isArray(perPageParam) ? perPageParam[0] : perPageParam
   const sortBy = Array.isArray(sortByParam) ? sortByParam[0] : sortByParam
   const rawSortDir = Array.isArray(sortDirParam) ? sortDirParam[0] : sortDirParam
   const sortDir = rawSortDir === "asc" || rawSortDir === "desc" ? rawSortDir : undefined
+  const parsedPage = page ? Number(page) : undefined
+  const pageNumber =
+    parsedPage && Number.isFinite(parsedPage) && parsedPage > 0
+      ? Math.floor(parsedPage)
+      : undefined
   const canLoad = session.user.role === "super_admin" || Boolean(merchantId)
   const response = canLoad
     ? await listShipments(session.accessToken, {
         merchant_id: merchantId,
+        page: pageNumber,
         status: status || undefined,
         priority: priority || undefined,
         auto_assign:

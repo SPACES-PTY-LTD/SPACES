@@ -52,7 +52,7 @@ export default async function WebhookSubscriptionsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Webhook subscriptions"
+        title="Webhooks"
         description="Manage outbound webhook endpoints and test deliveries."
         actions={
           <WebhookSubscriptionCreateDialog

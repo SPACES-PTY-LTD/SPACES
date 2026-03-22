@@ -18,8 +18,6 @@ trait HasAccountId
                 $model->account_id = $user->account_id;
             }
 
-            print_r($user);
-            exit();
         });
     }
 }

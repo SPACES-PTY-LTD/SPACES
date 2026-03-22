@@ -59,6 +59,18 @@ export async function updateDriver(
   })
 }
 
+export async function updateDriverPassword(
+  driverId: string,
+  payload: { password: string; password_confirmation: string },
+  token?: string | null
+) {
+  return apiFetch<Driver>(`/api/v1/drivers/${driverId}/password`, {
+    method: "PATCH",
+    body: payload,
+    token,
+  })
+}
+
 export async function deleteDriver(driverId: string, token?: string | null) {
   return apiFetch<void>(`/api/v1/drivers/${driverId}`, {
     method: "DELETE",

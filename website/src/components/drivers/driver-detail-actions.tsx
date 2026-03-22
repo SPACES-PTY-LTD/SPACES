@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { DeactivateDriverDialog } from "@/components/drivers/deactivate-driver-dialog"
 import { EditDriverDialog } from "@/components/drivers/edit-driver-dialog"
+import { UpdateDriverPasswordDialog } from "@/components/drivers/update-driver-password-dialog"
 import type { Driver } from "@/lib/types"
 
 export function DriverDetailActions({
@@ -34,6 +35,15 @@ export function DriverDetailActions({
           trigger={
             <DropdownMenuItem onSelect={(event) => event.preventDefault()}>
               Edit driver
+            </DropdownMenuItem>
+          }
+        />
+        <UpdateDriverPasswordDialog
+          driver={driver}
+          accessToken={accessToken}
+          trigger={
+            <DropdownMenuItem onSelect={(event) => event.preventDefault()}>
+              Update password
             </DropdownMenuItem>
           }
         />

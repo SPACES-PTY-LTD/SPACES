@@ -331,6 +331,40 @@ class DriverService
         $driver->delete();
     }
 
+    public function updateDriverPassword(User $user, string $driverUuid, string $password): Driver
+    {
+        return DB::transaction(function () use ($user, $driverUuid, $password) {
+            $query = Driver::with('user')->where('uuid', $driverUuid);
+            if ($this->isMerchant($user)) {
+                $merchant = $this->resolveMerchant($user);
+                if (!$merchant) {
+                    $query->whereRaw('1 = 0');
+                } else {
+                    $this->applyMerchantScope($query, $merchant->id);
+                }
+            }
+
+            $driver = $query->firstOrFail();
+            $userModel = $driver->user;
+            $userModel->password = Hash::make($password);
+            $userModel->save();
+
+            $merchant = $this->resolveMerchant($user);
+            $this->activityLogService->log(
+                action: 'updated',
+                entityType: 'driver',
+                entity: $driver,
+                actor: $user,
+                accountId: $driver->account_id,
+                merchantId: $merchant?->id,
+                title: 'Driver password updated',
+                metadata: ['password_updated' => true]
+            );
+
+            return $driver->load(['user', 'merchant', 'carrier', 'vehicleType', 'vehicles.vehicleType']);
+        });
+    }
+
     public function importDrivers(User $user, array $data): array
     {
         $merchant = $this->resolveImportMerchant($user, $data['merchant_id']);

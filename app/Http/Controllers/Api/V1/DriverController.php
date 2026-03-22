@@ -7,6 +7,7 @@ use App\Http\Requests\ImportDriversRequest;
 use App\Http\Requests\ListDriversRequest;
 use App\Http\Requests\StoreDriverRequest;
 use App\Http\Requests\UpdateDriverRequest;
+use App\Http\Requests\UpdateDriverPasswordRequest;
 use App\Http\Resources\DriverResource;
 use App\Services\DriverService;
 use App\Support\ApiResponse;
@@ -75,6 +76,18 @@ class DriverController extends Controller
         } catch (Throwable $e) {
             Log::error('Driver delete failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'DRIVER_DELETE_FAILED', 'Unable to delete driver.');
+        }
+    }
+
+    public function updatePassword(UpdateDriverPasswordRequest $request, string $driver_uuid, DriverService $service)
+    {
+        try {
+            $driver = $service->updateDriverPassword($request->user(), $driver_uuid, $request->validated()['password']);
+
+            return ApiResponse::success(new DriverResource($driver));
+        } catch (Throwable $e) {
+            Log::error('Driver password update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+            return $this->apiError($e, 'DRIVER_PASSWORD_UPDATE_FAILED', 'Unable to update driver password.');
         }
     }
 
