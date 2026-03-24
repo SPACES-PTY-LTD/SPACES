@@ -66,7 +66,12 @@ class MerchantInviteController extends Controller
                 'membership_role' => $result['role'],
             ]);
         } catch (ValidationException $e) {
-            return ApiResponse::error('INVITE_INVALID', 'Invite is invalid.', $e->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            return ApiResponse::error(
+                $this->resolveAcceptInviteErrorCode($e),
+                $this->resolveAcceptInviteErrorMessage($e),
+                $e->errors(),
+                Response::HTTP_UNPROCESSABLE_ENTITY
+            );
         } catch (Throwable $e) {
             Log::error('Invite accept failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'INVITE_ACCEPT_FAILED', 'Unable to accept invite.', Response::HTTP_BAD_REQUEST);
@@ -125,5 +130,27 @@ class MerchantInviteController extends Controller
             Log::error('Invite revoke failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'INVITE_REVOKE_FAILED', 'Unable to revoke invite.');
         }
+    }
+
+    protected function resolveAcceptInviteErrorCode(ValidationException $exception): string
+    {
+        $details = $exception->errors();
+        $firstDetail = collect($details)->flatten()->first();
+
+        return is_string($firstDetail) && $firstDetail !== ''
+            ? $firstDetail
+            : 'INVITE_INVALID';
+    }
+
+    protected function resolveAcceptInviteErrorMessage(ValidationException $exception): string
+    {
+        return match ($this->resolveAcceptInviteErrorCode($exception)) {
+            'NAME_AND_PASSWORD_REQUIRED' => 'Complete your name and password to accept this invite.',
+            'INVITE_EXPIRED' => 'This invite has expired. Ask for a new invite link.',
+            'INVITE_REVOKED' => 'This invite has been revoked. Ask for a new invite link.',
+            'INVITE_ALREADY_ACCEPTED' => 'This invite has already been accepted. Sign in to continue.',
+            'INVITE_NOT_FOUND' => 'This invite link is invalid or no longer available.',
+            default => 'Unable to accept invite.',
+        };
     }
 }

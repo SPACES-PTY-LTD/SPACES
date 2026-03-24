@@ -68,17 +68,36 @@ type InviteAcceptFormProps = {
   preview?: MerchantInvitePreview | null
 }
 
-function getInviteRequirementError(payload: unknown): string | null {
+function getInviteAcceptError(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") {
     return null
   }
 
+  const topLevelCode =
+    (payload as { error?: { code?: unknown } }).error?.code
   const details = (payload as { error?: { details?: Record<string, unknown> } }).error?.details
   const userErrors = Array.isArray(details?.user) ? details.user : []
+  const inviteErrors = Array.isArray(details?.invite) ? details.invite : []
 
-  return userErrors.includes("NAME_AND_PASSWORD_REQUIRED")
-    ? null
-    : null
+  const code =
+    (typeof topLevelCode === "string" && topLevelCode) ||
+    (typeof userErrors[0] === "string" ? userErrors[0] : null) ||
+    (typeof inviteErrors[0] === "string" ? inviteErrors[0] : null)
+
+  switch (code) {
+    case "NAME_AND_PASSWORD_REQUIRED":
+      return "Complete your full name and create a password to accept this invite."
+    case "INVITE_EXPIRED":
+      return "This invite has expired. Ask the merchant admin to resend it."
+    case "INVITE_REVOKED":
+      return "This invite has been revoked. Ask the merchant admin for a new invite."
+    case "INVITE_ALREADY_ACCEPTED":
+      return "This invite has already been used. Sign in with the invited email address to continue."
+    case "INVITE_NOT_FOUND":
+      return "This invite link is invalid or no longer available."
+    default:
+      return null
+  }
 }
 
 export function InviteAcceptForm({ token, preview }: InviteAcceptFormProps) {
@@ -122,16 +141,22 @@ export function InviteAcceptForm({ token, preview }: InviteAcceptFormProps) {
     const response = await acceptMerchantInvite(payload)
 
     if (isApiErrorResponse(response)) {
-      const requirementError = getInviteRequirementError(response.payload)
-      if (requirementError) {
-        setStep("set-password")
-        if (preview?.recipient_name && !form.getValues("name")) {
-          form.setValue("name", preview.recipient_name, {
-            shouldDirty: false,
-            shouldTouch: false,
-          })
+      const inviteError = getInviteAcceptError(response.payload)
+      if (inviteError) {
+        const details = (response.payload as { error?: { details?: Record<string, unknown> } } | null)?.error?.details
+        const userErrors = Array.isArray(details?.user) ? details.user : []
+
+        if (userErrors.includes("NAME_AND_PASSWORD_REQUIRED")) {
+          setStep("set-password")
+          if (preview?.recipient_name && !form.getValues("name")) {
+            form.setValue("name", preview.recipient_name, {
+              shouldDirty: false,
+              shouldTouch: false,
+            })
+          }
         }
-        setError(requirementError)
+
+        setError(inviteError)
         return
       }
 

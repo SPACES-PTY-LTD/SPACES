@@ -23,6 +23,34 @@ Add new entries at the top (newest first).
 ## 2026-03-25 | Version: unreleased
 
 ### Summary
+- Improved merchant invite acceptance errors so valid invites no longer fall back to the generic "Invite is invalid" message when more specific action is required.
+
+### API Changes
+- `POST /api/v1/merchant-invites/accept` now returns specific invite error codes and messages for missing account setup data, expired invites, revoked invites, already accepted invites, and missing tokens.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- New users opening a valid invite now receive a clear prompt to set their name and password instead of seeing a misleading invalid-invite error.
+- Expired, revoked, already accepted, and missing invite tokens now return specific acceptance messages that the website can surface directly.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/MerchantInviteController.php`
+  - `app/Services/InviteService.php`
+  - `website/src/components/auth/invite-accept-form.tsx`
+  - `tests/Feature/InviteFlowTest.php`
+  - `docs/release-notes.md`
+- Verification target:
+  - Run `php artisan test --filter=InviteFlowTest` to confirm invite acceptance returns the expected success and specific validation error responses.
+
+## 2026-03-25 | Version: unreleased
+
+### Summary
 - Extended outbound email logging to persist the rendered HTML message body for each logged email attempt.
 
 ### API Changes

@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Support\MerchantAccess;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
 
 class InviteService
@@ -78,11 +77,23 @@ class InviteService
     {
         $tokenHash = hash('sha256', $token);
 
-        $invite = MerchantInvite::where('token_hash', $tokenHash)
-            ->whereNull('accepted_at')
-            ->whereNull('revoked_at')
-            ->where('expires_at', '>', now())
-            ->firstOrFail();
+        $invite = MerchantInvite::where('token_hash', $tokenHash)->first();
+
+        if (!$invite) {
+            throw ValidationException::withMessages(['invite' => ['INVITE_NOT_FOUND']]);
+        }
+
+        if ($invite->accepted_at !== null) {
+            throw ValidationException::withMessages(['invite' => ['INVITE_ALREADY_ACCEPTED']]);
+        }
+
+        if ($invite->revoked_at !== null) {
+            throw ValidationException::withMessages(['invite' => ['INVITE_REVOKED']]);
+        }
+
+        if ($invite->expires_at !== null && $invite->expires_at->isPast()) {
+            throw ValidationException::withMessages(['invite' => ['INVITE_EXPIRED']]);
+        }
 
         $user = User::where('email', $invite->email)->first();
         $created = false;
