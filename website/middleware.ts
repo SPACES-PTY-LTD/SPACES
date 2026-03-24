@@ -17,6 +17,8 @@ export function middleware(request: NextRequest) {
     "/robots.txt"
   ]
 
+  console.log(`Middleware: Hostname - ${hostname}, Pathname - ${pathname}`);
+
   if (hostname !== ADMIN_HOST || allowedPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next()
   }

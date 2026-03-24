@@ -365,7 +365,7 @@ export function VehiclesMapPageContent({
                     </div>
                     <div className="text-muted-foreground">
                       {vehicle.last_location_address?.address_line_1 ??
-                        "No location data"}
+                        ""}
                     </div>
                   </div>
                 </button>
