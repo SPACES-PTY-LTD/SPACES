@@ -55,6 +55,38 @@ export async function updateLastAccessedMerchant(
   return response.data
 }
 
+export async function updateCurrentUserProfile(
+  payload: { name?: string; telephone?: string | null },
+  token?: string | null
+) {
+  const response = await apiFetch<ApiEnvelope<User>>("/api/v1/me", {
+    method: "PATCH",
+    body: payload,
+    token,
+  })
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
+}
+
+export async function updateCurrentUserPassword(
+  payload: {
+    current_password: string
+    password: string
+    password_confirmation: string
+  },
+  token?: string | null
+) {
+  return apiFetch<ApiEnvelope<{ message: string }>>("/api/v1/me/password", {
+    method: "PATCH",
+    body: payload,
+    token,
+  })
+}
+
 export async function getMerchant(merchantId: string, token?: string | null) {
   const response = await apiFetch<ApiEnvelope<Merchant>>(
     `/api/v1/merchants/${merchantId}`,

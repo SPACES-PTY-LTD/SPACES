@@ -17,6 +17,7 @@ export const AdminLinks = {
   quotes: `${SHIPMENTS_BASE}/quotes`,
   routes: `${LOGISTICS_BASE}/routes`,
   settings: `${ADMIN_BASE}/settings`,
+  settingsAccount: `${ADMIN_BASE}/settings/account`,
   setup: `${ADMIN_BASE}/setup`,
   settingsCompliance: `${ADMIN_BASE}/settings/compliance`,
   settingsDeleteData: `${ADMIN_BASE}/settings/delete-data`,

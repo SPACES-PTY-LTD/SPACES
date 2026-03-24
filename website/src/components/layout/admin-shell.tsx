@@ -34,12 +34,28 @@ import { LogoutButton } from "@/components/auth/logout-button"
 import { Toaster } from "@/components/ui/sonner"
 import type { Session } from "@/lib/auth"
 import { isMerchantSetupComplete } from "@/lib/merchant-setup"
-import { ChevronDown, EllipsisVertical, Settings, Truck } from "lucide-react"
+import { ChevronDown, EllipsisVertical, Settings, Truck, UserCircle2 } from "lucide-react"
 import { CreateMerchantDialog } from "@/components/merchants/create-merchant-dialog"
 import { Button } from "../ui/button"
 import { updateLastAccessedMerchant } from "@/lib/api/merchants"
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Pick n Drop"
+
+function getInitials(name: string | null | undefined) {
+  const parts = (name ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (parts.length === 0) {
+    return "U"
+  }
+
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("")
+}
 
 export function AdminShell({
   session,
@@ -185,7 +201,9 @@ export function AdminShell({
                   >
                     <Avatar className="h-8 w-8 rounded-lg grayscale">
                       <AvatarImage src={""} alt={activeSession.user.name} />
-                      <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                      <AvatarFallback className="rounded-lg">
+                        {getInitials(activeSession.user.name)}
+                      </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-medium">
@@ -206,6 +224,12 @@ export function AdminShell({
                     {activeSession.user.email}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={AdminLinks.settingsAccount}>
+                      <UserCircle2 className="mr-2 h-4 w-4" />
+                      My account
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link href={AdminLinks.settings}>
                       <Settings className="mr-2 h-4 w-4" />

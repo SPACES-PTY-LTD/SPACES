@@ -6,7 +6,18 @@ const ADMIN_HOST = "app.spaces.za.com"
 export function middleware(request: NextRequest) {
   const { hostname, pathname } = request.nextUrl
 
-  if (hostname !== ADMIN_HOST || pathname.startsWith("/admin")) {
+  const allowedPaths = [
+    "/admin",
+    "/api",
+    "/invites",
+    "/_next/static",
+    "/_next/image",
+    "/favicon.ico",
+    "/sitemap.xml",
+    "/robots.txt"
+  ]
+
+  if (hostname !== ADMIN_HOST || allowedPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next()
   }
 

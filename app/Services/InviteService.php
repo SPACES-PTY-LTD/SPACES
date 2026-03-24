@@ -14,6 +14,8 @@ use Illuminate\Validation\ValidationException;
 
 class InviteService
 {
+    protected array $synchronousMailers = ['log', 'array'];
+
     public function previewInvite(string $token): array
     {
         $tokenHash = hash('sha256', $token);
@@ -67,7 +69,7 @@ class InviteService
             'expires_at' => now()->addHours((int) env('INVITE_EXPIRES_HOURS', 168)),
         ]);
 
-        SendMerchantInviteEmailJob::dispatch($invite->id, $token);
+        $this->dispatchInviteEmail($invite->id, $token);
 
         return $invite;
     }
@@ -137,12 +139,23 @@ class InviteService
         $invite->expires_at = now()->addHours((int) env('INVITE_EXPIRES_HOURS', 168));
         $invite->save();
 
-        SendMerchantInviteEmailJob::dispatch($invite->id, $plainToken);
+        $this->dispatchInviteEmail($invite->id, $plainToken);
     }
 
     public function revokeInvite(MerchantInvite $invite): void
     {
         $invite->revoked_at = now();
         $invite->save();
+    }
+
+    protected function dispatchInviteEmail(int $inviteId, string $token): void
+    {
+        if (in_array(config('mail.default'), $this->synchronousMailers, true)) {
+            SendMerchantInviteEmailJob::dispatchSync($inviteId, $token);
+
+            return;
+        }
+
+        SendMerchantInviteEmailJob::dispatch($inviteId, $token);
     }
 }

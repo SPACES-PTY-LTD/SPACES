@@ -133,6 +133,15 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, trigger, session }) {
       if (trigger === "update" && session) {
+        if (session.user?.name) {
+          token.name = session.user.name
+        }
+        if (session.user?.email) {
+          token.email = session.user.email
+        }
+        if (session.user?.role) {
+          token.role = session.user.role
+        }
         if ("accessToken" in session) {
           token.accessToken = session.accessToken
         }
@@ -154,6 +163,8 @@ export const authOptions: NextAuthOptions = {
 
       if (user) {
         token.userId = user.id
+        token.name = user.name
+        token.email = user.email
         token.role = (user as { role?: string }).role
         token.accessToken = (user as { accessToken?: string }).accessToken
         token.refreshToken = (user as { refreshToken?: string }).refreshToken
@@ -228,6 +239,8 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       session.user.uuid = (token.userId as string | undefined) ?? null
+      session.user.name = (token.name as string | undefined) ?? session.user.name
+      session.user.email = (token.email as string | undefined) ?? session.user.email
       session.user.role = token.role as "super_admin" | "user"
       session.accessToken = token.accessToken as string
       session.refreshToken = token.refreshToken as string

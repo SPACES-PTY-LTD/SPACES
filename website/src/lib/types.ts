@@ -44,6 +44,8 @@ export interface User {
   email: string
   role: Role
   status: Status
+  telephone?: string | null
+  last_login_at?: string | null
   last_accessed_merchant_id?: UUID | null
 }
 

@@ -20,6 +20,38 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-03-23 | Version: unreleased
+
+### Summary
+- Added persistent outbound email logging for queued mail sends so invite and shipment failure emails now record delivery attempts and outcomes.
+
+### API Changes
+- None.
+
+### Database Changes
+- Added `email_logs` table with a unique `uuid`, recipient payloads, mail metadata, contextual foreign keys, and delivery status timestamps for `pending`, `sent`, and `failed` email attempts.
+
+### Behavior Changes
+- `SendMerchantInviteEmailJob` now writes an `email_logs` row before sending and updates it to `sent` or `failed` after the mail transport completes.
+- `SendOfferFailedEmailJob` now follows the same logging flow, including shipment/environment linkage for later auditing.
+- Failed outbound sends now retain the transport exception message in `email_logs.error_message` before the job is re-thrown to Laravel's queue failure handling.
+- When `MAIL_MAILER` uses local non-delivery transports like `log` or `array`, invite and offer-failed emails now run synchronously so `email_logs` updates do not depend on a long-running queue worker being restarted.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Jobs/SendMerchantInviteEmailJob.php`
+  - `app/Jobs/SendOfferFailedEmailJob.php`
+  - `app/Models/EmailLog.php`
+  - `app/Services/LoggedMailSender.php`
+  - `database/migrations/2026_03_23_000001_create_email_logs_table.php`
+  - `tests/Feature/EmailLogTest.php`
+  - `docs/release-notes.md`
+- Verification target:
+  - Run `php artisan test --filter=EmailLogTest` to confirm successful sends are marked `sent` and transport exceptions are marked `failed`.
+
 ## 2026-03-22 | Version: unreleased
 
 ### Summary

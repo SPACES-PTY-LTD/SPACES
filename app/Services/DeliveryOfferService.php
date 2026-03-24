@@ -341,6 +341,12 @@ class DeliveryOfferService
         $shipment->update(['status' => 'offer_failed']);
 
         if (!empty($shipment->merchant?->support_email)) {
+            if (in_array(config('mail.default'), ['log', 'array'], true)) {
+                SendOfferFailedEmailJob::dispatchSync($shipment->id);
+
+                return;
+            }
+
             SendOfferFailedEmailJob::dispatch($shipment->id)->afterCommit();
         }
     }

@@ -23,6 +23,7 @@ import {
   ChartNoAxesColumn,
   Trash2,
   FileText,
+  UserCircle2,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import type { Role } from "@/lib/types"
@@ -271,6 +272,11 @@ export const adminNavGroups: NavGroup[] = [
         href: AdminLinks.settings,
         icon: CogIcon,
         subItems: [
+          {
+            title: "Account",
+            href: AdminLinks.settingsAccount,
+            icon: UserCircle2,
+          },
           {
             title: "Genral",
             href: AdminLinks.settings,

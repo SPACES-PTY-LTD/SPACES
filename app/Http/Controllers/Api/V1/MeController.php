@@ -10,6 +10,7 @@ use App\Http\Resources\UserResource;
 use App\Support\ApiResponse;
 use App\Support\MerchantAccess;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -25,6 +26,72 @@ class MeController extends Controller
         } catch (Throwable $e) {
             Log::error('Profile fetch failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'PROFILE_FAILED', 'Unable to load profile.');
+        }
+    }
+
+    public function updateProfile(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $data = $request->validate([
+                'name' => 'sometimes|required|string|max:255',
+                'telephone' => 'sometimes|nullable|string|max:50',
+            ]);
+
+            if (array_key_exists('name', $data)) {
+                $user->name = $data['name'];
+            }
+
+            if (array_key_exists('telephone', $data)) {
+                $user->telephone = $data['telephone'];
+            }
+
+            if (!empty($data)) {
+                $user->save();
+            }
+
+            return ApiResponse::success(new UserResource(
+                $user->fresh()->load(['merchants', 'lastAccessedMerchant'])
+            ));
+        } catch (Throwable $e) {
+            Log::error('Profile update failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+            return $this->apiError($e, 'PROFILE_UPDATE_FAILED', 'Unable to update profile.');
+        }
+    }
+
+    public function updatePassword(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $validated = $request->validate([
+                'current_password' => ['required', 'string'],
+                'password' => ['required', 'string', 'min:8', 'confirmed'],
+            ]);
+
+            if (!$user || !Hash::check($validated['current_password'], $user->password)) {
+                return ApiResponse::error(
+                    'INVALID_PASSWORD',
+                    'The current password is incorrect.',
+                    ['current_password' => ['The current password is incorrect.']],
+                    Response::HTTP_UNPROCESSABLE_ENTITY
+                );
+            }
+
+            $user->password = $validated['password'];
+            $user->save();
+
+            return ApiResponse::success([
+                'message' => 'Password updated successfully.',
+            ]);
+        } catch (Throwable $e) {
+            Log::error('Password update failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+            return $this->apiError($e, 'PASSWORD_UPDATE_FAILED', 'Unable to update password.');
         }
     }
 
