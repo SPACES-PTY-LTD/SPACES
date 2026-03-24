@@ -20,6 +20,33 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-03-25 | Version: unreleased
+
+### Summary
+- Extended outbound email logging to persist the rendered HTML message body for each logged email attempt.
+
+### API Changes
+- None.
+
+### Database Changes
+- Added nullable `email_logs.html_message` to store the rendered email body captured during send attempts.
+
+### Behavior Changes
+- `LoggedMailSender` now saves the rendered message body into `email_logs.html_message` before delivery and keeps it on both `sent` and `failed` outcomes.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Models/EmailLog.php`
+  - `app/Services/LoggedMailSender.php`
+  - `database/migrations/2026_03_25_000001_add_html_message_to_email_logs_table.php`
+  - `tests/Feature/EmailLogTest.php`
+  - `docs/release-notes.md`
+- Verification target:
+  - Run `php artisan test --filter=EmailLogTest` to confirm email logs retain the rendered message body for both successful and failed sends.
+
 ## 2026-03-23 | Version: unreleased
 
 ### Summary

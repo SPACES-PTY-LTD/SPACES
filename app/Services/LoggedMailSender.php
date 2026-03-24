@@ -18,6 +18,7 @@ class LoggedMailSender
     ): EmailLog {
         $mailer = $context['mailer'] ?? config('mail.default');
         $subject = $this->resolveSubject($mailable);
+        $htmlMessage = $this->renderMessageBody($mailable);
 
         $emailLog = EmailLog::create([
             'account_id' => $context['account_id'] ?? null,
@@ -35,6 +36,7 @@ class LoggedMailSender
             'cc' => $this->normalizeRecipients($cc),
             'bcc' => $this->normalizeRecipients($bcc),
             'subject' => $subject,
+            'html_message' => $htmlMessage,
         ]);
 
         try {
@@ -53,6 +55,7 @@ class LoggedMailSender
             $emailLog->forceFill([
                 'status' => EmailLog::STATUS_SENT,
                 'subject' => $this->resolveSubject($mailable) ?? $subject,
+                'html_message' => $this->renderMessageBody($mailable) ?? $htmlMessage,
                 'message_id' => $sentMessage?->getMessageId(),
                 'sent_at' => now(),
                 'error_message' => null,
@@ -63,6 +66,7 @@ class LoggedMailSender
             $emailLog->forceFill([
                 'status' => EmailLog::STATUS_FAILED,
                 'subject' => $this->resolveSubject($mailable) ?? $subject,
+                'html_message' => $this->renderMessageBody($mailable) ?? $htmlMessage,
                 'error_message' => $exception->getMessage(),
                 'failed_at' => now(),
             ])->save();
@@ -128,5 +132,15 @@ class LoggedMailSender
         }
 
         return null;
+    }
+
+    protected function renderMessageBody(Mailable $mailable): ?string
+    {
+        $clone = clone $mailable;
+
+        return rescue(
+            static fn (): string => $clone->render(),
+            report: false,
+        );
     }
 }

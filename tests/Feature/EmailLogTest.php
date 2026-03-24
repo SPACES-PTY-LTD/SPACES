@@ -67,6 +67,8 @@ class EmailLogTest extends TestCase
             'email' => 'invitee@example.com',
             'name' => null,
         ]], $emailLog->to);
+        $this->assertStringContainsString($merchant->name, (string) $emailLog->html_message);
+        $this->assertStringContainsString('Accept Invitation', (string) $emailLog->html_message);
         $this->assertNull($emailLog->failed_at);
         $this->assertNotNull($emailLog->sent_at);
     }
@@ -118,6 +120,8 @@ class EmailLogTest extends TestCase
 
             $emailLog = EmailLog::firstOrFail();
 
+            $this->assertStringContainsString($merchant->name, (string) $emailLog->html_message);
+            $this->assertStringContainsString('Accept Invitation', (string) $emailLog->html_message);
             $this->assertNull($emailLog->sent_at);
             $this->assertNotNull($emailLog->failed_at);
         }

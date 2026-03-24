@@ -30,6 +30,7 @@ class EmailLog extends Model
         'cc',
         'bcc',
         'subject',
+        'html_message',
         'message_id',
         'error_message',
         'sent_at',
