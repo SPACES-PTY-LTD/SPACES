@@ -1,5 +1,10 @@
 import { apiFetch, isApiErrorResponse } from "@/lib/api/client"
-import type { ApiEnvelope, ApiListResponse, TrackingProvider } from "@/lib/types"
+import type {
+  ApiEnvelope,
+  ApiListResponse,
+  TrackingProvider,
+  TrackingProviderVehiclePreview,
+} from "@/lib/types"
 
 export type ImportEntityKey = "locations" | "drivers" | "vehicles"
 
@@ -61,24 +66,40 @@ export async function activateTrackingProvider(
 export async function importTrackingProviderVehicles(
   providerId: string,
   merchantId: string,
-  options?: {
-    filter_type?: "registration" | "description"
-    wildcard?: string
-  },
+  vehicleIds: string[],
   token?: string | null
 ) {
-  const payload: Record<string, unknown> = { merchant_id: merchantId }
-  if (options?.filter_type) payload.filter_type = options.filter_type
-  if (options?.wildcard) payload.wildcard = options.wildcard
-
   return apiFetch<QueuedImportResponse>(
     `/api/v1/tracking-providers/${providerId}/import_vehicles`,
     {
       method: "POST",
-      body: payload,
+      body: {
+        merchant_id: merchantId,
+        vehicle_ids: vehicleIds,
+      },
       token,
     }
   )
+}
+
+export async function listTrackingProviderVehicles(
+  providerId: string,
+  merchantId: string,
+  token?: string | null
+) {
+  const response = await apiFetch<ApiEnvelope<TrackingProviderVehiclePreview[]>>(
+    `/api/v1/tracking-providers/${providerId}/vehicles`,
+    {
+      token,
+      params: { merchant_id: merchantId },
+    }
+  )
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
 }
 
 export async function importTrackingProviderDrivers(

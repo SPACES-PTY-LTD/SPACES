@@ -114,10 +114,22 @@ class MerchantIntegrationService
         return $integration;
     }
 
-    public function queueProviderVehiclesImport(User $user, string $providerUuid, string $merchantUuid): array
+    public function queueProviderVehiclesImport(
+        User $user,
+        string $providerUuid,
+        string $merchantUuid,
+        array $vehicleIds
+    ): array
     {
         $merchant = $this->resolveAuthorizedMerchant($user, $merchantUuid);
         $this->ensureProviderSupportsImport($merchant, $providerUuid, 'import_vehicles', 'vehicles');
+        $normalizedVehicleIds = $this->normalizeSelectedProviderVehicleIds($vehicleIds);
+
+        if (empty($normalizedVehicleIds)) {
+            throw ValidationException::withMessages([
+                'vehicle_ids' => 'Please select at least one vehicle to import.',
+            ]);
+        }
 
         $start = $this->startImportInProgress($merchant->id, 'vehicles');
         if (!$start['started']) {
@@ -132,7 +144,8 @@ class MerchantIntegrationService
             $user->id,
             $merchant->id,
             $merchant->uuid,
-            $providerUuid
+            $providerUuid,
+            $normalizedVehicleIds
         );
 
         return [
@@ -140,6 +153,40 @@ class MerchantIntegrationService
             'already_in_progress' => false,
             'stats' => $start['stats'],
         ];
+    }
+
+    public function listProviderVehicles(User $user, string $providerUuid, string $merchantUuid): array
+    {
+        [$merchant, $provider, $integration, $providerService] = $this->resolveVehicleImportContext(
+            $user,
+            $providerUuid,
+            $merchantUuid
+        );
+
+        $payload = $this->fetchProviderVehiclePayload($provider, $integration, $merchant, $providerService);
+        $vehicles = [];
+
+        foreach ($payload as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $normalized = $this->normalizeProviderVehiclePreviewItem($item);
+            if ($normalized === null) {
+                continue;
+            }
+
+            $vehicles[] = $normalized;
+        }
+
+        usort($vehicles, function (array $left, array $right): int {
+            $leftLabel = trim(($left['plate_number'] ?? '').' '.($left['description'] ?? ''));
+            $rightLabel = trim(($right['plate_number'] ?? '').' '.($right['description'] ?? ''));
+
+            return strcasecmp($leftLabel, $rightLabel);
+        });
+
+        return $vehicles;
     }
 
     public function queueProviderDriversImport(User $user, string $providerUuid, string $merchantUuid): array
@@ -248,48 +295,26 @@ class MerchantIntegrationService
         });
     }
 
-    public function importProviderVehicles(User $user, string $providerUuid, string $merchantUuid): array
-    {
-        $merchant = Merchant::where('uuid', $merchantUuid)->first();
-        if (!$merchant) {
-            throw ValidationException::withMessages([
-                'merchant_id' => 'Merchant not found.',
-            ]);
-        }
-
-        $belongsToUser = $user->merchants()->where('merchants.id', $merchant->id)->exists()
-            || $user->ownedMerchants()->where('id', $merchant->id)->exists();
-
-        if (!$belongsToUser) {
-            throw ValidationException::withMessages([
-                'merchant_id' => 'You are not authorized for this merchant.',
-            ]);
-        }
-
-        $provider = TrackingProvider::where('uuid', $providerUuid)->firstOrFail();
-
-        $integration = MerchantIntegration::query()
-            ->where('merchant_id', $merchant->id)
-            ->where('provider_id', $provider->id)
-            ->first();
-
-        if (!$integration) {
-            throw ValidationException::withMessages([
-                'provider_id' => 'Tracking provider is not activated for this merchant.',
-            ]);
-        }
-
-        $providerService = $this->resolveProviderService($provider);
-        if (!$providerService || !method_exists($providerService, 'import_vehicles')) {
-            throw ValidationException::withMessages([
-                'provider_id' => 'This provider does not support importing of vehicles.',
-            ]);
-        }
-
-        $payload = $providerService->import_vehicles(
-            $this->buildProviderIntegrationData($integration, $merchant),
-            $integration->integration_options_data ?? []
+    public function importProviderVehicles(
+        User $user,
+        string $providerUuid,
+        string $merchantUuid,
+        array $selectedVehicleIds
+    ): array {
+        [$merchant, $provider, $integration, $providerService] = $this->resolveVehicleImportContext(
+            $user,
+            $providerUuid,
+            $merchantUuid
         );
+
+        $normalizedVehicleIds = $this->normalizeSelectedProviderVehicleIds($selectedVehicleIds);
+        if (empty($normalizedVehicleIds)) {
+            throw ValidationException::withMessages([
+                'vehicle_ids' => 'Please select at least one vehicle to import.',
+            ]);
+        }
+
+        $payload = $this->fetchProviderVehiclePayload($provider, $integration, $merchant, $providerService);
 
         if (!is_array($payload)) {
             $payload = [];
@@ -297,13 +322,19 @@ class MerchantIntegrationService
 
         $imported = [];
         $importedAt = now();
+        $selectedVehicleIdLookup = array_fill_keys($normalizedVehicleIds, true);
         foreach ($payload as $item) {
             if (!is_array($item)) {
                 continue;
             }
 
-            $integrationId = $item['integration_id'] ?? null;
-            if (!$integrationId) {
+            $previewVehicle = $this->normalizeProviderVehiclePreviewItem($item);
+            if ($previewVehicle === null) {
+                continue;
+            }
+
+            $integrationId = $previewVehicle['provider_vehicle_id'];
+            if (!isset($selectedVehicleIdLookup[$integrationId])) {
                 continue;
             }
 
@@ -352,6 +383,7 @@ class MerchantIntegrationService
                 'provider_id' => $providerUuid,
                 'provider' => Str::slug($provider->name),
                 'imported_count' => $importedCount,
+                'selected_vehicle_ids' => $normalizedVehicleIds,
             ]
         );
 
@@ -786,6 +818,91 @@ class MerchantIntegrationService
         Location::query()->whereKey($location->id)->update([
             'polygon_bounds' => DB::raw("ST_GeomFromText('{$safeWkt}')"),
         ]);
+    }
+
+    private function resolveVehicleImportContext(
+        User $user,
+        string $providerUuid,
+        string $merchantUuid
+    ): array {
+        $merchant = $this->resolveAuthorizedMerchant($user, $merchantUuid);
+        $provider = TrackingProvider::where('uuid', $providerUuid)->firstOrFail();
+
+        $integration = MerchantIntegration::query()
+            ->where('merchant_id', $merchant->id)
+            ->where('provider_id', $provider->id)
+            ->first();
+
+        if (!$integration) {
+            throw ValidationException::withMessages([
+                'provider_id' => 'Tracking provider is not activated for this merchant.',
+            ]);
+        }
+
+        $providerService = $this->resolveProviderService($provider);
+        if (!$providerService || !method_exists($providerService, 'import_vehicles')) {
+            throw ValidationException::withMessages([
+                'provider_id' => 'This provider does not support importing of vehicles.',
+            ]);
+        }
+
+        return [$merchant, $provider, $integration, $providerService];
+    }
+
+    private function fetchProviderVehiclePayload(
+        TrackingProvider $provider,
+        MerchantIntegration $integration,
+        Merchant $merchant,
+        object $providerService
+    ): array {
+        $integrationData = $this->buildProviderIntegrationData($integration, $merchant);
+        $integrationOptions = $integration->integration_options_data ?? [];
+
+        $payload = method_exists($providerService, 'list_importable_vehicles')
+            ? $providerService->list_importable_vehicles($integrationData, $integrationOptions)
+            : $providerService->import_vehicles($integrationData, $integrationOptions);
+
+        if (!is_array($payload)) {
+            return [];
+        }
+
+        return $payload;
+    }
+
+    private function normalizeProviderVehiclePreviewItem(array $item): ?array
+    {
+        $integrationId = $item['integration_id'] ?? null;
+        if ($integrationId === null || $integrationId === '') {
+            return null;
+        }
+
+        return [
+            'provider_vehicle_id' => (string) $integrationId,
+            'plate_number' => $item['plate_number'] ?? null,
+            'description' => $item['description'] ?? $item['ref_code'] ?? null,
+            'make' => $item['make'] ?? null,
+            'model' => $item['model'] ?? null,
+        ];
+    }
+
+    private function normalizeSelectedProviderVehicleIds(array $vehicleIds): array
+    {
+        $normalized = [];
+
+        foreach ($vehicleIds as $vehicleId) {
+            if (!is_scalar($vehicleId)) {
+                continue;
+            }
+
+            $value = trim((string) $vehicleId);
+            if ($value === '') {
+                continue;
+            }
+
+            $normalized[$value] = true;
+        }
+
+        return array_keys($normalized);
     }
 
     private function resolveAuthorizedMerchant(User $user, string $merchantUuid): Merchant

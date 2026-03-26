@@ -82,6 +82,11 @@ class MixIntegrateService
 
     public function import_vehicles(array $integrationData = [], array $integrationOptionsData = []): array
     {
+        return $this->list_importable_vehicles($integrationData, $integrationOptionsData);
+    }
+
+    public function list_importable_vehicles(array $integrationData = [], array $integrationOptionsData = []): array
+    {
         $token = $this->getBearerToken($integrationData);
         $baseUrl = $integrationData['rest_base_url'] ?? config('services.mix.rest_base_url');
         $organisationId = $integrationData['organisation_id'] ?? null;
@@ -173,6 +178,13 @@ class MixIntegrateService
                     ?? $item['FleetNumber']
                     ?? $item['description']
                     ?? $item['Description']
+                    ?? null,
+                'description' => $item['description']
+                    ?? $item['Description']
+                    ?? $item['assetNumber']
+                    ?? $item['AssetNumber']
+                    ?? $item['fleetNumber']
+                    ?? $item['FleetNumber']
                     ?? null,
                 'odometer' => $item['odometer']
                     ?? $item['Odometer']

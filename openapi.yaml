@@ -372,16 +372,37 @@ components:
           type: object
     TrackingProviderImportVehiclesRequest:
       type: object
-      required: [merchant_id]
+      required: [merchant_id, vehicle_ids]
       properties:
         merchant_id:
           type: string
+        vehicle_ids:
+          type: array
+          items:
+            type: string
     TrackingProviderImportDriversRequest:
       type: object
       required: [merchant_id]
       properties:
         merchant_id:
           type: string
+    TrackingProviderVehiclePreview:
+      type: object
+      properties:
+        provider_vehicle_id:
+          type: string
+        plate_number:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        make:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
     Vehicle:
       type: object
       properties:
@@ -1414,6 +1435,23 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/TrackingProviderOptionsDataUpdateRequest'
+      responses:
+        '200':
+          description: OK
+  /tracking-providers/{provider_id}/vehicles:
+    get:
+      summary: List tracking provider vehicles for import selection
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: provider_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: merchant_id
+          required: true
+          schema: { type: string }
       responses:
         '200':
           description: OK

@@ -8,8 +8,10 @@ use App\Http\Requests\GetTrackingProviderImportStatusesRequest;
 use App\Http\Requests\ImportTrackingProviderDriversRequest;
 use App\Http\Requests\ImportTrackingProviderLocationsRequest;
 use App\Http\Requests\ImportTrackingProviderVehiclesRequest;
+use App\Http\Requests\ListTrackingProviderVehiclesRequest;
 use App\Http\Requests\UpdateTrackingProviderOptionsDataRequest;
 use App\Http\Resources\TrackingProviderResource;
+use App\Http\Resources\TrackingProviderVehicleResource;
 use App\Services\MerchantIntegrationService;
 use App\Services\TrackingProviderService;
 use App\Support\ApiResponse;
@@ -85,7 +87,8 @@ class MerchantIntegrationController extends Controller
             $result = $service->queueProviderVehiclesImport(
                 $request->user(),
                 $provider_id,
-                $request->validated()['merchant_id']
+                $request->validated()['merchant_id'],
+                $request->validated()['vehicle_ids']
             );
 
             return ApiResponse::success([
@@ -97,6 +100,26 @@ class MerchantIntegrationController extends Controller
             Log::error('Import tracking provider vehicles failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
 
             return $this->apiError($e, 'TRACKING_PROVIDER_IMPORT_VEHICLES_FAILED', $e->getMessage());
+        }
+    }
+
+    public function listTrackingProviderVehicles(
+        ListTrackingProviderVehiclesRequest $request,
+        string $provider_id,
+        MerchantIntegrationService $service
+    ) {
+        try {
+            $vehicles = $service->listProviderVehicles(
+                $request->user(),
+                $provider_id,
+                $request->validated()['merchant_id']
+            );
+
+            return ApiResponse::success(TrackingProviderVehicleResource::collection(collect($vehicles)));
+        } catch (Throwable $e) {
+            Log::error('List tracking provider vehicles failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
+            return $this->apiError($e, 'TRACKING_PROVIDER_LIST_VEHICLES_FAILED', $e->getMessage());
         }
     }
 

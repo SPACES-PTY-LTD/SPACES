@@ -9,7 +9,12 @@ use App\Models\TrackingProvider;
 use App\Models\TrackingProviderIntegrationFormField;
 use App\Models\TrackingProviderOption;
 use App\Models\User;
+use App\Models\Vehicle;
+use App\Jobs\ImportProviderVehiclesJob;
+use App\Services\MerchantIntegrationService;
+use App\Services\Mixtelematics\MixIntegrateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -191,6 +196,134 @@ class TrackingProviderOptionsTest extends TestCase
 
         $this->assertNotNull($integration);
         $this->assertSame('key-456', $integration->integration_data['api_key'] ?? null);
+    }
+
+    public function test_user_can_list_tracking_provider_vehicles_for_selection(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedVehicleImportProvider();
+
+        $this->mockVehicleImportProvider([
+            [
+                'integration_id' => 'veh-002',
+                'plate_number' => 'CA 456',
+                'description' => 'Backup Truck',
+                'make' => 'Volvo',
+                'model' => 'FH',
+            ],
+            [
+                'integration_id' => 'veh-001',
+                'plate_number' => 'CA 123',
+                'ref_code' => 'Primary Van',
+                'make' => 'Ford',
+                'model' => 'Transit',
+            ],
+        ]);
+
+        $response = $this->apiFor($user)->getJson(
+            "/api/v1/tracking-providers/{$provider->uuid}/vehicles?merchant_id={$merchant->uuid}"
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.provider_vehicle_id', 'veh-001')
+            ->assertJsonPath('data.0.description', 'Primary Van')
+            ->assertJsonPath('data.1.provider_vehicle_id', 'veh-002');
+    }
+
+    public function test_vehicle_import_endpoint_queues_only_selected_vehicle_ids(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedVehicleImportProvider();
+
+        Queue::fake();
+
+        $this->apiFor($user)->postJson("/api/v1/tracking-providers/{$provider->uuid}/import_vehicles", [
+            'merchant_id' => $merchant->uuid,
+            'vehicle_ids' => ['veh-001', 'veh-003'],
+        ])->assertStatus(202);
+
+        Queue::assertPushed(ImportProviderVehiclesJob::class, function (ImportProviderVehiclesJob $job) use ($provider) {
+            return $job->providerUuid === $provider->uuid
+                && $job->vehicleIds === ['veh-001', 'veh-003'];
+        });
+    }
+
+    public function test_vehicle_import_service_only_imports_selected_provider_vehicle_ids(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedVehicleImportProvider();
+
+        $this->mockVehicleImportProvider([
+            [
+                'integration_id' => 'veh-001',
+                'plate_number' => 'CA 123',
+                'make' => 'Ford',
+                'model' => 'Transit',
+            ],
+            [
+                'integration_id' => 'veh-002',
+                'plate_number' => 'CA 456',
+                'make' => 'Volvo',
+                'model' => 'FH',
+            ],
+        ]);
+
+        $result = app(MerchantIntegrationService::class)->importProviderVehicles(
+            $user,
+            $provider->uuid,
+            $merchant->uuid,
+            ['veh-002']
+        );
+
+        $this->assertSame(1, $result['imported_count']);
+        $this->assertDatabaseHas('vehicles', [
+            'account_id' => $merchant->account_id,
+            'intergration_id' => 'veh-002',
+            'plate_number' => 'CA 456',
+        ]);
+        $this->assertDatabaseMissing('vehicles', [
+            'account_id' => $merchant->account_id,
+            'intergration_id' => 'veh-001',
+        ]);
+        $this->assertSame(1, Vehicle::query()->count());
+    }
+
+    private function createActivatedVehicleImportProvider(): array
+    {
+        [$user, $merchant] = $this->createUserAndMerchant();
+
+        $provider = TrackingProvider::create([
+            'name' => 'Powerfleet',
+            'status' => 'active',
+            'has_vehicle_importing' => true,
+        ]);
+
+        MerchantIntegration::create([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'provider_id' => $provider->id,
+            'integration_data' => ['api_key' => 'key-123'],
+            'integration_options_data' => [],
+        ]);
+
+        return [$user, $merchant, $provider];
+    }
+
+    private function mockVehicleImportProvider(array $payload): void
+    {
+        app()->instance(MixIntegrateService::class, new class($payload) extends MixIntegrateService {
+            public function __construct(private array $payload)
+            {
+            }
+
+            public function list_importable_vehicles(array $integrationData = [], array $integrationOptionsData = []): array
+            {
+                return $this->payload;
+            }
+
+            public function import_vehicles(array $integrationData = [], array $integrationOptionsData = []): array
+            {
+                return $this->payload;
+            }
+        });
     }
 
     private function createUserAndMerchant(): array

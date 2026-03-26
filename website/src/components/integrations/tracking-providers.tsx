@@ -26,13 +26,19 @@ import {
   listTrackingProviders,
   activateTrackingProvider,
   getTrackingProviderImportsStatuses,
+  listTrackingProviderVehicles,
   importTrackingProviderVehicles,
   importTrackingProviderDrivers,
   importTrackingProviderLocations,
   type TrackingProviderImportStats,
 } from "@/lib/api/tracking-providers"
 import { isApiErrorResponse } from "@/lib/api/client"
-import type { TrackingProvider, TrackingProviderFormField } from "@/lib/types"
+import { TrackingProviderVehicleImportTable } from "@/components/integrations/tracking-provider-vehicle-import-table"
+import type {
+  TrackingProvider,
+  TrackingProviderFormField,
+  TrackingProviderVehiclePreview,
+} from "@/lib/types"
 import { Import, Loader2, MapPin, Plug, User2 } from "lucide-react"
 
 function getFieldLabel(field: TrackingProviderFormField) {
@@ -100,7 +106,7 @@ export function TrackingProviders({
   const [importingProviderId, setImportingProviderId] = React.useState<string>("")
   const [importingProviderName, setImportingProviderName] = React.useState<string>("")
   const [importStatus, setImportStatus] = React.useState<
-    "options" | "processing" | "done" | "error"
+    "loading" | "options" | "processing" | "done" | "error"
   >(
     "options"
   )
@@ -118,11 +124,12 @@ export function TrackingProviders({
   })
   const [importStats, setImportStats] = React.useState<TrackingProviderImportStats | null>(null)
   const [importErrorMessage, setImportErrorMessage] = React.useState<string>("")
+  const [providerVehicles, setProviderVehicles] = React.useState<TrackingProviderVehiclePreview[]>([])
+  const [selectedVehicleIds, setSelectedVehicleIds] = React.useState<string[]>([])
   const pollTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const loadProviders = React.useCallback(async () => {
     setLoading(true)
-    console.log("Loading providers with merchantId:", merchantId)
     const response = await listTrackingProviders(accessToken, merchantId)
     if (isApiErrorResponse(response)) {
       toast.error(response.message || "Failed to load tracking providers.")
@@ -185,7 +192,7 @@ export function TrackingProviders({
     }
   }, [clearImportPolling])
 
-  function openImportOptions(provider: TrackingProvider, entity: "vehicles" | "drivers" | "locations") {
+  async function openImportOptions(provider: TrackingProvider, entity: "vehicles" | "drivers" | "locations") {
     if (!merchantId) {
       toast.error("Please select a merchant before importing.")
       return
@@ -195,15 +202,31 @@ export function TrackingProviders({
     setImportingProviderId(provider.provider_id)
     setImportingProviderName(provider.name)
     setImportDialogOpen(true)
-    setImportStatus("options")
+    setImportStatus(entity === "vehicles" ? "loading" : "options")
     setImportStats(null)
     setImportErrorMessage("")
+    setProviderVehicles([])
+    setSelectedVehicleIds([])
     clearImportPolling()
     setImportOptions({
       only_with_geofences: false,
-      filter_type: entity === "drivers" ? "name" : entity === "vehicles" ? "registration" : "",
+      filter_type: entity === "drivers" ? "name" : "",
       wildcard: "",
     })
+
+    if (entity !== "vehicles") {
+      return
+    }
+
+    const response = await listTrackingProviderVehicles(provider.provider_id, merchantId, accessToken)
+    if (isApiErrorResponse(response)) {
+      setImportStatus("error")
+      setImportErrorMessage(response.message || "Failed to load provider vehicles.")
+      return
+    }
+
+    setProviderVehicles(response)
+    setImportStatus("options")
   }
 
   const finishFromStats = React.useCallback(
@@ -254,16 +277,18 @@ export function TrackingProviders({
       return
     }
 
+    if (importEntity === "vehicles" && selectedVehicleIds.length === 0) {
+      toast.error("Select at least one vehicle to import.")
+      return
+    }
+
     setImportStatus("processing")
     const response =
       importEntity === "vehicles"
         ? await importTrackingProviderVehicles(
             importingProviderId,
             merchantId,
-            {
-              filter_type: importOptions.filter_type as "registration" | "description",
-              wildcard: importOptions.wildcard || undefined,
-            },
+            selectedVehicleIds,
             accessToken
           )
         : importEntity === "drivers"
@@ -571,6 +596,7 @@ export function TrackingProviders({
         }}
       >
         <DialogContent
+          className={importEntity === "vehicles" ? "sm:max-w-5xl" : undefined}
           onEscapeKeyDown={(event) => {
             if (importStatus === "processing") event.preventDefault()
           }}
@@ -655,35 +681,26 @@ export function TrackingProviders({
 
                 {importEntity === "vehicles" ? (
                   <div className="space-y-3 rounded-md border border-border/70 p-3">
-                    <div className="text-sm font-medium">Import options</div>
-                    <div className="space-y-2">
-                      <label className="text-xs text-muted-foreground">Filter type</label>
-                      <Select
-                        value={importOptions.filter_type || undefined}
-                        onValueChange={(value) =>
-                          setImportOptions((prev) => ({ ...prev, filter_type: value }))
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a filter type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="registration">Registration</SelectItem>
-                          <SelectItem value="description">Description</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-medium">Select vehicles to import</div>
+                      <div className="text-lg font-bold text-muted-foreground">
+                        {selectedVehicleIds.length} selected
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs text-muted-foreground">Keyword</label>
-                      <Input
-                        value={importOptions.wildcard}
-                        onChange={(event) =>
-                          setImportOptions((prev) => ({ ...prev, wildcard: event.target.value }))
-                        }
-                      />
-                    </div>
+                    <TrackingProviderVehicleImportTable
+                      vehicles={providerVehicles}
+                      selectedIds={selectedVehicleIds}
+                      onSelectionChange={setSelectedVehicleIds}
+                    />
                   </div>
                 ) : null}
+              </div>
+            ) : null}
+
+            {importStatus === "loading" ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading provider vehicles...
               </div>
             ) : null}
 
@@ -723,7 +740,12 @@ export function TrackingProviders({
                 <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={runImport}>Continue</Button>
+                <Button
+                  onClick={runImport}
+                  disabled={importEntity === "vehicles" && selectedVehicleIds.length === 0}
+                >
+                  {importEntity === "vehicles" ? "Import Selected" : "Continue"}
+                </Button>
               </>
             ) : (
               <Button onClick={() => setImportDialogOpen(false)} disabled={importStatus === "processing"}>

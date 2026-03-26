@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-class ImportTrackingProviderVehiclesRequest extends BaseRequest
+class ListTrackingProviderVehiclesRequest extends BaseRequest
 {
     public function authorize(): bool
     {
@@ -13,8 +13,6 @@ class ImportTrackingProviderVehiclesRequest extends BaseRequest
     {
         return [
             'merchant_id' => ['required', 'uuid', 'exists:merchants,uuid'],
-            'vehicle_ids' => ['required', 'array', 'min:1'],
-            'vehicle_ids.*' => ['required', 'string'],
         ];
     }
 }

@@ -21,7 +21,8 @@ class ImportProviderVehiclesJob implements ShouldQueue
         public int $userId,
         public int $merchantId,
         public string $merchantUuid,
-        public string $providerUuid
+        public string $providerUuid,
+        public array $vehicleIds
     ) {
     }
 
@@ -40,7 +41,12 @@ class ImportProviderVehiclesJob implements ShouldQueue
                 return;
             }
 
-            $result = $service->importProviderVehicles($user, $this->providerUuid, $this->merchantUuid);
+            $result = $service->importProviderVehicles(
+                $user,
+                $this->providerUuid,
+                $this->merchantUuid,
+                $this->vehicleIds
+            );
             $service->completeImportByMerchantId(
                 $this->merchantId,
                 'vehicles',

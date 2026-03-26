@@ -23,6 +23,47 @@ Add new entries at the top (newest first).
 ## 2026-03-26 | Version: unreleased
 
 ### Summary
+- Replaced tracking-provider vehicle imports with a selection flow that loads provider vehicles into a filtered table, supports select-all, and imports only the chosen vehicles.
+
+### API Changes
+- Added `GET /api/v1/tracking-providers/{provider_id}/vehicles` to preview provider vehicles for import selection.
+- Updated `POST /api/v1/tracking-providers/{provider_id}/import_vehicles` to require `vehicle_ids` alongside `merchant_id`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Admin integrations now load provider vehicles before a vehicle import starts.
+- Vehicle imports now stay disabled until at least one provider vehicle is selected.
+- Vehicle import jobs now create or update only the selected provider vehicles instead of importing the full provider list.
+
+### Breaking Changes
+- `POST /api/v1/tracking-providers/{provider_id}/import_vehicles` no longer supports merchant-only bulk imports; callers must send selected provider vehicle ids.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/MerchantIntegrationController.php`
+  - `app/Http/Requests/ListTrackingProviderVehiclesRequest.php`
+  - `app/Http/Requests/ImportTrackingProviderVehiclesRequest.php`
+  - `app/Http/Resources/TrackingProviderVehicleResource.php`
+  - `app/Jobs/ImportProviderVehiclesJob.php`
+  - `app/Services/MerchantIntegrationService.php`
+  - `app/Services/Mixtelematics/MixIntegrateService.php`
+  - `routes/api.php`
+  - `website/src/components/integrations/tracking-providers.tsx`
+  - `website/src/components/integrations/tracking-provider-vehicle-import-table.tsx`
+  - `website/src/lib/api/tracking-providers.ts`
+  - `website/src/lib/types.ts`
+  - `tests/Feature/TrackingProviderOptionsTest.php`
+  - `openapi.yaml`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter=TrackingProviderOptionsTest`
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
 - Fixed tracking provider activation so the admin UI submits the selected `merchant_id` and the API activates providers against the correct merchant in multi-merchant accounts.
 
 ### API Changes

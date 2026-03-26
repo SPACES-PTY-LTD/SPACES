@@ -222,6 +222,7 @@ Route::prefix('v1')->group(function () {
             Route::middleware('role:user')->group(function () {
                 Route::post('tracking-providers/activate', [MerchantIntegrationController::class, 'activateTrackingProvider']);
                 Route::put('tracking-providers/{provider_id}/options_data', [MerchantIntegrationController::class, 'updateTrackingProviderOptionsData']);
+                Route::get('tracking-providers/{provider_id}/vehicles', [MerchantIntegrationController::class, 'listTrackingProviderVehicles']);
                 Route::post('tracking-providers/{provider_id}/import_vehicles', [MerchantIntegrationController::class, 'importTrackingProviderVehicles']);
                 Route::post('tracking-providers/{provider_id}/import_drivers', [MerchantIntegrationController::class, 'importTrackingProviderDrivers']);
                 Route::post('tracking-providers/{provider_id}/import_locations', [MerchantIntegrationController::class, 'importTrackingProviderLocations']);

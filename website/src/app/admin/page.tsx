@@ -86,11 +86,11 @@ export default async function AdminDashboardPage() {
       value: formatter.format(stats.vehicles_count),
       href: withAdminQuery(AdminLinks.vehicles, { status: "active" }),
     },
-    {
-      label: "Active quotes",
-      value: formatter.format(stats.active_quotes),
-      href: withAdminQuery(AdminLinks.quotes, { status: "active" }),
-    },
+    // {
+    //   label: "Active quotes",
+    //   value: formatter.format(stats.active_quotes),
+    //   href: withAdminQuery(AdminLinks.quotes, { status: "active" }),
+    // },
     // {
     //   label: "Total members",
     //   value: formatter.format(stats.total_members),
@@ -105,7 +105,7 @@ export default async function AdminDashboardPage() {
         description="Live performance across merchants, carriers, and shipments."
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {kpis.map((kpi) => (
           <Link key={kpi.label} href={kpi.href} className="group">
             <Card className="gap-0 py-3 transition-shadow group-hover:shadow-md">

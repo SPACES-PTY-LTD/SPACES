@@ -655,6 +655,14 @@ export interface TrackingProvider {
   updated_at?: string
 }
 
+export interface TrackingProviderVehiclePreview {
+  provider_vehicle_id: string
+  plate_number?: string | null
+  description?: string | null
+  make?: string | null
+  model?: string | null
+}
+
 export interface Driver {
   driver_id: UUID
   uuid?: UUID
