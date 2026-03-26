@@ -23,6 +23,60 @@ Add new entries at the top (newest first).
 ## 2026-03-26 | Version: unreleased
 
 ### Summary
+- Fixed the shipment detail actions dropdown so it opens and stays interactive when the shipment detail view is rendered inside a dialog.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The shipment actions menu now works correctly in embedded shipment detail dialogs, allowing users to open the menu and launch its actions.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Configured the shipment actions Radix dropdown to run non-modally so it no longer conflicts with the parent dialog's focus and outside-interaction handling.
+
+### Verification
+- Updated files:
+  - `website/src/components/shipments/shipment-detail-actions.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
+- Fixed the account billing dashboard plan selector to satisfy the production React/Next build rules by replacing the synchronous state sync effect with derived selection state.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The billing dashboard plan dropdown now keeps its local selection state without relying on a synchronous `useEffect` state reset.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Resolved the blocking `react-hooks/set-state-in-effect` build error in the website production build.
+
+### Verification
+- Updated files:
+  - `website/src/components/billing/account-billing-dashboard.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `npm run build`
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
 - Split the account billing screen into a current billing-cycle invoice preview and a separate previous-invoices history table with invoice-detail dialogs.
 
 ### API Changes

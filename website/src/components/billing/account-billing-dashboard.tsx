@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { DataTable } from "@/components/common/data-table"
@@ -46,7 +46,7 @@ export function AccountBillingDashboard({
   const [chargingInvoiceId, setChargingInvoiceId] = useState<string | null>(null)
   const [syncingCards, setSyncingCards] = useState(false)
   const [preparingSetup, setPreparingSetup] = useState(false)
-  const [selectedPlanIds, setSelectedPlanIds] = useState<Record<string, string | undefined>>({})
+  const [planSelectionOverrides, setPlanSelectionOverrides] = useState<Record<string, string | undefined>>({})
   const [pendingFreeDowngrade, setPendingFreeDowngrade] = useState<{
     merchantId: string
     planId: string
@@ -58,13 +58,20 @@ export function AccountBillingDashboard({
 
   const refresh = () => router.refresh()
 
-  useEffect(() => {
-    setSelectedPlanIds(
+  const defaultSelectedPlanIds = useMemo(
+    () =>
       Object.fromEntries(
         summary.merchants.map((merchant) => [merchant.merchant_id, merchant.plan_id ?? undefined])
-      )
-    )
-  }, [summary.merchants])
+      ),
+    [summary.merchants]
+  )
+  const selectedPlanIds = useMemo(
+    () => ({
+      ...defaultSelectedPlanIds,
+      ...planSelectionOverrides,
+    }),
+    [defaultSelectedPlanIds, planSelectionOverrides]
+  )
 
   const freePlan = useMemo(
     () => plans.find((plan) => plan.is_free),
@@ -88,7 +95,7 @@ export function AccountBillingDashboard({
   function handlePlanSelection(merchantId: string, planId: string) {
     const plan = plans.find((entry) => entry.plan_id === planId)
 
-    setSelectedPlanIds((current) => ({
+    setPlanSelectionOverrides((current) => ({
       ...current,
       [merchantId]: planId,
     }))
@@ -119,7 +126,7 @@ export function AccountBillingDashboard({
       (entry) => entry.merchant_id === pendingFreeDowngrade.merchantId
     )
 
-    setSelectedPlanIds((current) => ({
+    setPlanSelectionOverrides((current) => ({
       ...current,
       [pendingFreeDowngrade.merchantId]: merchant?.plan_id ?? undefined,
     }))
@@ -289,43 +296,45 @@ export function AccountBillingDashboard({
         <CardHeader>
           <CardTitle>Merchant plans</CardTitle>
           <CardDescription>
-            Manage the billing plan for each merchant on this account.
+            
             {!summary.can_select_free_plan && freePlan ? ` The free plan is only available until ${summary.free_plan_available_until ?? "the end of the trial window"}.` : ""}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-4">
           {summary.merchants.map((merchant) => (
-            <div key={merchant.merchant_id} className="rounded-lg border p-4">
+            <div key={merchant.merchant_id} className=" py-2 border-b last:border-0">
               <div className="mb-3 flex items-start justify-between gap-4">
                 <div>
                   <div className="font-medium">{merchant.name}</div>
                   <div className="text-sm text-muted-foreground">
                     {merchant.active_vehicle_count} active vehicles, {merchant.extra_vehicle_count} extra vehicles
+                    <div>{summary.currency} {merchant.monthly_charge.toFixed(2)} base</div>
+                    <div className="text-muted-foreground">
+                      {summary.currency} {merchant.extra_vehicle_total.toFixed(2)} overage
+                    </div>
                   </div>
                 </div>
                 <div className="text-right text-sm">
-                  <div>{summary.currency} {merchant.monthly_charge.toFixed(2)} base</div>
-                  <div className="text-muted-foreground">
-                    {summary.currency} {merchant.extra_vehicle_total.toFixed(2)} overage
-                  </div>
+                  
+                  <Select
+                    value={selectedPlanIds[merchant.merchant_id]}
+                    onValueChange={(value) => handlePlanSelection(merchant.merchant_id, value)}
+                    disabled={savingMerchantId === merchant.merchant_id}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plans.map((plan) => (
+                        <SelectItem key={plan.plan_id} value={plan.plan_id}>
+                          {plan.title} ({plan.vehicle_limit} vehicles)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <Select
-                value={selectedPlanIds[merchant.merchant_id]}
-                onValueChange={(value) => handlePlanSelection(merchant.merchant_id, value)}
-                disabled={savingMerchantId === merchant.merchant_id}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select plan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plans.map((plan) => (
-                    <SelectItem key={plan.plan_id} value={plan.plan_id}>
-                      {plan.title} ({plan.vehicle_limit} vehicles)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              
             </div>
           ))}
         </CardContent>
@@ -333,45 +342,35 @@ export function AccountBillingDashboard({
 
       <Card>
         <CardHeader>
-          <CardTitle>Payment methods</CardTitle>
-          <CardDescription>
-            Card capture happens only on the gateway side. Your billing country resolves this account to{" "}
-            {summary.gateway.name ?? summary.gateway.code}, and we store masked metadata plus reusable provider references only.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-4 rounded-lg border p-4 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-1">
-              <div className="text-sm font-medium">Resolved gateway</div>
-              <div className="text-sm text-muted-foreground">
-                {summary.gateway.name ?? summary.gateway.code} based on billing country {summary.country_code}
+          <CardTitle>
+            <div className="flex justify-between">
+              <div>Payment methods</div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleSyncPaymentMethods}
+                  disabled={syncingCards}
+                >
+                  {syncingCards ? "Refreshing..." : "Refresh saved methods"}
+                </Button>
+                <Button
+                  onClick={handlePrepareSetup}
+                  disabled={preparingSetup || !summary.gateway_capabilities.supports_hosted_card_capture}
+                >
+                  {preparingSetup ? "Preparing..." : "Add via gateway"}
+                </Button>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                onClick={handleSyncPaymentMethods}
-                disabled={syncingCards}
-              >
-                {syncingCards ? "Refreshing..." : "Refresh saved methods"}
-              </Button>
-              <Button
-                onClick={handlePrepareSetup}
-                disabled={preparingSetup || !summary.gateway_capabilities.supports_hosted_card_capture}
-              >
-                {preparingSetup ? "Preparing..." : "Add via gateway"}
-              </Button>
-            </div>
-          </div>
-          <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-            {summary.gateway_capabilities.supports_card_retrieval
-              ? "This gateway can sync saved cards directly from the provider."
-              : "This gateway does not expose a reliable saved-card list API. Saved methods shown here come from masked gateway authorization or token metadata only."}
-          </div>
+          </CardTitle>
+          
+        </CardHeader>
+        <CardContent className="space-y-4">
+          
+         
 
           <div className="space-y-3">
             {summary.payment_methods.length === 0 ? (
-              <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+              <div className=" p-y text-sm text-muted-foreground">
                 No synced payment methods available.
               </div>
             ) : null}
@@ -406,40 +405,20 @@ export function AccountBillingDashboard({
         <CardHeader>
           <CardTitle>Current invoice preview</CardTitle>
           <CardDescription>
-            Preview of the invoice for the current billing period before the next invoice is generated.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
-            <div>
-              <div className="text-sm text-muted-foreground">Billing period</div>
-              <div className="font-medium">
+            <div className="font-medium">
+                Billing period: 
                 {preview?.billing_period_start ?? "-"} to{" "}
                 {preview?.billing_period_end ?? "-"}
               </div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Currency</div>
-              <div className="font-medium">{preview?.currency ?? summary.currency}</div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Subtotal</div>
-              <div className="font-medium">
-                {preview?.currency ?? summary.currency} {preview ? preview.subtotal.toFixed(2) : "0.00"}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm text-muted-foreground">Total</div>
-              <div className="font-medium">
-                {preview?.currency ?? summary.currency} {preview ? preview.total.toFixed(2) : "0.00"}
-              </div>
-            </div>
-          </div>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          
 
-          <div className="space-y-3">
+          <div className="pt-3">
             {preview?.lines.length ? (
               preview.lines.map((line, index) => (
-                <div key={`${line.description}-${index}`} className="rounded-lg border p-4">
+                <div key={`${line.description}-${index}`} className="py-2 border-b last:border-0">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="font-medium">{line.description}</div>
@@ -460,6 +439,23 @@ export function AccountBillingDashboard({
               </div>
             )}
           </div>
+
+          <div className="flex-col flex justify-end items-end gap-4 ">
+            <div className="flex flex-row items-center gap-4">
+              <div className="text-sm text-muted-foreground">Subtotal</div>
+              <div className="font-medium w-42 text-right">
+                {preview?.currency ?? summary.currency} {preview ? preview.subtotal.toFixed(2) : "0.00"}
+              </div>
+            </div>
+            <div className="flex flex-row items-center gap-4">
+              <div className="text-sm text-muted-foreground">Total</div>
+              <div className="font-medium w-42 text-right">
+                {preview?.currency ?? summary.currency} {preview ? preview.total.toFixed(2) : "0.00"}
+              </div>
+            </div>
+          </div>
+
+
         </CardContent>
       </Card>
 

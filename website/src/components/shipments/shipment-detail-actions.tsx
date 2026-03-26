@@ -71,7 +71,7 @@ export function ShipmentDetailActions({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" aria-label="Shipment actions">
             Actions <ChevronDown className="h-4 w-4" />
