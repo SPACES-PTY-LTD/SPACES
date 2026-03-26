@@ -23,6 +23,35 @@ Add new entries at the top (newest first).
 ## 2026-03-26 | Version: unreleased
 
 ### Summary
+- Removed non-essential vehicle form inputs for location update time, integration id, and photo key from the admin vehicle dialog, and changed status to a switch control.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The admin vehicle create/edit dialog no longer shows `Location updated at`, `Intergration ID`, or `Photo key`.
+- Vehicle saves from the admin dialog no longer submit those fields from the form payload.
+- The admin vehicle status control now uses a shadcn switch instead of a select dropdown.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Simplified the vehicle dialog form state and validation to match the remaining editable inputs while preserving the existing active/inactive payload shape.
+
+### Verification
+- Updated files:
+  - `website/src/components/vehicles/vehicle-dialog.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run.
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
 - Replaced tracking-provider vehicle imports with a selection flow that loads provider vehicles into a filtered table, supports select-all, captures a vehicle type per selected row, and imports only the chosen vehicles.
 
 ### API Changes
@@ -39,6 +68,7 @@ Add new entries at the top (newest first).
 - Tracking-provider import jobs for vehicles, drivers, and locations now dispatch onto the `imports` queue instead of the default queue.
 - Vehicle import type resolution accepts the submitted vehicle type identifier more defensively and the admin UI loads a larger enabled-only vehicle type list for the import dropdown.
 - Tracking-provider vehicle imports now persist the selected `merchant_id` onto imported vehicles and prefer merchant-scoped matches when updating existing provider-linked vehicles.
+- Tracking-provider driver and location imports now also reclaim legacy unscoped records onto the selected merchant and persist the selected `merchant_id` during import updates.
 
 ### Breaking Changes
 - `POST /api/v1/tracking-providers/{provider_id}/import_vehicles` no longer supports merchant-only bulk imports; callers must send selected provider vehicle ids.

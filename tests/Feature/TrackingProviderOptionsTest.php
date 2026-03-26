@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\Driver;
+use App\Models\Location;
 use App\Models\Merchant;
 use App\Models\MerchantIntegration;
 use App\Models\TrackingProvider;
@@ -369,6 +371,82 @@ class TrackingProviderOptionsTest extends TestCase
         $this->assertSame($vehicleType->id, $legacyVehicle->vehicle_type_id);
     }
 
+    public function test_driver_import_assigns_selected_merchant_to_legacy_unscoped_driver(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedImportProviderWithCapabilities([
+            'has_driver_importing' => true,
+        ]);
+
+        $legacyUser = User::withoutEvents(fn () => User::factory()->create([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $merchant->account_id,
+            'role' => 'driver',
+            'email' => 'legacy-driver@example.com',
+            'name' => 'Legacy Driver',
+        ]));
+
+        $legacyDriver = Driver::create([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $merchant->account_id,
+            'merchant_id' => null,
+            'user_id' => $legacyUser->id,
+            'intergration_id' => 'drv-legacy',
+            'is_active' => true,
+        ]);
+
+        $this->mockProviderService('import_drivers', [[
+            'integration_id' => 'drv-legacy',
+            'name' => 'Updated Legacy Driver',
+            'email' => 'legacy-driver@example.com',
+            'telephone' => '123456789',
+            'is_active' => true,
+        ]]);
+
+        app(MerchantIntegrationService::class)->importProviderDrivers(
+            $user,
+            $provider->uuid,
+            $merchant->uuid
+        );
+
+        $legacyDriver->refresh();
+        $legacyUser->refresh();
+
+        $this->assertSame($merchant->id, $legacyDriver->merchant_id);
+        $this->assertSame('Updated Legacy Driver', $legacyUser->name);
+    }
+
+    public function test_location_import_assigns_selected_merchant_to_new_location(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedImportProviderWithCapabilities([
+            'has_locations_importing' => true,
+        ]);
+
+        $this->mockProviderService('import_locations', [[
+            'integration_id' => 'loc-new',
+            'name' => 'Updated Yard',
+            'code' => 'YARD-01',
+            'address_line_1' => '1 Dock Road',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+        ]]);
+
+        app(MerchantIntegrationService::class)->importProviderLocations(
+            $user,
+            $provider->uuid,
+            $merchant->uuid,
+            null
+        );
+
+        $this->assertDatabaseHas('locations', [
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'intergration_id' => 'loc-new',
+            'name' => 'Updated Yard',
+            'code' => 'YARD-01',
+        ]);
+    }
+
     private function createActivatedVehicleImportProvider(): array
     {
         [$user, $merchant] = $this->createUserAndMerchant();
@@ -378,6 +456,30 @@ class TrackingProviderOptionsTest extends TestCase
             'status' => 'active',
             'has_vehicle_importing' => true,
         ]);
+
+        MerchantIntegration::create([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'provider_id' => $provider->id,
+            'integration_data' => ['api_key' => 'key-123'],
+            'integration_options_data' => [],
+        ]);
+
+        return [$user, $merchant, $provider];
+    }
+
+    private function createActivatedImportProviderWithCapabilities(array $capabilities): array
+    {
+        [$user, $merchant] = $this->createUserAndMerchant();
+
+        $provider = TrackingProvider::create(array_merge([
+            'name' => 'Powerfleet',
+            'status' => 'active',
+            'has_vehicle_importing' => false,
+            'has_driver_importing' => false,
+            'has_locations_importing' => false,
+        ], $capabilities));
 
         MerchantIntegration::create([
             'uuid' => (string) Str::uuid(),
@@ -406,6 +508,36 @@ class TrackingProviderOptionsTest extends TestCase
             public function import_vehicles(array $integrationData = [], array $integrationOptionsData = []): array
             {
                 return $this->payload;
+            }
+        });
+    }
+
+    private function mockProviderService(string $method, array $payload): void
+    {
+        app()->instance(MixIntegrateService::class, new class($method, $payload) extends MixIntegrateService {
+            public function __construct(
+                private string $methodName,
+                private array $payload
+            ) {
+            }
+
+            public function __call(string $name, array $arguments): mixed
+            {
+                if ($name === $this->methodName) {
+                    return $this->payload;
+                }
+
+                return parent::__call($name, $arguments);
+            }
+
+            public function import_drivers(array $integrationData = [], array $integrationOptionsData = []): array
+            {
+                return $this->methodName === 'import_drivers' ? $this->payload : [];
+            }
+
+            public function import_locations(array $integrationData = [], array $integrationOptionsData = []): array
+            {
+                return $this->methodName === 'import_locations' ? $this->payload : [];
             }
         });
     }

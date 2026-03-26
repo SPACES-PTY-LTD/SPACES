@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { listVehicleTypes } from "@/lib/api/vehicle-types"
 import { createVehicle, updateVehicle } from "@/lib/api/vehicles"
 import { isApiErrorResponse } from "@/lib/api/client"
@@ -32,13 +33,10 @@ type FormState = {
   model: string
   color: string
   plateNumber: string
-  photoKey: string
   vinNumber: string
   engineNumber: string
   refCode: string
   lastLocationAddress: string
-  locationUpdatedAt: string
-  intergrationId: string
   isActive: "true" | "false"
 }
 
@@ -78,13 +76,10 @@ export function VehicleDialog({
     model: vehicle?.model ?? "",
     color: vehicle?.color ?? "",
     plateNumber: vehicle?.plate_number ?? "",
-    photoKey: vehicle?.photo_key ?? "",
     vinNumber: vehicle?.vin_number ?? "",
     engineNumber: vehicle?.engine_number ?? "",
     refCode: vehicle?.ref_code ?? "",
     lastLocationAddress: formatVehicleLocationAddress(vehicle?.last_location_address),
-    locationUpdatedAt: vehicle?.location_updated_at ?? "",
-    intergrationId: vehicle?.intergration_id ?? "",
     isActive: vehicle?.is_active === false ? "false" : "true",
   })
 
@@ -121,13 +116,10 @@ export function VehicleDialog({
       model: vehicle?.model ?? "",
       color: vehicle?.color ?? "",
       plateNumber: vehicle?.plate_number ?? "",
-      photoKey: vehicle?.photo_key ?? "",
       vinNumber: vehicle?.vin_number ?? "",
       engineNumber: vehicle?.engine_number ?? "",
       refCode: vehicle?.ref_code ?? "",
       lastLocationAddress: formatVehicleLocationAddress(vehicle?.last_location_address),
-      locationUpdatedAt: vehicle?.location_updated_at ?? "",
-      intergrationId: vehicle?.intergration_id ?? "",
       isActive: vehicle?.is_active === false ? "false" : "true",
     })
   }, [open, vehicle])
@@ -142,8 +134,7 @@ export function VehicleDialog({
       !values.make ||
       !values.model ||
       !values.color ||
-      !values.plateNumber ||
-      !values.photoKey
+      !values.plateNumber
     ) {
       toast.error("Fill in all required fields.")
       return
@@ -164,13 +155,10 @@ export function VehicleDialog({
         model: values.model,
         color: values.color,
         plate_number: values.plateNumber,
-        photo_key: values.photoKey,
         vin_number: values.vinNumber || null,
         engine_number: values.engineNumber || null,
         ref_code: values.refCode || null,
         last_location_address: values.lastLocationAddress || null,
-        location_updated_at: values.locationUpdatedAt || null,
-        intergration_id: values.intergrationId || null,
         is_active: values.isActive === "true",
       }
       if (isEdit) {
@@ -274,13 +262,6 @@ export function VehicleDialog({
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">Photo key</label>
-            <Input
-              value={values.photoKey}
-              onChange={(event) => updateValue("photoKey", event.target.value)}
-            />
-          </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-xs text-muted-foreground">VIN number</label>
@@ -306,45 +287,24 @@ export function VehicleDialog({
               onChange={(event) => updateValue("refCode", event.target.value)}
             />
           </div>
-          
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">
-                Location updated at
-              </label>
-              <Input
-                value={values.locationUpdatedAt}
-                onChange={(event) =>
-                  updateValue("locationUpdatedAt", event.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">
-                Intergration ID
-              </label>
-              <Input
-                value={values.intergrationId}
-                onChange={(event) =>
-                  updateValue("intergrationId", event.target.value)
-                }
-              />
-            </div>
-          </div>
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Status</label>
-            <Select
-              value={values.isActive}
-              onValueChange={(value) => updateValue("isActive", value)}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="true">Active</SelectItem>
-                <SelectItem value="false">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between rounded-md border px-3 py-2">
+              <div className="space-y-1">
+                <p className="text-sm font-medium leading-none">
+                  {values.isActive === "true" ? "Active" : "Inactive"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Toggle whether this vehicle can be used.
+                </p>
+              </div>
+              <Switch
+                checked={values.isActive === "true"}
+                onCheckedChange={(checked) =>
+                  updateValue("isActive", checked ? "true" : "false")
+                }
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>

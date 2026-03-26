@@ -16,6 +16,7 @@ use App\Models\TrackingProviderOption;
 use App\Models\Vehicle;
 use App\Models\VehicleType;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -722,7 +723,10 @@ class MerchantIntegrationService
 
             $location = Location::query()
                 ->where('account_id', $integration->account_id)
-                ->where('merchant_id', $merchant->id)
+                ->where(function ($query) use ($merchant) {
+                    $query->where('merchant_id', $merchant->id)
+                        ->orWhereNull('merchant_id');
+                })
                 ->where('intergration_id', (string) $integrationId)
                 ->first();
 
@@ -734,7 +738,8 @@ class MerchantIntegrationService
             }
 
             $fallbackLabel = 'Imported Location '.(string) $integrationId;
-    
+
+            $location->merchant_id = $merchant->id;
             $location->location_type_id = $item['location_type_id'] ?? $location->location_type_id;
             $location->name = $item['name'] ?? $location->name ?? $fallbackLabel;
             $location->code = $item['code'] ?? $location->code ?? null;
