@@ -347,16 +347,22 @@ class MerchantIntegrationService
 
             $vehicle = Vehicle::query()
                 ->where('account_id', $integration->account_id)
+                ->where(function ($query) use ($merchant) {
+                    $query->where('merchant_id', $merchant->id)
+                        ->orWhereNull('merchant_id');
+                })
                 ->where('intergration_id', $integrationId)
                 ->first();
 
             if (!$vehicle) {
                 $vehicle = new Vehicle();
                 $vehicle->account_id = $integration->account_id;
+                $vehicle->merchant_id = $merchant->id;
                 $vehicle->intergration_id = $integrationId;
                 $vehicle->is_active = true;
             }
 
+            $vehicle->merchant_id = $merchant->id;
             $vehicle->vehicle_type_id = $selectedVehicle['vehicle_type_id'];
             $vehicle->make = $item['make'] ?? $vehicle->make;
             $vehicle->model = $item['model'] ?? $vehicle->model;

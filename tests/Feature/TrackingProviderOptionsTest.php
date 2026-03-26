@@ -312,6 +312,7 @@ class TrackingProviderOptionsTest extends TestCase
         $this->assertSame(1, $result['imported_count']);
         $this->assertDatabaseHas('vehicles', [
             'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
             'intergration_id' => 'veh-002',
             'plate_number' => 'CA 456',
             'vehicle_type_id' => $vehicleType->id,
@@ -321,6 +322,51 @@ class TrackingProviderOptionsTest extends TestCase
             'intergration_id' => 'veh-001',
         ]);
         $this->assertSame(1, Vehicle::query()->count());
+    }
+
+    public function test_vehicle_import_assigns_selected_merchant_to_legacy_unscoped_vehicle(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedVehicleImportProvider();
+        $vehicleType = VehicleType::create([
+            'uuid' => (string) Str::uuid(),
+            'code' => 'pickup',
+            'name' => 'Pickup',
+            'enabled' => true,
+        ]);
+
+        $legacyVehicle = Vehicle::create([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $merchant->account_id,
+            'merchant_id' => null,
+            'intergration_id' => 'veh-legacy',
+            'plate_number' => 'OLD 123',
+            'is_active' => true,
+        ]);
+
+        $this->mockVehicleImportProvider([
+            [
+                'integration_id' => 'veh-legacy',
+                'plate_number' => 'NEW 456',
+                'make' => 'Toyota',
+                'model' => 'Hilux',
+            ],
+        ]);
+
+        app(MerchantIntegrationService::class)->importProviderVehicles(
+            $user,
+            $provider->uuid,
+            $merchant->uuid,
+            [[
+                'provider_vehicle_id' => 'veh-legacy',
+                'vehicle_type_id' => $vehicleType->uuid,
+            ]]
+        );
+
+        $legacyVehicle->refresh();
+
+        $this->assertSame($merchant->id, $legacyVehicle->merchant_id);
+        $this->assertSame('NEW 456', $legacyVehicle->plate_number);
+        $this->assertSame($vehicleType->id, $legacyVehicle->vehicle_type_id);
     }
 
     private function createActivatedVehicleImportProvider(): array

@@ -38,6 +38,7 @@ Add new entries at the top (newest first).
 - Vehicle import jobs now create or update only the selected provider vehicles and apply the selected vehicle type to each imported vehicle.
 - Tracking-provider import jobs for vehicles, drivers, and locations now dispatch onto the `imports` queue instead of the default queue.
 - Vehicle import type resolution accepts the submitted vehicle type identifier more defensively and the admin UI loads a larger enabled-only vehicle type list for the import dropdown.
+- Tracking-provider vehicle imports now persist the selected `merchant_id` onto imported vehicles and prefer merchant-scoped matches when updating existing provider-linked vehicles.
 
 ### Breaking Changes
 - `POST /api/v1/tracking-providers/{provider_id}/import_vehicles` no longer supports merchant-only bulk imports; callers must send selected provider vehicle ids.
