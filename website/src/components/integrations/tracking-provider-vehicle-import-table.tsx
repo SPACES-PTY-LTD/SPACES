@@ -204,7 +204,7 @@ export function TrackingProviderVehicleImportTable({
                         </SelectTrigger>
                         <SelectContent>
                           {vehicleTypes.map((vehicleType) => {
-                            const vehicleTypeId = vehicleType.vehicle_type_id
+                            const vehicleTypeId = vehicleType.vehicle_type_id ?? vehicleType.uuid
                             if (!vehicleTypeId) return null
 
                             return (

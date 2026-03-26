@@ -3,7 +3,7 @@ import type { ApiEnvelope, ApiListResponse, VehicleType } from "@/lib/types"
 
 export async function listVehicleTypes(
   token?: string | null,
-  params?: { page?: number }
+  params?: { page?: number; per_page?: number; enabled?: boolean }
 ) {
   return apiFetch<ApiListResponse<VehicleType>>(
     "/api/v1/vehicle-types",

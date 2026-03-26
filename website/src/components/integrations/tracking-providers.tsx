@@ -152,7 +152,11 @@ export function TrackingProviders({
     let cancelled = false
 
     async function loadVehicleTypes() {
-      const response = await listVehicleTypes(accessToken, { page: 1 })
+      const response = await listVehicleTypes(accessToken, {
+        page: 1,
+        per_page: 100,
+        enabled: true,
+      })
       if (cancelled || isApiErrorResponse(response)) {
         return
       }

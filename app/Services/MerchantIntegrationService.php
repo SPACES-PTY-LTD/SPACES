@@ -915,7 +915,10 @@ class MerchantIntegrationService
                 continue;
             }
 
-            $vehicleTypeId = VehicleType::query()->where('uuid', $vehicleTypeUuid)->value('id');
+            $vehicleTypeId = VehicleType::query()
+                ->where('uuid', $vehicleTypeUuid)
+                ->orWhere('id', is_numeric($vehicleTypeUuid) ? (int) $vehicleTypeUuid : 0)
+                ->value('id');
             if (!$vehicleTypeId) {
                 throw ValidationException::withMessages([
                     'vehicle_type_id' => 'vehicle_type_id does not exist.',
