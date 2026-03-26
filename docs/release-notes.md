@@ -23,6 +23,36 @@ Add new entries at the top (newest first).
 ## 2026-03-26 | Version: unreleased
 
 ### Summary
+- Added reusable admin loading skeletons for table and detail screens and wired them into the admin route tree with route-level `loading.tsx` files.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Admin list pages now show a shared table-style loading skeleton during route transitions.
+- Admin detail, form, and dashboard-style pages now show a shared detail-style loading skeleton during route transitions.
+- Dynamic admin detail routes now use their own loading boundaries instead of falling back to generic parent loading states.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added shared `AdminTableLoadingSkeleton` and `AdminDetailLoadingSkeleton` components under the website admin UI layer and attached them to admin route segments.
+
+### Verification
+- Updated files:
+  - `website/src/components/admin/admin-loading-skeletons.tsx`
+  - `website/src/app/admin/**/loading.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
 - Fixed the shipment detail actions dropdown so it opens and stays interactive when the shipment detail view is rendered inside a dialog.
 
 ### API Changes
