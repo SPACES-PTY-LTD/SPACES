@@ -10,6 +10,7 @@ use App\Models\TrackingProviderIntegrationFormField;
 use App\Models\TrackingProviderOption;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\VehicleType;
 use App\Jobs\ImportProviderVehiclesJob;
 use App\Services\MerchantIntegrationService;
 use App\Services\Mixtelematics\MixIntegrateService;
@@ -232,23 +233,55 @@ class TrackingProviderOptionsTest extends TestCase
     public function test_vehicle_import_endpoint_queues_only_selected_vehicle_ids(): void
     {
         [$user, $merchant, $provider] = $this->createActivatedVehicleImportProvider();
+        $vehicleType = VehicleType::create([
+            'uuid' => (string) Str::uuid(),
+            'code' => 'truck',
+            'name' => 'Truck',
+            'enabled' => true,
+        ]);
 
         Queue::fake();
 
         $this->apiFor($user)->postJson("/api/v1/tracking-providers/{$provider->uuid}/import_vehicles", [
             'merchant_id' => $merchant->uuid,
-            'vehicle_ids' => ['veh-001', 'veh-003'],
+            'vehicles' => [
+                [
+                    'provider_vehicle_id' => 'veh-001',
+                    'vehicle_type_id' => $vehicleType->uuid,
+                ],
+                [
+                    'provider_vehicle_id' => 'veh-003',
+                    'vehicle_type_id' => $vehicleType->uuid,
+                ],
+            ],
         ])->assertStatus(202);
 
-        Queue::assertPushed(ImportProviderVehiclesJob::class, function (ImportProviderVehiclesJob $job) use ($provider) {
+        Queue::assertPushed(ImportProviderVehiclesJob::class, function (ImportProviderVehiclesJob $job) use ($provider, $vehicleType) {
             return $job->providerUuid === $provider->uuid
-                && $job->vehicleIds === ['veh-001', 'veh-003'];
+                && $job->vehicles === [
+                    [
+                        'provider_vehicle_id' => 'veh-001',
+                        'vehicle_type_id' => $vehicleType->id,
+                        'vehicle_type_uuid' => $vehicleType->uuid,
+                    ],
+                    [
+                        'provider_vehicle_id' => 'veh-003',
+                        'vehicle_type_id' => $vehicleType->id,
+                        'vehicle_type_uuid' => $vehicleType->uuid,
+                    ],
+                ];
         });
     }
 
     public function test_vehicle_import_service_only_imports_selected_provider_vehicle_ids(): void
     {
         [$user, $merchant, $provider] = $this->createActivatedVehicleImportProvider();
+        $vehicleType = VehicleType::create([
+            'uuid' => (string) Str::uuid(),
+            'code' => 'van',
+            'name' => 'Van',
+            'enabled' => true,
+        ]);
 
         $this->mockVehicleImportProvider([
             [
@@ -269,7 +302,10 @@ class TrackingProviderOptionsTest extends TestCase
             $user,
             $provider->uuid,
             $merchant->uuid,
-            ['veh-002']
+            [[
+                'provider_vehicle_id' => 'veh-002',
+                'vehicle_type_id' => $vehicleType->uuid,
+            ]]
         );
 
         $this->assertSame(1, $result['imported_count']);
@@ -277,6 +313,7 @@ class TrackingProviderOptionsTest extends TestCase
             'account_id' => $merchant->account_id,
             'intergration_id' => 'veh-002',
             'plate_number' => 'CA 456',
+            'vehicle_type_id' => $vehicleType->id,
         ]);
         $this->assertDatabaseMissing('vehicles', [
             'account_id' => $merchant->account_id,

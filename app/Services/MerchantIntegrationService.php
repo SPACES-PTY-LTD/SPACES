@@ -14,6 +14,7 @@ use App\Models\TrackingProvider;
 use App\Models\TrackingProviderIntegrationFormField;
 use App\Models\TrackingProviderOption;
 use App\Models\Vehicle;
+use App\Models\VehicleType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -118,16 +119,16 @@ class MerchantIntegrationService
         User $user,
         string $providerUuid,
         string $merchantUuid,
-        array $vehicleIds
+        array $vehicles
     ): array
     {
         $merchant = $this->resolveAuthorizedMerchant($user, $merchantUuid);
         $this->ensureProviderSupportsImport($merchant, $providerUuid, 'import_vehicles', 'vehicles');
-        $normalizedVehicleIds = $this->normalizeSelectedProviderVehicleIds($vehicleIds);
+        $normalizedVehicles = $this->normalizeSelectedProviderVehicles($vehicles);
 
-        if (empty($normalizedVehicleIds)) {
+        if (empty($normalizedVehicles)) {
             throw ValidationException::withMessages([
-                'vehicle_ids' => 'Please select at least one vehicle to import.',
+                'vehicles' => 'Please select at least one vehicle to import.',
             ]);
         }
 
@@ -145,7 +146,7 @@ class MerchantIntegrationService
             $merchant->id,
             $merchant->uuid,
             $providerUuid,
-            $normalizedVehicleIds
+            $normalizedVehicles
         );
 
         return [
@@ -299,7 +300,7 @@ class MerchantIntegrationService
         User $user,
         string $providerUuid,
         string $merchantUuid,
-        array $selectedVehicleIds
+        array $selectedVehicles
     ): array {
         [$merchant, $provider, $integration, $providerService] = $this->resolveVehicleImportContext(
             $user,
@@ -307,10 +308,10 @@ class MerchantIntegrationService
             $merchantUuid
         );
 
-        $normalizedVehicleIds = $this->normalizeSelectedProviderVehicleIds($selectedVehicleIds);
-        if (empty($normalizedVehicleIds)) {
+        $normalizedVehicles = $this->normalizeSelectedProviderVehicles($selectedVehicles);
+        if (empty($normalizedVehicles)) {
             throw ValidationException::withMessages([
-                'vehicle_ids' => 'Please select at least one vehicle to import.',
+                'vehicles' => 'Please select at least one vehicle to import.',
             ]);
         }
 
@@ -322,7 +323,11 @@ class MerchantIntegrationService
 
         $imported = [];
         $importedAt = now();
-        $selectedVehicleIdLookup = array_fill_keys($normalizedVehicleIds, true);
+        $selectedVehicleLookup = [];
+        foreach ($normalizedVehicles as $selectedVehicle) {
+            $selectedVehicleLookup[$selectedVehicle['provider_vehicle_id']] = $selectedVehicle;
+        }
+
         foreach ($payload as $item) {
             if (!is_array($item)) {
                 continue;
@@ -334,9 +339,11 @@ class MerchantIntegrationService
             }
 
             $integrationId = $previewVehicle['provider_vehicle_id'];
-            if (!isset($selectedVehicleIdLookup[$integrationId])) {
+            if (!isset($selectedVehicleLookup[$integrationId])) {
                 continue;
             }
+
+            $selectedVehicle = $selectedVehicleLookup[$integrationId];
 
             $vehicle = Vehicle::query()
                 ->where('account_id', $integration->account_id)
@@ -350,6 +357,7 @@ class MerchantIntegrationService
                 $vehicle->is_active = true;
             }
 
+            $vehicle->vehicle_type_id = $selectedVehicle['vehicle_type_id'];
             $vehicle->make = $item['make'] ?? $vehicle->make;
             $vehicle->model = $item['model'] ?? $vehicle->model;
             $vehicle->color = $item['color'] ?? $vehicle->color;
@@ -383,7 +391,13 @@ class MerchantIntegrationService
                 'provider_id' => $providerUuid,
                 'provider' => Str::slug($provider->name),
                 'imported_count' => $importedCount,
-                'selected_vehicle_ids' => $normalizedVehicleIds,
+                'selected_vehicles' => array_map(
+                    fn (array $selectedVehicle) => [
+                        'provider_vehicle_id' => $selectedVehicle['provider_vehicle_id'],
+                        'vehicle_type_uuid' => $selectedVehicle['vehicle_type_uuid'],
+                    ],
+                    $normalizedVehicles
+                ),
             ]
         );
 
@@ -885,24 +899,37 @@ class MerchantIntegrationService
         ];
     }
 
-    private function normalizeSelectedProviderVehicleIds(array $vehicleIds): array
+    private function normalizeSelectedProviderVehicles(array $vehicles): array
     {
         $normalized = [];
 
-        foreach ($vehicleIds as $vehicleId) {
-            if (!is_scalar($vehicleId)) {
+        foreach ($vehicles as $vehicle) {
+            if (!is_array($vehicle)) {
                 continue;
             }
 
-            $value = trim((string) $vehicleId);
-            if ($value === '') {
+            $providerVehicleId = trim((string) ($vehicle['provider_vehicle_id'] ?? ''));
+            $vehicleTypeUuid = trim((string) ($vehicle['vehicle_type_id'] ?? ''));
+
+            if ($providerVehicleId === '' || $vehicleTypeUuid === '') {
                 continue;
             }
 
-            $normalized[$value] = true;
+            $vehicleTypeId = VehicleType::query()->where('uuid', $vehicleTypeUuid)->value('id');
+            if (!$vehicleTypeId) {
+                throw ValidationException::withMessages([
+                    'vehicle_type_id' => 'vehicle_type_id does not exist.',
+                ]);
+            }
+
+            $normalized[$providerVehicleId] = [
+                'provider_vehicle_id' => $providerVehicleId,
+                'vehicle_type_id' => (int) $vehicleTypeId,
+                'vehicle_type_uuid' => $vehicleTypeUuid,
+            ];
         }
 
-        return array_keys($normalized);
+        return array_values($normalized);
     }
 
     private function resolveAuthorizedMerchant(User $user, string $merchantUuid): Merchant

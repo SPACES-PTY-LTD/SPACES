@@ -66,7 +66,7 @@ export async function activateTrackingProvider(
 export async function importTrackingProviderVehicles(
   providerId: string,
   merchantId: string,
-  vehicleIds: string[],
+  vehicles: Array<{ provider_vehicle_id: string; vehicle_type_id: string }>,
   token?: string | null
 ) {
   return apiFetch<QueuedImportResponse>(
@@ -75,7 +75,7 @@ export async function importTrackingProviderVehicles(
       method: "POST",
       body: {
         merchant_id: merchantId,
-        vehicle_ids: vehicleIds,
+        vehicles,
       },
       token,
     }

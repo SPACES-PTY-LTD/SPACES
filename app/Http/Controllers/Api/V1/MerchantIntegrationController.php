@@ -88,7 +88,7 @@ class MerchantIntegrationController extends Controller
                 $request->user(),
                 $provider_id,
                 $request->validated()['merchant_id'],
-                $request->validated()['vehicle_ids']
+                $request->validated()['vehicles']
             );
 
             return ApiResponse::success([

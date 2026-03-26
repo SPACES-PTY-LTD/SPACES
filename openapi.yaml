@@ -372,14 +372,20 @@ components:
           type: object
     TrackingProviderImportVehiclesRequest:
       type: object
-      required: [merchant_id, vehicle_ids]
+      required: [merchant_id, vehicles]
       properties:
         merchant_id:
           type: string
-        vehicle_ids:
+        vehicles:
           type: array
           items:
-            type: string
+            type: object
+            required: [provider_vehicle_id, vehicle_type_id]
+            properties:
+              provider_vehicle_id:
+                type: string
+              vehicle_type_id:
+                type: string
     TrackingProviderImportDriversRequest:
       type: object
       required: [merchant_id]

@@ -23,19 +23,19 @@ Add new entries at the top (newest first).
 ## 2026-03-26 | Version: unreleased
 
 ### Summary
-- Replaced tracking-provider vehicle imports with a selection flow that loads provider vehicles into a filtered table, supports select-all, and imports only the chosen vehicles.
+- Replaced tracking-provider vehicle imports with a selection flow that loads provider vehicles into a filtered table, supports select-all, captures a vehicle type per selected row, and imports only the chosen vehicles.
 
 ### API Changes
 - Added `GET /api/v1/tracking-providers/{provider_id}/vehicles` to preview provider vehicles for import selection.
-- Updated `POST /api/v1/tracking-providers/{provider_id}/import_vehicles` to require `vehicle_ids` alongside `merchant_id`.
+- Updated `POST /api/v1/tracking-providers/{provider_id}/import_vehicles` to require `vehicles[]` entries containing `provider_vehicle_id` and `vehicle_type_id`, alongside `merchant_id`.
 
 ### Database Changes
 - None.
 
 ### Behavior Changes
 - Admin integrations now load provider vehicles before a vehicle import starts.
-- Vehicle imports now stay disabled until at least one provider vehicle is selected.
-- Vehicle import jobs now create or update only the selected provider vehicles instead of importing the full provider list.
+- Vehicle imports now stay disabled until at least one provider vehicle is selected and each selected row has a vehicle type chosen.
+- Vehicle import jobs now create or update only the selected provider vehicles and apply the selected vehicle type to each imported vehicle.
 
 ### Breaking Changes
 - `POST /api/v1/tracking-providers/{provider_id}/import_vehicles` no longer supports merchant-only bulk imports; callers must send selected provider vehicle ids.

@@ -13,8 +13,9 @@ class ImportTrackingProviderVehiclesRequest extends BaseRequest
     {
         return [
             'merchant_id' => ['required', 'uuid', 'exists:merchants,uuid'],
-            'vehicle_ids' => ['required', 'array', 'min:1'],
-            'vehicle_ids.*' => ['required', 'string'],
+            'vehicles' => ['required', 'array', 'min:1'],
+            'vehicles.*.provider_vehicle_id' => ['required', 'string'],
+            'vehicles.*.vehicle_type_id' => ['required', 'uuid', 'exists:vehicle_types,uuid'],
         ];
     }
 }

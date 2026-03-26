@@ -3,6 +3,13 @@
 import * as React from "react"
 import { Input } from "@/components/ui/input"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -10,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { TrackingProviderVehiclePreview } from "@/lib/types"
+import type { TrackingProviderVehiclePreview, VehicleType } from "@/lib/types"
 
 type VehicleFilters = {
   search: string
@@ -36,11 +43,17 @@ function matchesFilter(value: string | null | undefined, filter: string) {
 export function TrackingProviderVehicleImportTable({
   vehicles,
   selectedIds,
+  selectedVehicleTypeIds,
+  vehicleTypes,
   onSelectionChange,
+  onVehicleTypeChange,
 }: {
   vehicles: TrackingProviderVehiclePreview[]
   selectedIds: string[]
+  selectedVehicleTypeIds: Record<string, string>
+  vehicleTypes: VehicleType[]
   onSelectionChange: (vehicleIds: string[]) => void
+  onVehicleTypeChange: (providerVehicleId: string, vehicleTypeId: string) => void
 }) {
   const [filters, setFilters] = React.useState<VehicleFilters>(EMPTY_FILTERS)
 
@@ -152,12 +165,13 @@ export function TrackingProviderVehicleImportTable({
                 <TableHead>Description</TableHead>
                 <TableHead>Make</TableHead>
                 <TableHead>Model</TableHead>
+                <TableHead>Vehicle Type</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredVehicles.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-6 text-center text-muted-foreground">
                     No vehicles match the current filters.
                   </TableCell>
                 </TableRow>
@@ -178,6 +192,30 @@ export function TrackingProviderVehicleImportTable({
                     <TableCell>{vehicle.description || "-"}</TableCell>
                     <TableCell>{vehicle.make || "-"}</TableCell>
                     <TableCell>{vehicle.model || "-"}</TableCell>
+                    <TableCell className="min-w-[220px]">
+                      <Select
+                        value={selectedVehicleTypeIds[vehicle.provider_vehicle_id] ?? ""}
+                        onValueChange={(value) =>
+                          onVehicleTypeChange(vehicle.provider_vehicle_id, value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select vehicle type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vehicleTypes.map((vehicleType) => {
+                            const vehicleTypeId = vehicleType.vehicle_type_id
+                            if (!vehicleTypeId) return null
+
+                            return (
+                              <SelectItem key={vehicleTypeId} value={vehicleTypeId}>
+                                {vehicleType.name}
+                              </SelectItem>
+                            )
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                   </TableRow>
                 ))
               )}

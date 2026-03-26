@@ -32,14 +32,16 @@ import {
   importTrackingProviderLocations,
   type TrackingProviderImportStats,
 } from "@/lib/api/tracking-providers"
+import { listVehicleTypes } from "@/lib/api/vehicle-types"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { TrackingProviderVehicleImportTable } from "@/components/integrations/tracking-provider-vehicle-import-table"
 import type {
   TrackingProvider,
   TrackingProviderFormField,
   TrackingProviderVehiclePreview,
+  VehicleType,
 } from "@/lib/types"
-import { Import, Loader2, MapPin, Plug, User2 } from "lucide-react"
+import { Import, Loader2, Loader2Icon, MapPin, Plug, User2 } from "lucide-react"
 
 function getFieldLabel(field: TrackingProviderFormField) {
   return field.label ?? field.name
@@ -126,6 +128,8 @@ export function TrackingProviders({
   const [importErrorMessage, setImportErrorMessage] = React.useState<string>("")
   const [providerVehicles, setProviderVehicles] = React.useState<TrackingProviderVehiclePreview[]>([])
   const [selectedVehicleIds, setSelectedVehicleIds] = React.useState<string[]>([])
+  const [selectedVehicleTypeIds, setSelectedVehicleTypeIds] = React.useState<Record<string, string>>({})
+  const [vehicleTypes, setVehicleTypes] = React.useState<VehicleType[]>([])
   const pollTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const loadProviders = React.useCallback(async () => {
@@ -143,6 +147,25 @@ export function TrackingProviders({
   React.useEffect(() => {
     loadProviders()
   }, [loadProviders])
+
+  React.useEffect(() => {
+    let cancelled = false
+
+    async function loadVehicleTypes() {
+      const response = await listVehicleTypes(accessToken, { page: 1 })
+      if (cancelled || isApiErrorResponse(response)) {
+        return
+      }
+
+      setVehicleTypes(response.data ?? [])
+    }
+
+    loadVehicleTypes()
+
+    return () => {
+      cancelled = true
+    }
+  }, [accessToken])
 
   const openProviderForm = (provider: TrackingProvider) => {
     const integrationData = provider.integration_data ?? {}
@@ -207,6 +230,7 @@ export function TrackingProviders({
     setImportErrorMessage("")
     setProviderVehicles([])
     setSelectedVehicleIds([])
+    setSelectedVehicleTypeIds({})
     clearImportPolling()
     setImportOptions({
       only_with_geofences: false,
@@ -282,13 +306,24 @@ export function TrackingProviders({
       return
     }
 
+    if (
+      importEntity === "vehicles" &&
+      selectedVehicleIds.some((vehicleId) => !selectedVehicleTypeIds[vehicleId])
+    ) {
+      toast.error("Choose a vehicle type for each selected vehicle.")
+      return
+    }
+
     setImportStatus("processing")
     const response =
       importEntity === "vehicles"
         ? await importTrackingProviderVehicles(
             importingProviderId,
             merchantId,
-            selectedVehicleIds,
+            selectedVehicleIds.map((vehicleId) => ({
+              provider_vehicle_id: vehicleId,
+              vehicle_type_id: selectedVehicleTypeIds[vehicleId],
+            })),
             accessToken
           )
         : importEntity === "drivers"
@@ -690,7 +725,15 @@ export function TrackingProviders({
                     <TrackingProviderVehicleImportTable
                       vehicles={providerVehicles}
                       selectedIds={selectedVehicleIds}
+                      selectedVehicleTypeIds={selectedVehicleTypeIds}
+                      vehicleTypes={vehicleTypes}
                       onSelectionChange={setSelectedVehicleIds}
+                      onVehicleTypeChange={(providerVehicleId, vehicleTypeId) =>
+                        setSelectedVehicleTypeIds((prev) => ({
+                          ...prev,
+                          [providerVehicleId]: vehicleTypeId,
+                        }))
+                      }
                     />
                   </div>
                 ) : null}
@@ -705,8 +748,9 @@ export function TrackingProviders({
             ) : null}
 
             {importStatus === "processing" ? (
-              <div className="text-muted-foreground">
-                {`Processing ${importEntity === "drivers" ? "driver" : importEntity === "locations" ? "location" : "vehicle"} import...`}
+              <div className="text-muted-foreground flex flex-col items-center justify-center gap-2 text-center w-full">
+                <Loader2Icon className="inline-block h-10 w-10 animate-spin mr-1" />
+                <div className="font-bold">{`Processing ${importEntity === "drivers" ? "driver" : importEntity === "locations" ? "location" : "vehicle"} import...`}</div>
               </div>
             ) : null}
 
@@ -742,7 +786,11 @@ export function TrackingProviders({
                 </Button>
                 <Button
                   onClick={runImport}
-                  disabled={importEntity === "vehicles" && selectedVehicleIds.length === 0}
+                  disabled={
+                    importEntity === "vehicles" &&
+                    (selectedVehicleIds.length === 0 ||
+                      selectedVehicleIds.some((vehicleId) => !selectedVehicleTypeIds[vehicleId]))
+                  }
                 >
                   {importEntity === "vehicles" ? "Import Selected" : "Continue"}
                 </Button>
