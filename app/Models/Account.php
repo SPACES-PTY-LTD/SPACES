@@ -13,6 +13,12 @@ class Account extends Model
     protected $fillable = [
         'uuid',
         'owner_user_id',
+        'country_code',
+        'is_billing_exempt',
+    ];
+
+    protected $casts = [
+        'is_billing_exempt' => 'boolean',
     ];
 
     public function owner()
@@ -28,5 +34,20 @@ class Account extends Model
     public function merchants()
     {
         return $this->hasMany(Merchant::class);
+    }
+
+    public function billingProfile()
+    {
+        return $this->hasOne(AccountBillingProfile::class);
+    }
+
+    public function paymentMethods()
+    {
+        return $this->hasMany(AccountPaymentMethod::class);
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(AccountInvoice::class);
     }
 }

@@ -45,6 +45,8 @@ export interface User {
   role: Role
   status: Status
   telephone?: string | null
+  is_account_holder?: boolean
+  account_country_code?: string | null
   last_login_at?: string | null
   last_accessed_merchant_id?: UUID | null
 }
@@ -66,6 +68,7 @@ export interface Merchant {
   setup_completed_at?: string | null
   onboarding_completed?: boolean
   onboarding_completed_at?: string | null
+  plan?: PricingPlan | null
   access?: {
     role: MerchantAccessRole | null
     permissions: {
@@ -983,4 +986,194 @@ export interface ApiEnvelope<T> {
   data: T
   meta?: unknown
   error?: unknown
+}
+
+export interface PaymentGateway {
+  payment_gateway_id: UUID
+  code: string
+  name: string
+  type: string
+  is_active: boolean
+  sort_order: number
+  supports_card_retrieval: boolean
+  supports_hosted_card_capture: boolean
+}
+
+export interface CountryPricing {
+  country_pricing_id: UUID
+  country_name: string
+  country_code: string
+  currency: string
+  is_default: boolean
+  payment_gateway: PaymentGateway | null
+}
+
+export interface PricingPlan {
+  plan_id: UUID
+  title: string
+  vehicle_limit: number
+  monthly_charge_zar: number
+  monthly_charge_usd: number
+  extra_vehicle_price_zar: number
+  extra_vehicle_price_usd: number
+  is_free: boolean
+  trial_days?: number | null
+  is_active: boolean
+  sort_order: number
+}
+
+export interface BillingPaymentMethod {
+  payment_method_id: UUID
+  gateway_code: string | null
+  brand?: string | null
+  last_four?: string | null
+  expiry_month?: number | null
+  expiry_year?: number | null
+  funding_type?: string | null
+  bank?: string | null
+  signature?: string | null
+  is_reusable?: boolean
+  retrieved_from_gateway?: boolean
+  is_default: boolean
+  status: string
+  verified_at?: string | null
+  payment_gateway?: PaymentGateway | null
+  gateway_customer_id?: string | null
+  gateway_payment_method_id?: string | null
+  gateway_reference?: string | null
+}
+
+export interface BillingInvoiceLine {
+  invoice_line_id?: UUID
+  type: string
+  description: string
+  quantity: number
+  unit_amount: number
+  subtotal: number
+  included_vehicles: number
+  billable_vehicles: number
+  merchant?: {
+    merchant_id?: UUID
+    name?: string
+  } | null
+  plan?: PricingPlan | null
+}
+
+export interface BillingPaymentAttempt {
+  payment_attempt_id: UUID
+  gateway_code?: string | null
+  status: string
+  amount: number
+  provider_transaction_id?: string | null
+  provider_reference?: string | null
+  failure_reason?: string | null
+  processed_at?: string | null
+}
+
+export interface BillingInvoice {
+  invoice_id: UUID
+  invoice_number: string
+  billing_period_start: string
+  billing_period_end: string
+  currency: string
+  subtotal: number
+  total: number
+  invoice_status: string
+  payment_status: string
+  gateway_code?: string | null
+  due_date?: string | null
+  paid_at?: string | null
+  last_payment_attempt_at?: string | null
+  failure_reason?: string | null
+  lines?: BillingInvoiceLine[]
+  payment_attempts?: BillingPaymentAttempt[]
+}
+
+export interface BillingInvoicePreview {
+  billing_period_start: string
+  billing_period_end: string
+  currency: string
+  subtotal: number
+  total: number
+  lines: BillingInvoiceLine[]
+}
+
+export interface BillingMerchantSummary {
+  merchant_id: UUID
+  name: string
+  plan_id?: UUID | null
+  plan_title?: string | null
+  vehicle_limit: number
+  active_vehicle_count: number
+  extra_vehicle_count: number
+  monthly_charge: number
+  extra_vehicle_price: number
+  extra_vehicle_total: number
+}
+
+export interface BillingSummary {
+  account_id: UUID
+  owner: {
+    user_id?: UUID | null
+    name?: string | null
+    email?: string | null
+  }
+  country_code: string
+  is_billing_exempt: boolean
+  currency: string
+  current_billing_period_start?: string | null
+  current_billing_period_end?: string | null
+  next_billing_date?: string | null
+  can_select_free_plan: boolean
+  free_plan_available_until?: string | null
+  current_invoice_preview?: BillingInvoicePreview | null
+  gateway: {
+    code?: string | null
+    name?: string | null
+  }
+  gateway_capabilities: {
+    supports_card_retrieval: boolean
+    supports_hosted_card_capture: boolean
+  }
+  billing_profile?: {
+    gateway_code?: string | null
+    gateway_customer_id?: string | null
+    gateway_reference?: string | null
+  } | null
+  payment_methods: BillingPaymentMethod[]
+  merchants: BillingMerchantSummary[]
+  invoices: BillingInvoice[]
+}
+
+export interface BillingPaymentMethodSetupIntent {
+  gateway_code?: string | null
+  hosted_capture_supported: boolean
+  mode?: string | null
+  publishable_key?: string | null
+  client_secret?: string | null
+  redirect_url?: string | null
+  metadata?: Record<string, unknown>
+}
+
+export interface BillingPaymentMethodSyncResult {
+  gateway_code?: string | null
+  supports_card_retrieval: boolean
+  supports_hosted_card_capture: boolean
+  retrieved_from_gateway: boolean
+  cards: Array<{
+    gateway_code?: string | null
+    gateway_customer_id?: string | null
+    gateway_payment_method_id?: string | null
+    gateway_reference?: string | null
+    brand?: string | null
+    last_four?: string | null
+    expiry_month?: number | null
+    expiry_year?: number | null
+    funding_type?: string | null
+    bank?: string | null
+    signature?: string | null
+    is_reusable?: boolean
+    status?: string | null
+    retrieved_from_gateway?: boolean
+  }>
 }

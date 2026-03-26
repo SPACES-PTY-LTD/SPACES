@@ -109,6 +109,7 @@ export const adminNavGroups: NavGroup[] = [
         href: AdminLinks.drivers,
         icon: FileUser
       },
+      
       {
         title: "Vehicles",
         href: AdminLinks.vehicles,
@@ -278,6 +279,12 @@ export const adminNavGroups: NavGroup[] = [
             icon: UserCircle2,
           },
           {
+            title: "Billing",
+            href: AdminLinks.settingsBilling,
+            icon: CreditCard,
+            roles: ["super_admin"],
+          },
+          {
             title: "Genral",
             href: AdminLinks.settings,
             icon: CogIcon,
@@ -361,6 +368,12 @@ export const adminNavGroups: NavGroup[] = [
             icon: Activity,
           },
         ]
+      },
+      {
+        title: "Billing",
+        href: AdminLinks.billing,
+        icon: CreditCard,
+        roles: ["user"],
       },
 
       // Intergrations

@@ -14,6 +14,7 @@ class AuthTest extends TestCase
         $register = $this->postJson('/api/v1/auth/register', [
             'name' => 'Jane Doe',
             'email' => 'jane@example.com',
+            'country_code' => 'ZA',
             'telephone' => '123',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -22,6 +23,10 @@ class AuthTest extends TestCase
         $register->assertStatus(201);
         $token = $register->json('data.token');
         $this->assertNotEmpty($token);
+        $this->assertDatabaseHas('accounts', [
+            'country_code' => 'ZA',
+            'is_billing_exempt' => false,
+        ]);
 
         $login = $this->postJson('/api/v1/auth/login', [
             'email' => 'jane@example.com',

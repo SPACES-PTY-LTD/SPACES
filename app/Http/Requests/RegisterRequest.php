@@ -18,6 +18,7 @@ class RegisterRequest extends BaseRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'country_code' => ['required', 'string', 'size:2', 'regex:/^[A-Z]{2}$/'],
             'telephone' => ['nullable', 'string', 'max:50'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ];

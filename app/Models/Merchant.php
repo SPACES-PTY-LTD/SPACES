@@ -15,6 +15,7 @@ class Merchant extends Model
     protected $fillable = [
         'uuid',
         'account_id',
+        'plan_id',
         'owner_user_id',
         'name',
         'legal_name',
@@ -53,6 +54,11 @@ class Merchant extends Model
     public function account()
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function plan()
+    {
+        return $this->belongsTo(PricingPlan::class, 'plan_id');
     }
 
     public function users()

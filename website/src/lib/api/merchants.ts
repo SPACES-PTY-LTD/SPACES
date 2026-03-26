@@ -56,7 +56,7 @@ export async function updateLastAccessedMerchant(
 }
 
 export async function updateCurrentUserProfile(
-  payload: { name?: string; telephone?: string | null },
+  payload: { name?: string; telephone?: string | null; account_country_code?: string },
   token?: string | null
 ) {
   const response = await apiFetch<ApiEnvelope<User>>("/api/v1/me", {

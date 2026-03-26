@@ -5,6 +5,9 @@ namespace Database\Seeders;
 use App\Models\CancelReason;
 use App\Models\Carrier;
 use App\Models\Account;
+use App\Models\CountryPricing;
+use App\Models\PaymentGateway;
+use App\Models\PricingPlan;
 use App\Models\TrackingProvider;
 use App\Models\TrackingProviderIntegrationFormField;
 use App\Models\User;
@@ -60,6 +63,8 @@ class DatabaseSeeder extends Seeder
             [
                 'uuid' => (string) Str::uuid(),
                 'owner_user_id' => $normal_admin->id,
+                'country_code' => 'ZA',
+                'is_billing_exempt' => false,
             ]
         );
         $account->wasRecentlyCreated
@@ -68,6 +73,136 @@ class DatabaseSeeder extends Seeder
 
         $normal_admin->account_id = $account->id;
         $normal_admin->save();
+
+        $gateways = [
+            ['code' => 'free', 'name' => 'Free', 'type' => 'free', 'sort_order' => 0],
+            ['code' => 'stripe', 'name' => 'Stripe', 'type' => 'card', 'sort_order' => 10],
+            ['code' => 'payfast', 'name' => 'PayFast', 'type' => 'card', 'sort_order' => 20],
+            ['code' => 'paystack', 'name' => 'Paystack', 'type' => 'card', 'sort_order' => 30],
+        ];
+
+        foreach ($gateways as $gateway) {
+            $record = PaymentGateway::firstOrCreate(
+                ['code' => $gateway['code']],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'name' => $gateway['name'],
+                    'type' => $gateway['type'],
+                    'is_active' => true,
+                    'sort_order' => $gateway['sort_order'],
+                ]
+            );
+
+            $record->wasRecentlyCreated
+                ? $this->command?->info('Seeded payment gateway: ' . $gateway['code'])
+                : $this->command?->info('Payment gateway already exists: ' . $gateway['code']);
+        }
+
+        $payfastGateway = PaymentGateway::where('code', 'payfast')->first();
+        $stripeGateway = PaymentGateway::where('code', 'stripe')->first();
+
+        $countryPricingRows = [
+            [
+                'country_code' => 'ZA',
+                'country_name' => 'South Africa',
+                'currency' => 'ZAR',
+                'payment_gateway_id' => $payfastGateway?->id,
+                'is_default' => false,
+            ],
+            [
+                'country_code' => 'US',
+                'country_name' => 'Rest of world',
+                'currency' => 'USD',
+                'payment_gateway_id' => $stripeGateway?->id,
+                'is_default' => true,
+            ],
+        ];
+
+        foreach ($countryPricingRows as $row) {
+            $record = CountryPricing::firstOrCreate(
+                ['country_code' => $row['country_code']],
+                [
+                    'uuid' => (string) Str::uuid(),
+                    'country_name' => $row['country_name'],
+                    'currency' => $row['currency'],
+                    'payment_gateway_id' => $row['payment_gateway_id'],
+                    'is_default' => $row['is_default'],
+                ]
+            );
+
+            $record->wasRecentlyCreated
+                ? $this->command?->info('Seeded country pricing: ' . $row['country_code'])
+                : $this->command?->info('Country pricing already exists: ' . $row['country_code']);
+        }
+
+        $plans = [
+            [
+                'title' => 'Free 1 Car',
+                'vehicle_limit' => 1,
+                'monthly_charge_zar' => 0,
+                'monthly_charge_usd' => 0,
+                'extra_vehicle_price_zar' => 0,
+                'extra_vehicle_price_usd' => 0,
+                'is_free' => true,
+                'trial_days' => 14,
+                'sort_order' => 0,
+            ],
+            [
+                'title' => 'Starter 20',
+                'vehicle_limit' => 20,
+                'monthly_charge_zar' => 9000,
+                'monthly_charge_usd' => 499,
+                'extra_vehicle_price_zar' => 300,
+                'extra_vehicle_price_usd' => 20,
+                'is_free' => false,
+                'trial_days' => null,
+                'sort_order' => 10,
+            ],
+            [
+                'title' => 'Growth 50',
+                'vehicle_limit' => 50,
+                'monthly_charge_zar' => 18000,
+                'monthly_charge_usd' => 999,
+                'extra_vehicle_price_zar' => 250,
+                'extra_vehicle_price_usd' => 15,
+                'is_free' => false,
+                'trial_days' => null,
+                'sort_order' => 20,
+            ],
+            [
+                'title' => 'Enterprise 100',
+                'vehicle_limit' => 100,
+                'monthly_charge_zar' => 30000,
+                'monthly_charge_usd' => 1599,
+                'extra_vehicle_price_zar' => 200,
+                'extra_vehicle_price_usd' => 12,
+                'is_free' => false,
+                'trial_days' => null,
+                'sort_order' => 30,
+            ],
+        ];
+
+        foreach ($plans as $plan) {
+            $record = PricingPlan::updateOrCreate(
+                ['title' => $plan['title']],
+                [
+                    'uuid' => PricingPlan::query()->where('title', $plan['title'])->value('uuid') ?? (string) Str::uuid(),
+                    'vehicle_limit' => $plan['vehicle_limit'],
+                    'monthly_charge_zar' => $plan['monthly_charge_zar'],
+                    'monthly_charge_usd' => $plan['monthly_charge_usd'],
+                    'extra_vehicle_price_zar' => $plan['extra_vehicle_price_zar'],
+                    'extra_vehicle_price_usd' => $plan['extra_vehicle_price_usd'],
+                    'is_free' => $plan['is_free'],
+                    'trial_days' => $plan['trial_days'],
+                    'is_active' => true,
+                    'sort_order' => $plan['sort_order'],
+                ]
+            );
+
+            $record->wasRecentlyCreated
+                ? $this->command?->info('Seeded pricing plan: ' . $plan['title'])
+                : $this->command?->info('Pricing plan synced: ' . $plan['title']);
+        }
         
 
 

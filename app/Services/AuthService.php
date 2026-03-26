@@ -42,6 +42,8 @@ class AuthService
 
                 $account = Account::create([
                     'owner_user_id' => $user->id,
+                    'country_code' => strtoupper((string) ($data['country_code'] ?? 'US')),
+                    'is_billing_exempt' => false,
                 ]);
 
                 Log::info('AuthService register account created', [

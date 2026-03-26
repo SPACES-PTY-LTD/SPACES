@@ -29,6 +29,7 @@ type FormValues = z.infer<typeof schema>
 
 export function LoginForm() {
   const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -40,6 +41,7 @@ export function LoginForm() {
 
   const onSubmit = async (values: FormValues) => {
     setError(null)
+    setIsLoading(false);
     try {
       const result = await signIn("credentials", {
         email: values.email,
@@ -49,12 +51,15 @@ export function LoginForm() {
         redirect: false,
       })
 
+      console.log("Login result", result)
+
       if (result?.error) {
         console.error("Login failed", result)
         setError("Invalid email or password")
         return
       }
       if (result?.url) {
+        setIsLoading(true);
         router.push(result.url)
       }
     } catch (err) {
@@ -103,8 +108,8 @@ export function LoginForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Signing in..." : "Sign in"}
+            <Button type="submit" className="w-full" disabled={isSubmitting||isLoading}>
+              {(isSubmitting || isLoading) ? "Signing in..." : "Sign in"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
               Don&apos;t have an account?{" "}

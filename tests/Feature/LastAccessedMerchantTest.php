@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Account;
 use App\Models\Merchant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,6 +12,11 @@ use Tests\TestCase;
 class LastAccessedMerchantTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function authenticated(User $user): self
+    {
+        return $this->withHeader('Authorization', 'Bearer '.$user->createToken('test-suite')->plainTextToken);
+    }
 
     public function test_users_table_has_last_accessed_merchant_column(): void
     {
@@ -26,7 +32,7 @@ class LastAccessedMerchantTest extends TestCase
         ]);
         $merchant->users()->attach($user->id, ['role' => 'owner']);
 
-        $response = $this->actingAs($user)->patchJson('/api/v1/me/last-accessed-merchant', [
+        $response = $this->authenticated($user)->patchJson('/api/v1/me/last-accessed-merchant', [
             'merchant_id' => $merchant->uuid,
         ]);
 
@@ -44,7 +50,7 @@ class LastAccessedMerchantTest extends TestCase
         $user = User::factory()->create();
         $merchant = Merchant::factory()->create();
 
-        $response = $this->actingAs($user)->patchJson('/api/v1/me/last-accessed-merchant', [
+        $response = $this->authenticated($user)->patchJson('/api/v1/me/last-accessed-merchant', [
             'merchant_id' => $merchant->uuid,
         ]);
 
@@ -62,7 +68,7 @@ class LastAccessedMerchantTest extends TestCase
         $user = User::factory()->create(['role' => 'super_admin']);
         $merchant = Merchant::factory()->create();
 
-        $response = $this->actingAs($user)->patchJson('/api/v1/me/last-accessed-merchant', [
+        $response = $this->authenticated($user)->patchJson('/api/v1/me/last-accessed-merchant', [
             'merchant_id' => $merchant->uuid,
         ]);
 
@@ -83,7 +89,7 @@ class LastAccessedMerchantTest extends TestCase
             'last_accessed_merchant_id' => $merchant->id,
         ])->save();
 
-        $merchant->delete();
+        $merchant->forceDelete();
         $user->refresh();
 
         $this->assertNull($user->last_accessed_merchant_id);
@@ -102,9 +108,78 @@ class LastAccessedMerchantTest extends TestCase
             'last_accessed_merchant_id' => $merchant->id,
         ])->save();
 
-        $response = $this->actingAs($user)->getJson('/api/v1/me');
+        $response = $this->authenticated($user)->getJson('/api/v1/me');
 
         $response->assertStatus(200)
             ->assertJsonPath('data.last_accessed_merchant_id', $merchant->uuid);
+    }
+
+    public function test_me_profile_exposes_account_country_for_account_holder(): void
+    {
+        $user = User::factory()->create();
+        $account = Account::query()->create([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'owner_user_id' => $user->id,
+            'country_code' => 'ZA',
+            'is_billing_exempt' => false,
+        ]);
+        $user->forceFill(['account_id' => $account->id])->save();
+
+        $response = $this->authenticated($user)->getJson('/api/v1/me');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.is_account_holder', true)
+            ->assertJsonPath('data.account_country_code', 'ZA');
+    }
+
+    public function test_account_holder_can_update_account_country_from_me_profile(): void
+    {
+        $user = User::factory()->create();
+        $account = Account::query()->create([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'owner_user_id' => $user->id,
+            'country_code' => 'ZA',
+            'is_billing_exempt' => false,
+        ]);
+        $user->forceFill(['account_id' => $account->id])->save();
+
+        $response = $this->authenticated($user)->patchJson('/api/v1/me', [
+            'account_country_code' => 'US',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.account_country_code', 'US');
+
+        $this->assertDatabaseHas('accounts', [
+            'id' => $account->id,
+            'country_code' => 'US',
+        ]);
+    }
+
+    public function test_non_account_holder_cannot_change_account_country_from_me_profile(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $account = Account::query()->create([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'owner_user_id' => $owner->id,
+            'country_code' => 'ZA',
+            'is_billing_exempt' => false,
+        ]);
+        $owner->forceFill(['account_id' => $account->id])->save();
+        $member->forceFill(['account_id' => $account->id])->save();
+
+        $response = $this->authenticated($member)->patchJson('/api/v1/me', [
+            'account_country_code' => 'US',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.is_account_holder', false)
+            ->assertJsonPath('data.account_country_code', 'ZA');
+
+        $this->assertDatabaseHas('accounts', [
+            'id' => $account->id,
+            'country_code' => 'ZA',
+        ]);
     }
 }

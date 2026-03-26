@@ -8,6 +8,7 @@ const API_BASE_URL =
 type RegisterPayload = {
   name: string
   email: string
+  country_code: string
   password: string
   password_confirmation: string
 }

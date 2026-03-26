@@ -15,11 +15,13 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   updateCurrentUserPassword,
   updateCurrentUserProfile,
 } from "@/lib/api/merchants"
 import { isApiErrorResponse } from "@/lib/api/client"
+import { getCountryOptions } from "@/lib/geo-options"
 import type { User } from "@/lib/types"
 
 function normalizeText(value: string | null | undefined) {
@@ -29,6 +31,7 @@ function normalizeText(value: string | null | undefined) {
 type FormState = {
   name: string
   telephone: string
+  accountCountryCode: string
 }
 
 type PasswordState = {
@@ -46,11 +49,13 @@ export function AccountSettingsForm({
 }) {
   const router = useRouter()
   const { update } = useSession()
+  const countryOptions = React.useMemo(() => getCountryOptions(), [])
   const [saving, setSaving] = React.useState(false)
   const [passwordSaving, setPasswordSaving] = React.useState(false)
   const [values, setValues] = React.useState<FormState>({
     name: user.name ?? "",
     telephone: user.telephone ?? "",
+    accountCountryCode: user.account_country_code ?? "ZA",
   })
   const [passwords, setPasswords] = React.useState<PasswordState>({
     currentPassword: "",
@@ -63,6 +68,7 @@ export function AccountSettingsForm({
 
     const name = normalizeText(values.name)
     const telephone = normalizeText(values.telephone)
+    const accountCountryCode = values.accountCountryCode
 
     if (!name) {
       toast.error("Name is required.")
@@ -76,6 +82,7 @@ export function AccountSettingsForm({
         {
           name,
           telephone: telephone || null,
+          ...(user.is_account_holder ? { account_country_code: accountCountryCode } : {}),
         },
         accessToken
       )
@@ -88,6 +95,7 @@ export function AccountSettingsForm({
       setValues({
         name: response.name ?? "",
         telephone: response.telephone ?? "",
+        accountCountryCode: response.account_country_code ?? accountCountryCode,
       })
 
       await update({
@@ -209,6 +217,35 @@ export function AccountSettingsForm({
                 placeholder="Enter your telephone number"
               />
             </div>
+
+            {user.is_account_holder ? (
+              <div className="grid gap-2">
+                <Label htmlFor="account-country">Account country</Label>
+                <Select
+                  value={values.accountCountryCode}
+                  onValueChange={(value) =>
+                    setValues((current) => ({
+                      ...current,
+                      accountCountryCode: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="account-country">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {countryOptions.map((country) => (
+                      <SelectItem key={country.code} value={country.code}>
+                        {country.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  This country controls account billing currency and gateway routing.
+                </p>
+              </div>
+            ) : null}
 
             <div className="rounded-lg border bg-muted/30 p-4">
               <p className="text-sm font-medium">Profile image</p>

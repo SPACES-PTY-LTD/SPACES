@@ -20,6 +20,358 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-03-26 | Version: unreleased
+
+### Summary
+- Split the account billing screen into a current billing-cycle invoice preview and a separate previous-invoices history table with invoice-detail dialogs.
+
+### API Changes
+- `GET /api/v1/billing/summary` now includes `current_invoice_preview` with billing-period totals and preview line items for the current cycle.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/billing` now shows a live preview of the current billing-cycle invoice before it is generated.
+- Previous invoices now appear in a data table instead of the old inline card list.
+- Clicking an invoice entry opens a dialog with full invoice details loaded from `GET /api/v1/billing/invoices/{invoice_uuid}`.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Services/BillingService.php`
+  - `app/Http/Resources/AccountBillingSummaryResource.php`
+  - `website/src/app/admin/billing/page.tsx`
+  - `website/src/components/billing/account-billing-dashboard.tsx`
+  - `website/src/lib/types.ts`
+  - `tests/Feature/BillingTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter='BillingTest|AuthTest'`
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+
+## 2026-03-25 | Version: unreleased
+
+### Summary
+- Added a seeded free 1-car trial plan, limited account-holder access to that plan to the first 14 days after registration, and added a downgrade confirmation because moving to the free plan automatically deletes extra merchant vehicles.
+
+### API Changes
+- `GET /api/v1/billing/plans` is now account-aware and hides the free plan after the account’s 14-day trial window ends.
+- `GET /api/v1/billing/summary` now includes:
+  - `can_select_free_plan`
+  - `free_plan_available_until`
+- Pricing plan resources now include:
+  - `is_free`
+  - `trial_days`
+
+### Database Changes
+- Added `pricing_plans.is_free`
+- Added `pricing_plans.trial_days`
+- Seeded a new `Free 1 Car` pricing plan with a 14-day trial window.
+
+### Behavior Changes
+- Account holders now see a confirmation dialog before downgrading a merchant to the free 1-car package.
+- Downgrading a merchant to the free plan now keeps one deterministic vehicle and soft-deletes the rest.
+- After the first 14 days from account registration, the free plan is removed from the account billing plan dropdown unless the merchant is already on that plan.
+
+### Breaking Changes
+- Merchant plan downgrades to the free plan now delete extra vehicle records for that merchant.
+
+### Verification
+- Updated files:
+  - `database/migrations/2026_03_25_000006_add_free_plan_fields_to_pricing_plans_table.php`
+  - `database/seeders/DatabaseSeeder.php`
+  - `app/Models/PricingPlan.php`
+  - `app/Services/BillingService.php`
+  - `app/Http/Controllers/Api/V1/BillingController.php`
+  - `app/Http/Resources/PricingPlanResource.php`
+  - `app/Http/Resources/AccountBillingSummaryResource.php`
+  - `website/src/components/billing/account-billing-dashboard.tsx`
+  - `website/src/lib/types.ts`
+  - `tests/Feature/BillingTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter='BillingTest|AuthTest'`
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+
+## 2026-03-25 | Version: unreleased
+
+### Summary
+- Added account-country editing to the account settings page for account holders so they can change the billing country that drives billing currency and gateway routing.
+
+### API Changes
+- `GET /api/v1/me` now includes:
+  - `is_account_holder`
+  - `account_country_code`
+- `PATCH /api/v1/me` now accepts `account_country_code` for account holders.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/settings/account` now shows an all-countries dropdown only for account holders.
+- Updating the account country from settings changes the owning account’s `country_code`.
+- Non-account-holders do not see the field and cannot change account country through the profile update flow.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/MeController.php`
+  - `app/Http/Resources/UserResource.php`
+  - `website/src/components/settings/account-settings-form.tsx`
+  - `website/src/lib/api/merchants.ts`
+  - `website/src/lib/types.ts`
+  - `tests/Feature/LastAccessedMerchantTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter='LastAccessedMerchantTest|AuthTest'`
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+
+## 2026-03-25 | Version: unreleased
+
+### Summary
+- Removed manual gateway selection from the account billing portal so payment-method actions always use the gateway resolved from the account billing country.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/billing` no longer lets account holders choose a payment gateway when adding or syncing payment methods.
+- Payment-method setup and sync actions now always use the account’s resolved billing gateway from country pricing.
+- The billing UI now explains which gateway is being used and why.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `website/src/components/billing/account-billing-dashboard.tsx`
+  - `website/src/app/admin/billing/page.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+
+## 2026-03-25 | Version: unreleased
+
+### Summary
+- Added current billing-cycle dates and next billing date visibility to the account billing screen so users can see exactly when the next invoice will be generated.
+
+### API Changes
+- `GET /api/v1/billing/summary` now includes:
+  - `current_billing_period_start`
+  - `current_billing_period_end`
+  - `next_billing_date`
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/billing` now shows the current billing period window and the next invoice date derived from the account’s anniversary billing schedule.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Updated files:
+  - `app/Services/BillingService.php`
+  - `app/Http/Resources/AccountBillingSummaryResource.php`
+  - `website/src/components/billing/account-billing-dashboard.tsx`
+  - `website/src/lib/types.ts`
+  - `tests/Feature/BillingTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter='BillingTest|AuthTest'`
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+
+## 2026-03-25 | Version: unreleased
+
+### Summary
+- Changed invoice generation from fixed calendar-month billing to account-anniversary billing based on each account’s registration date.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Billing cycles are now calculated from the account `created_at` date instead of calendar month boundaries.
+- Invoices are now generated on each account’s billing anniversary day rather than always on the 1st of the month.
+- Accounts created on the 29th, 30th, or 31st now bill on the last valid day of shorter months.
+- The billing generator command still uses `billing:generate-monthly-invoices`, but it now runs daily and generates invoices only for accounts due on that date.
+
+### Breaking Changes
+- Invoice timing has changed from shared calendar-month billing to per-account anniversary billing.
+
+### Verification
+- Updated files:
+  - `app/Services/BillingService.php`
+  - `routes/console.php`
+  - `tests/Feature/BillingTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter='BillingTest|AuthTest'`
+
+## 2026-03-25 | Version: unreleased
+
+### Summary
+- Refactored billing gateway handling to use a stricter strategy contract for customer setup, gateway-hosted payment-method setup bootstrapping, saved-card sync, and recurring charge execution without collecting card details in our own UI.
+
+### API Changes
+- Added authenticated billing endpoints:
+  - `POST /api/v1/billing/payment-methods/setup`
+  - `POST /api/v1/billing/payment-methods/sync`
+- Billing gateway payloads now expose capability flags for `supports_card_retrieval` and `supports_hosted_card_capture`.
+- Billing summary payloads now expose resolved gateway capabilities so `/admin/billing` can switch behavior per gateway.
+
+### Database Changes
+- Added masked-only metadata columns to `account_payment_methods`:
+  - `funding_type`
+  - `bank`
+  - `signature`
+  - `is_reusable`
+  - `retrieved_from_gateway`
+
+### Behavior Changes
+- `/admin/billing` no longer presents manual card-entry fields.
+- Payment-method setup is now gateway-driven:
+  - Stripe bootstraps a setup intent/client-secret flow.
+  - Paystack and PayFast expose hosted/redirect setup metadata and rely on masked authorization/token details rather than local card capture.
+- Saved payment methods are now normalized through gateway strategy classes and refreshed through a shared sync flow.
+- Stripe gateway sync can retrieve masked saved-card data directly from the gateway.
+- Paystack and PayFast now explicitly behave as masked metadata/token-based gateways rather than pretending to support direct customer card listing.
+- Recurring charges continue to use stored reusable gateway references only.
+
+### Breaking Changes
+- The account billing UI no longer supports manually typing gateway card metadata into the application.
+
+### Verification
+- Updated files:
+  - `app/Services/Billing/Gateways/BillingGatewayInterface.php`
+  - `app/Services/Billing/Gateways/StripeBillingGateway.php`
+  - `app/Services/Billing/Gateways/PaystackBillingGateway.php`
+  - `app/Services/Billing/Gateways/PayfastBillingGateway.php`
+  - `app/Services/Billing/Gateways/FreeBillingGateway.php`
+  - `app/Services/Billing/Data/*`
+  - `app/Services/BillingService.php`
+  - `app/Http/Controllers/Api/V1/BillingController.php`
+  - `app/Http/Requests/BillingGatewayActionRequest.php`
+  - `app/Http/Resources/PaymentGatewayResource.php`
+  - `app/Http/Resources/PaymentMethodSetupIntentResource.php`
+  - `app/Http/Resources/PaymentMethodSyncResource.php`
+  - `app/Http/Resources/AccountBillingSummaryResource.php`
+  - `app/Http/Resources/AccountPaymentMethodResource.php`
+  - `app/Models/AccountPaymentMethod.php`
+  - `database/migrations/2026_03_25_000005_add_masked_gateway_fields_to_account_payment_methods_table.php`
+  - `routes/api.php`
+  - `website/src/components/billing/account-billing-dashboard.tsx`
+  - `website/src/lib/api/billing.ts`
+  - `website/src/lib/types.ts`
+  - `tests/Feature/BillingTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter='BillingTest|AuthTest'`
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+
+## 2026-03-25 | Version: unreleased
+
+### Summary
+- Added an account-based billing system with regional currency/gateway routing, merchant-level pricing plans, invoice generation, payment-method storage, recurring charge commands, a new account billing portal at `/admin/billing`, and a super-admin billing configuration area at `/admin/settings/billing`.
+
+### API Changes
+- Added authenticated billing endpoints:
+  - `GET /api/v1/billing/summary`
+  - `GET /api/v1/billing/gateways`
+  - `GET /api/v1/billing/plans`
+  - `GET /api/v1/billing/invoices`
+  - `GET /api/v1/billing/invoices/{invoice_uuid}`
+  - `POST /api/v1/billing/invoices/{invoice_uuid}/charge`
+  - `POST /api/v1/billing/payment-methods`
+  - `PATCH /api/v1/billing/payment-methods/{payment_method_uuid}/default`
+  - `DELETE /api/v1/billing/payment-methods/{payment_method_uuid}`
+  - `PATCH /api/v1/billing/merchants/{merchant_uuid}/plan`
+- Added super-admin billing catalog endpoints:
+  - `GET /api/v1/admin/billing/gateways`
+  - `GET /api/v1/admin/billing/country-pricing`
+  - `GET /api/v1/admin/billing/plans`
+  - `GET /api/v1/admin/billing/accounts`
+  - `GET /api/v1/admin/billing/accounts/{account_uuid}`
+- `POST /api/v1/auth/register` now requires `country_code` and persists it to the created account.
+
+### Database Changes
+- Added billing fields to `accounts`: `country_code`, `is_billing_exempt`.
+- Added `merchants.plan_id`.
+- Added billing catalog tables: `payment_gateways`, `country_pricing`, `pricing_plans`.
+- Added billing runtime tables: `account_billing_profiles`, `account_payment_methods`, `account_invoices`, `account_invoice_lines`, `account_invoice_payment_attempts`.
+- Added billing config env variables for Stripe, PayFast, Paystack, and shared invoice defaults in `.env.example`.
+- Seeded default gateways, country pricing rows, and starter pricing plans in `DatabaseSeeder`.
+
+### Behavior Changes
+- Account billing country now drives resolved currency and payment gateway selection.
+- South African accounts resolve to ZAR pricing via PayFast seed data; non-matched countries fall back to USD via the default country-pricing row.
+- Merchant plans are now account-billing aware and can be managed by account holders from `/admin/billing`.
+- Monthly invoices can be generated per account and broken down by merchant plan charges and extra active vehicles.
+- Saved payment methods now store non-sensitive gateway references only, with gateway-specific charge adapters for `free`, `stripe`, `payfast`, and `paystack`.
+- Added recurring billing console commands:
+  - `php artisan billing:generate-monthly-invoices`
+  - `php artisan billing:charge-due-invoices`
+- Added SQLite-safe guards to older raw `ALTER TABLE ... MODIFY ...` migrations so feature tests can boot in the default test database.
+
+### Breaking Changes
+- Registration requests that omit `country_code` now fail validation.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/BillingController.php`
+  - `app/Http/Controllers/Api/V1/AdminBillingController.php`
+  - `app/Services/BillingService.php`
+  - `app/Services/Billing/*`
+  - `app/Models/Account.php`
+  - `app/Models/Merchant.php`
+  - `app/Models/PaymentGateway.php`
+  - `app/Models/CountryPricing.php`
+  - `app/Models/PricingPlan.php`
+  - `app/Models/AccountBillingProfile.php`
+  - `app/Models/AccountPaymentMethod.php`
+  - `app/Models/AccountInvoice.php`
+  - `app/Models/AccountInvoiceLine.php`
+  - `app/Models/AccountInvoicePaymentAttempt.php`
+  - `app/Http/Resources/AccountBillingSummaryResource.php`
+  - `app/Http/Resources/AccountInvoiceResource.php`
+  - `app/Http/Resources/AccountPaymentMethodResource.php`
+  - `app/Http/Requests/RegisterRequest.php`
+  - `app/Services/AuthService.php`
+  - `routes/api.php`
+  - `routes/console.php`
+  - `config/billing.php`
+  - `database/migrations/2026_03_25_000002_create_billing_catalog_tables.php`
+  - `database/migrations/2026_03_25_000003_create_account_billing_tables.php`
+  - `database/migrations/2026_03_25_000004_add_billing_fields_to_accounts_and_merchants.php`
+  - `database/seeders/DatabaseSeeder.php`
+  - `website/src/app/admin/billing/page.tsx`
+  - `website/src/app/admin/settings/billing/page.tsx`
+  - `website/src/components/billing/account-billing-dashboard.tsx`
+  - `website/src/components/billing/admin-billing-settings.tsx`
+  - `website/src/components/auth/register-form.tsx`
+  - `website/src/lib/api/billing.ts`
+  - `website/src/lib/navigation.ts`
+  - `website/src/lib/routes/admin.ts`
+  - `website/src/lib/types.ts`
+  - `tests/Feature/AuthTest.php`
+  - `tests/Feature/BillingTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter='AuthTest|BillingTest'`
+  - `php artisan route:list --path=billing`
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+
 ## 2026-03-25 | Version: unreleased
 
 ### Summary

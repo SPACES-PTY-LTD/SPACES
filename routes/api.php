@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AdminController;
 use App\Http\Controllers\Api\V1\AdminCancelReasonController;
 use App\Http\Controllers\Api\V1\AdminCarrierController;
+use App\Http\Controllers\Api\V1\AdminBillingController;
 use App\Http\Controllers\Api\V1\AdminDriverAssignmentController;
 use App\Http\Controllers\Api\V1\AdminDriverVehicleController;
 use App\Http\Controllers\Api\V1\AdminTrackingProviderController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\Api\V1\AdminVehicleTypeController;
 use App\Http\Controllers\Api\V1\ActivityLogController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BookingController;
+use App\Http\Controllers\Api\V1\BillingController;
 use App\Http\Controllers\Api\V1\CarrierWebhookController;
 use App\Http\Controllers\Api\V1\DriverController;
 use App\Http\Controllers\Api\V1\DriverDeviceController;
@@ -109,6 +111,11 @@ Route::prefix('v1')->group(function () {
             Route::get('shipments', [AdminController::class, 'shipments']);
             Route::get('bookings', [AdminController::class, 'bookings']);
             Route::get('webhook-deliveries', [AdminController::class, 'webhookDeliveries']);
+            Route::get('billing/gateways', [AdminBillingController::class, 'gateways']);
+            Route::get('billing/country-pricing', [AdminBillingController::class, 'countryPricing']);
+            Route::get('billing/plans', [AdminBillingController::class, 'plans']);
+            Route::get('billing/accounts', [AdminBillingController::class, 'accounts']);
+            Route::get('billing/accounts/{account_uuid}', [AdminBillingController::class, 'showAccount']);
         });
     });
 
@@ -192,6 +199,19 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('role:user,super_admin')->group(function () {
+            Route::get('billing/summary', [BillingController::class, 'summary']);
+            Route::get('billing/invoices', [BillingController::class, 'invoices']);
+            Route::get('billing/invoices/{invoice_uuid}', [BillingController::class, 'showInvoice']);
+            Route::get('billing/gateways', [BillingController::class, 'listGateways']);
+            Route::get('billing/plans', [BillingController::class, 'listPlans']);
+            Route::post('billing/payment-methods/setup', [BillingController::class, 'setupPaymentMethod']);
+            Route::post('billing/payment-methods/sync', [BillingController::class, 'syncPaymentMethods']);
+            Route::post('billing/payment-methods', [BillingController::class, 'storePaymentMethod']);
+            Route::patch('billing/payment-methods/{payment_method_uuid}/default', [BillingController::class, 'setDefaultPaymentMethod']);
+            Route::delete('billing/payment-methods/{payment_method_uuid}', [BillingController::class, 'destroyPaymentMethod']);
+            Route::post('billing/invoices/{invoice_uuid}/charge', [BillingController::class, 'chargeInvoice']);
+            Route::patch('billing/merchants/{merchant_uuid}/plan', [BillingController::class, 'updateMerchantPlan']);
+
             Route::get('tracking-providers', [AdminTrackingProviderController::class, 'index']);
             Route::get('activity-logs', [ActivityLogController::class, 'index']);
             Route::get('activity-logs/{log_id}', [ActivityLogController::class, 'show']);

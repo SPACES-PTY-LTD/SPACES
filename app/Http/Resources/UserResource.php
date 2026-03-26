@@ -15,6 +15,15 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'telephone' => $this->telephone,
             'role' => $this->role,
+            'is_account_holder' => $this->whenLoaded(
+                'account',
+                fn () => $this->account && (int) $this->account->owner_user_id === (int) $this->id,
+                false
+            ),
+            'account_country_code' => $this->whenLoaded(
+                'account',
+                fn () => $this->account?->country_code
+            ),
             'last_login_at' => optional($this->last_login_at)?->toIso8601String(),
             'last_accessed_merchant_id' => $this->whenLoaded(
                 'lastAccessedMerchant',

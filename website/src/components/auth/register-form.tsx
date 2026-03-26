@@ -22,11 +22,14 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getCountryOptions } from "@/lib/geo-options"
 
 const schema = z
   .object({
     name: z.string().min(2, "Enter your full name"),
     email: z.string().email("Enter a valid email"),
+    country_code: z.string().length(2, "Select a country"),
     password: z.string().min(6, "Password must be at least 6 characters"),
     password_confirmation: z
       .string()
@@ -43,11 +46,13 @@ export function RegisterForm() {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const { update } = useSession()
+  const countryOptions = getCountryOptions()
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: "",
       email: "",
+      country_code: "ZA",
       password: "",
       password_confirmation: "",
     },
@@ -65,6 +70,7 @@ export function RegisterForm() {
         body: JSON.stringify({
           name: values.name,
           email: values.email,
+          country_code: values.country_code,
           password: values.password,
           password_confirmation: values.password_confirmation,
         }),
@@ -191,6 +197,30 @@ export function RegisterForm() {
                   <FormControl>
                     <Input placeholder="" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="country_code"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Billing country</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {countryOptions.map((country) => (
+                        <SelectItem key={country.code} value={country.code}>
+                          {country.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

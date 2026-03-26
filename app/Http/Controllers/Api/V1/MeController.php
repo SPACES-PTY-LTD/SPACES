@@ -20,7 +20,7 @@ class MeController extends Controller
     public function show(Request $request)
     {
         try {
-            $user = $request->user()->load(['merchants', 'lastAccessedMerchant']);
+            $user = $request->user()->load(['account', 'merchants', 'lastAccessedMerchant']);
 
             return ApiResponse::success(new UserResource($user));
         } catch (Throwable $e) {
@@ -32,10 +32,11 @@ class MeController extends Controller
     public function updateProfile(Request $request)
     {
         try {
-            $user = $request->user();
+            $user = $request->user()->loadMissing('account');
             $data = $request->validate([
                 'name' => 'sometimes|required|string|max:255',
                 'telephone' => 'sometimes|nullable|string|max:50',
+                'account_country_code' => 'sometimes|required|string|size:2|regex:/^[A-Z]{2}$/',
             ]);
 
             if (array_key_exists('name', $data)) {
@@ -46,12 +47,21 @@ class MeController extends Controller
                 $user->telephone = $data['telephone'];
             }
 
+            if (
+                array_key_exists('account_country_code', $data)
+                && $user->account
+                && (int) $user->account->owner_user_id === (int) $user->id
+            ) {
+                $user->account->country_code = $data['account_country_code'];
+                $user->account->save();
+            }
+
             if (!empty($data)) {
                 $user->save();
             }
 
             return ApiResponse::success(new UserResource(
-                $user->fresh()->load(['merchants', 'lastAccessedMerchant'])
+                $user->fresh()->load(['account', 'merchants', 'lastAccessedMerchant'])
             ));
         } catch (Throwable $e) {
             Log::error('Profile update failed', [
