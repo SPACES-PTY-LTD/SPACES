@@ -24,6 +24,7 @@ class ImportProviderVehiclesJob implements ShouldQueue
         public string $providerUuid,
         public array $vehicles
     ) {
+        $this->onQueue('imports');
     }
 
     public function handle(MerchantIntegrationService $service): void

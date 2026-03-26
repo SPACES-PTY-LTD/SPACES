@@ -257,7 +257,8 @@ class TrackingProviderOptionsTest extends TestCase
         ])->assertStatus(202);
 
         Queue::assertPushed(ImportProviderVehiclesJob::class, function (ImportProviderVehiclesJob $job) use ($provider, $vehicleType) {
-            return $job->providerUuid === $provider->uuid
+            return $job->queue === 'imports'
+                && $job->providerUuid === $provider->uuid
                 && $job->vehicles === [
                     [
                         'provider_vehicle_id' => 'veh-001',

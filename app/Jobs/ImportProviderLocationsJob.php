@@ -24,6 +24,7 @@ class ImportProviderLocationsJob implements ShouldQueue
         public string $providerUuid,
         public ?bool $onlyWithGeofences = null
     ) {
+        $this->onQueue('imports');
     }
 
     public function handle(MerchantIntegrationService $service): void
