@@ -20,7 +20,10 @@ export default async function TrackingPage() {
     )
   }
 
-  const response = await listRuns(session.accessToken, { merchant_id: merchantId })
+  const response = await listRuns(session.accessToken, {
+    merchant_id: merchantId,
+    active_only: true,
+  })
 
   if (isApiErrorResponse(response)) {
     return (
@@ -31,7 +34,6 @@ export default async function TrackingPage() {
       />
     )
   }
-  console.log("Runs response:", response)
 
   return (
     <div className="space-y-6">

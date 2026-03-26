@@ -13,6 +13,7 @@ class ActivateTrackingProviderRequest extends BaseRequest
     {
         return [
             'provider_id' => ['required', 'uuid', 'exists:tracking_providers,uuid'],
+            'merchant_id' => ['nullable', 'uuid', 'exists:merchants,uuid'],
             'integration_data' => ['required', 'array'],
         ];
     }

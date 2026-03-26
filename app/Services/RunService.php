@@ -98,6 +98,16 @@ class RunService
             });
         }
 
+        if (filter_var($filters['active_only'] ?? false, FILTER_VALIDATE_BOOL)) {
+            $query->whereNull('completed_at');
+        }
+
+        if (filter_var($filters['with_shipments'] ?? false, FILTER_VALIDATE_BOOL)) {
+            $query->whereHas('runShipments', function (Builder $builder) {
+                $builder->where('status', '!=', RunShipment::STATUS_REMOVED);
+            });
+        }
+
         $perPage = min((int) ($filters['per_page'] ?? 15), 100);
 
         return $query->orderByDesc('created_at')->paginate($perPage);

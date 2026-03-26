@@ -3,7 +3,14 @@ import type { ApiListResponse, Run } from "@/lib/types"
 
 export async function listRuns(
   token?: string | null,
-  params?: { merchant_id?: string; page?: number; per_page?: number; search?: string }
+  params?: {
+    merchant_id?: string
+    page?: number
+    per_page?: number
+    search?: string
+    active_only?: boolean
+    with_shipments?: boolean
+  }
 ) {
   return apiFetch<ApiListResponse<Run>>("/api/v1/runs", { token, params })
 }

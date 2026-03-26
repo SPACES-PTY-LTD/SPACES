@@ -3,7 +3,17 @@
 import * as React from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { StatusBadge } from "@/components/common/status-badge"
 import { ShipmentStopsOverview } from "@/components/shipments/shipment-stops-overview"
@@ -68,6 +78,11 @@ type PaginationMeta = {
   total: number
 }
 
+type RunFilters = {
+  activeOnly: boolean
+  withShipments: boolean
+}
+
 function normalizeMeta(meta?: ApiListResponse<Run>["meta"]): PaginationMeta | null {
   if (!meta) return null
 
@@ -127,6 +142,15 @@ export function RunsTrackingView({
     [initialMeta]
   )
   const activeSearch = deferredQuery.trim()
+  const [filters, setFilters] = React.useState<RunFilters>({
+    activeOnly: true,
+    withShipments: false,
+  })
+  const [draftFilters, setDraftFilters] = React.useState<RunFilters>({
+    activeOnly: true,
+    withShipments: false,
+  })
+  const [filterDialogOpen, setFilterDialogOpen] = React.useState(false)
   const [loadingMore, setLoadingMore] = React.useState(false)
   const [loadingSearch, setLoadingSearch] = React.useState(false)
   const [loadingError, setLoadingError] = React.useState<string | null>(null)
@@ -232,6 +256,8 @@ export function RunsTrackingView({
         page: 1,
         per_page: meta?.per_page ?? initialPerPage,
         search: activeSearch || undefined,
+        active_only: filters.activeOnly,
+        with_shipments: filters.withShipments,
       })
 
       if (cancelled) {
@@ -259,7 +285,15 @@ export function RunsTrackingView({
     return () => {
       cancelled = true
     }
-  }, [accessToken, activeSearch, initialPerPage, merchantId])
+  }, [
+    accessToken,
+    activeSearch,
+    filters.activeOnly,
+    filters.withShipments,
+    initialPerPage,
+    merchantId,
+    meta?.per_page,
+  ])
 
   const handleLoadMore = React.useCallback(async () => {
     if (!meta || loadingMore || !hasMore || loadingSearch) return
@@ -271,6 +305,8 @@ export function RunsTrackingView({
       page: meta.current_page + 1,
       per_page: meta.per_page,
       search: activeSearch || undefined,
+      active_only: filters.activeOnly,
+      with_shipments: filters.withShipments,
     })
 
     if (isApiErrorResponse(response)) {
@@ -282,7 +318,27 @@ export function RunsTrackingView({
     setAllRuns((previous) => mergeRuns(previous, response.data ?? []))
     setMeta((previousMeta) => normalizeMeta(response.meta) ?? previousMeta)
     setLoadingMore(false)
-  }, [accessToken, activeSearch, hasMore, loadingMore, loadingSearch, merchantId, meta])
+  }, [
+    accessToken,
+    activeSearch,
+    filters.activeOnly,
+    filters.withShipments,
+    hasMore,
+    loadingMore,
+    loadingSearch,
+    merchantId,
+    meta,
+  ])
+
+  const handleFilterSubmit = React.useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      if (loadingSearch) return
+      setFilters(draftFilters)
+      setFilterDialogOpen(false)
+    },
+    [draftFilters, loadingSearch]
+  )
 
   React.useEffect(() => {
     if (!hasMore || loadingMore || loadingError) return
@@ -319,114 +375,169 @@ export function RunsTrackingView({
     )
   }
 
-  console.log("Selected run:", selected)
-
   return (
     <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)] lg:h-[calc(100vh-12rem)]">
       <div className="overflow-hidden lg:h-full">
-        
-          <div className="flex items-center gap-2 mb-4">
-            <Input
-              placeholder="Search runs"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <Button variant="outline" size="icon" className="shrink-0" disabled>
-              <Filter className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div
-            ref={listContainerRef}
-            className="min-h-0 flex-1 space-y-2 overflow-y-auto h-[calc(100vh-12rem)] pr-1"
-            id="runs-list"
+        <div className="mb-4 flex items-center gap-2">
+          <Input
+            placeholder="Search runs"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="shrink-0"
+            disabled={loadingSearch}
+            onClick={() => {
+              setDraftFilters(filters)
+              setFilterDialogOpen(true)
+            }}
           >
-            {allRuns.map((run) => {
-              const isActive = run.run_id === selected?.run_id
-              const progress = getProgress(run)
-              const runStops = run.stops ?? []
-              const lastStop = runStops[runStops.length - 1]
-              return (
-                <button
-                  key={run.run_id}
-                  onClick={() => setSelectedId(run.run_id)}
-                  className={cn(
-                    "group w-full rounded-xl border border-border p-3 text-left transition",
-                    "hover:border-border hover:bg-accent/40",
-                    isActive && " bg-accent/60"
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-xs text-muted-foreground">
-                        {run.vehicle?.plate_number ?? "No vehicle"}
-                      </div>
-                      {lastStop?.location && (
-                        <div className="text-sm font-semibold">
-                          {lastStop.location.name ??
-                            lastStop.location.company ??
-                            formatRunStopLocation(lastStop.location)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background shadow-sm">
-                      <Truck className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </div>
+            <Filter className="h-4 w-4" />
+          </Button>
+        </div>
 
-                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-7 w-7 border border-background shadow-sm">
-                        <AvatarFallback>{run.driver?.name?.slice(0, 1) ?? "-"}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium text-foreground">{run.driver?.name ?? "Unassigned driver"}</div>
-                        <div>{run.status?.replace(/_/g, " ") ?? "-"}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs font-medium text-foreground">{run.shipment_count ?? 0} shipments</div>
-                      <div>{formatDateTime(run.started_at ?? run.planned_start_at)}</div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 h-1.5 w-full rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
-                  </div>
-                </button>
-              )
-            })}
-            {loadingSearch ? (
-              <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                Loading runs...
+        <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Run Filters</DialogTitle>
+              <DialogDescription>
+                Choose which runs should appear in the tracking list.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleFilterSubmit} className="space-y-5">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="runs-active-only">Only show active runs</Label>
+                <Switch
+                  id="runs-active-only"
+                  checked={draftFilters.activeOnly}
+                  onCheckedChange={(checked) =>
+                    setDraftFilters((previous) => ({
+                      ...previous,
+                      activeOnly: checked,
+                    }))
+                  }
+                  disabled={loadingSearch}
+                />
               </div>
-            ) : null}
-            {loadingError ? (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                {loadingError}
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="runs-with-shipments">
+                  Only show runs with shipments
+                </Label>
+                <Switch
+                  id="runs-with-shipments"
+                  checked={draftFilters.withShipments}
+                  onCheckedChange={(checked) =>
+                    setDraftFilters((previous) => ({
+                      ...previous,
+                      withShipments: checked,
+                    }))
+                  }
+                  disabled={loadingSearch}
+                />
               </div>
-            ) : null}
-            {hasMore ? (
-              <div ref={loadMoreSentinelRef} className="pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => void handleLoadMore()}
-                  disabled={loadingMore || loadingSearch}
-                >
-                  {loadingMore ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Loading more runs
-                    </>
-                  ) : (
-                    "Load more runs"
-                  )}
+              <DialogFooter>
+                <Button type="submit" disabled={loadingSearch}>
+                  Filter
                 </Button>
-              </div>
-            ) : null}
-          </div>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <div
+          ref={listContainerRef}
+          className="min-h-0 flex-1 space-y-2 overflow-y-auto h-[calc(100vh-12rem)] pr-1"
+          id="runs-list"
+        >
+          {allRuns.map((run) => {
+            const isActive = run.run_id === selected?.run_id
+            const progress = getProgress(run)
+            const runStops = run.stops ?? []
+            const lastStop = runStops[runStops.length - 1]
+            return (
+              <button
+                key={run.run_id}
+                onClick={() => setSelectedId(run.run_id)}
+                className={cn(
+                  "group w-full rounded-xl border border-border p-3 text-left transition",
+                  "hover:border-border hover:bg-accent/40",
+                  isActive && " bg-accent/60"
+                )}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      {run.vehicle?.plate_number ?? "No vehicle"}
+                    </div>
+                    {lastStop?.location && (
+                      <div className="text-sm font-semibold">
+                        {lastStop.location.name ??
+                          lastStop.location.company ??
+                          formatRunStopLocation(lastStop.location)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-background shadow-sm">
+                    <Truck className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-7 w-7 border border-background shadow-sm">
+                      <AvatarFallback>{run.driver?.name?.slice(0, 1) ?? "-"}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-medium text-foreground">{run.driver?.name ?? "Unassigned driver"}</div>
+                      <div>{run.status?.replace(/_/g, " ") ?? "-"}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs font-medium text-foreground">{run.shipment_count ?? 0} shipments</div>
+                    <div>{formatDateTime(run.started_at ?? run.planned_start_at)}</div>
+                  </div>
+                </div>
+
+                <div className="mt-3 h-1.5 w-full rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} />
+                </div>
+              </button>
+            )
+          })}
+          {loadingSearch ? (
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+              Loading runs...
+            </div>
+          ) : null}
+          {loadingError ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              {loadingError}
+            </div>
+          ) : null}
+          {hasMore ? (
+            <div ref={loadMoreSentinelRef} className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => void handleLoadMore()}
+                disabled={loadingMore || loadingSearch}
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading more runs
+                  </>
+                ) : (
+                  "Load more runs"
+                )}
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {selected ? (

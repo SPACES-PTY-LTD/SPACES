@@ -14,6 +14,7 @@ use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class RunApiTest extends TestCase
@@ -326,9 +327,118 @@ class RunApiTest extends TestCase
         $this->assertNotNull($booking->collected_at);
     }
 
+    public function test_run_list_can_filter_active_runs_by_missing_completed_at(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+
+        $activeRun = Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_DISPATCHED,
+            'planned_start_at' => now()->subHour(),
+            'completed_at' => null,
+        ]);
+
+        Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_COMPLETED,
+            'planned_start_at' => now()->subHours(2),
+            'completed_at' => now()->subMinute(),
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->getJson('/api/v1/runs?active_only=true');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.run_id', $activeRun->uuid);
+    }
+
+    public function test_run_list_can_filter_runs_with_shipments_only(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+
+        $runWithShipment = Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_DRAFT,
+        ]);
+
+        Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_DRAFT,
+        ]);
+
+        $shipment = $this->createShipment($merchant, 'ORDER-FILTER-1', 'booked');
+
+        RunShipment::create([
+            'run_id' => $runWithShipment->id,
+            'shipment_id' => $shipment->id,
+            'status' => RunShipment::STATUS_PLANNED,
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->getJson('/api/v1/runs?with_shipments=true');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.run_id', $runWithShipment->uuid);
+    }
+
+    public function test_run_list_combines_active_and_with_shipments_filters(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+
+        $matchingRun = Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_IN_PROGRESS,
+            'completed_at' => null,
+        ]);
+
+        $completedRunWithShipment = Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_COMPLETED,
+            'completed_at' => now(),
+        ]);
+
+        Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_DRAFT,
+            'completed_at' => null,
+        ]);
+
+        $shipmentA = $this->createShipment($merchant, 'ORDER-FILTER-2', 'booked');
+        $shipmentB = $this->createShipment($merchant, 'ORDER-FILTER-3', 'booked');
+
+        RunShipment::create([
+            'run_id' => $matchingRun->id,
+            'shipment_id' => $shipmentA->id,
+            'status' => RunShipment::STATUS_ACTIVE,
+        ]);
+
+        RunShipment::create([
+            'run_id' => $completedRunWithShipment->id,
+            'shipment_id' => $shipmentB->id,
+            'status' => RunShipment::STATUS_ACTIVE,
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->getJson('/api/v1/runs?active_only=true&with_shipments=true');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.run_id', $matchingRun->uuid);
+    }
+
     private function createMerchantContext(?string $email = null): array
     {
         $user = User::withoutEvents(fn () => User::factory()->create([
+            'uuid' => (string) Str::uuid(),
             'email' => $email ?? fake()->unique()->safeEmail(),
             'role' => 'user',
         ]));
@@ -357,6 +467,7 @@ class RunApiTest extends TestCase
     private function createDriver(Merchant $merchant, bool $setMerchantId = false): Driver
     {
         $driverUser = User::withoutEvents(fn () => User::factory()->create([
+            'uuid' => (string) Str::uuid(),
             'role' => 'driver',
             'account_id' => $merchant->account_id,
         ]));

@@ -358,6 +358,8 @@ components:
       properties:
         provider_id:
           type: string
+        merchant_id:
+          type: string
         integration_data:
           type: object
     TrackingProviderOptionsDataUpdateRequest:

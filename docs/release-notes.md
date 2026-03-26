@@ -23,6 +23,107 @@ Add new entries at the top (newest first).
 ## 2026-03-26 | Version: unreleased
 
 ### Summary
+- Fixed tracking provider activation so the admin UI submits the selected `merchant_id` and the API activates providers against the correct merchant in multi-merchant accounts.
+
+### API Changes
+- `POST /api/v1/tracking-providers/activate` now accepts `merchant_id` to scope activation to a specific merchant.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Admin tracking provider activation now uses the currently selected merchant instead of implicitly activating against the first merchant available on the user.
+- Users attached to multiple merchants can activate the same tracking provider for the intended merchant without cross-merchant leakage.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added feature coverage for merchant-scoped tracking provider activation.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/MerchantIntegrationController.php`
+  - `app/Http/Requests/ActivateTrackingProviderRequest.php`
+  - `app/Services/MerchantIntegrationService.php`
+  - `website/src/components/integrations/tracking-providers.tsx`
+  - `website/src/lib/api/tracking-providers.ts`
+  - `tests/Feature/TrackingProviderOptionsTest.php`
+  - `openapi.yaml`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter=TrackingProviderOptionsTest`
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
+- Changed runs tracking to default to active runs only on first load while keeping the filter dialog available for broadening the result set.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/shipments/tracking` now loads with `Only show active runs` enabled by default.
+- The tracking filter dialog now opens with the active-runs switch turned on unless the user has changed the applied filters.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Aligned the tracking page’s initial server fetch with the client-side default filter state so the first render matches subsequent filtered requests.
+
+### Verification
+- Updated files:
+  - `website/src/app/admin/logistics/shipments/tracking/page.tsx`
+  - `website/src/components/tracking/runs-tracking-view.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+  - `npm run build`
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
+- Added a filter dialog to the runs tracking screen so operators can narrow the list to active runs and runs that still have shipments before applying the filters.
+
+### API Changes
+- `GET /api/v1/runs` now accepts:
+  - `active_only`
+  - `with_shipments`
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/shipments/tracking` now opens a filter dialog from the filter button instead of showing a disabled control.
+- Tracking can now be filtered to only runs where `completed_at` is empty.
+- Tracking can now be filtered to only runs that still have non-removed attached shipments.
+- Search and pagination on the tracking list now preserve the applied filter state.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Removed debug logging from the tracking page and view while wiring the runs filter state through the frontend and backend list flow.
+
+### Verification
+- Updated files:
+  - `website/src/components/tracking/runs-tracking-view.tsx`
+  - `website/src/lib/api/runs.ts`
+  - `app/Services/RunService.php`
+  - `tests/Feature/RunApiTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter=RunApiTest`
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit`
+  - `npm run build`
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
 - Added reusable admin loading skeletons for table and detail screens and wired them into the admin route tree with route-level `loading.tsx` files.
 
 ### API Changes

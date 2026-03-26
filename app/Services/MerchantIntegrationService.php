@@ -28,9 +28,17 @@ class MerchantIntegrationService
     {
     }
 
-    public function activateProvider(User $user, string $providerUuid, array $integrationData): MerchantIntegration
+    public function activateProvider(
+        User $user,
+        string $providerUuid,
+        array $integrationData,
+        ?string $merchantUuid = null
+    ): MerchantIntegration
     {
-        $merchant = $this->resolveMerchant($user);
+        $merchant = $merchantUuid
+            ? $this->resolveAuthorizedMerchant($user, $merchantUuid)
+            : $this->resolveMerchant($user);
+
         if (!$merchant) {
             throw ValidationException::withMessages([
                 'merchant_id' => 'Merchant profile not found.',

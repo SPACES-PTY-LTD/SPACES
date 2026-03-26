@@ -41,6 +41,7 @@ export async function getTrackingProvider(
 
 export async function activateTrackingProvider(
   providerId: string,
+  merchantId: string,
   integrationData: Record<string, unknown>,
   token?: string | null
 ) {
@@ -48,12 +49,11 @@ export async function activateTrackingProvider(
     method: "POST",
     body: {
       provider_id: providerId,
+      merchant_id: merchantId,
       integration_data: integrationData,
     },
     token,
   })
-
-  
 
   return response
 }

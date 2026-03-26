@@ -29,7 +29,8 @@ class MerchantIntegrationController extends Controller
             $integration = $service->activateProvider(
                 $request->user(),
                 $data['provider_id'],
-                $data['integration_data']
+                $data['integration_data'],
+                $data['merchant_id'] ?? null
             );
 
             $integration->load('merchant');

@@ -306,6 +306,10 @@ export function TrackingProviders({
 
   const handleSubmit = async () => {
     if (!selectedProvider) return
+    if (!merchantId) {
+      toast.error("Please select a merchant before activating a provider.")
+      return
+    }
     const fields = selectedProvider.form_fields ?? []
     const missingRequired = fields.find((field) => field.required && !values[field.name])
     if (missingRequired) {
@@ -321,7 +325,7 @@ export function TrackingProviders({
           payload[field.name] = coerceValue(field, value)
         }
       })
-      await activateTrackingProvider(selectedProvider.provider_id, payload, accessToken)
+      await activateTrackingProvider(selectedProvider.provider_id, merchantId, payload, accessToken)
       toast.success("Provider activated.")
       closeDialog()
       await loadProviders()
