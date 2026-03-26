@@ -11,6 +11,7 @@ declare module "next-auth" {
       uuid?: string | null
       name?: string | null
       email?: string | null
+      image?: string | null
       role?: "super_admin" | "user"
     }
   }
@@ -23,6 +24,7 @@ declare module "next-auth/jwt" {
     authError?: string
     userId?: string
     role?: string
+    image?: string | null
     merchants?: Merchant[]
     selected_merchant?: Merchant
     lastAccessedMerchantId?: string

@@ -87,6 +87,26 @@ export async function updateCurrentUserPassword(
   })
 }
 
+export async function uploadCurrentUserProfilePhoto(
+  payload: { photo: File },
+  token?: string | null
+) {
+  const formData = new FormData()
+  formData.append("photo", payload.photo)
+
+  const response = await apiFetch<ApiEnvelope<User>>("/api/v1/me/profile-photo", {
+    method: "POST",
+    body: formData,
+    token,
+  })
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
+}
+
 export async function getMerchant(merchantId: string, token?: string | null) {
   const response = await apiFetch<ApiEnvelope<Merchant>>(
     `/api/v1/merchants/${merchantId}`,

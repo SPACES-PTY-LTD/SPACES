@@ -3,15 +3,19 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UploadUserProfilePhotoRequest;
 use App\Http\Requests\UpdateLastAccessedMerchantRequest;
-use App\Models\Merchant;
 use App\Http\Requests\UpdateDriverProfileRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Merchant;
 use App\Support\ApiResponse;
 use App\Support\MerchantAccess;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -105,6 +109,29 @@ class MeController extends Controller
         }
     }
 
+    public function updateProfilePhoto(UploadUserProfilePhotoRequest $request)
+    {
+        try {
+            $user = $request->user();
+            $user->profile_photo_path = $this->storeProfilePhoto(
+                $user->uuid,
+                $request->file('photo'),
+                $user->profile_photo_path
+            );
+            $user->save();
+
+            return ApiResponse::success(new UserResource(
+                $user->fresh()->load(['account', 'merchants', 'lastAccessedMerchant'])
+            ));
+        } catch (Throwable $e) {
+            Log::error('Profile photo update failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+            return $this->apiError($e, 'PROFILE_PHOTO_UPDATE_FAILED', 'Unable to update profile photo.');
+        }
+    }
+
     public function updateLastAccessedMerchant(UpdateLastAccessedMerchantRequest $request)
     {
         try {
@@ -171,5 +198,21 @@ class MeController extends Controller
             Log::error('Driver profile update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'DRIVER_PROFILE_UPDATE_FAILED', 'Unable to update driver profile.');
         }
+    }
+
+    private function storeProfilePhoto(string $userUuid, UploadedFile $photo, ?string $existingPath = null): string
+    {
+        $disk = Storage::disk('s3');
+        $extension = $photo->getClientOriginalExtension();
+        $filename = (string) Str::uuid().($extension ? '.'.$extension : '');
+        $path = sprintf('profile-photos/%s/%s', $userUuid, $filename);
+
+        $disk->putFileAs(dirname($path), $photo, basename($path), ['visibility' => 'public']);
+
+        if (!empty($existingPath) && $existingPath !== $path) {
+            $disk->delete($existingPath);
+        }
+
+        return $path;
     }
 }

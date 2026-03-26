@@ -139,6 +139,9 @@ export const authOptions: NextAuthOptions = {
         if (session.user?.email) {
           token.email = session.user.email
         }
+        if (session.user && "image" in session.user) {
+          token.image = session.user.image ?? null
+        }
         if (session.user?.role) {
           token.role = session.user.role
         }
@@ -200,6 +203,10 @@ export const authOptions: NextAuthOptions = {
             ? undefined
             : profileResponse.last_accessed_merchant_id ?? undefined
 
+          if (!isApiErrorResponse(profileResponse)) {
+            token.image = profileResponse.profile_photo_url ?? null
+          }
+
           token.lastAccessedMerchantId = persistedMerchantId
 
           let merchants = response.data
@@ -241,6 +248,7 @@ export const authOptions: NextAuthOptions = {
       session.user.uuid = (token.userId as string | undefined) ?? null
       session.user.name = (token.name as string | undefined) ?? session.user.name
       session.user.email = (token.email as string | undefined) ?? session.user.email
+      session.user.image = (token.image as string | null | undefined) ?? null
       session.user.role = token.role as "super_admin" | "user"
       session.accessToken = token.accessToken as string
       session.refreshToken = token.refreshToken as string

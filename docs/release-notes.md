@@ -23,6 +23,108 @@ Add new entries at the top (newest first).
 ## 2026-03-26 | Version: unreleased
 
 ### Summary
+- Refreshed the admin account page with a stronger profile layout, added profile photo upload, and exposed a dedicated endpoint for updating the logged-in user’s profile image.
+
+### API Changes
+- Added `POST /api/v1/me/profile-photo` to upload and persist the authenticated user’s profile image.
+- `GET /api/v1/me` and `PATCH /api/v1/me` now return `profile_photo_url` in the user payload.
+
+### Database Changes
+- Added `users.profile_photo_path` to persist the stored path for each user profile image.
+
+### Behavior Changes
+- `/admin/settings/account` now shows a profile summary panel, a dedicated profile picture upload card, and updated account/password sections.
+- Uploading a new profile photo updates the account page preview and the admin shell avatar using the same user session payload.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added multipart upload validation and feature coverage for the logged-in user profile photo flow.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/MeController.php`
+  - `app/Http/Requests/UploadUserProfilePhotoRequest.php`
+  - `app/Http/Resources/UserResource.php`
+  - `app/Models/User.php`
+  - `database/migrations/2026_03_26_000001_add_profile_photo_path_to_users_table.php`
+  - `routes/api.php`
+  - `tests/Feature/LastAccessedMerchantTest.php`
+  - `website/src/components/layout/admin-shell.tsx`
+  - `website/src/components/settings/account-settings-form.tsx`
+  - `website/src/lib/api/merchants.ts`
+  - `website/src/lib/auth.ts`
+  - `website/src/lib/nextauth.ts`
+  - `website/src/lib/types.ts`
+  - `website/src/types/next-auth.d.ts`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test --filter=LastAccessedMerchantTest`
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit` (fails due to a pre-existing unrelated `VehiclePayload` type mismatch in `website/src/components/vehicles/vehicle-dialog.tsx:179`)
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
+- Refreshed the marketing landing page with a stronger Pick n Drop brand-led hero, a full-bleed operational visual, and simpler section structure focused on platform story, outcomes, workflow, integrations, trust, and conversion.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The first viewport now presents Pick n Drop as the dominant visual and messaging signal instead of a dashboard-like split layout.
+- Hero content is reduced to a single headline, one support line, a CTA group, and one dominant logistics control visual.
+- Follow-up sections are reorganized so each section has one job and less visual clutter across the landing page.
+- Landing page typography, color treatment, spacing, and motion were updated for a more intentional promotional surface on desktop and mobile.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Rebuilt the homepage module styles around page-scoped design tokens and responsive layout rules instead of the previous card-heavy dark theme.
+
+### Verification
+- Updated files:
+  - `website/src/app/page.tsx`
+  - `website/src/app/homepage.module.css`
+  - `docs/release-notes.md`
+- Verification run:
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit` (fails due to a pre-existing unrelated `VehiclePayload` type mismatch in `website/src/components/vehicles/vehicle-dialog.tsx:179`)
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
+- Fixed the dashboard recent activity card so each activity title always opens a detail view, falling back to the activity log detail page when no related entity route exists.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Recent activity items on the admin dashboard now link to the related entity when supported.
+- Activity items without an entity-specific admin route now link to `/admin/activity-log/{activityId}` instead of rendering as plain text.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Reused the existing activity log detail route helper as the dashboard card fallback target.
+
+### Verification
+- Updated files:
+  - `website/src/components/dashboard/recent-activity-card.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run.
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
 - Removed non-essential vehicle form inputs for location update time, integration id, and photo key from the admin vehicle dialog, and changed status to a switch control.
 
 ### API Changes

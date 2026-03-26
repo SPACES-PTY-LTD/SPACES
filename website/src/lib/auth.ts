@@ -14,6 +14,7 @@ export type Session = {
     uuid?: string | null
     name: string
     email: string
+    image?: string | null
     role: Role
   }
 }
@@ -35,6 +36,7 @@ export async function getSession(): Promise<Session | null> {
       uuid: session.user.uuid ?? null,
       name: session.user.name ?? "User",
       email: session.user.email ?? "",
+      image: session.user.image ?? null,
       role: session.user?.role ?? "user",
     },
   }

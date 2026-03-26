@@ -6,7 +6,9 @@ use App\Models\Account;
 use App\Models\Merchant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class LastAccessedMerchantTest extends TestCase
@@ -21,6 +23,11 @@ class LastAccessedMerchantTest extends TestCase
     public function test_users_table_has_last_accessed_merchant_column(): void
     {
         $this->assertTrue(Schema::hasColumn('users', 'last_accessed_merchant_id'));
+    }
+
+    public function test_users_table_has_profile_photo_path_column(): void
+    {
+        $this->assertTrue(Schema::hasColumn('users', 'profile_photo_path'));
     }
 
     public function test_regular_user_can_persist_last_accessed_merchant(): void
@@ -130,6 +137,27 @@ class LastAccessedMerchantTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('data.is_account_holder', true)
             ->assertJsonPath('data.account_country_code', 'ZA');
+    }
+
+    public function test_user_can_upload_profile_photo_from_me_endpoint(): void
+    {
+        Storage::fake('s3');
+
+        $user = User::factory()->create();
+
+        $response = $this->authenticated($user)->post('/api/v1/me/profile-photo', [
+            'photo' => UploadedFile::fake()->image('profile.jpg'),
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.user_id', $user->uuid);
+
+        $user->refresh();
+
+        $this->assertNotNull($user->profile_photo_path);
+        $this->assertStringStartsWith('profile-photos/'.$user->uuid.'/', $user->profile_photo_path);
+        Storage::disk('s3')->assertExists($user->profile_photo_path);
+        $response->assertJsonPath('data.profile_photo_url', Storage::disk('s3')->url($user->profile_photo_path));
     }
 
     public function test_account_holder_can_update_account_country_from_me_profile(): void

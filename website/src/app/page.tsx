@@ -1,230 +1,59 @@
+import type { CSSProperties } from "react"
 import type { Metadata } from "next"
 import Link from "next/link"
-import {
-  Activity,
-  ArrowRight,
-  Building2,
-  Cable,
-  ChevronDown,
-  Code2,
-  Compass,
-  FileCheck2,
-  Gauge,
-  Globe,
-  KeyRound,
-  Layers,
-  Lock,
-  Menu,
-  Package,
-  Route,
-  ShieldCheck,
-  ShoppingBag,
-  Store,
-  Truck,
-  Warehouse,
-  Waves,
-} from "lucide-react"
+import { ArrowRight, ChevronDown, Menu, Truck } from "lucide-react"
 import { MetricsCounters } from "@/components/home/metrics-counters"
+import {
+  ARCHITECTURE_NODES,
+  INDUSTRIES,
+  NAV_ITEMS,
+  OUTCOMES,
+  PAINS,
+  SECURITY_ITEMS,
+} from "./constants"
 import styles from "./homepage.module.css"
 
 export const metadata: Metadata = {
-  title: "Global Logistics Platform | Dispatch, Routing, Tracking, APIs",
+  title: "Pick n Drop | Logistics Operations Platform",
   description:
-    "Enterprise logistics SaaS for dispatch, route optimization, live tracking, analytics, APIs, and webhooks.",
+    "Dispatch, route, track, and analyze every delivery from one logistics command center.",
 }
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Pick n Drop"
 
-const navItems = [
-  {
-    label: "Platform",
-    href: "#platform",
-    items: [
-      {
-        icon: Layers,
-        title: "Unified Command Center",
-        description: "Dispatch, tracking, routing, and analytics in one surface.",
-      },
-      {
-        icon: ShieldCheck,
-        title: "Enterprise Security",
-        description: "Role-based controls, audit logs, and isolated tenants.",
-      },
-    ],
-  },
-  {
-    label: "Products",
-    href: "#products",
-    items: [
-      {
-        icon: Route,
-        title: "Route Optimization",
-        description: "Optimization logic for higher delivery density and lower miles.",
-      },
-      {
-        icon: Activity,
-        title: "Live Operations",
-        description: "Real-time fleet telemetry and delivery state transitions.",
-      },
-    ],
-  },
-  {
-    label: "Solutions",
-    href: "#workflow",
-    items: [
-      {
-        icon: Gauge,
-        title: "Dispatch Automation",
-        description: "Auto-assign drivers and sequence stops based on constraints.",
-      },
-      {
-        icon: Compass,
-        title: "Global Rollouts",
-        description: "Deploy by region while keeping one operational model.",
-      },
-    ],
-  },
-  {
-    label: "Industries",
-    href: "#industries",
-    items: [
-      {
-        icon: Store,
-        title: "Retail & Commerce",
-        description: "High-volume same-day and scheduled fulfillment operations.",
-      },
-      {
-        icon: Warehouse,
-        title: "3PL & Courier",
-        description: "Multi-client execution with shared fleet visibility.",
-      },
-    ],
-  },
-  {
-    label: "Resources",
-    href: "/docs",
-    items: [
-      {
-        icon: Code2,
-        title: "Developer Docs",
-        description: "REST APIs, webhook events, and integration quick starts.",
-      },
-      {
-        icon: Cable,
-        title: "Integration Guides",
-        description: "Patterns for ERP, storefront, and carrier connectivity.",
-      },
-    ],
-  },
-  {
-    label: "Pricing",
-    href: "#pricing",
-    items: [
-      {
-        icon: Truck,
-        title: "Per-Vehicle Pricing",
-        description: "Predictable pricing as your fleet scales by active vehicle.",
-      },
-      {
-        icon: Building2,
-        title: "200+ Vehicle Plans",
-        description: "Custom enterprise packages with dedicated implementation.",
-      },
-    ],
-  },
-]
-
-const pains = [
-  "Disconnected tools",
-  "No live visibility",
-  "Manual dispatch errors",
-  "Inefficient routing",
-  "Rising operational costs",
-]
-
-const architectureNodes = [
-  "Orders",
-  "Dispatch",
-  "Route Optimization",
-  "Driver App",
-  "Delivery Confirmation",
-  "Analytics",
-]
-
-const outcomes = [
-  {
-    icon: Route,
-    title: "Deliver Faster",
-    description: "Smart dispatching, dynamic routing, and automated ETAs.",
-  },
-  {
-    icon: Waves,
-    title: "Run Leaner",
-    description: "Fuel optimization and driver utilization metrics across every lane.",
-  },
-  {
-    icon: Globe,
-    title: "See Everything",
-    description: "Live tracking and event streaming for full operational visibility.",
-  },
-  {
-    icon: Gauge,
-    title: "Optimize Performance",
-    description: "Heatmaps and historical dashboards for continuous improvement.",
-  },
-]
-
 const workflowSteps = [
-  "Import Orders",
-  "Auto Assign Drivers",
-  "Optimize Routes",
-  "Monitor in Real-Time",
-  "Analyze Performance",
-]
-
-const industries = [
-  { icon: ShoppingBag, label: "Retail & E-Commerce", href: "/industries/retail" },
-  { icon: Package, label: "Grocery Delivery", href: "/industries/grocery" },
-  { icon: Warehouse, label: "3PL Providers", href: "/industries/3pl" },
-  { icon: Truck, label: "Courier Services", href: "/industries/courier" },
-  { icon: Compass, label: "Field Services", href: "/industries/field-services" },
-  { icon: Building2, label: "Enterprise Fleets", href: "/industries/enterprise" },
-]
-
-const securityItems = [
-  { icon: KeyRound, label: "Role-based permissions" },
-  { icon: FileCheck2, label: "Audit logs" },
-  { icon: Lock, label: "Data encryption" },
-  { icon: ShieldCheck, label: "GDPR readiness" },
-  { icon: Activity, label: "99.99% uptime" },
+  "Capture orders from storefronts, ERPs, and internal tools.",
+  "Auto-assign drivers and vehicles against live capacity.",
+  "Continuously optimize routes as traffic and demand shift.",
+  "Track deliveries live and trigger proof-of-delivery events instantly.",
 ]
 
 const roiMetrics = [
   { label: "Faster Deliveries", value: 30, suffix: "%" },
   { label: "Lower Fuel Costs", value: 25, suffix: "%" },
   { label: "Reduced Idle Time", value: 20, suffix: "%" },
-  { label: "Availability", value: 99.99, suffix: "%" },
+  { label: "Platform Availability", value: 99.99, suffix: "%" },
 ]
 
 const testimonials = [
   {
     company: "Northbound Retail Group",
     quote:
-      "We replaced three disconnected systems and gained real-time control across 18 regions in under six weeks.",
+      "Pick n Drop replaced three fragmented tools and gave every region the same operational playbook.",
     person: "Amina D.",
     role: "VP Logistics",
   },
   {
     company: "TransAxis 3PL",
     quote:
-      "Dispatch decisions are now data-backed. Route density increased while service-level consistency improved every month.",
+      "Dispatch teams now work from one live surface instead of bouncing between spreadsheets and carrier portals.",
     person: "David M.",
     role: "Head of Operations",
   },
   {
     company: "MetroFleet Courier",
     quote:
-      "Webhook-driven status sync removed manual reconciliation and gave our clients transparent delivery timelines.",
+      "Webhook-driven updates finally made our customer timelines accurate enough to trust.",
     person: "Sara K.",
     role: "Chief Product Officer",
   },
@@ -232,8 +61,8 @@ const testimonials = [
 
 const footerGroups = [
   {
-    heading: "Products",
-    links: ["Dispatch", "Route Optimization", "Tracking", "Analytics", "APIs"],
+    heading: "Platform",
+    links: ["Dispatch", "Tracking", "Routing", "Analytics", "API Docs"],
   },
   {
     heading: "Solutions",
@@ -241,15 +70,7 @@ const footerGroups = [
   },
   {
     heading: "Resources",
-    links: ["Blog", "Case Studies", "Documentation", "API Reference"],
-  },
-  {
-    heading: "Company",
-    links: ["About", "Careers", "Press", "Contact"],
-  },
-  {
-    heading: "Legal",
-    links: ["Terms", "Privacy", "Security", "Compliance"],
+    links: ["Documentation", "Integrations", "Webhooks", "Case Studies"],
   },
 ]
 
@@ -268,7 +89,7 @@ export default function LandingPage() {
           </Link>
 
           <nav className={styles.desktopNav} aria-label="Primary navigation">
-            {navItems.map((item) => (
+            {NAV_ITEMS.map((item) => (
               <div key={item.label} className={styles.navItem}>
                 <Link href={item.href} className={styles.navTrigger}>
                   {item.label}
@@ -295,13 +116,16 @@ export default function LandingPage() {
           </nav>
 
           <details className={styles.mobileMenu}>
-            <summary className={styles.mobileMenuTrigger} aria-label="Open navigation menu">
+            <summary
+              className={styles.mobileMenuTrigger}
+              aria-label="Open navigation menu"
+            >
               <Menu size={18} />
               Menu
             </summary>
             <div className={styles.mobileMenuPanel}>
               <nav className={styles.mobileNavLinks} aria-label="Mobile navigation">
-                {navItems.map((item) => (
+                {NAV_ITEMS.map((item) => (
                   <details key={item.label} className={styles.mobileNavGroup}>
                     <summary className={styles.mobileNavGroupTrigger}>
                       <span>{item.label}</span>
@@ -337,21 +161,18 @@ export default function LandingPage() {
                   Login
                 </Link>
                 <Link href="#contact" className={styles.primaryBtn}>
-                  Start Free Trial
+                  Book a Demo
                 </Link>
               </div>
             </div>
           </details>
 
           <div className={styles.headerActions}>
-            <Link href="#contact" className={styles.textLink}>
-              Contact Sales
-            </Link>
             <Link href="/auth/login" className={styles.textLink}>
               Login
             </Link>
             <Link href="#contact" className={styles.primaryBtn}>
-              Start Free Trial
+              Book a Demo
             </Link>
           </div>
         </div>
@@ -359,12 +180,57 @@ export default function LandingPage() {
 
       <main>
         <section className={styles.heroSection}>
-          <div className={styles.heroCopy}>
-            <p className={styles.kicker}>Global Logistics Platform</p>
-            <h1>Control Every Delivery From Order to Doorstep.</h1>
+          <div className={styles.heroMedia} aria-hidden="true">
+            <div className={styles.heroGrid} />
+            <div className={styles.heroGlow} />
+            <div className={styles.heroRoutePrimary} />
+            <div className={styles.heroRouteSecondary} />
+            <div className={styles.heroRouteTertiary} />
+            {Array.from({ length: 10 }).map((_, index) => (
+              <span
+                key={`hero-node-${index}`}
+                className={styles.heroNode}
+                style={
+                  {
+                    "--hero-node-delay": `${index * 0.35}s`,
+                    "--hero-node-top": `${12 + (index % 5) * 15}%`,
+                    "--hero-node-left": `${18 + (index % 4) * 16}%`,
+                  } as CSSProperties
+                }
+              />
+            ))}
+            <div className={styles.heroInterface}>
+              <div className={styles.interfaceRail}>
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className={styles.interfaceHeader}>
+                <strong>Live Operations</strong>
+                <small>Dispatch surface</small>
+              </div>
+              <div className={styles.interfaceBody}>
+                <div className={styles.interfaceColumn}>
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <div className={styles.interfaceMap}>
+                  <i />
+                  <i />
+                  <i />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.heroContent}>
+            <p className={styles.heroBrand}>{appName}</p>
+            <h1>Dispatch, route, and track every delivery from one command surface.</h1>
             <p className={styles.heroText}>
-              One unified logistics platform for dispatch, routing, tracking,
-              analytics, and real-time fleet operations.
+              Built for operators who need live fleet visibility, faster dispatch
+              decisions, and customer updates that stay accurate under pressure.
             </p>
             <div className={styles.heroActions}>
               <Link href="#contact" className={styles.primaryBtn}>
@@ -377,66 +243,41 @@ export default function LandingPage() {
                 View API Docs <ArrowRight size={14} />
               </Link>
             </div>
-            <div className={styles.heroChecks}>
-              <span>Go live in days</span>
-              <span>Per-vehicle pricing</span>
-              <span>Enterprise-grade security</span>
-            </div>
-          </div>
-
-          <div className={styles.mapPanel}>
-            <div className={styles.mapFrame}>
-              <div className={styles.mapStatusRow}>
-                <span>Live Network</span>
-                <span>14 active vehicles</span>
-              </div>
-              <div className={styles.mapCanvas}>
-                <div className={styles.mapRoads} />
-                <div className={styles.routeOne} />
-                <div className={styles.routeTwo} />
-                <div className={styles.routeThree} />
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <span
-                    key={`vehicle-${i}`}
-                    className={styles.vehicle}
-                    style={{
-                      animationDelay: `${i * 0.42}s`,
-                      top: `${12 + (i % 6) * 13}%`,
-                      left: `${8 + (i % 5) * 17}%`,
-                    }}
-                  />
-                ))}
-                <div className={styles.markerDelivered}>Delivered</div>
-                <div className={styles.markerTransit}>In Transit</div>
-                <div className={styles.markerDelayed}>Delayed</div>
-                <div className={styles.etaCardA}>ETA 12:18</div>
-                <div className={styles.etaCardB}>ETA 12:31</div>
-              </div>
-            </div>
           </div>
         </section>
 
         <section className={styles.painSection}>
-          <h2>Logistics Shouldn&apos;t Be Chaos.</h2>
+          <div className={styles.sectionHeading}>
+            <p className={styles.sectionEyebrow}>Why Teams Switch</p>
+            <h2>Logistics breaks down when every handoff lives in a different tool.</h2>
+            <p>
+              Pick n Drop consolidates dispatch, routing, tracking, proof of
+              delivery, and analytics into one operating model.
+            </p>
+          </div>
           <div className={styles.painGrid}>
-            {pains.map((pain) => (
-              <div key={pain} className={styles.painCard}>
+            {PAINS.map((pain) => (
+              <div key={pain} className={styles.painItem}>
                 {pain}
               </div>
             ))}
           </div>
-          <p className={styles.solutionLine}>
-            Replace fragmentation with one unified command center.
-          </p>
         </section>
 
-        <section id="platform" className={styles.archSection}>
-          <h2>A Unified Logistics Engine</h2>
+        <section id="platform" className={styles.platformSection}>
+          <div className={styles.sectionHeading}>
+            <p className={styles.sectionEyebrow}>Platform Flow</p>
+            <h2>One continuous system from order capture to final confirmation.</h2>
+            <p>
+              The platform stays coherent across dispatch desks, driver devices,
+              customer updates, and performance reporting.
+            </p>
+          </div>
           <div className={styles.archFlow}>
-            {architectureNodes.map((node, index) => (
+            {ARCHITECTURE_NODES.map((node, index) => (
               <div key={node} className={styles.archNodeWrap}>
                 <div className={styles.archNode}>{node}</div>
-                {index < architectureNodes.length - 1 ? (
+                {index < ARCHITECTURE_NODES.length - 1 ? (
                   <span className={styles.archArrow} aria-hidden>
                     <span className={styles.pulseDot} />
                   </span>
@@ -447,12 +288,19 @@ export default function LandingPage() {
         </section>
 
         <section id="products" className={styles.outcomesSection}>
-          <h2>Outcomes That Move the Metrics</h2>
+          <div className={styles.sectionHeading}>
+            <p className={styles.sectionEyebrow}>Operational Outcomes</p>
+            <h2>The page should promise measurable control, not vague efficiency.</h2>
+            <p>
+              These are the core gains logistics teams expect after replacing
+              fragmented workflows with a single live surface.
+            </p>
+          </div>
           <div className={styles.outcomesGrid}>
-            {outcomes.map((item) => {
+            {OUTCOMES.map((item) => {
               const Icon = item.icon
               return (
-                <article key={item.title} className={styles.outcomeCard}>
+                <article key={item.title} className={styles.outcomeItem}>
                   <span className={styles.outcomeIcon}>
                     <Icon size={20} />
                   </span>
@@ -465,37 +313,46 @@ export default function LandingPage() {
         </section>
 
         <section id="workflow" className={styles.workflowSection}>
-          <div>
-            <h2>Operational Workflow, End to End</h2>
-            <ol className={styles.workflowList}>
-              {workflowSteps.map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ol>
+          <div className={styles.sectionHeading}>
+            <p className={styles.sectionEyebrow}>Workflow</p>
+            <h2>Operations stay visible at every stage instead of disappearing between teams.</h2>
+            <p>
+              From inbound demand to proof of delivery, each step updates the
+              same live timeline.
+            </p>
           </div>
-          <div className={styles.workflowPreview}>
-            <div className={`${styles.previewLayer} ${styles.previewLayerOne}`}>
-              Route Planner
-            </div>
-            <div className={`${styles.previewLayer} ${styles.previewLayerTwo}`}>
-              Live Map Dashboard
-            </div>
-            <div className={`${styles.previewLayer} ${styles.previewLayerThree}`}>
-              Driver App Screen
-            </div>
-            <div className={`${styles.previewLayer} ${styles.previewLayerFour}`}>
-              Analytics Dashboard
-            </div>
+          <ol className={styles.workflowList}>
+            {workflowSteps.map((step, index) => (
+              <li key={step}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <p>{step}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section className={styles.roiSection}>
+          <div className={styles.sectionHeading}>
+            <p className={styles.sectionEyebrow}>Measured Impact</p>
+            <h2>Performance gains need to feel operational, not ornamental.</h2>
           </div>
+          <MetricsCounters metrics={roiMetrics} />
         </section>
 
         <section id="industries" className={styles.industriesSection}>
-          <h2>Built for Every Logistics Operation</h2>
+          <div className={styles.sectionHeading}>
+            <p className={styles.sectionEyebrow}>Industries</p>
+            <h2>Configured for the realities of each delivery model.</h2>
+            <p>
+              Same platform, different operational constraints. Routing logic,
+              tracking behavior, and dispatch flows adapt to the work.
+            </p>
+          </div>
           <div className={styles.industriesGrid}>
-            {industries.map((item) => {
+            {INDUSTRIES.map((item) => {
               const Icon = item.icon
               return (
-                <Link key={item.label} href={item.href} className={styles.industryCard}>
+                <Link key={item.label} href={item.href} className={styles.industryLink}>
                   <Icon size={18} />
                   <span>{item.label}</span>
                 </Link>
@@ -505,14 +362,13 @@ export default function LandingPage() {
         </section>
 
         <section className={styles.apiSection}>
-          <div>
-            <h2>Built API-First. Powered by Webhooks.</h2>
-            <ul className={styles.apiList}>
-              <li>REST APIs</li>
-              <li>Webhooks</li>
-              <li>SDKs</li>
-              <li>Event streaming</li>
-            </ul>
+          <div className={styles.sectionHeading}>
+            <p className={styles.sectionEyebrow}>API First</p>
+            <h2>Integrations are part of the product, not an afterthought.</h2>
+            <p>
+              Connect storefronts, ERPs, carriers, and internal services through
+              REST APIs, event streams, and webhooks.
+            </p>
           </div>
           <div className={styles.codePanel}>
             <div className={styles.codeTitle}>Webhook Payload</div>
@@ -520,19 +376,23 @@ export default function LandingPage() {
 {`{
   "delivery_id": "DLV-12345",
   "status": "IN_TRANSIT",
-  "timestamp": "2026-02-19T14:10:00Z"
+  "eta": "2026-03-26T12:18:00Z",
+  "driver": "DRV-204"
 }`}
             </pre>
           </div>
         </section>
 
         <section className={styles.securitySection}>
-          <h2>Built for Trust</h2>
+          <div className={styles.sectionHeading}>
+            <p className={styles.sectionEyebrow}>Trust Layer</p>
+            <h2>Enterprise controls should read as baseline, not optional add-ons.</h2>
+          </div>
           <div className={styles.securityGrid}>
-            {securityItems.map((item) => {
+            {SECURITY_ITEMS.map((item) => {
               const Icon = item.icon
               return (
-                <article key={item.label} className={styles.securityCard}>
+                <article key={item.label} className={styles.securityItem}>
                   <Icon size={18} />
                   <span>{item.label}</span>
                 </article>
@@ -541,30 +401,14 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className={styles.roiSection}>
-          <h2>Operational ROI</h2>
-          <MetricsCounters metrics={roiMetrics} />
-        </section>
-
-        <section id="pricing" className={styles.pricingStrip}>
-          <div>
-            <h3>Simple, Transparent Pricing</h3>
-            <ul className={styles.pricingList}>
-              <li>Per vehicle pricing</li>
-              <li>Volume discounts above 200 vehicles</li>
-              <li>No hidden fees</li>
-            </ul>
-          </div>
-          <Link href="#contact" className={styles.secondaryBtn}>
-            View Pricing
-          </Link>
-        </section>
-
         <section className={styles.testimonialsSection}>
-          <h2>Trusted by Logistics Leaders</h2>
+          <div className={styles.sectionHeading}>
+            <p className={styles.sectionEyebrow}>Customer Signal</p>
+            <h2>Used by operators who care about control, uptime, and reliable delivery promises.</h2>
+          </div>
           <div className={styles.testimonialGrid}>
             {testimonials.map((item) => (
-              <article key={item.company} className={styles.testimonialCard}>
+              <article key={item.company} className={styles.testimonialItem}>
                 <p className={styles.company}>{item.company}</p>
                 <blockquote>{item.quote}</blockquote>
                 <p className={styles.person}>
@@ -576,10 +420,11 @@ export default function LandingPage() {
         </section>
 
         <section id="contact" className={styles.contactSection}>
-          <h2>Ready to Take Control of Your Fleet?</h2>
+          <p className={styles.sectionEyebrow}>Start Moving</p>
+          <h2>Launch a cleaner logistics front door for your team and your customers.</h2>
           <p>
-            Launch quickly with implementation support, API integration guidance,
-            and a rollout plan aligned to your operational model.
+            Roll out with implementation support, API guidance, and a delivery
+            workflow tailored to your operating model.
           </p>
           <div className={styles.contactActions}>
             <Link href="#" className={styles.primaryBtn}>
@@ -587,9 +432,6 @@ export default function LandingPage() {
             </Link>
             <Link href="#" className={styles.secondaryBtn}>
               Contact Sales
-            </Link>
-            <Link href="/docs" className={styles.docsLink}>
-              View API Docs <ArrowRight size={14} />
             </Link>
           </div>
         </section>

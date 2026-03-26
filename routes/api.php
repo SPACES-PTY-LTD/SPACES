@@ -60,6 +60,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth.api')->group(function () {
         Route::get('me', [MeController::class, 'show']);
         Route::patch('me', [MeController::class, 'updateProfile']);
+        Route::post('me/profile-photo', [MeController::class, 'updateProfilePhoto']);
         Route::patch('me/password', [MeController::class, 'updatePassword']);
         Route::patch('me/last-accessed-merchant', [MeController::class, 'updateLastAccessedMerchant']);
 

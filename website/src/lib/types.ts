@@ -45,6 +45,7 @@ export interface User {
   role: Role
   status: Status
   telephone?: string | null
+  profile_photo_url?: string | null
   is_account_holder?: boolean
   account_country_code?: string | null
   last_login_at?: string | null

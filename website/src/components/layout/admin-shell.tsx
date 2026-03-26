@@ -200,7 +200,7 @@ export function AdminShell({
                     className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                   >
                     <Avatar className="h-8 w-8 rounded-lg grayscale">
-                      <AvatarImage src={""} alt={activeSession.user.name} />
+                      <AvatarImage src={activeSession.user.image ?? ""} alt={activeSession.user.name} />
                       <AvatarFallback className="rounded-lg">
                         {getInitials(activeSession.user.name)}
                       </AvatarFallback>
