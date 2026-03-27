@@ -1,458 +1,562 @@
 import type { CSSProperties } from "react"
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ArrowRight, ChevronDown, Menu, Truck } from "lucide-react"
-import { MetricsCounters } from "@/components/home/metrics-counters"
 import {
-  ARCHITECTURE_NODES,
-  INDUSTRIES,
-  NAV_ITEMS,
-  OUTCOMES,
-  PAINS,
-  SECURITY_ITEMS,
-} from "./constants"
+  ArrowRight,
+  BarChart3,
+  BadgeCheck,
+  Clock3,
+  MapPinned,
+  Navigation,
+  Route,
+  Sparkles,
+  Truck,
+  Upload,
+  Users,
+} from "lucide-react"
 import styles from "./homepage.module.css"
 
 export const metadata: Metadata = {
-  title: "Pick n Drop | Logistics Operations Platform",
+  title: "Pick n Drop | Dispatch And Delivery Platform",
   description:
-    "Dispatch, route, track, and analyze every delivery from one logistics command center.",
+    "Plan smarter routes, track drivers live, and manage delivery operations from one platform.",
 }
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Pick n Drop"
 
-const workflowSteps = [
-  "Capture orders from storefronts, ERPs, and internal tools.",
-  "Auto-assign drivers and vehicles against live capacity.",
-  "Continuously optimize routes as traffic and demand shift.",
-  "Track deliveries live and trigger proof-of-delivery events instantly.",
+const navItems = ["Product", "Solutions", "Customers", "Resources"]
+
+const trustedBy = ["SwiftCart", "UrbanSend", "ParcelLoop", "Northstar", "CargoFlow"]
+
+const painPoints = [
+  "Inefficient routing wastes driver hours and fuel every day.",
+  "Teams lose visibility the moment orders leave the warehouse.",
+  "Dispatchers juggle calls, spreadsheets, and status updates manually.",
 ]
 
-const roiMetrics = [
-  { label: "Faster Deliveries", value: 30, suffix: "%" },
-  { label: "Lower Fuel Costs", value: 25, suffix: "%" },
-  { label: "Reduced Idle Time", value: 20, suffix: "%" },
-  { label: "Platform Availability", value: 99.99, suffix: "%" },
+const features = [
+  {
+    icon: Route,
+    title: "Route Optimization",
+    description:
+      "Build balanced runs around time windows, traffic, and stop density in seconds.",
+  },
+  {
+    icon: MapPinned,
+    title: "Real-time Tracking",
+    description:
+      "See every active vehicle on one live map with status, ETA, and route progress.",
+  },
+  {
+    icon: Users,
+    title: "Driver Management",
+    description:
+      "Assign work clearly, monitor completion, and surface exceptions before they cascade.",
+  },
+  {
+    icon: Clock3,
+    title: "ETA Predictions",
+    description:
+      "Keep customers and dispatchers aligned with delivery windows that stay current.",
+  },
+  {
+    icon: BadgeCheck,
+    title: "Proof of Delivery",
+    description:
+      "Capture signatures, photos, and handoff confirmations directly from the field.",
+  },
+  {
+    icon: BarChart3,
+    title: "Analytics Dashboard",
+    description:
+      "Track route efficiency, on-time performance, and driver productivity from one view.",
+  },
+]
+
+const showcaseItems = [
+  {
+    eyebrow: "Plan routes in seconds",
+    title: "Turn a stop list into an optimized dispatch plan without spreadsheet work.",
+    description:
+      "Group stops intelligently, balance workloads, and publish clean routes from a single planner.",
+    points: ["Driver stop list interface", "Capacity-aware assignments", "Drag-to-adjust route order"],
+  },
+  {
+    eyebrow: "Track drivers live",
+    title: "Give operations one current picture of the entire fleet.",
+    description:
+      "Monitor motion, delays, completed drops, and route deviations in real time without constant check-ins.",
+    points: ["Map with moving driver icons", "Live delay alerts", "Route progress timeline"],
+  },
+  {
+    eyebrow: "Keep customers informed",
+    title: "Deliver better updates without adding more manual communication.",
+    description:
+      "Share accurate ETAs, delivery progress, and proof of delivery through a clean tracking experience.",
+    points: ["Mobile delivery tracking screen", "Branded ETA updates", "Delivery completion confirmation"],
+  },
+]
+
+const steps = [
+  {
+    icon: Upload,
+    title: "Upload orders",
+    description: "Import orders from commerce systems, internal tools, or CSV files.",
+  },
+  {
+    icon: Sparkles,
+    title: "Optimize routes",
+    description: "Generate efficient runs based on zones, capacity, and service windows.",
+  },
+  {
+    icon: Navigation,
+    title: "Dispatch & track",
+    description: "Push work to drivers, follow execution live, and resolve exceptions fast.",
+  },
+]
+
+const metrics = [
+  { value: "60+", label: "minutes saved per dispatcher each day" },
+  { value: "30%", label: "lower delivery time across active routes" },
+  { value: "18%", label: "higher fleet efficiency from balanced runs" },
 ]
 
 const testimonials = [
   {
-    company: "Northbound Retail Group",
+    name: "Amina Dube",
+    role: "Operations Director",
+    company: "SwiftCart",
     quote:
-      "Pick n Drop replaced three fragmented tools and gave every region the same operational playbook.",
-    person: "Amina D.",
-    role: "VP Logistics",
+      "This platform transformed how we manage deliveries. Dispatch is faster, drivers have clearer routes, and customers trust our ETAs again.",
   },
   {
-    company: "TransAxis 3PL",
+    name: "Daniel Moyo",
+    role: "Head of Logistics",
+    company: "ParcelLoop",
     quote:
-      "Dispatch teams now work from one live surface instead of bouncing between spreadsheets and carrier portals.",
-    person: "David M.",
-    role: "Head of Operations",
+      "We replaced manual planning with one live control surface. It gave the team immediate visibility across every active route.",
   },
   {
-    company: "MetroFleet Courier",
+    name: "Lerato Khan",
+    role: "COO",
+    company: "UrbanSend",
     quote:
-      "Webhook-driven updates finally made our customer timelines accurate enough to trust.",
-    person: "Sara K.",
-    role: "Chief Product Officer",
+      "The product looks simple, but it handles the operational detail we need to scale without adding dispatch overhead.",
   },
 ]
 
 const footerGroups = [
   {
-    heading: "Platform",
-    links: ["Dispatch", "Tracking", "Routing", "Analytics", "API Docs"],
+    title: "Product",
+    links: ["Route Planning", "Live Tracking", "Driver App", "Analytics"],
   },
   {
-    heading: "Solutions",
-    links: ["Retail", "Grocery", "3PL", "Courier", "Enterprise"],
+    title: "Company",
+    links: ["About", "Customers", "Careers", "Contact"],
   },
   {
-    heading: "Resources",
-    links: ["Documentation", "Integrations", "Webhooks", "Case Studies"],
+    title: "Resources",
+    links: ["Documentation", "API", "Guides", "Status"],
+  },
+  {
+    title: "Legal",
+    links: ["Privacy", "Terms", "Security", "Compliance"],
   },
 ]
+
+function SectionIntro({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string
+  title: string
+  description: string
+}) {
+  return (
+    <div className={styles.sectionIntro}>
+      <p className={styles.eyebrow}>{eyebrow}</p>
+      <h2>{title}</h2>
+      <p>{description}</p>
+    </div>
+  )
+}
 
 export default function LandingPage() {
   return (
     <div className={styles.page}>
-      <div className={styles.backgroundLayer} />
+      <div className={styles.pageGlow} aria-hidden="true" />
 
-      <header className={styles.headerWrap}>
-        <div className={styles.headerInner}>
-          <Link href="/" className={styles.brand} aria-label={`${appName} home`}>
-            <span className={styles.brandMark} aria-hidden>
-              <Truck size={16} />
-            </span>
-            <span>{appName}</span>
-          </Link>
+      <header className={styles.header}>
+        <div className={styles.container}>
+          <div className={styles.headerRow}>
+            <Link href="/" className={styles.brand} aria-label={`${appName} home`}>
+              <span className={styles.brandMark}>
+                <Truck size={16} />
+              </span>
+              <span>{appName}</span>
+            </Link>
 
-          <nav className={styles.desktopNav} aria-label="Primary navigation">
-            {NAV_ITEMS.map((item) => (
-              <div key={item.label} className={styles.navItem}>
-                <Link href={item.href} className={styles.navTrigger}>
-                  {item.label}
-                  <ChevronDown size={14} />
+            <nav className={styles.nav} aria-label="Primary navigation">
+              {navItems.map((item) => (
+                <Link key={item} href="/" className={styles.navLink}>
+                  {item}
                 </Link>
-                <div className={styles.dropdown}>
-                  {item.items.map((entry) => {
-                    const Icon = entry.icon
-                    return (
-                      <div key={entry.title} className={styles.dropdownEntry}>
-                        <span className={styles.dropdownIcon}>
-                          <Icon size={16} />
-                        </span>
-                        <span>
-                          <strong>{entry.title}</strong>
-                          <small>{entry.description}</small>
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </nav>
+              ))}
+            </nav>
 
-          <details className={styles.mobileMenu}>
-            <summary
-              className={styles.mobileMenuTrigger}
-              aria-label="Open navigation menu"
-            >
-              <Menu size={18} />
-              Menu
-            </summary>
-            <div className={styles.mobileMenuPanel}>
-              <nav className={styles.mobileNavLinks} aria-label="Mobile navigation">
-                {NAV_ITEMS.map((item) => (
-                  <details key={item.label} className={styles.mobileNavGroup}>
-                    <summary className={styles.mobileNavGroupTrigger}>
-                      <span>{item.label}</span>
-                      <ChevronDown size={14} />
-                    </summary>
-                    <div className={styles.mobileNavGroupContent}>
-                      <Link href={item.href} className={styles.mobileNavSectionLink}>
-                        Go to {item.label}
-                      </Link>
-                      {item.items.map((entry) => {
-                        const Icon = entry.icon
-                        return (
-                          <div key={entry.title} className={styles.mobileDropdownEntry}>
-                            <span className={styles.dropdownIcon}>
-                              <Icon size={16} />
-                            </span>
-                            <span>
-                              <strong>{entry.title}</strong>
-                              <small>{entry.description}</small>
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </details>
-                ))}
-              </nav>
-              <div className={styles.mobileMenuActions}>
-                <Link href="#contact" className={styles.mobileActionLink}>
-                  Contact Sales
-                </Link>
-                <Link href="/auth/login" className={styles.mobileActionLink}>
-                  Login
-                </Link>
-                <Link href="#contact" className={styles.primaryBtn}>
-                  Book a Demo
-                </Link>
-              </div>
+            <div className={styles.headerActions}>
+              <Link href="/auth/login" className={styles.ghostButton}>
+                Sign in
+              </Link>
+              <Link href="#cta" className={styles.primaryButton}>
+                Book Demo
+              </Link>
             </div>
-          </details>
-
-          <div className={styles.headerActions}>
-            <Link href="/auth/login" className={styles.textLink}>
-              Login
-            </Link>
-            <Link href="#contact" className={styles.primaryBtn}>
-              Book a Demo
-            </Link>
           </div>
         </div>
       </header>
 
       <main>
         <section className={styles.heroSection}>
-          <div className={styles.heroMedia} aria-hidden="true">
-            <div className={styles.heroGrid} />
-            <div className={styles.heroGlow} />
-            <div className={styles.heroRoutePrimary} />
-            <div className={styles.heroRouteSecondary} />
-            <div className={styles.heroRouteTertiary} />
-            {Array.from({ length: 10 }).map((_, index) => (
-              <span
-                key={`hero-node-${index}`}
-                className={styles.heroNode}
-                style={
-                  {
-                    "--hero-node-delay": `${index * 0.35}s`,
-                    "--hero-node-top": `${12 + (index % 5) * 15}%`,
-                    "--hero-node-left": `${18 + (index % 4) * 16}%`,
-                  } as CSSProperties
-                }
-              />
-            ))}
-            <div className={styles.heroInterface}>
-              <div className={styles.interfaceRail}>
-                <span />
-                <span />
-                <span />
-              </div>
-              <div className={styles.interfaceHeader}>
-                <strong>Live Operations</strong>
-                <small>Dispatch surface</small>
-              </div>
-              <div className={styles.interfaceBody}>
-                <div className={styles.interfaceColumn}>
-                  <span />
-                  <span />
-                  <span />
-                  <span />
+          <div className={styles.container}>
+            <div className={styles.heroGrid}>
+              <div className={styles.heroCopy}>
+                <p className={styles.eyebrow}>Delivery Operations Platform</p>
+                <h1>Plan smarter routes. Deliver faster. Scale your operations.</h1>
+                <p className={styles.heroText}>
+                  Optimize delivery routes, track drivers in real-time, and manage
+                  dispatch from a single platform built for modern logistics teams.
+                </p>
+                <div className={styles.heroActions}>
+                  <Link href="#cta" className={styles.primaryButton}>
+                    Start Free Trial
+                  </Link>
+                  <Link href="#cta" className={styles.secondaryButton}>
+                    Book Demo
+                  </Link>
                 </div>
-                <div className={styles.interfaceMap}>
-                  <i />
-                  <i />
-                  <i />
+                <div className={styles.heroMeta}>
+                  <span>Live tracking</span>
+                  <span>Route planning</span>
+                  <span>Delivery management</span>
+                </div>
+              </div>
+
+              <div className={styles.heroVisual} aria-label="Logistics dashboard with map, delivery routes, driver pins">
+                <div className={styles.dashboardShell}>
+                  <div className={styles.dashboardTopbar}>
+                    <div className={styles.windowDots}>
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                    <div className={styles.dashboardBadge}>Dispatch board</div>
+                  </div>
+
+                  <div className={styles.dashboardContent}>
+                    <div className={styles.routeListCard}>
+                      <div className={styles.cardHeader}>
+                        <strong>Route planner</strong>
+                        <span>18 stops</span>
+                      </div>
+                      <div className={styles.stopList}>
+                        {["Sandton", "Midrand", "Rosebank", "Fourways"].map((stop) => (
+                          <div key={stop} className={styles.stopRow}>
+                            <span className={styles.stopDot} />
+                            <div>
+                              <strong>{stop}</strong>
+                              <small>Driver stop list interface</small>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={styles.mapCard}>
+                      <div className={styles.mapLabel}>Map UI with delivery routes and pins</div>
+                      <div className={styles.mapGrid} />
+                      <div className={styles.routeStrokePrimary} />
+                      <div className={styles.routeStrokeSecondary} />
+                      <div className={styles.routeStrokeTertiary} />
+                      {[
+                        { top: "18%", left: "20%" },
+                        { top: "32%", left: "68%" },
+                        { top: "56%", left: "38%" },
+                        { top: "70%", left: "78%" },
+                      ].map((pin, index) => (
+                        <span
+                          key={`${pin.top}-${pin.left}`}
+                          className={styles.mapPin}
+                          style={
+                            {
+                              "--pin-top": pin.top,
+                              "--pin-left": pin.left,
+                              "--pin-delay": `${index * 0.45}s`,
+                            } as CSSProperties
+                          }
+                        />
+                      ))}
+                      <div className={styles.floatingPanel}>
+                        <p>Driver tracking dashboard</p>
+                        <strong>12 active drivers</strong>
+                        <span>3 routes ahead of schedule</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+        </section>
 
-          <div className={styles.heroContent}>
-            <p className={styles.heroBrand}>{appName}</p>
-            <h1>Dispatch, route, and track every delivery from one command surface.</h1>
-            <p className={styles.heroText}>
-              Built for operators who need live fleet visibility, faster dispatch
-              decisions, and customer updates that stay accurate under pressure.
-            </p>
-            <div className={styles.heroActions}>
-              <Link href="#contact" className={styles.primaryBtn}>
-                Start Free Trial
-              </Link>
-              <Link href="#contact" className={styles.secondaryBtn}>
-                Book a Demo
-              </Link>
-              <Link href="/docs" className={styles.docsLink}>
-                View API Docs <ArrowRight size={14} />
-              </Link>
+        <section className={styles.trustSection}>
+          <div className={styles.container}>
+            <p className={styles.trustLabel}>Trusted by logistics, courier, and delivery teams</p>
+            <div className={styles.logoRow}>
+              {trustedBy.map((name) => (
+                <div key={name} className={styles.logoItem}>
+                  {name}
+                </div>
+              ))}
             </div>
           </div>
         </section>
 
-        <section className={styles.painSection}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.sectionEyebrow}>Why Teams Switch</p>
-            <h2>Logistics breaks down when every handoff lives in a different tool.</h2>
-            <p>
-              Pick n Drop consolidates dispatch, routing, tracking, proof of
-              delivery, and analytics into one operating model.
-            </p>
-          </div>
-          <div className={styles.painGrid}>
-            {PAINS.map((pain) => (
-              <div key={pain} className={styles.painItem}>
-                {pain}
+        <section className={styles.problemSection}>
+          <div className={styles.container}>
+            <div className={styles.problemGrid}>
+              <div>
+                <SectionIntro
+                  eyebrow="Problem"
+                  title="Manual dispatch is slowing you down"
+                  description="When planning, tracking, and communication live in different places, delivery performance becomes hard to control."
+                />
+                <div className={styles.problemList}>
+                  {painPoints.map((item) => (
+                    <div key={item} className={styles.problemItem}>
+                      <span className={styles.checkMark}>+</span>
+                      <p>{item}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </section>
 
-        <section id="platform" className={styles.platformSection}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.sectionEyebrow}>Platform Flow</p>
-            <h2>One continuous system from order capture to final confirmation.</h2>
-            <p>
-              The platform stays coherent across dispatch desks, driver devices,
-              customer updates, and performance reporting.
-            </p>
-          </div>
-          <div className={styles.archFlow}>
-            {ARCHITECTURE_NODES.map((node, index) => (
-              <div key={node} className={styles.archNodeWrap}>
-                <div className={styles.archNode}>{node}</div>
-                {index < ARCHITECTURE_NODES.length - 1 ? (
-                  <span className={styles.archArrow} aria-hidden>
-                    <span className={styles.pulseDot} />
-                  </span>
-                ) : null}
+              <div className={styles.beforeAfterCard}>
+                <div className={styles.compareHeader}>
+                  <strong>Before vs after route optimization map</strong>
+                  <span>Messy routes reorganized into clean runs</span>
+                </div>
+                <div className={styles.compareMaps}>
+                  <div className={styles.beforeMap}>
+                    <div className={styles.compareLabel}>Before</div>
+                    <span className={styles.messyRouteOne} />
+                    <span className={styles.messyRouteTwo} />
+                    <span className={styles.messyRouteThree} />
+                  </div>
+                  <div className={styles.afterMap}>
+                    <div className={styles.compareLabel}>After</div>
+                    <span className={styles.cleanRouteOne} />
+                    <span className={styles.cleanRouteTwo} />
+                    <span className={styles.cleanRouteThree} />
+                  </div>
+                </div>
               </div>
-            ))}
+            </div>
           </div>
         </section>
 
-        <section id="products" className={styles.outcomesSection}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.sectionEyebrow}>Operational Outcomes</p>
-            <h2>The page should promise measurable control, not vague efficiency.</h2>
-            <p>
-              These are the core gains logistics teams expect after replacing
-              fragmented workflows with a single live surface.
-            </p>
+        <section className={styles.featuresSection}>
+          <div className={styles.container}>
+            <SectionIntro
+              eyebrow="Capabilities"
+              title="Everything dispatch teams need in one clean workflow"
+              description="A product-first platform for planning routes, coordinating drivers, and delivering reliable customer updates."
+            />
+            <div className={styles.featuresGrid}>
+              {features.map((feature) => {
+                const Icon = feature.icon
+                return (
+                  <article key={feature.title} className={styles.featureCard}>
+                    <span className={styles.featureIcon}>
+                      <Icon size={18} />
+                    </span>
+                    <h3>{feature.title}</h3>
+                    <p>{feature.description}</p>
+                  </article>
+                )
+              })}
+            </div>
           </div>
-          <div className={styles.outcomesGrid}>
-            {OUTCOMES.map((item) => {
-              const Icon = item.icon
-              return (
-                <article key={item.title} className={styles.outcomeItem}>
-                  <span className={styles.outcomeIcon}>
-                    <Icon size={20} />
-                  </span>
-                  <h3>{item.title}</h3>
-                  <p>{item.description}</p>
+        </section>
+
+        <section className={styles.showcaseSection}>
+          <div className={styles.container}>
+            <SectionIntro
+              eyebrow="Product Showcase"
+              title="A logistics workspace that stays easy to read under pressure"
+              description="Each surface is designed to lower cognitive load while keeping the most important route and delivery signals visible."
+            />
+            <div className={styles.showcaseStack}>
+              {showcaseItems.map((item, index) => (
+                <article key={item.title} className={styles.showcaseCard}>
+                  <div className={styles.showcaseContent}>
+                    <p className={styles.showcaseEyebrow}>{item.eyebrow}</p>
+                    <h3>{item.title}</h3>
+                    <p>{item.description}</p>
+                    <div className={styles.showcasePoints}>
+                      {item.points.map((point) => (
+                        <span key={point}>{point}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className={styles.showcaseVisual}>
+                    <div className={styles.showcaseWindow}>
+                      <div className={styles.showcaseWindowBar} />
+                      <div className={styles.showcaseCanvas}>
+                        <div className={styles.showcaseMockLabel}>{item.points[0]}</div>
+                        <div className={styles.showcaseSidebar}>
+                          <span />
+                          <span />
+                          <span />
+                        </div>
+                        <div
+                          className={index === 1 ? styles.showcaseMapVisual : styles.showcaseChartVisual}
+                        >
+                          <i />
+                          <i />
+                          <i />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </article>
-              )
-            })}
+              ))}
+            </div>
           </div>
         </section>
 
-        <section id="workflow" className={styles.workflowSection}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.sectionEyebrow}>Workflow</p>
-            <h2>Operations stay visible at every stage instead of disappearing between teams.</h2>
-            <p>
-              From inbound demand to proof of delivery, each step updates the
-              same live timeline.
-            </p>
-          </div>
-          <ol className={styles.workflowList}>
-            {workflowSteps.map((step, index) => (
-              <li key={step}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <p>{step}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section className={styles.roiSection}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.sectionEyebrow}>Measured Impact</p>
-            <h2>Performance gains need to feel operational, not ornamental.</h2>
-          </div>
-          <MetricsCounters metrics={roiMetrics} />
-        </section>
-
-        <section id="industries" className={styles.industriesSection}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.sectionEyebrow}>Industries</p>
-            <h2>Configured for the realities of each delivery model.</h2>
-            <p>
-              Same platform, different operational constraints. Routing logic,
-              tracking behavior, and dispatch flows adapt to the work.
-            </p>
-          </div>
-          <div className={styles.industriesGrid}>
-            {INDUSTRIES.map((item) => {
-              const Icon = item.icon
-              return (
-                <Link key={item.label} href={item.href} className={styles.industryLink}>
-                  <Icon size={18} />
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
+        <section className={styles.stepsSection}>
+          <div className={styles.container}>
+            <SectionIntro
+              eyebrow="How It Works"
+              title="Start with orders and finish with a controlled delivery day"
+              description="A simple three-step operating loop for dispatchers, fleet managers, and customer teams."
+            />
+            <div className={styles.stepsGrid}>
+              {steps.map((step, index) => {
+                const Icon = step.icon
+                return (
+                  <article key={step.title} className={styles.stepCard}>
+                    <div className={styles.stepTop}>
+                      <span className={styles.stepIndex}>{index + 1}</span>
+                      <span className={styles.stepIcon}>
+                        <Icon size={18} />
+                      </span>
+                    </div>
+                    <h3>{step.title}</h3>
+                    <p>{step.description}</p>
+                  </article>
+                )
+              })}
+            </div>
           </div>
         </section>
 
-        <section className={styles.apiSection}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.sectionEyebrow}>API First</p>
-            <h2>Integrations are part of the product, not an afterthought.</h2>
-            <p>
-              Connect storefronts, ERPs, carriers, and internal services through
-              REST APIs, event streams, and webhooks.
-            </p>
-          </div>
-          <div className={styles.codePanel}>
-            <div className={styles.codeTitle}>Webhook Payload</div>
-            <pre>
-{`{
-  "delivery_id": "DLV-12345",
-  "status": "IN_TRANSIT",
-  "eta": "2026-03-26T12:18:00Z",
-  "driver": "DRV-204"
-}`}
-            </pre>
-          </div>
-        </section>
-
-        <section className={styles.securitySection}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.sectionEyebrow}>Trust Layer</p>
-            <h2>Enterprise controls should read as baseline, not optional add-ons.</h2>
-          </div>
-          <div className={styles.securityGrid}>
-            {SECURITY_ITEMS.map((item) => {
-              const Icon = item.icon
-              return (
-                <article key={item.label} className={styles.securityItem}>
-                  <Icon size={18} />
-                  <span>{item.label}</span>
-                </article>
-              )
-            })}
+        <section className={styles.metricsSection}>
+          <div className={styles.container}>
+            <div className={styles.metricsCard}>
+              {metrics.map((metric) => (
+                <div key={metric.label} className={styles.metricItem}>
+                  <strong>{metric.value}</strong>
+                  <p>{metric.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
 
         <section className={styles.testimonialsSection}>
-          <div className={styles.sectionHeading}>
-            <p className={styles.sectionEyebrow}>Customer Signal</p>
-            <h2>Used by operators who care about control, uptime, and reliable delivery promises.</h2>
-          </div>
-          <div className={styles.testimonialGrid}>
-            {testimonials.map((item) => (
-              <article key={item.company} className={styles.testimonialItem}>
-                <p className={styles.company}>{item.company}</p>
-                <blockquote>{item.quote}</blockquote>
-                <p className={styles.person}>
-                  {item.person} <span>{item.role}</span>
-                </p>
-              </article>
-            ))}
+          <div className={styles.container}>
+            <SectionIntro
+              eyebrow="Testimonials"
+              title="Operational teams adopt it quickly because it feels obvious"
+              description="Clear surfaces, reliable route logic, and live delivery visibility make the product easier to trust day-to-day."
+            />
+            <div className={styles.testimonialGrid}>
+              {testimonials.map((item) => (
+                <article key={item.name} className={styles.testimonialCard}>
+                  <div className={styles.avatar}>{item.name.slice(0, 1)}</div>
+                  <p className={styles.quote}>&ldquo;{item.quote}&rdquo;</p>
+                  <div className={styles.personBlock}>
+                    <strong>{item.name}</strong>
+                    <span>
+                      {item.role}, {item.company}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section id="contact" className={styles.contactSection}>
-          <p className={styles.sectionEyebrow}>Start Moving</p>
-          <h2>Launch a cleaner logistics front door for your team and your customers.</h2>
-          <p>
-            Roll out with implementation support, API guidance, and a delivery
-            workflow tailored to your operating model.
-          </p>
-          <div className={styles.contactActions}>
-            <Link href="#" className={styles.primaryBtn}>
-              Start Free Trial
-            </Link>
-            <Link href="#" className={styles.secondaryBtn}>
-              Contact Sales
-            </Link>
+        <section id="cta" className={styles.ctaSection}>
+          <div className={styles.container}>
+            <div className={styles.ctaCard}>
+              <p className={styles.eyebrow}>Ready to optimize your deliveries?</p>
+              <h2>Launch a more efficient dispatch operation with one modern platform.</h2>
+              <p>
+                Replace manual planning, fragmented tracking, and reactive delivery
+                management with a cleaner operating system for logistics teams.
+              </p>
+              <div className={styles.ctaActions}>
+                <Link href="/" className={styles.primaryButton}>
+                  Start Free Trial
+                </Link>
+                <Link href="/" className={styles.secondaryButton}>
+                  Book Demo
+                </Link>
+              </div>
+            </div>
           </div>
         </section>
       </main>
 
       <footer className={styles.footer}>
-        <div className={styles.footerGrid}>
-          {footerGroups.map((group) => (
-            <section key={group.heading}>
-              <h3>{group.heading}</h3>
-              <ul>
+        <div className={styles.container}>
+          <div className={styles.footerGrid}>
+            <div className={styles.footerBrand}>
+              <Link href="/" className={styles.brand}>
+                <span className={styles.brandMark}>
+                  <Truck size={16} />
+                </span>
+                <span>{appName}</span>
+              </Link>
+              <p>
+                Product-centric dispatch software for route planning, live fleet
+                visibility, and delivery management.
+              </p>
+            </div>
+
+            {footerGroups.map((group) => (
+              <div key={group.title} className={styles.footerColumn}>
+                <h3>{group.title}</h3>
                 {group.links.map((link) => (
-                  <li key={link}>
-                    <Link href="#">{link}</Link>
-                  </li>
+                  <Link key={link} href="/" className={styles.footerLink}>
+                    {link}
+                  </Link>
                 ))}
-              </ul>
-            </section>
-          ))}
+              </div>
+            ))}
+          </div>
+          <div className={styles.footerBottom}>
+            <span>© 2026 {appName}. All rights reserved.</span>
+            <Link href="/docs" className={styles.footerDocs}>
+              View documentation <ArrowRight size={14} />
+            </Link>
+          </div>
         </div>
-        <p className={styles.footerMeta}>© 2026 {appName}. All rights reserved.</p>
       </footer>
     </div>
   )

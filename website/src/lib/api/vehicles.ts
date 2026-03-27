@@ -9,7 +9,7 @@ export type VehiclePayload = {
   model: string
   color: string
   plate_number: string
-  photo_key: string
+  photo_key?: string | null
   vin_number?: string | null
   engine_number?: string | null
   ref_code?: string | null

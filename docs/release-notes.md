@@ -20,6 +20,123 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-03-27 | Version: unreleased
+
+### Summary
+- Fixed the website production build by aligning the vehicle API payload type with the current admin vehicle form fields.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- None.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Made `photo_key` optional in the frontend `VehiclePayload` type so vehicle create requests match the form payload after the photo key field removal.
+
+### Verification
+- Updated files:
+  - `website/src/lib/api/vehicles.ts`
+  - `docs/release-notes.md`
+- Verification run:
+  - `npm run build` in `website` (passes; existing ESLint warnings remain in unrelated files)
+
+## 2026-03-27 | Version: unreleased
+
+### Summary
+- Updated the website registration page to match the new split-screen authentication design used by the login flow.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/auth/register` now uses a full-screen two-column layout with the same branded header and desktop promo panel style as the login page.
+- The registration form now uses the newer auth card styling, clearer placeholders, and aligned input sizing across name, email, country, and password fields.
+- Mobile registration keeps the same streamlined form-first experience while hiding the desktop-only promo panel.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Refactored the register form presentation so it fits the page-level auth layout without changing the existing registration and auto-login logic.
+
+### Verification
+- Updated files:
+  - `website/src/app/auth/register/page.tsx`
+  - `website/src/components/auth/register-form.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit` (could not run in this shell because `node` is not available)
+
+## 2026-03-27 | Version: unreleased
+
+### Summary
+- Redesigned the website login page into a full-screen split authentication layout with branded marketing content and a cleaner sign-in form.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/auth/login` now uses a two-column desktop layout with a dedicated brand header, a simplified sign-in card, and a branded right-side promotional panel.
+- The sign-in form now includes inline forgot-password access beside the password label and clearer field placeholders for faster login completion.
+- Mobile login keeps the form-first experience while preserving the new visual styling without the desktop promo panel.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Refactored the login form component styling to fit the new page-level auth layout instead of rendering inside the previous standalone card shell.
+
+### Verification
+- Updated files:
+  - `website/src/app/auth/login/page.tsx`
+  - `website/src/components/auth/login-form.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit` (could not run in this shell because `node` is not available)
+
+## 2026-03-26 | Version: unreleased
+
+### Summary
+- Rebuilt the website landing page into a lighter Spoke-style SaaS experience focused on route planning, live tracking, delivery operations, and conversion.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/` now presents a cleaner product-led marketing flow with a new hero, trust bar, problem/solution section, feature grid, product showcase, process steps, metrics, testimonials, CTA, and footer.
+- Homepage visuals now emphasize route maps, driver tracking, stop lists, and dispatch dashboards instead of the previous operations-heavy dark theme.
+- Hover and motion behavior across buttons, cards, route lines, and driver pins were simplified into a lighter animation system tuned for desktop and mobile.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Replaced the previous homepage content model and module stylesheet with a page-scoped implementation tailored to the new landing-page information architecture.
+
+### Verification
+- Updated files:
+  - `website/src/app/page.tsx`
+  - `website/src/app/homepage.module.css`
+  - `docs/release-notes.md`
+- Verification run:
+  - `website/node_modules/.bin/tsc -p website/tsconfig.json --noEmit` (fails due to a pre-existing unrelated `VehiclePayload` type mismatch in `website/src/components/vehicles/vehicle-dialog.tsx:179`)
+
 ## 2026-03-26 | Version: unreleased
 
 ### Summary
