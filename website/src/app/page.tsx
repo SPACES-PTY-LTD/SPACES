@@ -17,12 +17,12 @@ import {
 import styles from "./homepage.module.css"
 
 export const metadata: Metadata = {
-  title: "Pick n Drop | Dispatch And Delivery Platform",
+  title: "Spaces Digital | Dispatch And Delivery Platform",
   description:
     "Plan smarter routes, track drivers live, and manage delivery operations from one platform.",
 }
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Pick n Drop"
+const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Spaces Digital"
 
 const navItems = ["Product", "Solutions", "Customers", "Resources"]
 

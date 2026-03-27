@@ -10,7 +10,7 @@ export default async function LoginPage() {
     redirect("/admin")
   }
 
-  const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Pick n Drop"
+  const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Spaces Digital"
 
   return (
     <div className="fixed inset-0 z-10 overflow-y-auto bg-background">
@@ -47,7 +47,7 @@ export default async function LoginPage() {
                 Manage routes, track drivers, and keep every shipment.
               </h2>
               <p className="text-base leading-7 text-white/72">
-                One place for dispatch planning, live fleet visibility, and driver communication. Pick n Drop gives you the tools to keep your fleet on track and your customers happy.
+                One place for dispatch planning, live fleet visibility, and driver communication. {appName} gives you the tools to keep your fleet on track and your customers happy.
               </p>
             </div>
 

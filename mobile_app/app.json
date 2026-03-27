@@ -30,7 +30,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Pick n Drop Driver to use the camera to scan parcel QR codes."
+          "cameraPermission": "Allow Spaces Digital to use the camera to scan parcel QR codes."
         }
       ],
       [

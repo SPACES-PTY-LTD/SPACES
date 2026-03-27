@@ -303,6 +303,93 @@ export type DriverEntityFile = {
 
 const { apiBaseUrl } = getEnvironmentConfig();
 
+function normalizeAddressValue(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    return trimmedValue.length > 0 ? trimmedValue : null;
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const orderedParts = [
+    record.address_line_1,
+    record.address_line_2,
+    record.suburb,
+    record.city,
+    record.state,
+    record.postal_code,
+    record.country,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .map((part) => part.trim());
+
+  if (orderedParts.length > 0) {
+    return orderedParts.join(', ');
+  }
+
+  const fallbackParts = Object.values(record)
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .map((part) => part.trim());
+
+  return fallbackParts.length > 0 ? fallbackParts.join(', ') : null;
+}
+
+function normalizeLocation<T extends DriverLocation | null | undefined>(location: T): T {
+  if (!location) {
+    return location;
+  }
+
+  return {
+    ...location,
+    full_address: normalizeAddressValue(location.full_address),
+  };
+}
+
+function normalizeShipment<T extends DriverShipment>(shipment: T): T {
+  return {
+    ...shipment,
+    pickup_location: normalizeLocation(shipment.pickup_location),
+    dropoff_location: normalizeLocation(shipment.dropoff_location),
+  };
+}
+
+function normalizeOffer<T extends DeliveryOffer>(offer: T): T {
+  return {
+    ...offer,
+    shipment: offer.shipment
+      ? {
+          ...offer.shipment,
+          pickup_location: normalizeLocation(offer.shipment.pickup_location),
+          dropoff_location: normalizeLocation(offer.shipment.dropoff_location),
+        }
+      : offer.shipment ?? null,
+  };
+}
+
+function normalizePresence<T extends DriverPresence>(presence: T): T {
+  return {
+    ...presence,
+    active_offers: (presence.active_offers || []).map((offer) => normalizeOffer(offer)),
+  };
+}
+
+function normalizeVehicle<T extends DriverVehicle>(vehicle: T): T {
+  return {
+    ...vehicle,
+    last_location_address: normalizeAddressValue(vehicle.last_location_address),
+  };
+}
+
+function normalizeListResponse<T>(response: ApiListResponse<T>, normalizeItem: (item: T) => T): ApiListResponse<T> {
+  return {
+    ...response,
+    data: normalizeItem(response.data),
+  };
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const payload = await performRequest<T>(path, options);
   return payload.data;
@@ -433,11 +520,13 @@ export const driverApi = {
       user_device_id?: string;
     },
   ) {
-    return request<DriverPresence>('/driver/presence/heartbeat', {
+    const response = await request<DriverPresence>('/driver/presence/heartbeat', {
       body: payload,
       method: 'POST',
       token,
     });
+
+    return normalizePresence(response);
   },
   async updateOnlineStatus(
     token: string,
@@ -463,20 +552,32 @@ export const driverApi = {
     return response;
   },
   async listOffers(token: string) {
-    return request<DeliveryOffer[]>('/driver/offers', { token });
+    const response = await request<DeliveryOffer[]>('/driver/offers', { token });
+    return response.map((offer) => normalizeOffer(offer));
   },
   async acceptOffer(token: string, offerId: string) {
-    return request<{ offer: DeliveryOffer; shipment: DriverShipment }>(`/driver/offers/${offerId}/accept`, {
+    const response = await request<{ offer: DeliveryOffer; shipment: DriverShipment }>(`/driver/offers/${offerId}/accept`, {
       method: 'POST',
       token,
     });
+
+    return {
+      ...response,
+      offer: normalizeOffer(response.offer),
+      shipment: normalizeShipment(response.shipment),
+    };
   },
   async declineOffer(token: string, offerId: string, reason?: string) {
-    return request<{ next_offer: DeliveryOffer | null }>(`/driver/offers/${offerId}/decline`, {
+    const response = await request<{ next_offer: DeliveryOffer | null }>(`/driver/offers/${offerId}/decline`, {
       body: reason ? { reason } : undefined,
       method: 'POST',
       token,
     });
+
+    return {
+      ...response,
+      next_offer: response.next_offer ? normalizeOffer(response.next_offer) : null,
+    };
   },
   async listShipments(token: string, options: { perPage?: number; status?: string } = {}) {
     const params = new URLSearchParams();
@@ -489,17 +590,21 @@ export const driverApi = {
     const final_url = `/driver/shipments?${params.toString()}`;
     console.log('Fetching shipments with URL:', final_url);
 
-    return requestWithMeta<DriverShipment[]>(final_url, { token });
+    const response = await requestWithMeta<DriverShipment[]>(final_url, { token });
+    return normalizeListResponse(response, (shipments) => shipments.map((shipment) => normalizeShipment(shipment)) as DriverShipment[]);
   },
   async getShipment(token: string, shipmentId: string) {
-    return request<DriverShipment>(`/driver/shipments/${shipmentId}`, { token });
+    const response = await request<DriverShipment>(`/driver/shipments/${shipmentId}`, { token });
+    return normalizeShipment(response);
   },
   async updateShipmentStatus(token: string, shipmentId: string, payload: { status: string; note?: string }) {
-    return request<DriverShipment>(`/driver/shipments/${shipmentId}/status`, {
+    const response = await request<DriverShipment>(`/driver/shipments/${shipmentId}/status`, {
       body: payload,
       method: 'PATCH',
       token,
     });
+
+    return normalizeShipment(response);
   },
   async scanShipment(
     token: string,
@@ -518,7 +623,7 @@ export const driverApi = {
     });
 
     return {
-      data: response.data,
+      data: normalizeShipment(response.data),
       meta: response.meta as DriverShipmentScanResponse['meta'],
     };
   },
@@ -532,11 +637,13 @@ export const driverApi = {
       metadata?: Record<string, unknown>;
     },
   ) {
-    return request<DriverShipment>(`/driver/shipments/${shipmentId}/pod`, {
+    const response = await request<DriverShipment>(`/driver/shipments/${shipmentId}/pod`, {
       body: payload,
       method: 'POST',
       token,
     });
+
+    return normalizeShipment(response);
   },
   async cancelShipment(
     token: string,
@@ -547,20 +654,24 @@ export const driverApi = {
       note?: string;
     },
   ) {
-    return request<DriverShipment>(`/driver/shipments/${shipmentId}/cancel`, {
+    const response = await request<DriverShipment>(`/driver/shipments/${shipmentId}/cancel`, {
       body: payload,
       method: 'POST',
       token,
     });
+
+    return normalizeShipment(response);
   },
   async listCancelReasons(token: string, perPage = 50) {
     return requestWithMeta<CancelReason[]>(`/cancel-reasons?per_page=${perPage}&enabled=true`, { token });
   },
   async listVehicles(token: string, perPage = 20) {
-    return requestWithMeta<DriverVehicle[]>(`/driver/vehicles?per_page=${perPage}`, { token });
+    const response = await requestWithMeta<DriverVehicle[]>(`/driver/vehicles?per_page=${perPage}`, { token });
+    return normalizeListResponse(response, (vehicles) => vehicles.map((vehicle) => normalizeVehicle(vehicle)) as DriverVehicle[]);
   },
   async getVehicle(token: string, vehicleId: string) {
-    return request<DriverVehicle>(`/driver/vehicles/${vehicleId}`, { token });
+    const response = await request<DriverVehicle>(`/driver/vehicles/${vehicleId}`, { token });
+    return normalizeVehicle(response);
   },
   async listFileTypes(token: string, entityType: 'driver' | 'shipment' | 'vehicle' = 'driver') {
     return requestWithMeta<DriverFileType[]>(`/driver/files/types?entity_type=${entityType}`, { token });

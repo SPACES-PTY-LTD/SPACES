@@ -23,6 +23,34 @@ Add new entries at the top (newest first).
 ## 2026-03-27 | Version: unreleased
 
 ### Summary
+- Fixed the Expo driver app crash caused by structured address objects being rendered directly in shipment and vehicle screens.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The mobile app now normalizes structured location payloads into human-readable address strings before rendering shipment offers, shipment details, and vehicle location text.
+- Driver screens now tolerate backend responses where `full_address` or `last_location_address` arrive as nested address objects instead of plain strings.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added mobile API-layer normalization helpers for shipment, offer, presence, and vehicle payloads so address formatting is handled centrally.
+
+### Verification
+- Updated files:
+  - `mobile_app/src/lib/api.ts`
+  - `docs/release-notes.md`
+- Verification run:
+  - `npm run lint` in `mobile_app` (passes)
+
+## 2026-03-27 | Version: unreleased
+
+### Summary
 - Fixed the website production build by aligning the vehicle API payload type with the current admin vehicle form fields.
 
 ### API Changes

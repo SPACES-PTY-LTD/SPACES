@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 import { Providers } from "@/components/providers"
 import "./globals.css"
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Pick n Drop"
+const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Spaces Digital"
 
 export const metadata: Metadata = {
   title: `${appName} | Logistics Operations Platform`,

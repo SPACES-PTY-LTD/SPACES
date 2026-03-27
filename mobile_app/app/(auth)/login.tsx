@@ -51,7 +51,7 @@ export default function LoginScreen() {
       <View className="flex-1 justify-between px-6 pb-8 pt-20">
         <View>
           
-          <Text className="text-muted-foreground text-center text-sm font-semibold uppercase tracking-[3px]">Pick n Drop Driver</Text>
+          <Text className="text-muted-foreground text-center text-sm font-semibold uppercase tracking-[3px]">{process.env.NEXT_PUBLIC_APP_NAME ?? "Spaces Digital"}</Text>
           <Text className="text-foreground mt-4 text-center text-4xl font-semibold leading-tight">
             Sign in
           </Text>

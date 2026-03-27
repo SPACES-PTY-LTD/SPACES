@@ -46,7 +46,7 @@ export function DocsSidebar({ className, closeOnNavigate = false }: DocsSidebarP
   return (
     <aside className={cn("sticky top-0 h-screen overflow-y-auto bg-transparent px-4 py-6", className)}>
       <DocsNavLink href="/docs" className="mb-6 block text-sm font-semibold text-zinc-900 tracking-tight" closeOnNavigate={closeOnNavigate}>
-        Pick n Drop Docs
+        Spaces Digital Docs
       </DocsNavLink>
 
       <nav className="space-y-6">

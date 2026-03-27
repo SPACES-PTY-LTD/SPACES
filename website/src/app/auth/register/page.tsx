@@ -3,7 +3,7 @@ import { GalleryVerticalEnd, MapPinned, Route, ShieldCheck } from "lucide-react"
 import { RegisterForm } from "@/components/auth/register-form"
 
 export default function RegisterPage() {
-  const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Pick n Drop"
+  const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Spaces Digital"
 
   return (
     <div className="fixed inset-0 z-10 overflow-y-auto bg-background">

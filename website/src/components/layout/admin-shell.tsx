@@ -39,7 +39,7 @@ import { CreateMerchantDialog } from "@/components/merchants/create-merchant-dia
 import { Button } from "../ui/button"
 import { updateLastAccessedMerchant } from "@/lib/api/merchants"
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Pick n Drop"
+const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Spaces Digital"
 
 function getInitials(name: string | null | undefined) {
   const parts = (name ?? "")
