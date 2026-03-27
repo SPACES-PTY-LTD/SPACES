@@ -20,6 +20,33 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-03-28 | Version: unreleased
+
+### Summary
+- Added backend logging for merchant invite tokens at the moment invite emails are dispatched.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- New merchant invites and resent invites now write the plain invite token and invite ID to the application logs before the invite email job is dispatched.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Centralized invite token logging in the shared invite-email dispatch path so initial sends and resends follow the same logging behavior.
+
+### Verification
+- Updated files:
+  - `app/Services/InviteService.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Services/InviteService.php`
+
 ## 2026-03-27 | Version: unreleased
 
 ### Summary

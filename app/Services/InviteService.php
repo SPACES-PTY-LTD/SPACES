@@ -8,6 +8,7 @@ use App\Models\MerchantInvite;
 use App\Models\User;
 use App\Support\MerchantAccess;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -161,6 +162,11 @@ class InviteService
 
     protected function dispatchInviteEmail(int $inviteId, string $token): void
     {
+        Log::info('Merchant invite token generated', [
+            'invite_id' => $inviteId,
+            'token' => $token,
+        ]);
+
         if (in_array(config('mail.default'), $this->synchronousMailers, true)) {
             SendMerchantInviteEmailJob::dispatchSync($inviteId, $token);
 
