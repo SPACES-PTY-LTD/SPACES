@@ -111,7 +111,7 @@ export function InviteAcceptForm({ token, preview, previewError }: InviteAcceptF
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: preview?.recipient_name ?? "",
+      name: "",
       password: "",
       password_confirmation: "",
     },

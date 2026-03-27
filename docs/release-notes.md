@@ -23,6 +23,33 @@ Add new entries at the top (newest first).
 ## 2026-03-28 | Version: unreleased
 
 ### Summary
+- Fixed the invite accept form so the first submit can advance the flow instead of being blocked by hidden client-side validation.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Clicking `Accept invite` on the first step now submits the invite token correctly, allowing the UI to move to the password step when the invited user still needs to create an account.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Stopped pre-populating the hidden `name` form field during the initial accept step so Zod does not require hidden password fields before the API request is sent.
+
+### Verification
+- Updated files:
+  - `website/src/components/auth/invite-accept-form.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run in this session.
+
+## 2026-03-28 | Version: unreleased
+
+### Summary
 - Added backend logging for merchant invite tokens at the moment invite emails are dispatched.
 
 ### API Changes
