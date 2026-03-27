@@ -16,10 +16,28 @@ export default async function InvitePage({ searchParams }: InvitePageProps) {
     previewResponse && !isApiErrorResponse(previewResponse)
       ? previewResponse.data
       : null
+  const previewError =
+    previewResponse && isApiErrorResponse(previewResponse)
+      ? getInvitePreviewError(previewResponse.payload)
+      : null
 
   return (
     <div className="space-y-6 flex-1 w-full">
-      <InviteAcceptForm token={token} preview={preview} />
+      <InviteAcceptForm token={token} preview={preview} previewError={previewError} />
     </div>
   )
+}
+
+function getInvitePreviewError(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null
+  }
+
+  const code = (payload as { error?: { code?: unknown } }).error?.code
+
+  if (code === "INVITE_NOT_FOUND") {
+    return "Token not found."
+  }
+
+  return null
 }

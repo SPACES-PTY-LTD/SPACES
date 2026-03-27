@@ -23,6 +23,37 @@ Add new entries at the top (newest first).
 ## 2026-03-27 | Version: unreleased
 
 ### Summary
+- Updated invite-link handling so unknown invite tokens show a specific `Token not found.` message instead of a generic preview failure.
+
+### API Changes
+- `GET /api/v1/merchant-invites/preview` now returns `error.code = INVITE_NOT_FOUND` with the message `Token not found.` when the invite token does not match a database record.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/auth/invites` now displays `Token not found.` when the invite preview token is missing from the database.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Preserved the specific preview validation error code through the API layer so the website can render a token-specific state.
+
+### Verification
+- Updated files:
+  - `app/Services/InviteService.php`
+  - `app/Http/Controllers/Api/V1/MerchantInviteController.php`
+  - `website/src/app/auth/invites/page.tsx`
+  - `website/src/components/auth/invite-accept-form.tsx`
+  - `tests/Feature/InviteFlowTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run in this session.
+
+## 2026-03-27 | Version: unreleased
+
+### Summary
 - Added a dedicated invite-email sender configuration so merchant invite emails can use a separate `from` address from the rest of the system mail.
 
 ### API Changes

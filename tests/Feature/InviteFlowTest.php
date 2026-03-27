@@ -98,4 +98,12 @@ class InviteFlowTest extends TestCase
             ->assertJsonPath('error.code', 'INVITE_EXPIRED')
             ->assertJsonPath('error.message', 'This invite has expired. Ask for a new invite link.');
     }
+
+    public function test_invite_preview_returns_token_not_found_for_unknown_token(): void
+    {
+        $this->getJson('/api/v1/merchant-invites/preview?token=missing-token')
+            ->assertStatus(400)
+            ->assertJsonPath('error.code', 'INVITE_NOT_FOUND')
+            ->assertJsonPath('error.message', 'Token not found.');
+    }
 }

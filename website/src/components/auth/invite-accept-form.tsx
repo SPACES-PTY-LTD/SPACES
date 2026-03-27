@@ -66,6 +66,7 @@ type FormValues = z.infer<typeof schema>
 type InviteAcceptFormProps = {
   token?: string
   preview?: MerchantInvitePreview | null
+  previewError?: string | null
 }
 
 function getInviteAcceptError(payload: unknown): string | null {
@@ -100,7 +101,7 @@ function getInviteAcceptError(payload: unknown): string | null {
   }
 }
 
-export function InviteAcceptForm({ token, preview }: InviteAcceptFormProps) {
+export function InviteAcceptForm({ token, preview, previewError }: InviteAcceptFormProps) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -236,6 +237,11 @@ export function InviteAcceptForm({ token, preview }: InviteAcceptFormProps) {
         {error ? (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
+          </div>
+        ) : null}
+        {!error && previewError ? (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {previewError}
           </div>
         ) : null}
         {preview ? (

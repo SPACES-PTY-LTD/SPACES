@@ -28,7 +28,7 @@ class InviteService
             ->first();
 
         if (!$invite) {
-            throw new ModelNotFoundException();
+            throw ValidationException::withMessages(['invite' => ['INVITE_NOT_FOUND']]);
         }
 
         $existingUser = User::query()->where('email', $invite->email)->first();

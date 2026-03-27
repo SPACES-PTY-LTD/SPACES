@@ -27,6 +27,19 @@ class MerchantInviteController extends Controller
             ]);
 
             return ApiResponse::success($service->previewInvite($validated['token']));
+        } catch (ValidationException $e) {
+            $details = $e->errors();
+            $firstDetail = collect($details)->flatten()->first();
+            $code = is_string($firstDetail) && $firstDetail !== ''
+                ? $firstDetail
+                : 'INVITE_PREVIEW_FAILED';
+
+            return ApiResponse::error(
+                $code,
+                $code === 'INVITE_NOT_FOUND' ? 'Token not found.' : 'Unable to load invite preview.',
+                $details,
+                Response::HTTP_BAD_REQUEST
+            );
         } catch (Throwable $e) {
             Log::error('Invite preview failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'INVITE_PREVIEW_FAILED', 'Unable to load invite preview.', Response::HTTP_BAD_REQUEST);
