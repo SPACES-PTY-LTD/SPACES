@@ -19,8 +19,11 @@ class MerchantInviteMail extends Mailable
     {
         $frontendUrl = rtrim((string) env('FRONTEND_URL', 'https://example.com'), '/');
         $acceptUrl = $frontendUrl.'/auth/invites?token='.$this->plainToken;
+        $fromAddress = (string) config('mail.invite_from.address');
+        $fromName = config('mail.invite_from.name');
 
-        return $this->subject('You have been invited to join '.$this->invite->merchant->name)
+        return $this->from($fromAddress, $fromName)
+            ->subject('You have been invited to join '.$this->invite->merchant->name)
             ->view('emails.merchant_invite', [
                 'invite' => $this->invite,
                 'acceptUrl' => $acceptUrl,

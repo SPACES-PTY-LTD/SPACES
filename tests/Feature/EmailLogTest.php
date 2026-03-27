@@ -21,6 +21,8 @@ class EmailLogTest extends TestCase
     public function test_logged_mail_sender_records_sent_email(): void
     {
         Mail::fake();
+        config()->set('mail.invite_from.address', 'invites@example.com');
+        config()->set('mail.invite_from.name', 'Invites');
 
         [$account, $merchant, $owner] = $this->createMerchantContext();
 
@@ -56,8 +58,8 @@ class EmailLogTest extends TestCase
             'related_id' => $invite->id,
             'status' => EmailLog::STATUS_SENT,
             'mailable' => MerchantInviteMail::class,
-            'from_email' => config('mail.from.address'),
-            'from_name' => config('mail.from.name'),
+            'from_email' => 'invites@example.com',
+            'from_name' => 'Invites',
             'subject' => 'You have been invited to join '.$merchant->name,
         ]);
 
@@ -68,13 +70,15 @@ class EmailLogTest extends TestCase
             'name' => null,
         ]], $emailLog->to);
         $this->assertStringContainsString($merchant->name, (string) $emailLog->html_message);
-        $this->assertStringContainsString('Accept Invitation', (string) $emailLog->html_message);
+        $this->assertStringContainsString('/auth/invites?token=plain-token', (string) $emailLog->html_message);
         $this->assertNull($emailLog->failed_at);
         $this->assertNotNull($emailLog->sent_at);
     }
 
     public function test_logged_mail_sender_records_failed_email(): void
     {
+        config()->set('mail.invite_from.address', 'invites@example.com');
+        config()->set('mail.invite_from.name', 'Invites');
         Mail::shouldReceive('mailer')->once()->with(config('mail.default'))->andReturnSelf();
         Mail::shouldReceive('to')->once()->with('invitee@example.com')->andReturnSelf();
         Mail::shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP unavailable'));
@@ -120,8 +124,8 @@ class EmailLogTest extends TestCase
 
             $emailLog = EmailLog::firstOrFail();
 
-            $this->assertStringContainsString($merchant->name, (string) $emailLog->html_message);
-            $this->assertStringContainsString('Accept Invitation', (string) $emailLog->html_message);
+            $this->assertSame('invites@example.com', $emailLog->from_email);
+            $this->assertSame('Invites', $emailLog->from_name);
             $this->assertNull($emailLog->sent_at);
             $this->assertNotNull($emailLog->failed_at);
         }

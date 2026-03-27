@@ -19,6 +19,7 @@ class LoggedMailSender
         $mailer = $context['mailer'] ?? config('mail.default');
         $subject = $this->resolveSubject($mailable);
         $htmlMessage = $this->renderMessageBody($mailable);
+        $from = $this->resolveFrom($mailable);
 
         $emailLog = EmailLog::create([
             'account_id' => $context['account_id'] ?? null,
@@ -30,8 +31,8 @@ class LoggedMailSender
             'status' => EmailLog::STATUS_PENDING,
             'mailer' => $mailer,
             'mailable' => $mailable::class,
-            'from_email' => config('mail.from.address'),
-            'from_name' => config('mail.from.name'),
+            'from_email' => $from['email'],
+            'from_name' => $from['name'],
             'to' => $this->normalizeRecipients($to),
             'cc' => $this->normalizeRecipients($cc),
             'bcc' => $this->normalizeRecipients($bcc),
@@ -142,5 +143,22 @@ class LoggedMailSender
             static fn (): string => $clone->render(),
             report: false,
         );
+    }
+
+    protected function resolveFrom(Mailable $mailable): array
+    {
+        $clone = clone $mailable;
+
+        rescue(
+            static fn (): string => $clone->render(),
+            report: false,
+        );
+
+        $from = $clone->from[0] ?? null;
+
+        return [
+            'email' => $from['address'] ?? config('mail.from.address'),
+            'name' => $from['name'] ?? config('mail.from.name'),
+        ];
     }
 }

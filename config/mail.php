@@ -115,4 +115,9 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    'invite_from' => [
+        'address' => env('USER_INVITE_FROM_EMAIL', env('MAIL_FROM_ADDRESS', 'hello@example.com')),
+        'name' => env('USER_INVITE_FROM_NAME', env('MAIL_FROM_NAME', 'Example')),
+    ],
+
 ];

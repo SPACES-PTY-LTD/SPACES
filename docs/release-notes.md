@@ -23,6 +23,38 @@ Add new entries at the top (newest first).
 ## 2026-03-27 | Version: unreleased
 
 ### Summary
+- Added a dedicated invite-email sender configuration so merchant invite emails can use a separate `from` address from the rest of the system mail.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Merchant invite emails now send from `USER_INVITE_FROM_EMAIL` when it is set.
+- Invite email logs now store the actual invite sender address and name instead of always recording the global mail sender.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added invite-specific mail config with fallback to the global `MAIL_FROM_ADDRESS` and `MAIL_FROM_NAME`.
+
+### Verification
+- Updated files:
+  - `config/mail.php`
+  - `app/Mail/MerchantInviteMail.php`
+  - `app/Services/LoggedMailSender.php`
+  - `tests/Feature/EmailLogTest.php`
+  - `.env.example`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run in this session.
+
+## 2026-03-27 | Version: unreleased
+
+### Summary
 - Fixed the Expo driver app crash caused by structured address objects being rendered directly in shipment and vehicle screens.
 
 ### API Changes

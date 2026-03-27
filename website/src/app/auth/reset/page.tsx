@@ -9,7 +9,7 @@ export default function ResetPasswordPage() {
       <CardHeader>
         <CardTitle>Create a new password</CardTitle>
         <p className="text-sm text-muted-foreground">
-          This screen is a placeholder until the reset endpoint is wired.
+          
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

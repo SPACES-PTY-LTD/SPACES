@@ -24,7 +24,7 @@ export function ForgotForm() {
     >
       <Input
         type="email"
-        placeholder="ops@pickndrop.io"
+        placeholder="email@example.com"
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         required
