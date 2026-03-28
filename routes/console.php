@@ -16,9 +16,6 @@ use App\Models\AccountInvoice;
 use App\Models\Account;
 use Carbon\Carbon;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
 
 Artisan::command('tracking:sync-vehicle-locations', function (VehicleLocationSyncService $service) {
     $summary = $service->sync();
@@ -85,6 +82,6 @@ Schedule::job(new CleanupOldWebhookDeliveriesJob())->daily();
 Schedule::job(new CleanupExpiredInvitesJob())->daily();
 Schedule::command('model:prune --model='.ActivityLog::class)->daily();
 Schedule::command('tracking:sync-vehicle-locations')
-    ->everyFiveMinutes();
+    ->everyMinute();
 Schedule::command('billing:generate-monthly-invoices')->dailyAt('01:00');
 Schedule::command('billing:charge-due-invoices')->dailyAt('02:00');

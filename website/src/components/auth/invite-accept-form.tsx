@@ -202,12 +202,12 @@ export function InviteAcceptForm({ token, preview, previewError }: InviteAcceptF
           <p className="text-sm text-muted-foreground">{successMessage}</p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {acceptedEmail ? (
+          {/* {acceptedEmail ? (
             <div className="rounded-md border border-border/60 bg-background/70 px-3 py-2 text-sm text-muted-foreground">
               Continue with <span className="font-medium text-foreground">{acceptedEmail}</span>
               {merchantName ? ` for ${merchantName}.` : "."}
             </div>
-          ) : null}
+          ) : null} */}
           <Button className="w-full" asChild>
             <Link href="/auth/login">Sign in</Link>
           </Button>
