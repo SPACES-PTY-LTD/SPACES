@@ -4,7 +4,8 @@ import { requireAuth } from "@/lib/auth"
 
 export default async function IntegrationsPage() {
   const session = await requireAuth()
-  const merchantId = session.selected_merchant?.merchant_id ?? null
+  const selectedMerchant = session.selected_merchant
+  const merchantId = selectedMerchant?.merchant_id ?? null
 
   return (
     <div className="space-y-6 flex-1 ">
@@ -12,7 +13,10 @@ export default async function IntegrationsPage() {
         title="Integrations"
         description="Manage and configure integrations with third-party services to enhance the functionality of your platform."
       />
-      <TrackingProviders accessToken={session.accessToken} merchantId={merchantId} />
+      <TrackingProviders
+        accessToken={session.accessToken}
+        merchantId={merchantId}
+      />
     </div>
   )
 }

@@ -26,6 +26,7 @@ class TrackingProviderResource extends JsonResource
             'documentation' => $this->documentation,
             'supports_bulk_vehicle_requests' => (bool) $this->supports_bulk_vehicle_requests,
             'default_tracking' => (bool) $this->default_tracking,
+            'has_location_services' => (bool) $this->has_location_services,
             'has_driver_importing' => (bool) $this->has_driver_importing,
             'has_locations_importing' => (bool) $this->has_locations_importing,
             'has_vehicle_importing' => (bool) $this->has_vehicle_importing,

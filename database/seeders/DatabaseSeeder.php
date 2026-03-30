@@ -263,6 +263,7 @@ class DatabaseSeeder extends Seeder
                 'uuid' => (string) Str::uuid(),
                 'status' => 'active',
                 'supports_bulk_vehicle_requests' => true,
+                'has_location_services' => true,
             ]
         );
         $powerFleetProvider->wasRecentlyCreated
@@ -299,6 +300,55 @@ class DatabaseSeeder extends Seeder
             $record->wasRecentlyCreated
                 ? $this->command?->info('Seeded provider field: PowerFleet ' . $field['name'])
                 : $this->command?->info('Provider field already exists: PowerFleet ' . $field['name']);
+        }
+
+        $fleetboardProvider = TrackingProvider::firstOrCreate(
+            ['name' => 'Fleetboard'],
+            [
+                'uuid' => (string) Str::uuid(),
+                'status' => 'active',
+                'supports_bulk_vehicle_requests' => false,
+                'default_tracking' => false,
+                'has_location_services' => true,
+                'has_vehicle_importing' => true,
+                'has_driver_importing' => false,
+                'has_locations_importing' => false,
+                'logo_file_name' => 'fleetboard_logo.png',
+                'website' => 'https://www.fleetboard.com',
+                'documentation' => 'https://soap.api.fleetboard.com/soap_v1_1/services/BasicService',
+            ]
+        );
+        $fleetboardProvider->wasRecentlyCreated
+            ? $this->command?->info('Seeded tracking provider: Fleetboard')
+            : $this->command?->info('Tracking provider already exists: Fleetboard');
+
+        $fleetboardFields = [
+            ['label' => 'Username', 'name' => 'username', 'order_id' => 1],
+            ['label' => 'Password', 'name' => 'password', 'order_id' => 2, 'type' => 'password'],
+            ['label' => 'Basic Service URL', 'name' => 'basic_service_url', 'order_id' => 3],
+            ['label' => 'Position Service URL', 'name' => 'pos_service_url', 'order_id' => 4],
+        ];
+
+        foreach ($fleetboardFields as $field) {
+            $record = TrackingProviderIntegrationFormField::firstOrNew([
+                'provider_id' => $fleetboardProvider->id,
+                'name' => $field['name'],
+            ]);
+
+            if (!$record->exists) {
+                $record->uuid = (string) Str::uuid();
+            }
+
+            $record->fill([
+                'label' => $field['label'],
+                'type' => $field['type'] ?? 'text',
+                'is_required' => true,
+                'order_id' => $field['order_id'],
+            ])->save();
+
+            $record->wasRecentlyCreated
+                ? $this->command?->info('Seeded provider field: Fleetboard ' . $field['name'])
+                : $this->command?->info('Provider field already exists: Fleetboard ' . $field['name']);
         }
 
         $cancelReasons = [

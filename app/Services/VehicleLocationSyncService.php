@@ -6,7 +6,6 @@ use App\Jobs\TrackVehicleLocationsJob;
 use App\Models\MerchantIntegration;
 use App\Models\Vehicle;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class VehicleLocationSyncService
 {
@@ -21,6 +20,7 @@ class VehicleLocationSyncService
             'vehicles_queued' => 0,
             'skipped_missing_provider' => 0,
             'skipped_unmapped_provider' => 0,
+            'skipped_missing_merchant' => 0,
         ];
 
         $integrations = MerchantIntegration::query()
@@ -28,6 +28,7 @@ class VehicleLocationSyncService
             ->whereHas('provider', function ($query) {
                 $query->where('status', 'active');
             })
+            ->whereNotNull('merchant_id')
             ->get();
 
         $summary['integrations_scanned'] = $integrations->count();
@@ -37,18 +38,23 @@ class VehicleLocationSyncService
         ]);
 
         foreach ($integrations as $integration) {
+            if (!$integration->merchant_id) {
+                $summary['skipped_missing_merchant']++;
+                continue;
+            }
+
             $provider = $integration->provider;
             if (!$provider) {
                 $summary['skipped_missing_provider']++;
                 continue;
             }
 
-            $serviceKey = Str::slug($provider->name);
+            $serviceKey = str($provider->name)->slug()->value();
             if (!config("tracking_providers.services.{$serviceKey}")) {
                 $summary['skipped_unmapped_provider']++;
-
                 Log::warning('Vehicle location sync skipped unmapped provider.', [
                     'merchant_integration_id' => $integration->id,
+                    'merchant_id' => $integration->merchant_id,
                     'provider_id' => $provider->id,
                     'provider_name' => $provider->name,
                     'service_key' => $serviceKey,
@@ -61,6 +67,7 @@ class VehicleLocationSyncService
 
             $vehiclesQuery = Vehicle::query()
                 ->where('account_id', $integration->account_id)
+                ->where('merchant_id', $integration->merchant_id)
                 ->where('is_active', true)
                 ->whereNotNull('intergration_id')
                 ->where('intergration_id', '!=', '')
@@ -97,6 +104,7 @@ class VehicleLocationSyncService
 
             Log::info('Vehicle location sync integration processed.', [
                 'merchant_integration_id' => $integration->id,
+                'merchant_id' => $integration->merchant_id,
                 'provider_id' => $provider->id,
                 'provider_name' => $provider->name,
                 'supports_bulk_vehicle_requests' => (bool) $provider->supports_bulk_vehicle_requests,

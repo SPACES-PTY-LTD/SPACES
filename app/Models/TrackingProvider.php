@@ -19,6 +19,7 @@ class TrackingProvider extends Model
         'documentation',
         'supports_bulk_vehicle_requests',
         'default_tracking',
+        'has_location_services',
         'has_driver_importing',
         'has_locations_importing',
         'has_vehicle_importing',
@@ -27,6 +28,7 @@ class TrackingProvider extends Model
     protected $casts = [
         'supports_bulk_vehicle_requests' => 'boolean',
         'default_tracking' => 'boolean',
+        'has_location_services' => 'boolean',
         'has_driver_importing' => 'boolean',
         'has_locations_importing' => 'boolean',
         'has_vehicle_importing' => 'boolean',

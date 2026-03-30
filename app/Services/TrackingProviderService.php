@@ -78,6 +78,7 @@ class TrackingProviderService
             'documentation' => $data['documentation'] ?? null,
             'supports_bulk_vehicle_requests' => $data['supports_bulk_vehicle_requests'] ?? false,
             'default_tracking' => $data['default_tracking'] ?? false,
+            'has_location_services' => $data['has_location_services'] ?? false,
             'has_driver_importing' => $data['has_driver_importing'] ?? false,
             'has_locations_importing' => $data['has_locations_importing'] ?? false,
             'has_vehicle_importing' => $data['has_vehicle_importing'] ?? false,

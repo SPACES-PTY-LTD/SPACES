@@ -650,6 +650,8 @@ export interface TrackingProvider {
   has_driver_importing?: boolean
   has_locations_importing?: boolean
   has_vehicle_importing?: boolean
+  default_tracking?: boolean
+  has_location_services?: boolean
   form_fields?: TrackingProviderFormField[]
   integration_data?: Record<string, unknown> | null
   created_at?: string

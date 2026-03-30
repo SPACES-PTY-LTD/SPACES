@@ -19,6 +19,7 @@ class StoreTrackingProviderRequest extends BaseRequest
             'documentation' => ['nullable', 'string', 'max:255'],
             'supports_bulk_vehicle_requests' => ['nullable', 'boolean'],
             'default_tracking' => ['nullable', 'boolean'],
+            'has_location_services' => ['nullable', 'boolean'],
             'has_driver_importing' => ['nullable', 'boolean'],
             'has_locations_importing' => ['nullable', 'boolean'],
             'has_vehicle_importing' => ['nullable', 'boolean'],

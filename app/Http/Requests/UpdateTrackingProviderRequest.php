@@ -19,6 +19,7 @@ class UpdateTrackingProviderRequest extends BaseRequest
             'documentation' => ['sometimes', 'nullable', 'string', 'max:255'],
             'supports_bulk_vehicle_requests' => ['sometimes', 'boolean'],
             'default_tracking' => ['sometimes', 'boolean'],
+            'has_location_services' => ['sometimes', 'boolean'],
             'has_driver_importing' => ['sometimes', 'boolean'],
             'has_locations_importing' => ['sometimes', 'boolean'],
             'has_vehicle_importing' => ['sometimes', 'boolean'],

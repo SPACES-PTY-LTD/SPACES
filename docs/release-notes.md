@@ -20,6 +20,91 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-03-29 | Version: unreleased
+
+### Summary
+- Removed the merchant-level main location provider feature and restored tracking sync to rely on each vehicle's provider-specific `intergration_id`.
+
+### API Changes
+- `PATCH /api/v1/merchants/{merchant_uuid}/settings` no longer accepts `main_location_provider_id`.
+- Merchant API responses no longer include `main_location_provider_id` or `main_location_provider`.
+
+### Database Changes
+- Removed the unrun migration that would have added `main_location_provider_id` to `merchants`.
+
+### Behavior Changes
+- Vehicle location sync no longer chooses one canonical provider per merchant.
+- Connected tracking providers no longer show or manage a "main location provider" control in settings or integrations.
+- Tracking continues to run per active merchant integration, with provider resolution based on each vehicle's unique `intergration_id`.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Kept `has_location_services` as backend tracking-provider metadata and retained Fleetboard integration support.
+- Removed obsolete merchant main-location-provider tests and frontend state/plumbing tied only to that feature.
+
+### Verification
+- Updated files:
+  - `app/Http/Requests/UpdateMerchantSettingsRequest.php`
+  - `app/Http/Resources/MerchantResource.php`
+  - `app/Models/Merchant.php`
+  - `app/Services/MerchantService.php`
+  - `app/Services/VehicleLocationSyncService.php`
+  - `database/migrations/2026_03_28_230000_add_main_location_provider_id_to_merchants_table.php`
+  - `tests/Feature/MerchantMainLocationProviderTest.php`
+  - `website/src/app/admin/settings/integrations/page.tsx`
+  - `website/src/components/integrations/tracking-providers.tsx`
+  - `website/src/components/settings/organization-settings-form.tsx`
+  - `website/src/lib/api/merchants.ts`
+  - `website/src/lib/types.ts`
+  - `docs/release-notes.md`
+- Verification run:
+  - `rg -n "main_location_provider_id|mainLocationProvider|Main location provider|main_location_provider" app website/src tests docs`
+  - Additional syntax/tests run in this session are listed below.
+
+## 2026-03-28 | Version: unreleased
+
+### Summary
+- Added Fleetboard as a tracking provider option for vehicle import and v1 live location sync, and added provider-level `has_location_services` capability metadata for future tracking-provider classification.
+
+### API Changes
+- None.
+
+### Database Changes
+- Added `has_location_services` boolean on `tracking_providers`.
+
+### Behavior Changes
+- Vehicle location sync continues to run per active merchant integration, using each vehicle’s provider-specific `intergration_id` as the source of truth for provider lookups.
+- Fleetboard provider metadata and setup fields are now seeded for backend/provider configuration.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added a Fleetboard SOAP service adapter for login, vehicle import normalization, and live position normalization for latitude, longitude, speed, and odometer.
+- Added explicit `has_location_services` capability metadata for tracking providers so backend code can classify location-capable providers without inferring support from names.
+
+### Verification
+- Updated files:
+  - `app/Http/Resources/TrackingProviderResource.php`
+  - `app/Models/TrackingProvider.php`
+  - `app/Services/Fleetboard/FleetboardService.php`
+  - `app/Services/TrackingProviderService.php`
+  - `config/tracking_providers.php`
+  - `database/migrations/2026_03_28_233000_add_has_location_services_to_tracking_providers_table.php`
+  - `database/seeders/DatabaseSeeder.php`
+  - `tests/Unit/FleetboardServiceTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Services/Fleetboard/FleetboardService.php`
+  - `php -l app/Models/TrackingProvider.php`
+  - `php -l app/Http/Resources/TrackingProviderResource.php`
+  - `php -l app/Services/TrackingProviderService.php`
+  - `php -l tests/Unit/FleetboardServiceTest.php`
+  - `php -l database/migrations/2026_03_28_233000_add_has_location_services_to_tracking_providers_table.php`
+  - `php artisan test tests/Unit/FleetboardServiceTest.php`
+
 ## 2026-03-28 | Version: unreleased
 
 ### Summary
