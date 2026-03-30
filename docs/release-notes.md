@@ -20,6 +20,33 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-03-30 | Version: unreleased
+
+### Summary
+- Fixed the website production build after the tracking providers integrations screen lost a required UI import during the main-location-provider rollback.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The tracking provider import dialog once again renders the locations import toggle correctly during production builds.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Restored the `Switch` component import in the tracking providers integrations UI so Next.js lint/type validation passes in `npm run build`.
+
+### Verification
+- Updated files:
+  - `website/src/components/integrations/tracking-providers.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `npm run build`
+
 ## 2026-03-29 | Version: unreleased
 
 ### Summary
