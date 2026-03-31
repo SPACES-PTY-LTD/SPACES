@@ -9,6 +9,7 @@ use App\Http\Requests\DocumentComplianceReportRequest;
 use App\Http\Requests\FleetStatusReportRequest;
 use App\Http\Requests\MappedBookingsReportRequest;
 use App\Http\Requests\MissingDocumentsReportRequest;
+use App\Http\Requests\ShipmentsByLocationReportRequest;
 use App\Http\Resources\LocationResource;
 use App\Http\Resources\MappedBookingReportResource;
 use App\Http\Resources\VehicleActivityResource;
@@ -691,6 +692,93 @@ class ReportController extends Controller
             ]);
         } catch (Throwable $e) {
             Log::error('Reports document_coverage failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->apiError($e, 'REPORTS_FAILED', 'Unable to generate report.');
+        }
+    }
+
+    public function shipmentsByLocation(ShipmentsByLocationReportRequest $request)
+    {
+        try {
+            $environment = $request->attributes->get('merchant_environment');
+            $user = $request->user();
+            $validated = $request->validated();
+            $locationType = $validated['location_type'] ?? 'pickup';
+            $dateRange = $validated['date_range'] ?? '1month';
+            $locationColumn = $locationType === 'dropoff'
+                ? 'shipments.dropoff_location_id'
+                : 'shipments.pickup_location_id';
+
+            $merchantId = null;
+            if (!empty($validated['merchant_id'])) {
+                $merchantId = Merchant::query()
+                    ->where('uuid', $validated['merchant_id'])
+                    ->value('id');
+            }
+
+            [$start, $end] = $this->resolveDateRange($request, $environment, $user);
+            if (!$start || !$end) {
+                return ApiResponse::success([], [
+                    'total_locations' => 0,
+                    'total_shipments' => 0,
+                    'date_range' => $dateRange,
+                    'location_type' => $locationType,
+                ]);
+            }
+
+            $rows = $this->applyShipmentScope(
+                Shipment::query(),
+                $environment,
+                $user
+            )
+                ->leftJoin('locations as report_locations', function ($join) use ($locationColumn) {
+                    $join->on('report_locations.id', '=', $locationColumn)
+                        ->whereNull('report_locations.deleted_at');
+                })
+                ->when($merchantId, fn (Builder $query) => $query->where('shipments.merchant_id', $merchantId))
+                ->whereBetween('shipments.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
+                ->selectRaw("
+                    report_locations.uuid as location_id,
+                    COALESCE(
+                        NULLIF(report_locations.name, ''),
+                        NULLIF(report_locations.company, ''),
+                        NULLIF(report_locations.code, ''),
+                        'Unknown location'
+                    ) as location_name,
+                    report_locations.city as city,
+                    COUNT(*) as total_shipments
+                ")
+                ->groupBy(
+                    'report_locations.uuid',
+                    'report_locations.name',
+                    'report_locations.company',
+                    'report_locations.code',
+                    'report_locations.city'
+                )
+                ->orderByDesc('total_shipments')
+                ->orderBy('location_name')
+                ->get()
+                ->map(function ($row) {
+                    return [
+                        'location_id' => $row->location_id,
+                        'location_name' => $row->location_name,
+                        'city' => $row->city,
+                        'total_shipments' => (int) $row->total_shipments,
+                    ];
+                })
+                ->values();
+
+            return ApiResponse::success($rows, [
+                'total_locations' => $rows->count(),
+                'total_shipments' => (int) $rows->sum('total_shipments'),
+                'date_range' => $dateRange,
+                'location_type' => $locationType,
+            ]);
+        } catch (Throwable $e) {
+            Log::error('Reports shipments_by_location failed', [
                 'request_id' => ApiResponse::requestId(),
                 'error' => $e->getMessage(),
             ]);

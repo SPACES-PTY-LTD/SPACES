@@ -243,6 +243,31 @@ export type DocumentCoverageReportResponse = {
   error?: unknown
 }
 
+export type ShipmentsByLocationReportParams = {
+  merchant_id?: string
+  date_range?: "1week" | "2weeks" | "30days" | "1month" | "3months" | "6months" | "1year" | "alltime"
+  location_type?: "pickup" | "dropoff"
+}
+
+export type ShipmentsByLocationRow = {
+  location_id?: string | null
+  location_name: string
+  city?: string | null
+  total_shipments: number
+}
+
+export type ShipmentsByLocationReportResponse = {
+  success: boolean
+  data: ShipmentsByLocationRow[]
+  meta?: {
+    total_locations?: number
+    total_shipments?: number
+    date_range?: string
+    location_type?: "pickup" | "dropoff"
+  }
+  error?: unknown
+}
+
 export async function getCreatedOverTime(
   dateRange: string,
   token?: string | null,
@@ -319,6 +344,16 @@ export async function getDocumentCoverageReport(
   token?: string | null
 ) {
   return apiFetch<DocumentCoverageReportResponse>("/api/v1/reports/document-coverage", {
+    token,
+    params,
+  })
+}
+
+export async function getShipmentsByLocationReport(
+  params?: ShipmentsByLocationReportParams,
+  token?: string | null
+) {
+  return apiFetch<ShipmentsByLocationReportResponse>("/api/v1/reports/shipments-by-location", {
     token,
     params,
   })

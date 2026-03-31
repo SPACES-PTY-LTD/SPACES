@@ -3,6 +3,7 @@ import { CreatedOverTimeChart } from "@/components/reports/created-over-time-cha
 import { PageHeader } from "@/components/layout/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
+import { ChartArea } from "lucide-react"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listLocations } from "@/lib/api/locations"
 import { getDashboardStats, getShipmentsFullReport } from "@/lib/api/reports"
@@ -405,6 +406,20 @@ export default async function LogisticsAnalyticsPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      <Link href={AdminLinks.analyticsShipmentsByLocation} className="group block">
+        <Card className="transition-shadow group-hover:shadow-md">
+          <CardContent className="flex items-center justify-between gap-4 py-5">
+            <div className="space-y-1">
+              <div className="text-base font-semibold">Shipments by location</div>
+              <div className="text-sm text-muted-foreground">
+                Review pickup and dropoff shipment totals by location for a selected date range.
+              </div>
+            </div>
+            <ChartArea className="h-5 w-5 text-muted-foreground" />
+          </CardContent>
+        </Card>
+      </Link>
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card>

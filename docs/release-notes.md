@@ -23,6 +23,44 @@ Add new entries at the top (newest first).
 ## 2026-03-30 | Version: unreleased
 
 ### Summary
+- Added a new `Shipments by Location` logistics analytics report with pickup/dropoff grouping, selectable date ranges, a bar chart, and a location totals table.
+
+### API Changes
+- Added `GET /api/v1/reports/shipments-by-location` with query params `merchant_id`, `date_range`, and `location_type`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Logistics users can now open a dedicated `Shipments by Location` analytics page from the navigation or analytics overview.
+- The report can switch between pickup and dropoff location totals and updates results for the selected date range.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added a dedicated backend aggregation endpoint and frontend report components instead of deriving location totals from the paginated shipments full report.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/ReportController.php`
+  - `app/Http/Requests/ShipmentsByLocationReportRequest.php`
+  - `routes/api.php`
+  - `tests/Feature/ShipmentsByLocationReportTest.php`
+  - `website/src/app/admin/logistics/analytics/page.tsx`
+  - `website/src/app/admin/logistics/analytics/shipments-by-location/page.tsx`
+  - `website/src/components/reports/shipments-by-location-chart.tsx`
+  - `website/src/components/reports/shipments-by-location-controls.tsx`
+  - `website/src/lib/api/reports.ts`
+  - `website/src/lib/navigation.ts`
+  - `website/src/lib/routes/admin.ts`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run in this session.
+
+## 2026-03-30 | Version: unreleased
+
+### Summary
 - Fixed the website production build after the tracking providers integrations screen lost a required UI import during the main-location-provider rollback.
 
 ### API Changes

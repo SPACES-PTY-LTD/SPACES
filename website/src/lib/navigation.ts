@@ -163,6 +163,11 @@ export const adminNavGroups: NavGroup[] = [
             href: AdminLinks.analyticsDocumentCoverage,
             icon: ChartArea,
           },
+          {
+            title: "Shipments by Location",
+            href: AdminLinks.analyticsShipmentsByLocation,
+            icon: ChartArea,
+          },
         ]
       }
 

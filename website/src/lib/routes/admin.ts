@@ -47,6 +47,7 @@ export const AdminLinks = {
   analyticsMissingDocuments: `${LOGISTICS_BASE}/analytics/missing-documents`,
   analyticsDocumentExpiry: `${LOGISTICS_BASE}/analytics/document-expiry`,
   analyticsDocumentCoverage: `${LOGISTICS_BASE}/analytics/document-coverage`,
+  analyticsShipmentsByLocation: `${LOGISTICS_BASE}/analytics/shipments-by-location`,
   apps: `${ADMIN_BASE}/apps`,
   
   orders: `${ADMIN_BASE}/sales/orders`,
