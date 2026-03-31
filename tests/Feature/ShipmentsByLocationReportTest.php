@@ -104,6 +104,31 @@ class ShipmentsByLocationReportTest extends TestCase
             ->assertJsonPath('error.code', 'VALIDATION');
     }
 
+    public function test_report_supports_custom_date_range(): void
+    {
+        Carbon::setTestNow('2026-03-31 10:00:00');
+
+        [$user, $merchant, $account] = $this->createMerchantContext();
+        $headers = $this->authHeaders($user);
+        $pickup = $this->createLocation($account->id, $merchant->id, 'Warehouse A', 'PICKUP-A', 'Cape Town');
+        $dropoff = $this->createLocation($account->id, $merchant->id, 'Store A', 'STORE-A', 'Cape Town');
+
+        $this->createShipment($account->id, $merchant->id, $pickup, $dropoff, Carbon::parse('2026-03-10 09:00:00'));
+        $this->createShipment($account->id, $merchant->id, $pickup, $dropoff, Carbon::parse('2026-03-20 09:00:00'));
+        $this->createShipment($account->id, $merchant->id, $pickup, $dropoff, Carbon::parse('2026-03-25 09:00:00'));
+
+        $response = $this->withHeaders($headers)
+            ->getJson('/api/v1/reports/shipments-by-location?date_range=custom&start_date=2026-03-15&end_date=2026-03-21&location_type=pickup');
+
+        $response->assertOk()
+            ->assertJsonPath('meta.date_range', 'custom')
+            ->assertJsonPath('meta.total_shipments', 1)
+            ->assertJsonPath('data.0.location_name', 'Warehouse A')
+            ->assertJsonPath('data.0.total_shipments', 1);
+
+        Carbon::setTestNow();
+    }
+
     private function createMerchantContext(): array
     {
         $user = User::factory()->create();

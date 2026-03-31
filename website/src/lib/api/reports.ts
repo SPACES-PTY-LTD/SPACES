@@ -61,6 +61,8 @@ export type ShipmentsFullReportSortBy =
 export type ShipmentsFullReportParams = {
   merchant_id?: string
   date_created?: string
+  created_from?: string
+  created_to?: string
   collection_date?: string
   shipment_number?: string
   delivery_note_number?: string
@@ -245,8 +247,22 @@ export type DocumentCoverageReportResponse = {
 
 export type ShipmentsByLocationReportParams = {
   merchant_id?: string
-  date_range?: "1week" | "2weeks" | "30days" | "1month" | "3months" | "6months" | "1year" | "alltime"
+  date_range?:
+    | "today"
+    | "yesterday"
+    | "thisweek"
+    | "1week"
+    | "2weeks"
+    | "30days"
+    | "1month"
+    | "3months"
+    | "6months"
+    | "1year"
+    | "alltime"
+    | "custom"
   location_type?: "pickup" | "dropoff"
+  start_date?: string
+  end_date?: string
 }
 
 export type ShipmentsByLocationRow = {
@@ -254,6 +270,7 @@ export type ShipmentsByLocationRow = {
   location_name: string
   city?: string | null
   total_shipments: number
+  href?: string
 }
 
 export type ShipmentsByLocationReportResponse = {

@@ -80,6 +80,8 @@ function formatLocation(location?: Location | null) {
 export default async function ShipmentsReportPage({ searchParams }: ShipmentsReportPageProps) {
   const params = (await searchParams) ?? {}
   const dateCreated = getSingleValue(params.date_created)
+  const createdFrom = getSingleValue(params.created_from)
+  const createdTo = getSingleValue(params.created_to)
   const collectionDate = getSingleValue(params.collection_date)
   const shipmentNumber = getSingleValue(params.shipment_number)
   const deliveryNoteNumber = getSingleValue(params.delivery_note_number)
@@ -97,6 +99,8 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
   const response = await getShipmentsFullReport(
     {
       date_created: normalizeDate(dateCreated),
+      created_from: normalizeDate(createdFrom),
+      created_to: normalizeDate(createdTo),
       collection_date: normalizeDate(collectionDate),
       shipment_number: normalizeText(shipmentNumber),
       delivery_note_number: normalizeText(deliveryNoteNumber),
@@ -157,6 +161,20 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
             type: "date",
             value: dateCreated,
             url_param_name: "date_created",
+          },
+          {
+            key: "created_from",
+            label: "Created from",
+            type: "date",
+            value: createdFrom,
+            url_param_name: "created_from",
+          },
+          {
+            key: "created_to",
+            label: "Created to",
+            type: "date",
+            value: createdTo,
+            url_param_name: "created_to",
           },
           {
             key: "collection_date",

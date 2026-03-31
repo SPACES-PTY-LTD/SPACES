@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { ShipmentsByLocationRow } from "@/lib/api/reports"
@@ -15,10 +16,12 @@ export function ShipmentsByLocationChart({
   rows: ShipmentsByLocationRow[]
   locationType: "pickup" | "dropoff"
 }) {
+  const router = useRouter()
   const chartData = rows.slice(0, 10).map((row) => ({
     location_name: truncateLabel(row.location_name),
     total_shipments: row.total_shipments,
     city: row.city ?? "-",
+    href: row.href,
   }))
 
   return (
@@ -52,7 +55,17 @@ export function ShipmentsByLocationChart({
                   return item?.city ? `${label} • ${item.city}` : String(label)
                 }}
               />
-              <Bar dataKey="total_shipments" fill="var(--color-chart-1)" radius={[6, 6, 0, 0]} />
+              <Bar
+                dataKey="total_shipments"
+                fill="var(--color-chart-1)"
+                radius={[6, 6, 0, 0]}
+                cursor="pointer"
+                onClick={(data) => {
+                  if (data?.href) {
+                    router.push(data.href)
+                  }
+                }}
+              />
             </BarChart>
           </ResponsiveContainer>
         ) : (

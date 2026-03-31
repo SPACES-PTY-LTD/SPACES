@@ -26,7 +26,7 @@ Add new entries at the top (newest first).
 - Added a new `Shipments by Location` logistics analytics report with pickup/dropoff grouping, selectable date ranges, a bar chart, and a location totals table.
 
 ### API Changes
-- Added `GET /api/v1/reports/shipments-by-location` with query params `merchant_id`, `date_range`, and `location_type`.
+- Added `GET /api/v1/reports/shipments-by-location` with query params `merchant_id`, `date_range`, `location_type`, `start_date`, and `end_date`.
 
 ### Database Changes
 - None.
@@ -34,12 +34,19 @@ Add new entries at the top (newest first).
 ### Behavior Changes
 - Logistics users can now open a dedicated `Shipments by Location` analytics page from the navigation or analytics overview.
 - The report can switch between pickup and dropoff location totals and updates results for the selected date range.
+- The date range control now includes `Today`, `Yesterday`, `This week`, and `Custom`, with custom ranges selected through a ShadCN-style calendar range picker.
+- Custom range selection now stays stable while the user is choosing both dates instead of jumping after the first click.
+- Applying a custom range now preserves the exact selected local dates instead of shifting them back by one day in some timezones.
+- The custom range picker no longer allows future dates to be selected.
+- Each month panel in the custom range picker now only allows selecting dates from that displayed month, without outside-month overflow days.
+- Clicking a location in the report now opens the shipments report with the same date range and the matching pickup or dropoff location filter applied.
 
 ### Breaking Changes
 - None.
 
 ### Internal Changes
 - Added a dedicated backend aggregation endpoint and frontend report components instead of deriving location totals from the paginated shipments full report.
+- Replaced the custom report's two single-date inputs with a single range-picker control built on the shared calendar and popover UI primitives.
 
 ### Verification
 - Updated files:

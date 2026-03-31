@@ -18,9 +18,24 @@ class ShipmentsByLocationReportRequest extends BaseRequest
             'date_range' => [
                 'nullable',
                 'string',
-                Rule::in(['1week', '2weeks', '30days', '1month', '3months', '6months', '1year', 'alltime']),
+                Rule::in([
+                    'today',
+                    'yesterday',
+                    'thisweek',
+                    '1week',
+                    '2weeks',
+                    '30days',
+                    '1month',
+                    '3months',
+                    '6months',
+                    '1year',
+                    'alltime',
+                    'custom',
+                ]),
             ],
             'location_type' => ['nullable', 'string', Rule::in(['pickup', 'dropoff'])],
+            'start_date' => ['nullable', 'date_format:Y-m-d', 'required_if:date_range,custom'],
+            'end_date' => ['nullable', 'date_format:Y-m-d', 'required_if:date_range,custom', 'after_or_equal:start_date'],
         ];
     }
 }

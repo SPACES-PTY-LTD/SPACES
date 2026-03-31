@@ -103,6 +103,14 @@ class ReportController extends Controller
                 $query->whereDate('shipments.created_at', $request->get('date_created'));
             }
 
+            if (!empty($request->get('created_from'))) {
+                $query->whereDate('shipments.created_at', '>=', $request->get('created_from'));
+            }
+
+            if (!empty($request->get('created_to'))) {
+                $query->whereDate('shipments.created_at', '<=', $request->get('created_to'));
+            }
+
             if (!empty($request->get('collection_date'))) {
                 $query->whereDate('shipments.collection_date', $request->get('collection_date'));
             }
@@ -1125,6 +1133,9 @@ class ReportController extends Controller
         $end = now()->startOfDay();
 
         return match ($range) {
+            'today' => [$end->copy(), $end],
+            'yesterday' => [$end->copy()->subDay(), $end->copy()->subDay()],
+            'thisweek' => [$end->copy()->startOfWeek(), $end],
             '1week' => [$end->copy()->subDays(6), $end],
             '2weeks' => [$end->copy()->subDays(13), $end],
             '30days' => [$end->copy()->subDays(29), $end],
@@ -1133,6 +1144,7 @@ class ReportController extends Controller
             '6months' => [$end->copy()->subMonthsNoOverflow(6), $end],
             '1year' => [$end->copy()->subYearNoOverflow(), $end],
             'alltime' => $this->resolveAllTimeRange($environment, $user, $end),
+            'custom' => $this->resolveCustomDateRange($request),
             default => $this->invalidDateRangeResponse(),
         };
     }
@@ -1141,10 +1153,30 @@ class ReportController extends Controller
     {
         throw new HttpResponseException(ApiResponse::error(
             'INVALID_DATE_RANGE',
-            'Invalid date_range. Use: 1week, 2weeks, 1month, 3months, 6months, 1year, alltime.',
+            'Invalid date_range. Use: today, yesterday, thisweek, 1week, 2weeks, 30days, 1month, 3months, 6months, 1year, alltime, custom.',
             [],
             Response::HTTP_UNPROCESSABLE_ENTITY
         ));
+    }
+
+    private function resolveCustomDateRange(Request $request): array
+    {
+        $startDate = $request->get('start_date');
+        $endDate = $request->get('end_date');
+
+        if (!$startDate || !$endDate) {
+            throw new HttpResponseException(ApiResponse::error(
+                'INVALID_DATE_RANGE',
+                'Custom date range requires start_date and end_date in YYYY-MM-DD format.',
+                [],
+                Response::HTTP_UNPROCESSABLE_ENTITY
+            ));
+        }
+
+        return [
+            Carbon::parse((string) $startDate)->startOfDay(),
+            Carbon::parse((string) $endDate)->startOfDay(),
+        ];
     }
 
     private function resolveAllTimeRange($environment, ?User $user, Carbon $end): array
