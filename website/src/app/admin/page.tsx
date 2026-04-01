@@ -17,6 +17,9 @@ export default async function AdminDashboardPage() {
   const session = await requireAuth()
   const formatter = new Intl.NumberFormat("en-US")
   const selectedMerchantId = session.selected_merchant?.merchant_id
+  const dashboardTitle = session.selected_merchant?.name
+    ? `${session.selected_merchant.name} dashboard`
+    : "Admin dashboard"
   let stats = {
     total_shipments: 0,
     delivered_shipments: 0,
@@ -101,7 +104,7 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Admin dashboard"
+        title={dashboardTitle}
         description="Live performance across merchants, carriers, and shipments."
       />
 

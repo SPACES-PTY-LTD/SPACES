@@ -20,6 +20,34 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-04-01 | Version: unreleased
+
+### Summary
+- Updated the admin landing page title to show the selected merchant name instead of the generic `Admin dashboard` label.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Admin users viewing the main dashboard now see `{merchant_name} dashboard` when a merchant is selected.
+- The page falls back to `Admin dashboard` only when no selected merchant name is available in session data.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Wired the dashboard header title to the authenticated session's `selected_merchant.name`.
+
+### Verification
+- Updated files:
+  - `website/src/app/admin/page.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run in this session.
+
 ## 2026-03-30 | Version: unreleased
 
 ### Summary
