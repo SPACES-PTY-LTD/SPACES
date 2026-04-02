@@ -23,6 +23,33 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
+- Fixed a frontend build failure by aligning the shared `Shipment` type with the driver data already used by the shipments list page.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- None.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added the optional `driver` field to the shared frontend `Shipment` type so TypeScript matches the shipments list usage.
+
+### Verification
+- Updated files:
+  - `website/src/lib/types.ts`
+  - `docs/release-notes.md`
+- Verification run:
+  - `npm run build`
+
+## 2026-04-02 | Version: unreleased
+
+### Summary
 - Fixed the shipments report page to reuse the admin shell’s active-merchant fallback so merchant-scoped report requests still include `merchant_id` when the session has merchants but no explicit `selected_merchant`.
 
 ### API Changes

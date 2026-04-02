@@ -207,6 +207,12 @@ export interface Shipment {
   run_status?: string | null
   run_sequence?: number | null
   run_shipment_status?: string | null
+  driver?: {
+    driver_id: UUID
+    name: string
+    email?: string | null
+    telephone?: string | null
+  } | null
   parcels?: ShipmentParcel[]
   stops?: ShipmentStop[]
   files?: EntityFile[]
