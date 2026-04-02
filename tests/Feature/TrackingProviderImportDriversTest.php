@@ -7,20 +7,25 @@ use App\Models\Merchant;
 use App\Models\MerchantIntegration;
 use App\Models\TrackingProvider;
 use App\Models\User;
+use App\Jobs\ImportProviderDriversJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class TrackingProviderImportDriversTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_import_drivers_endpoint_imports_when_provider_supports_it(): void
+    public function test_import_drivers_endpoint_queues_import_when_provider_supports_it(): void
     {
         [$user, $merchant, $account] = $this->createUserMerchantAccount();
+        Queue::fake();
 
         $provider = TrackingProvider::create([
             'name' => 'Fake Import Drivers Provider',
             'status' => 'active',
+            'has_driver_importing' => true,
         ]);
 
         config()->set('tracking_providers.services.fake-import-drivers-provider', FakeImportDriversProviderService::class);
@@ -32,27 +37,20 @@ class TrackingProviderImportDriversTest extends TestCase
             'integration_data' => ['token' => 'abc'],
         ]);
 
-        $response = $this->actingAs($user)->postJson("/api/v1/tracking-providers/{$provider->uuid}/import_drivers", [
+        $response = $this->apiFor($user)->postJson("/api/v1/tracking-providers/{$provider->uuid}/import_drivers", [
             'merchant_id' => $merchant->uuid,
         ]);
 
-        $response->assertStatus(200)
-            ->assertJsonPath('data.imported_count', 2)
-            ->assertJsonPath('data.drivers.0.merchant_id', $merchant->uuid)
-            ->assertJsonPath('data.drivers.0.intergration_id', 'drv-123')
-            ->assertJsonPath('data.drivers.0.name', 'Jane Doe')
-            ->assertJsonPath('data.drivers.0.telephone', '+27110000001')
-            ->assertJsonPath('data.drivers.1.intergration_id', 'drv-456');
+        $response->assertStatus(202)
+            ->assertJsonPath('data.queued', true)
+            ->assertJsonPath('data.already_in_progress', false);
 
-        $this->assertDatabaseHas('drivers', [
-            'merchant_id' => $merchant->id,
-            'intergration_id' => 'drv-123',
-        ]);
-
-        $this->assertDatabaseHas('drivers', [
-            'merchant_id' => $merchant->id,
-            'intergration_id' => 'drv-456',
-        ]);
+        Queue::assertPushed(ImportProviderDriversJob::class, function (ImportProviderDriversJob $job) use ($user, $merchant, $provider) {
+            return $job->userId === $user->id
+                && $job->merchantId === $merchant->id
+                && $job->merchantUuid === $merchant->uuid
+                && $job->providerUuid === $provider->uuid;
+        });
     }
 
     public function test_import_drivers_endpoint_returns_error_when_not_supported(): void
@@ -73,7 +71,7 @@ class TrackingProviderImportDriversTest extends TestCase
             'integration_data' => ['token' => 'abc'],
         ]);
 
-        $response = $this->actingAs($user)->postJson("/api/v1/tracking-providers/{$provider->uuid}/import_drivers", [
+        $response = $this->apiFor($user)->postJson("/api/v1/tracking-providers/{$provider->uuid}/import_drivers", [
             'merchant_id' => $merchant->uuid,
         ]);
 
@@ -83,18 +81,30 @@ class TrackingProviderImportDriversTest extends TestCase
 
     private function createUserMerchantAccount(): array
     {
-        $user = User::withoutEvents(fn () => User::factory()->create(['role' => 'user']));
+        $user = User::withoutEvents(fn () => User::factory()->create([
+            'uuid' => (string) Str::uuid(),
+            'role' => 'user',
+        ]));
         $account = Account::create(['owner_user_id' => $user->id]);
         $user->account_id = $account->id;
         $user->save();
 
         $merchant = Merchant::withoutEvents(fn () => Merchant::factory()->create([
+            'uuid' => (string) Str::uuid(),
             'owner_user_id' => $user->id,
             'account_id' => $account->id,
         ]));
         $merchant->users()->attach($user->id, ['role' => 'owner']);
 
         return [$user, $merchant, $account];
+    }
+
+    private function apiFor(User $user)
+    {
+        return $this->withHeader(
+            'Authorization',
+            'Bearer '.$user->createToken('test-suite')->plainTextToken
+        );
     }
 }
 

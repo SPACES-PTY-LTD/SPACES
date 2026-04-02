@@ -23,6 +23,46 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
+- Added automatic driver creation during vehicle tracking sync when a provider position includes a driver integration id that does not yet exist locally.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `tracking:sync-vehicle-locations` now fetches and upserts missing drivers from the tracking provider before assigning them to vehicles and using them in auto-run lifecycle updates.
+- Tracking sync now prefers a provider-specific single-driver fetch when available and falls back to bulk driver import filtering when it is not.
+- If provider driver fetch/import fails, vehicle position sync continues and records the failure without blocking the rest of the job.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Centralized provider-driver import/upsert logic in `DriverService` and reused it from both tracking sync and the existing provider driver import flow.
+- Added tracking-job regression coverage for single-fetch imports, bulk fallback imports, merchant-scoped collisions, and provider fetch failures.
+
+### Verification
+- Updated files:
+  - `app/Jobs/TrackVehicleLocationsJob.php`
+  - `app/Services/DriverService.php`
+  - `app/Services/MerchantIntegrationService.php`
+  - `app/Services/Mixtelematics/MixIntegrateService.php`
+  - `tests/Feature/TrackVehicleLocationsJobTest.php`
+  - `tests/Feature/TrackingProviderImportDriversTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Jobs/TrackVehicleLocationsJob.php`
+  - `php -l app/Services/DriverService.php`
+  - `php -l app/Services/MerchantIntegrationService.php`
+  - `php -l app/Services/Mixtelematics/MixIntegrateService.php`
+  - `php artisan test tests/Feature/TrackVehicleLocationsJobTest.php`
+  - `php artisan test tests/Feature/TrackingProviderImportDriversTest.php`
+
+## 2026-04-02 | Version: unreleased
+
+### Summary
 - Fixed tracking sync driver resolution so vehicle activity and auto-created runs match drivers by integration ID within the correct merchant.
 
 ### API Changes

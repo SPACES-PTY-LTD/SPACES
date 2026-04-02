@@ -7,7 +7,6 @@ use App\Jobs\ImportProviderLocationsJob;
 use App\Jobs\ImportProviderVehiclesJob;
 use App\Models\Merchant;
 use App\Models\MerchantIntegration;
-use App\Models\Carrier;
 use App\Models\Driver;
 use App\Models\Location;
 use App\Models\TrackingProvider;
@@ -26,7 +25,10 @@ class MerchantIntegrationService
 {
     private const IMPORT_TYPES = ['locations', 'drivers', 'vehicles'];
 
-    public function __construct(private ActivityLogService $activityLogService)
+    public function __construct(
+        private ActivityLogService $activityLogService,
+        private DriverService $driverService,
+    )
     {
     }
 
@@ -461,177 +463,15 @@ class MerchantIntegrationService
             $payload = [];
         }
 
-        $carrierId = $this->getOrCreateMerchantCarrierId($merchant);
         $providerSlug = Str::slug($provider->name);
-        $importedDriverIds = [];
-        $itemsToImport = [];
+        $result = $this->driverService->upsertProviderImportedDrivers(
+            merchant: $merchant,
+            integration: $integration,
+            providerSlug: $providerSlug,
+            payload: is_array($payload) ? $payload : [],
+        );
 
-        foreach ($payload as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-
-            $integrationId = $item['integration_id'] ?? null;
-            if (!$integrationId) {
-                continue;
-            }
-
-            $itemsToImport[] = [
-                'integration_id' => (string) $integrationId,
-                'item' => $item,
-            ];
-        }
-
-        if (empty($itemsToImport)) {
-            $this->activityLogService->log(
-                action: 'imported',
-                entityType: 'driver',
-                actor: $user,
-                accountId: $integration->account_id,
-                merchantId: $merchant->id,
-                title: 'Drivers imported from tracking provider',
-                metadata: [
-                    'provider_id' => $providerUuid,
-                    'provider' => Str::slug($provider->name),
-                    'imported_count' => 0,
-                ]
-            );
-
-            return ['imported_count' => 0, 'drivers' => []];
-        }
-
-        $integrationIds = array_values(array_unique(array_column($itemsToImport, 'integration_id')));
-        $requestedEmails = [];
-
-        $importedAt = now();
-        foreach ($itemsToImport as $entry) {
-            $candidate = $entry['item']['email'] ?? null;
-            if (is_string($candidate) && $candidate !== '') {
-                $requestedEmails[] = $candidate;
-            }
-        }
-
-        $existingDriversByIntegrationId = Driver::query()
-            ->with('user')
-            ->where(function (Builder $builder) use ($integration, $merchant) {
-                $builder->where('merchant_id', $merchant->id)
-                    ->orWhere(function (Builder $legacyBuilder) use ($integration) {
-                        $legacyBuilder->whereNull('merchant_id')
-                            ->where('account_id', $integration->account_id);
-                    });
-            })
-            ->whereIn('intergration_id', $integrationIds)
-            ->get()
-            ->keyBy(fn (Driver $driver) => (string) $driver->intergration_id);
-
-        $knownEmailOwners = [];
-        $accountUsersByEmail = [];
-        if (!empty($requestedEmails)) {
-            $uniqueEmails = array_values(array_unique($requestedEmails));
-
-            $users = User::query()
-                ->whereIn('email', $uniqueEmails)
-                ->get();
-
-            foreach ($users as $knownUser) {
-                $emailKey = Str::lower((string) $knownUser->email);
-                $knownEmailOwners[$emailKey] = (int) $knownUser->id;
-
-                if ((int) $knownUser->account_id === (int) $integration->account_id) {
-                    $accountUsersByEmail[$emailKey] = $knownUser;
-                }
-            }
-        }
-        foreach ($itemsToImport as $entry) {
-            $integrationId = $entry['integration_id'];
-            $item = $entry['item'];
-            $driver = $existingDriversByIntegrationId->get($integrationId);
-
-            $email = $item['email'] ?? null;
-            if (!$email) {
-                $email = $this->buildImportedDriverEmailFast($providerSlug, $integrationId, $knownEmailOwners);
-            }
-
-            if (!$driver) {
-                $driver = new Driver();
-                $driver->account_id = $integration->account_id;
-                $driver->merchant_id = $merchant->id;
-                $driver->intergration_id = $integrationId;
-                $existingDriversByIntegrationId->put($integrationId, $driver);
-            }
-
-            $userModel = $driver->user;
-            if (!$userModel) {
-                $emailKey = Str::lower((string) $email);
-                $userModel = $accountUsersByEmail[$emailKey] ?? null;
-
-                if (!$userModel && $this->isEmailTakenByOther($email, null, $knownEmailOwners)) {
-                    $email = $this->buildImportedDriverEmailFast($providerSlug, $integrationId, $knownEmailOwners);
-                }
-
-                if (!$userModel) {
-                    $userModel = new User();
-                    $userModel->email = $email;
-                    $userModel->password = Str::random(48);
-                }
-            }
-
-            $userModel->account_id = $integration->account_id;
-            $userModel->name = $item['name'] ?? $userModel->name ?? 'Imported Driver '.$integrationId;
-            $userModel->telephone = $item['telephone'] ?? $userModel->telephone;
-            $userModel->role = 'driver';
-
-            if (($item['email'] ?? null) && $item['email'] !== $userModel->email) {
-                $candidateEmail = $item['email'];
-                if (!$this->isEmailTakenByOther($candidateEmail, $userModel->id, $knownEmailOwners)) {
-                    $userModel->email = $candidateEmail;
-                }
-            }
-
-            $userModel->save();
-            $userEmailKey = Str::lower((string) $userModel->email);
-            $knownEmailOwners[$userEmailKey] = (int) $userModel->id;
-            $accountUsersByEmail[$userEmailKey] = $userModel;
-
-            $driver->user_id = $userModel->id;
-            $driver->merchant_id = $merchant->id;
-            $driver->carrier_id = $carrierId;
-
-            if (array_key_exists('is_active', $item)) {
-                $driver->is_active = (bool) $item['is_active'];
-            } elseif (!$driver->exists) {
-                $driver->is_active = true;
-            }
-
-            if (array_key_exists('notes', $item)) {
-                $driver->notes = $item['notes'];
-            }
-            $driver->imported_at = $importedAt;
-            $driver->metadata = $this->mergeMetadata($driver->metadata, [
-                'provider' => Str::slug($provider->name),
-                'imported_at' => now()->toIso8601String(),
-                'provider_payload' => $item['provider_payload'] ?? null,
-            ]);
-
-            $driver->save();
-            $importedDriverIds[] = (int) $driver->id;
-        }
-
-        $loadedDrivers = Driver::query()
-            ->with(['user', 'merchant', 'carrier', 'vehicleType', 'vehicles.vehicleType'])
-            ->whereIn('id', array_values(array_unique($importedDriverIds)))
-            ->get()
-            ->keyBy('id');
-
-        $imported = [];
-        foreach ($importedDriverIds as $driverId) {
-            $driver = $loadedDrivers->get($driverId);
-            if ($driver) {
-                $imported[] = $driver;
-            }
-        }
-
-        $importedCount = count($imported);
+        $importedCount = (int) ($result['imported_count'] ?? 0);
         $this->activityLogService->log(
             action: 'imported',
             entityType: 'driver',
@@ -648,7 +488,7 @@ class MerchantIntegrationService
 
         return [
             'imported_count' => $importedCount,
-            'drivers' => $imported,
+            'drivers' => $result['drivers'] ?? [],
         ];
     }
 

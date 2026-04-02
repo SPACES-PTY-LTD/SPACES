@@ -297,6 +297,28 @@ class MixIntegrateService
         return $drivers;
     }
 
+    public function import_driver_by_integration_id(
+        array $integrationData = [],
+        string $driverIntegrationId = '',
+        array $integrationOptionsData = []
+    ): ?array {
+        if ($driverIntegrationId === '') {
+            return null;
+        }
+
+        foreach ($this->import_drivers($integrationData, $integrationOptionsData) as $driver) {
+            if (!is_array($driver)) {
+                continue;
+            }
+
+            if (($driver['integration_id'] ?? null) === $driverIntegrationId) {
+                return $driver;
+            }
+        }
+
+        return null;
+    }
+
     public function import_locations(array $integrationData = [], array $integrationOptionsData = []): array
     {
         $token = $this->getBearerToken($integrationData);

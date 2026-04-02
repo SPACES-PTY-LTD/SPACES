@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Carrier;
 use App\Models\Driver;
 use App\Models\Merchant;
+use App\Models\MerchantIntegration;
 use App\Models\User;
 use App\Models\VehicleType;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -458,6 +459,193 @@ class DriverService
         ];
     }
 
+    public function upsertProviderImportedDrivers(
+        Merchant $merchant,
+        MerchantIntegration $integration,
+        string $providerSlug,
+        array $payload
+    ): array {
+        $itemsToImport = [];
+
+        foreach ($payload as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $integrationId = $item['integration_id'] ?? null;
+            if (!$integrationId) {
+                continue;
+            }
+
+            $itemsToImport[] = [
+                'integration_id' => (string) $integrationId,
+                'item' => $item,
+            ];
+        }
+
+        if (empty($itemsToImport)) {
+            return [
+                'imported_count' => 0,
+                'created_count' => 0,
+                'updated_count' => 0,
+                'drivers' => [],
+            ];
+        }
+
+        $carrierId = $this->getOrCreateMerchantCarrierIdForMerchant($merchant);
+        $integrationIds = array_values(array_unique(array_column($itemsToImport, 'integration_id')));
+        $requestedEmails = [];
+
+        $importedAt = now();
+        foreach ($itemsToImport as $entry) {
+            $candidate = $entry['item']['email'] ?? null;
+            if (is_string($candidate) && $candidate !== '') {
+                $requestedEmails[] = $candidate;
+            }
+        }
+
+        $existingDriversByIntegrationId = Driver::query()
+            ->with('user')
+            ->where(function (Builder $builder) use ($integration, $merchant) {
+                $builder->where('merchant_id', $merchant->id)
+                    ->orWhere(function (Builder $legacyBuilder) use ($integration) {
+                        $legacyBuilder->whereNull('merchant_id')
+                            ->where('account_id', $integration->account_id);
+                    });
+            })
+            ->whereIn('intergration_id', $integrationIds)
+            ->get()
+            ->keyBy(fn (Driver $driver) => (string) $driver->intergration_id);
+
+        $knownEmailOwners = [];
+        $accountUsersByEmail = [];
+        if (!empty($requestedEmails)) {
+            $uniqueEmails = array_values(array_unique($requestedEmails));
+
+            $users = User::query()
+                ->whereIn('email', $uniqueEmails)
+                ->get();
+
+            foreach ($users as $knownUser) {
+                $emailKey = Str::lower((string) $knownUser->email);
+                $knownEmailOwners[$emailKey] = (int) $knownUser->id;
+
+                if ((int) $knownUser->account_id === (int) $integration->account_id) {
+                    $accountUsersByEmail[$emailKey] = $knownUser;
+                }
+            }
+        }
+
+        $importedDriverIds = [];
+        $createdCount = 0;
+        $updatedCount = 0;
+
+        foreach ($itemsToImport as $entry) {
+            $integrationId = $entry['integration_id'];
+            $item = $entry['item'];
+            $driver = $existingDriversByIntegrationId->get($integrationId);
+
+            $email = $item['email'] ?? null;
+            if (!$email) {
+                $email = $this->buildImportedDriverEmailFast($providerSlug, $integrationId, $knownEmailOwners);
+            }
+
+            $isUpdate = (bool) $driver;
+
+            if (!$driver) {
+                $driver = new Driver();
+                $driver->account_id = $integration->account_id;
+                $driver->merchant_id = $merchant->id;
+                $driver->intergration_id = $integrationId;
+                $existingDriversByIntegrationId->put($integrationId, $driver);
+            }
+
+            $userModel = $driver->user;
+            if (!$userModel) {
+                $emailKey = Str::lower((string) $email);
+                $userModel = $accountUsersByEmail[$emailKey] ?? null;
+
+                if (!$userModel && $this->isEmailTakenByOther($email, null, $knownEmailOwners)) {
+                    $email = $this->buildImportedDriverEmailFast($providerSlug, $integrationId, $knownEmailOwners);
+                }
+
+                if (!$userModel) {
+                    $userModel = new User();
+                    $userModel->email = $email;
+                    $userModel->password = Str::random(48);
+                }
+            }
+
+            $userModel->account_id = $integration->account_id;
+            $userModel->name = $item['name'] ?? $userModel->name ?? 'Imported Driver '.$integrationId;
+            $userModel->telephone = $item['telephone'] ?? $userModel->telephone;
+            $userModel->role = 'driver';
+
+            if (($item['email'] ?? null) && $item['email'] !== $userModel->email) {
+                $candidateEmail = $item['email'];
+                if (!$this->isEmailTakenByOther($candidateEmail, $userModel->id, $knownEmailOwners)) {
+                    $userModel->email = $candidateEmail;
+                }
+            }
+
+            $userModel->save();
+            $userEmailKey = Str::lower((string) $userModel->email);
+            $knownEmailOwners[$userEmailKey] = (int) $userModel->id;
+            $accountUsersByEmail[$userEmailKey] = $userModel;
+
+            $driver->user_id = $userModel->id;
+            $driver->merchant_id = $merchant->id;
+            $driver->carrier_id = $carrierId;
+
+            if (array_key_exists('is_active', $item)) {
+                $driver->is_active = (bool) $item['is_active'];
+            } elseif (!$driver->exists) {
+                $driver->is_active = true;
+            }
+
+            if (array_key_exists('notes', $item)) {
+                $driver->notes = $item['notes'];
+            }
+
+            $driver->imported_at = $importedAt;
+            $driver->metadata = $this->mergeMetadata($driver->metadata, [
+                'provider' => Str::slug($providerSlug),
+                'imported_at' => now()->toIso8601String(),
+                'provider_payload' => $item['provider_payload'] ?? null,
+            ]);
+
+            $driver->save();
+
+            $importedDriverIds[] = (int) $driver->id;
+            if ($isUpdate) {
+                $updatedCount++;
+            } else {
+                $createdCount++;
+            }
+        }
+
+        $loadedDrivers = Driver::query()
+            ->with(['user', 'merchant', 'carrier', 'vehicleType', 'vehicles.vehicleType'])
+            ->whereIn('id', array_values(array_unique($importedDriverIds)))
+            ->get()
+            ->keyBy('id');
+
+        $imported = [];
+        foreach ($importedDriverIds as $driverId) {
+            $driver = $loadedDrivers->get($driverId);
+            if ($driver) {
+                $imported[] = $driver;
+            }
+        }
+
+        return [
+            'imported_count' => count($imported),
+            'created_count' => $createdCount,
+            'updated_count' => $updatedCount,
+            'drivers' => $imported,
+        ];
+    }
+
     private function isMerchant(User $user): bool
     {
         return $user->role === 'user';
@@ -503,9 +691,14 @@ class DriverService
             return null;
         }
 
+        return $this->getOrCreateMerchantCarrierIdForMerchant($merchant);
+    }
+
+    private function getOrCreateMerchantCarrierIdForMerchant(Merchant $merchant): int
+    {
         $existingId = Carrier::where('merchant_id', $merchant->id)->value('id');
         if ($existingId) {
-            return $existingId;
+            return (int) $existingId;
         }
 
         $carrier = Carrier::create([
@@ -517,6 +710,58 @@ class DriverService
         ]);
 
         return $carrier->id;
+    }
+
+    private function buildImportedDriverEmailFast(string $providerSlug, string $integrationId, array &$knownEmailOwners): string
+    {
+        $local = Str::slug($providerSlug.'-'.$integrationId, '-');
+        if ($local === '') {
+            $local = 'driver-'.Str::lower(Str::random(8));
+        }
+
+        $baseEmail = 'imported+'.substr($local, 0, 48).'@drivers.local';
+        $email = $baseEmail;
+        $suffix = 1;
+
+        while ($this->isEmailTakenByOther($email, null, $knownEmailOwners)) {
+            $email = 'imported+'.substr($local, 0, 44).'-'.$suffix.'@drivers.local';
+            $suffix++;
+        }
+
+        return $email;
+    }
+
+    private function isEmailTakenByOther(?string $email, ?int $currentUserId, array &$knownEmailOwners): bool
+    {
+        if (!is_string($email) || $email === '') {
+            return false;
+        }
+
+        $key = Str::lower($email);
+
+        if (!array_key_exists($key, $knownEmailOwners)) {
+            $ownerId = User::query()->where('email', $email)->value('id');
+            $knownEmailOwners[$key] = $ownerId ? (int) $ownerId : null;
+        }
+
+        $ownerId = $knownEmailOwners[$key];
+        if (!$ownerId) {
+            return false;
+        }
+
+        if ($currentUserId && (int) $ownerId === (int) $currentUserId) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function mergeMetadata(?array $existing, array $updates): array
+    {
+        return array_merge($existing ?? [], array_filter(
+            $updates,
+            static fn ($value) => $value !== null
+        ));
     }
 
     private function resolveImportMerchant(User $user, string $merchantUuid): Merchant
