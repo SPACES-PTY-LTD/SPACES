@@ -36,21 +36,7 @@ type FormState = {
   vinNumber: string
   engineNumber: string
   refCode: string
-  lastLocationAddress: string
   isActive: "true" | "false"
-}
-
-function formatVehicleLocationAddress(location?: Vehicle["last_location_address"]) {
-  if (!location) return ""
-  return [
-    location.address_line_1,
-    location.address_line_2,
-    location.city,
-    location.province,
-    location.post_code,
-  ]
-    .filter(Boolean)
-    .join(", ")
 }
 
 export function VehicleDialog({
@@ -79,7 +65,6 @@ export function VehicleDialog({
     vinNumber: vehicle?.vin_number ?? "",
     engineNumber: vehicle?.engine_number ?? "",
     refCode: vehicle?.ref_code ?? "",
-    lastLocationAddress: formatVehicleLocationAddress(vehicle?.last_location_address),
     isActive: vehicle?.is_active === false ? "false" : "true",
   })
 
@@ -119,7 +104,6 @@ export function VehicleDialog({
       vinNumber: vehicle?.vin_number ?? "",
       engineNumber: vehicle?.engine_number ?? "",
       refCode: vehicle?.ref_code ?? "",
-      lastLocationAddress: formatVehicleLocationAddress(vehicle?.last_location_address),
       isActive: vehicle?.is_active === false ? "false" : "true",
     })
   }, [open, vehicle])
@@ -149,7 +133,6 @@ export function VehicleDialog({
       }
 
       const payload = {
-        merchant_id: activeMerchantId,
         vehicle_type_id: values.vehicleTypeId,
         make: values.make,
         model: values.model,
@@ -158,7 +141,6 @@ export function VehicleDialog({
         vin_number: values.vinNumber || null,
         engine_number: values.engineNumber || null,
         ref_code: values.refCode || null,
-        last_location_address: values.lastLocationAddress || null,
         is_active: values.isActive === "true",
       }
       if (isEdit) {
@@ -176,7 +158,13 @@ export function VehicleDialog({
         }
         toast.success("Vehicle updated.")
       } else {
-        const result = await createVehicle(payload, accessToken)
+        const result = await createVehicle(
+          {
+            merchant_id: activeMerchantId,
+            ...payload,
+          },
+          accessToken
+        )
         if (isApiErrorResponse(result)) {
           toast.error(result.message)
           return

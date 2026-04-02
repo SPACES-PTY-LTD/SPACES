@@ -23,6 +23,34 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
+- Fixed admin vehicle edits to submit only the fields present on the vehicle form, avoiding save failures caused by extra hidden payload fields.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The vehicle edit dialog now sends only the editable vehicle fields shown in the form when saving changes.
+- Vehicle update requests no longer include hidden location data or create-only merchant assignment data from the admin vehicle dialog.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Removed unused hidden vehicle location form state from the admin vehicle dialog and split create vs update payload construction.
+
+### Verification
+- Updated files:
+  - `website/src/components/vehicles/vehicle-dialog.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `npx eslint src/components/vehicles/vehicle-dialog.tsx`
+
+## 2026-04-02 | Version: unreleased
+
+### Summary
 - Fixed driver detail lookups to honor the requested `merchant_id`, preventing false 404s when a user belongs to multiple merchants.
 
 ### API Changes
