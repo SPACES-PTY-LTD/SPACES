@@ -56,6 +56,7 @@ export function LocationDialogContent({
         }),
         getShipmentsFullReport(
           {
+            merchant_id: merchantId ?? undefined,
             from_location_id: locationId,
             page: 1,
             per_page: 1,
@@ -64,6 +65,7 @@ export function LocationDialogContent({
         ),
         getShipmentsFullReport(
           {
+            merchant_id: merchantId ?? undefined,
             to_location_id: locationId,
             page: 1,
             per_page: 1,

@@ -23,6 +23,35 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
+- Fixed unscoped shipments report calls in location detail views so merchant-specific report endpoints always receive the selected `merchant_id`.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Location detail shipment counters now pass `merchant_id` when loading outbound and inbound shipment report totals.
+- The dashboard location dialog now passes `merchant_id` for the same shipment report lookups, avoiding `The merchant_id field is required.` validation errors.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Aligned all remaining `getShipmentsFullReport` location-detail call sites with the stricter backend merchant scoping requirement.
+
+### Verification
+- Updated files:
+  - `website/src/components/locations/location-detail-content.tsx`
+  - `website/src/components/dashboard/location-dialog-content.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `npx eslint src/components/locations/location-detail-content.tsx src/components/dashboard/location-dialog-content.tsx`
+
+## 2026-04-02 | Version: unreleased
+
+### Summary
 - Improved admin validation error messaging so report screens show the first concrete field error instead of the generic `Validation failed.` message.
 
 ### API Changes
