@@ -96,21 +96,22 @@ export function CreateDriverDialog({
     })
   }
 
+  const requiredFields: Array<{ key: keyof FormState; label: string }> = [
+    { key: "name", label: "Driver name" },
+    { key: "email", label: "Email" },
+    { key: "password", label: "Password" },
+    { key: "telephone", label: "Telephone" },
+  ]
+
   const handleSubmit = async () => {
     const needsCarrier = !isUserRole
-    if (
-      !values.name ||
-      !values.email ||
-      !values.password ||
-      !values.telephone
-    ) {
-      console.log("Validation failed", values)
-      toast.error("Fill in all required fields.")
+    const missingField = requiredFields.find(({ key }) => values[key].trim() === "")
+    if (missingField) {
+      toast.error(`${missingField.label} is required.`)
       return
     }
-    if (needsCarrier && !values.carrierId) {
-      console.log("Validation failed", values)
-      toast.error("Fill in all required fields.")
+    if (needsCarrier && values.carrierId.trim() === "") {
+      toast.error("Carrier is required.")
       return
     }
     setLoading(true)

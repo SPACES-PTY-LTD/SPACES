@@ -23,7 +23,7 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
-- Fixed admin vehicle edits to submit only the fields present on the vehicle form, and made vehicle form validation identify the exact missing required field.
+- Fixed admin vehicle edits to submit only the fields present on the vehicle form, and made vehicle and driver form validation identify the exact missing required field.
 
 ### API Changes
 - None.
@@ -35,19 +35,22 @@ Add new entries at the top (newest first).
 - The vehicle edit dialog now sends only the editable vehicle fields shown in the form when saving changes.
 - Vehicle update requests no longer include hidden location data or create-only merchant assignment data from the admin vehicle dialog.
 - Vehicle form validation now shows the specific missing required field, such as `Plate number is required.`, instead of a generic message.
+- Driver creation and driver vehicle edit dialogs now show the specific missing required field instead of the generic required-fields error.
 
 ### Breaking Changes
 - None.
 
 ### Internal Changes
-- Removed unused hidden vehicle location form state, split create vs update payload construction, and centralized required field labels for clearer validation errors.
+- Removed unused hidden vehicle location form state, split create vs update payload construction, and centralized required field labels across related vehicle and driver dialogs for clearer validation errors.
 
 ### Verification
 - Updated files:
   - `website/src/components/vehicles/vehicle-dialog.tsx`
+  - `website/src/components/drivers/vehicle-dialog.tsx`
+  - `website/src/components/drivers/create-driver-dialog.tsx`
   - `docs/release-notes.md`
 - Verification run:
-  - `npx eslint src/components/vehicles/vehicle-dialog.tsx`
+  - `npx eslint src/components/vehicles/vehicle-dialog.tsx src/components/drivers/vehicle-dialog.tsx src/components/drivers/create-driver-dialog.tsx`
 
 ## 2026-04-02 | Version: unreleased
 
