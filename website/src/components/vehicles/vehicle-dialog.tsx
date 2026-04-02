@@ -116,7 +116,6 @@ export function VehicleDialog({
     { key: "vehicleTypeId", label: "Vehicle type" },
     { key: "make", label: "Make" },
     { key: "model", label: "Model" },
-    { key: "color", label: "Color" },
     { key: "plateNumber", label: "Plate number" },
   ]
 
