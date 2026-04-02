@@ -122,11 +122,11 @@ class DriverService
             ->orderByDesc('drivers.id');
     }
 
-    public function getDriver(User $user, string $driverUuid): Driver
+    public function getDriver(User $user, string $driverUuid, ?string $merchantUuid = null): Driver
     {
         $query = Driver::with(['user', 'merchant', 'carrier', 'vehicleType', 'vehicles.vehicleType'])->where('uuid', $driverUuid);
         if ($this->isMerchant($user)) {
-            $merchant = $this->resolveMerchant($user);
+            $merchant = $this->resolveMerchant($user, $merchantUuid);
             if (!$merchant) {
                 $query->whereRaw('1 = 0');
             } else {
@@ -651,8 +651,26 @@ class DriverService
         return $user->role === 'user';
     }
 
-    private function resolveMerchant(User $user): ?Merchant
+    private function resolveMerchant(User $user, ?string $merchantUuid = null): ?Merchant
     {
+        if (!empty($merchantUuid)) {
+            $merchant = $user->merchants()
+                ->where('merchants.uuid', $merchantUuid)
+                ->orderBy('merchants.id')
+                ->first();
+            if ($merchant) {
+                return $merchant;
+            }
+
+            $merchant = $user->ownedMerchants()
+                ->where('uuid', $merchantUuid)
+                ->orderBy('id')
+                ->first();
+            if ($merchant) {
+                return $merchant;
+            }
+        }
+
         $merchant = $user->merchants()->orderBy('merchants.id')->first();
         if (!$merchant) {
             $merchant = $user->ownedMerchants()->orderBy('id')->first();

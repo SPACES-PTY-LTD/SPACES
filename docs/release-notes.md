@@ -23,6 +23,36 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
+- Fixed driver detail lookups to honor the requested `merchant_id`, preventing false 404s when a user belongs to multiple merchants.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/api/v1/drivers/{driver_uuid}` now resolves merchant-scoped access using the supplied `merchant_id` for merchant users before loading the driver.
+- Driver detail pages and links from merchant-scoped reports now load correctly even when the selected merchant is not the first merchant attached to the user.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added regression coverage for fetching a driver under a non-default merchant membership.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/DriverController.php`
+  - `app/Services/DriverService.php`
+  - `tests/Feature/DriverIndexTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test tests/Feature/DriverIndexTest.php`
+
+## 2026-04-02 | Version: unreleased
+
+### Summary
 - Fixed a frontend build failure by aligning the shared `Shipment` type with the driver data already used by the shipments list page.
 
 ### API Changes

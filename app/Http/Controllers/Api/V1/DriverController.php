@@ -11,6 +11,7 @@ use App\Http\Requests\UpdateDriverPasswordRequest;
 use App\Http\Resources\DriverResource;
 use App\Services\DriverService;
 use App\Support\ApiResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -29,10 +30,10 @@ class DriverController extends Controller
         }
     }
 
-    public function show(string $driver_uuid, DriverService $service)
+    public function show(Request $request, string $driver_uuid, DriverService $service)
     {
         try {
-            $driver = $service->getDriver(request()->user(), $driver_uuid);
+            $driver = $service->getDriver($request->user(), $driver_uuid, $request->query('merchant_id'));
 
             return ApiResponse::success(new DriverResource($driver));
         } catch (Throwable $e) {
