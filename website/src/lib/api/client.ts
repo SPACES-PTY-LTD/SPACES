@@ -174,6 +174,8 @@ async function performApiFetch<T>(
       "Request failed url:" + url + ", status:" + response.status
     )
 
+    console.log("!!!!!!!!API URL with Params:", url);
+    console.log("!!!!!!!!API Response Status:", response.status);
     console.log("!!!!!!!!API message:", message);
 
     return { error: true, message, status: response.status, payload }

@@ -23,6 +23,34 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
+- Fixed the shipments report page to reuse the admin shell’s active-merchant fallback so merchant-scoped report requests still include `merchant_id` when the session has merchants but no explicit `selected_merchant`.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The shipments report page now falls back to the first available merchant in the session when `selected_merchant` is empty.
+- This prevents `The merchant_id field is required.` errors on the report page when the UI already shows an implicit active merchant.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Aligned the server-rendered report page’s merchant resolution with the existing admin shell merchant selection behavior.
+
+### Verification
+- Updated files:
+  - `website/src/app/admin/logistics/shipments/reports/shipments_report/page.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `npx eslint src/app/admin/logistics/shipments/reports/shipments_report/page.tsx`
+
+## 2026-04-02 | Version: unreleased
+
+### Summary
 - Fixed unscoped shipments report calls in location detail views so merchant-specific report endpoints always receive the selected `merchant_id`.
 
 ### API Changes
