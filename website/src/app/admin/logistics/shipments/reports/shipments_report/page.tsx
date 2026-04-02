@@ -122,11 +122,10 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
       )
     : null
 
-  const isError = response ? isApiErrorResponse(response) : false
+  const errorResponse = response && isApiErrorResponse(response) ? response : null
+  const isError = Boolean(errorResponse)
   const loadingError = canLoad
-    ? isError
-      ? response.message
-      : null
+    ? errorResponse?.message ?? null
     : "Select a merchant to view the shipments report."
   const reportRows: ShipmentFullReportRow[] =
     response && !isError && response?.data ? response.data : []
