@@ -96,31 +96,40 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
   const sortDirection = normalizeSortDirection(getSingleValue(params.sort_direction))
 
   const session = await requireAuth()
-  const response = await getShipmentsFullReport(
-    {
-      date_created: normalizeDate(dateCreated),
-      created_from: normalizeDate(createdFrom),
-      created_to: normalizeDate(createdTo),
-      collection_date: normalizeDate(collectionDate),
-      shipment_number: normalizeText(shipmentNumber),
-      delivery_note_number: normalizeText(deliveryNoteNumber),
-      truck_plate_number: normalizeText(truckPlateNumber),
-      driver_id: normalizeText(driverId),
-      from_location_id: normalizeText(fromLocationId),
-      to_location_id: normalizeText(toLocationId),
-      shipment_status: normalizeText(shipmentStatus),
-      sort_by: sortBy,
-      sort_direction: sortDirection,
-      page,
-      per_page: perPage,
-    },
-    session.accessToken
-  )
+  const merchantId = session.selected_merchant?.merchant_id ?? undefined
+  const canLoad = Boolean(merchantId)
+  const response = canLoad
+    ? await getShipmentsFullReport(
+        {
+          merchant_id: merchantId,
+          date_created: normalizeDate(dateCreated),
+          created_from: normalizeDate(createdFrom),
+          created_to: normalizeDate(createdTo),
+          collection_date: normalizeDate(collectionDate),
+          shipment_number: normalizeText(shipmentNumber),
+          delivery_note_number: normalizeText(deliveryNoteNumber),
+          truck_plate_number: normalizeText(truckPlateNumber),
+          driver_id: normalizeText(driverId),
+          from_location_id: normalizeText(fromLocationId),
+          to_location_id: normalizeText(toLocationId),
+          shipment_status: normalizeText(shipmentStatus),
+          sort_by: sortBy,
+          sort_direction: sortDirection,
+          page,
+          per_page: perPage,
+        },
+        session.accessToken
+      )
+    : null
 
-  const isError = isApiErrorResponse(response)
-  const loadingError = isError ? response.message : null
+  const isError = response ? isApiErrorResponse(response) : false
+  const loadingError = canLoad
+    ? isError
+      ? response.message
+      : null
+    : "Select a merchant to view the shipments report."
   const reportRows: ShipmentFullReportRow[] =
-    !isError && response?.data ? response.data : []
+    response && !isError && response?.data ? response.data : []
   const rows = reportRows.map((item) => ({
     ...item,
     from_location_display: formatLocation(item.from_location),
@@ -135,7 +144,8 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
       ? AdminRoute.locationDetails(item.to_location.location_id)
       : "",
   }))
-  const tableMeta = !isError ? normalizeTableMeta(response.meta) : undefined
+  const tableMeta =
+    response && !isError ? normalizeTableMeta(response.meta) : undefined
 
   return (
     <div className="space-y-6">

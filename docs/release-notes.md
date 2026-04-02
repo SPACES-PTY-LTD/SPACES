@@ -23,6 +23,34 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
+- Scoped the admin shipments report page to the selected merchant so report results no longer span multiple merchants unexpectedly.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `admin/logistics/shipments/reports/shipments_report` now sends the active `merchant_id` with the shipments full report request.
+- Super admins without a selected merchant now see a prompt to choose a merchant instead of loading an unscoped shipments report.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Reused the existing `getScopedMerchantId(session)` frontend pattern already used by other logistics shipment pages.
+
+### Verification
+- Updated files:
+  - `website/src/app/admin/logistics/shipments/reports/shipments_report/page.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `pnpm`/`npm` not run in this session.
+
+## 2026-04-02 | Version: unreleased
+
+### Summary
 - Added automatic driver creation during vehicle tracking sync when a provider position includes a driver integration id that does not yet exist locally.
 
 ### API Changes
