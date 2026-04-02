@@ -123,12 +123,11 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
     : null
 
   const errorResponse = response && isApiErrorResponse(response) ? response : null
-  const isError = Boolean(errorResponse)
+  const successResponse = response && !isApiErrorResponse(response) ? response : null
   const loadingError = canLoad
     ? errorResponse?.message ?? null
     : "Select a merchant to view the shipments report."
-  const reportRows: ShipmentFullReportRow[] =
-    response && !isError && response?.data ? response.data : []
+  const reportRows: ShipmentFullReportRow[] = successResponse?.data ?? []
   const rows = reportRows.map((item) => ({
     ...item,
     from_location_display: formatLocation(item.from_location),
@@ -143,8 +142,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
       ? AdminRoute.locationDetails(item.to_location.location_id)
       : "",
   }))
-  const tableMeta =
-    response && !isError ? normalizeTableMeta(response.meta) : undefined
+  const tableMeta = successResponse ? normalizeTableMeta(successResponse.meta) : undefined
 
   return (
     <div className="space-y-6">
