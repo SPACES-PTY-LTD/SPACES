@@ -20,6 +20,96 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-04-02 | Version: unreleased
+
+### Summary
+- Fixed tracking sync driver resolution so vehicle activity and auto-created runs match drivers by integration ID within the correct merchant.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `tracking:sync-vehicle-locations` downstream lifecycle processing now prefers driver records whose `merchant_id` matches the current merchant when resolving a `driver_intergration_id`.
+- Same-account drivers from other merchants no longer get attached to vehicle last-known-driver updates or auto-created runs when integration IDs collide.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added a shared merchant-aware driver integration resolver in the auto-run lifecycle service, with a legacy fallback for null-merchant driver records on the same account.
+
+### Verification
+- Updated files:
+  - `app/Services/AutoRunLifecycleService.php`
+  - `tests/Feature/AutoRunLifecycleServiceTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test tests/Feature/AutoRunLifecycleServiceTest.php`
+
+## 2026-04-01 | Version: unreleased
+
+### Summary
+- Highlighted the active merchant in the admin merchant switcher so users can see which merchant is currently selected before switching.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The merchant dropdown in the admin shell now gives the selected merchant a highlighted row style.
+- The active merchant entry now shows a checkmark indicator and removes avatar grayscale for quicker visual recognition.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Kept the merchant switching logic unchanged while adding selected-state styling inside the existing dropdown button rendering.
+
+### Verification
+- Updated files:
+  - `website/src/components/layout/admin-shell.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run in this session.
+
+## 2026-04-01 | Version: unreleased
+
+### Summary
+- Upgraded the existing vehicles CSV flow into a fleet-oriented import experience with a friendlier sample template and vehicle type matching by code or name.
+
+### API Changes
+- `POST /api/v1/vehicles/import` now accepts vehicle type values from the CSV by UUID, `code`, or `name`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The logistics vehicles import dialog now uses fleet-oriented copy for the title, action button, success toast, and sample file download label.
+- The fleet sample CSV now publishes `vehicle_type` values like `car`, `trailer`, and `motorcycle` instead of requiring UUIDs.
+- Vehicle CSV imports continue to upsert using `intergration_id`, then `plate_number`, then `ref_code`.
+- Invalid vehicle types now fail only the affected row and return a row-level error in the import summary.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Kept backward compatibility for legacy CSV files by continuing to accept the `vehicle_type_id` header and UUID values during import.
+
+### Verification
+- Updated files:
+  - `app/Services/VehicleService.php`
+  - `website/src/components/vehicles/import-vehicles-dialog.tsx`
+  - `website/public/samples/vehicles-import-sample.csv`
+  - `tests/Feature/VehicleCsvImportTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test tests/Feature/VehicleCsvImportTest.php`
+
 ## 2026-04-01 | Version: unreleased
 
 ### Summary

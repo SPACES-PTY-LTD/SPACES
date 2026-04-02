@@ -212,6 +212,65 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertSame($driver->id, $run->driver_id);
     }
 
+    public function test_it_links_auto_created_run_to_driver_using_matching_merchant_when_integration_ids_collide(): void
+    {
+        $service = app(AutoRunLifecycleService::class);
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+
+        $otherMerchant = Merchant::create([
+            'account_id' => $merchant->account_id,
+            'owner_user_id' => $merchant->owner_user_id,
+            'name' => 'Other Merchant',
+            'legal_name' => 'Other Merchant LLC',
+            'status' => 'active',
+            'timezone' => 'UTC',
+            'operating_countries' => ['US'],
+        ]);
+
+        $wrongDriverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $wrongDriverUser->forceFill(['account_id' => $merchant->account_id])->save();
+        $wrongDriver = Driver::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $otherMerchant->id,
+            'user_id' => $wrongDriverUser->id,
+            'intergration_id' => 'drv-123',
+            'is_active' => true,
+        ]);
+
+        $correctDriverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $correctDriverUser->forceFill(['account_id' => $merchant->account_id])->save();
+        $correctDriver = Driver::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'user_id' => $correctDriverUser->id,
+            'intergration_id' => 'drv-123',
+            'is_active' => true,
+        ]);
+
+        $this->createLocation($merchant, 'Loading A', true, -33.9200, 18.4200);
+
+        $service->processVehiclePosition(
+            $vehicle,
+            $merchant,
+            -33.9200,
+            18.4200,
+            Carbon::parse('2026-02-21 11:00:00'),
+            null,
+            null,
+            null,
+            'drv-123'
+        );
+
+        $run = Run::query()
+            ->where('merchant_id', $merchant->id)
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($run);
+        $this->assertSame($correctDriver->id, $run->driver_id);
+        $this->assertNotSame($wrongDriver->id, $run->driver_id);
+    }
+
     public function test_it_executes_saved_location_automation_rules_for_non_default_location_types(): void
     {
         $service = app(AutoRunLifecycleService::class);
@@ -416,6 +475,62 @@ class AutoRunLifecycleServiceTest extends TestCase
         $vehicle->refresh();
 
         $this->assertSame($driver->id, $vehicle->last_driver_id);
+        $this->assertSame('2026-02-28T08:00:00+00:00', $vehicle->driver_logged_at?->toIso8601String());
+    }
+
+    public function test_it_updates_vehicle_last_known_driver_using_matching_merchant_when_integration_ids_collide(): void
+    {
+        Carbon::setTestNow('2026-02-28 08:00:00');
+
+        $service = app(AutoRunLifecycleService::class);
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(false);
+
+        $otherMerchant = Merchant::create([
+            'account_id' => $merchant->account_id,
+            'owner_user_id' => $merchant->owner_user_id,
+            'name' => 'Other Merchant',
+            'legal_name' => 'Other Merchant LLC',
+            'status' => 'active',
+            'timezone' => 'UTC',
+            'operating_countries' => ['US'],
+        ]);
+
+        $wrongDriverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $wrongDriverUser->forceFill(['account_id' => $merchant->account_id])->save();
+        $wrongDriver = Driver::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $otherMerchant->id,
+            'user_id' => $wrongDriverUser->id,
+            'intergration_id' => 'drv-live',
+            'is_active' => true,
+        ]);
+
+        $correctDriverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $correctDriverUser->forceFill(['account_id' => $merchant->account_id])->save();
+        $correctDriver = Driver::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'user_id' => $correctDriverUser->id,
+            'intergration_id' => 'drv-live',
+            'is_active' => true,
+        ]);
+
+        $service->processVehiclePosition(
+            $vehicle,
+            $merchant,
+            -33.9200,
+            18.4200,
+            Carbon::parse('2026-02-28 07:30:00'),
+            40,
+            60,
+            null,
+            'drv-live'
+        );
+
+        $vehicle->refresh();
+
+        $this->assertSame($correctDriver->id, $vehicle->last_driver_id);
+        $this->assertNotSame($wrongDriver->id, $vehicle->last_driver_id);
         $this->assertSame('2026-02-28T08:00:00+00:00', $vehicle->driver_logged_at?->toIso8601String());
     }
 

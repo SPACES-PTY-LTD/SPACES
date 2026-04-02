@@ -442,13 +442,18 @@ class VehicleService
 
         $rows = [];
         $line = 1;
-        foreach ($csv as $record) {
+        while (!$csv->eof()) {
+            $record = $csv->fgetcsv();
             $line++;
             if (!is_array($record) || $record === [null]) {
                 continue;
             }
 
-            if (count($record) === 1 && trim((string) ($record[0] ?? '')) === '') {
+            $hasNonEmptyValue = collect($record)->contains(
+                fn ($value) => trim((string) ($value ?? '')) !== ''
+            );
+
+            if (!$hasNonEmptyValue) {
                 continue;
             }
 
@@ -471,10 +476,11 @@ class VehicleService
         }
 
         $errors = [];
-        $vehicleTypeUuid = $normalized['vehicle_type_id'] ?? '';
-        if ($vehicleTypeUuid !== '' && !Str::isUuid($vehicleTypeUuid)) {
-            $errors[] = 'vehicle_type_id must be a valid UUID.';
-        }
+        $vehicleTypeInput = $this->nullableString(
+            $normalized['vehicle_type']
+            ?? $normalized['vehicle_type_id']
+            ?? null
+        );
 
         $odometer = $this->parseNullableInt($normalized['odometer'] ?? null);
         if (($normalized['odometer'] ?? '') !== '' && $odometer === null) {
@@ -507,7 +513,7 @@ class VehicleService
         return [
             'errors' => $errors,
             'data' => [
-                'vehicle_type_id' => $vehicleTypeUuid !== '' ? $vehicleTypeUuid : null,
+                'vehicle_type_id' => $vehicleTypeInput,
                 'make' => $this->nullableString($normalized['make'] ?? null),
                 'model' => $this->nullableString($normalized['model'] ?? null),
                 'color' => $this->nullableString($normalized['color'] ?? null),
@@ -531,10 +537,23 @@ class VehicleService
             return null;
         }
 
-        $vehicleTypeId = VehicleType::query()->where('uuid', $vehicleTypeUuid)->value('id');
+        $normalizedInput = trim($vehicleTypeUuid);
+        $query = VehicleType::query();
+
+        if (Str::isUuid($normalizedInput)) {
+            $query->where('uuid', $normalizedInput);
+        } else {
+            $query->where(function ($vehicleTypeQuery) use ($normalizedInput) {
+                $vehicleTypeQuery
+                    ->whereRaw('LOWER(code) = ?', [Str::lower($normalizedInput)])
+                    ->orWhereRaw('LOWER(name) = ?', [Str::lower($normalizedInput)]);
+            });
+        }
+
+        $vehicleTypeId = $query->value('id');
         if (!$vehicleTypeId) {
             throw ValidationException::withMessages([
-                'vehicle_type_id' => 'vehicle_type_id does not exist.',
+                'vehicle_type_id' => 'vehicle_type must match an existing vehicle type UUID, code, or name.',
             ]);
         }
 

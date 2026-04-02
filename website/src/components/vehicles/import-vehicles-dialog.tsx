@@ -14,12 +14,12 @@ export function ImportVehiclesDialog({
 }) {
   return (
     <ImportCsvDialog
-      title="Import vehicles via CSV"
-      description="Upload a CSV or TXT file to bulk create and update vehicles."
+      title="Import fleet via CSV"
+      description="Upload a CSV or TXT file to bulk create and update fleet vehicles."
       sampleHref="/samples/vehicles-import-sample.csv"
-      sampleLabel="Download sample CSV"
-      actionLabel="Import vehicles"
-      successMessage="Vehicle import completed."
+      sampleLabel="Download fleet sample CSV"
+      actionLabel="Import fleet"
+      successMessage="Fleet import completed."
       accessToken={accessToken}
       merchantId={merchantId}
       lockMerchant={lockMerchant}

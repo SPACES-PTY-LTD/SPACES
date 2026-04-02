@@ -34,7 +34,8 @@ import { LogoutButton } from "@/components/auth/logout-button"
 import { Toaster } from "@/components/ui/sonner"
 import type { Session } from "@/lib/auth"
 import { isMerchantSetupComplete } from "@/lib/merchant-setup"
-import { ChevronDown, EllipsisVertical, Settings, Truck, UserCircle2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Check, ChevronDown, EllipsisVertical, Settings, Truck, UserCircle2 } from "lucide-react"
 import { CreateMerchantDialog } from "@/components/merchants/create-merchant-dialog"
 import { Button } from "../ui/button"
 import { updateLastAccessedMerchant } from "@/lib/api/merchants"
@@ -122,57 +123,77 @@ export function AdminShell({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 {merchants.length ? (
-                  merchants.map((merchant, index) => (
-                    <DropdownMenuItem
-                      key={merchant.merchant_id ?? merchant.name ?? index}
-                      asChild
-                    >
-                      <button
-                        className="w-full"
-                        onClick={async () => {
-                          const toastId = toast.loading("Switching merchant...")
-                          try {
-                            if (!activeSession.accessToken) {
-                              throw new Error("Missing access token.")
-                            }
+                  merchants.map((merchant, index) => {
+                    const isSelected =
+                      merchant.merchant_id != null
+                        ? merchant.merchant_id === selectedMerchant?.merchant_id
+                        : merchant.name === selectedMerchant?.name
 
-                            const persisted = await updateLastAccessedMerchant(
-                              merchant.merchant_id,
-                              activeSession.accessToken
-                            )
-
-                            if ("error" in persisted && persisted.error) {
-                              throw new Error(persisted.message || "Failed to save merchant selection.")
-                            }
-
-                            await update({
-                              merchants,
-                              selected_merchant: merchant,
-                            })
-                            router.refresh()
-                            toast.success("Merchant changed successfully.", {
-                              id: toastId,
-                            })
-                          } catch (err) {
-                            toast.error(
-                              "Failed to switch merchant." +
-                                (err instanceof Error ? " " + err.message : ""),
-                              {
-                                id: toastId,
-                              }
-                            )
-                          }
-                        }}
+                    return (
+                      <DropdownMenuItem
+                        key={merchant.merchant_id ?? merchant.name ?? index}
+                        asChild
                       >
-                        <Avatar className="h-8 w-8 rounded-lg grayscale">
-                          <AvatarFallback className="rounded-lg">
-                            {(merchant.name ?? "").trim().charAt(0) || "M"}
-                          </AvatarFallback>
-                        </Avatar>
-                        {merchant.name ?? "Merchant"}
-                      </button>
-                    </DropdownMenuItem>
-                  ))
+                        <button
+                          className={cn(
+                            "flex w-full items-center gap-2 rounded-sm",
+                            isSelected && "bg-accent text-accent-foreground font-medium"
+                          )}
+                          onClick={async () => {
+                            const toastId = toast.loading("Switching merchant...")
+                            try {
+                              if (!activeSession.accessToken) {
+                                throw new Error("Missing access token.")
+                              }
+
+                              const persisted = await updateLastAccessedMerchant(
+                                merchant.merchant_id,
+                                activeSession.accessToken
+                              )
+
+                              if ("error" in persisted && persisted.error) {
+                                throw new Error(
+                                  persisted.message || "Failed to save merchant selection."
+                                )
+                              }
+
+                              await update({
+                                merchants,
+                                selected_merchant: merchant,
+                              })
+                              router.refresh()
+                              toast.success("Merchant changed successfully.", {
+                                id: toastId,
+                              })
+                            } catch (err) {
+                              toast.error(
+                                "Failed to switch merchant." +
+                                  (err instanceof Error ? " " + err.message : ""),
+                                {
+                                  id: toastId,
+                                }
+                              )
+                            }
+                          }}
+                        >
+                          <Avatar
+                            className={cn(
+                              "h-8 w-8 rounded-lg grayscale",
+                              isSelected && "grayscale-0"
+                            )}
+                          >
+                            <AvatarFallback className="rounded-lg">
+                              {(merchant.name ?? "").trim().charAt(0) || "M"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="flex-1 truncate text-left">
+                            {merchant.name ?? "Merchant"}
+                          </span>
+                          {isSelected ? <Check className="h-4 w-4 shrink-0" /> : null}
+                        </button>
+                      </DropdownMenuItem>
+                    )
+                  })
                 ) : (
                   <DropdownMenuItem disabled>
                     No merchants available

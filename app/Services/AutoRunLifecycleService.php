@@ -329,28 +329,18 @@ class AutoRunLifecycleService
         ?string $driverIntegrationId
     ): ?int {
         if (!empty($driverIntegrationId)) {
-            $driverId = Driver::query()
-                ->where(function ($builder) use ($merchant) {
-                    $builder->where('merchant_id', $merchant->id)
-                        ->orWhere(function ($legacyBuilder) use ($merchant) {
-                            $legacyBuilder->whereNull('merchant_id')
-                                ->where('account_id', $merchant->account_id);
-                        });
-                })
-                ->where('intergration_id', $driverIntegrationId)
-                ->value('id');
+            $driverId = $this->resolveDriverIdByIntegrationForMerchant(
+                merchantId: $merchant->id,
+                accountId: $merchant->account_id,
+                driverIntegrationId: $driverIntegrationId,
+            );
 
             if ($driverId) {
                 return (int) $driverId;
             }
         }
 
-        $fallbackDriverId = DriverVehicle::query()
-            ->where('vehicle_id', $vehicle->id)
-            ->orderByDesc('id')
-            ->value('driver_id');
-
-        return $fallbackDriverId ? (int) $fallbackDriverId : null;
+        return null;
     }
 
     private function handleDeliveryPointEnter(
@@ -1202,10 +1192,11 @@ class AutoRunLifecycleService
     {
         $driverIntegrationId = $activity->metadata['driver_intergration_id'] ?? null;
         if (!empty($driverIntegrationId)) {
-            $driverId = Driver::query()
-                ->where('account_id', $activity->account_id)
-                ->where('intergration_id', $driverIntegrationId)
-                ->value('id');
+            $driverId = $this->resolveDriverIdByIntegrationForMerchant(
+                merchantId: $activity->merchant_id,
+                accountId: $activity->account_id,
+                driverIntegrationId: $driverIntegrationId,
+            );
 
             if ($driverId) {
                 return (int) $driverId;
@@ -1219,6 +1210,35 @@ class AutoRunLifecycleService
         }
 
         return null;
+    }
+
+    private function resolveDriverIdByIntegrationForMerchant(
+        ?int $merchantId,
+        ?int $accountId,
+        string $driverIntegrationId
+    ): ?int {
+        if ($merchantId) {
+            $merchantScopedDriverId = Driver::query()
+                ->where('merchant_id', $merchantId)
+                ->where('intergration_id', $driverIntegrationId)
+                ->value('id');
+
+            if ($merchantScopedDriverId) {
+                return (int) $merchantScopedDriverId;
+            }
+        }
+
+        if (!$accountId) {
+            return null;
+        }
+
+        $legacyDriverId = Driver::query()
+            ->whereNull('merchant_id')
+            ->where('account_id', $accountId)
+            ->where('intergration_id', $driverIntegrationId)
+            ->value('id');
+
+        return $legacyDriverId ? (int) $legacyDriverId : null;
     }
 
     private function updateLatestActivitySnapshot(
