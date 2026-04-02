@@ -49,6 +49,46 @@ function buildUrl(path: string, params?: ApiRequestOptions["params"]) {
   return url.toString()
 }
 
+function extractApiErrorMessage(payload: unknown, fallback: string) {
+  if (!payload || typeof payload !== "object") {
+    return typeof payload === "string" && payload.trim().length > 0 ? payload : fallback
+  }
+
+  const errorPayload = (payload as {
+    error?: {
+      message?: unknown
+      details?: unknown
+    }
+    message?: unknown
+  }).error
+
+  if (typeof errorPayload?.details === "object" && errorPayload.details !== null) {
+    for (const value of Object.values(errorPayload.details as Record<string, unknown>)) {
+      if (Array.isArray(value)) {
+        const firstMessage = value.find(
+          (item): item is string => typeof item === "string" && item.trim().length > 0
+        )
+        if (firstMessage) return firstMessage
+      }
+
+      if (typeof value === "string" && value.trim().length > 0) {
+        return value
+      }
+    }
+  }
+
+  if (typeof errorPayload?.message === "string" && errorPayload.message.trim().length > 0) {
+    return errorPayload.message
+  }
+
+  const payloadMessage = (payload as { message?: unknown }).message
+  if (typeof payloadMessage === "string" && payloadMessage.trim().length > 0) {
+    return payloadMessage
+  }
+
+  return fallback
+}
+
 export async function apiFetch<T>(
   path: string,
   options: ApiRequestOptions = {},
@@ -129,17 +169,10 @@ async function performApiFetch<T>(
       payload = await response.text().catch(() => "")
     }
 
-    let message = "Request failed url:" + url + ", status:" + response.status
-    if (payload && typeof payload === "object") {
-      const maybeError = (payload as { error?: { message?: unknown } }).error
-      if (typeof maybeError?.message === "string") {
-        message = maybeError.message
-      } else if (typeof (payload as { message?: unknown }).message === "string") {
-        message = (payload as { message?: string }).message ?? message
-      }
-    } else if (typeof payload === "string" && payload.trim().length > 0) {
-      message = payload
-    }
+    const message = extractApiErrorMessage(
+      payload,
+      "Request failed url:" + url + ", status:" + response.status
+    )
 
     console.log("!!!!!!!!API message:", message);
 

@@ -23,6 +23,34 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
+- Improved admin validation error messaging so report screens show the first concrete field error instead of the generic `Validation failed.` message.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Frontend API error handling now promotes the first field-level validation message from backend responses.
+- The shipments report now shows actionable validation feedback such as a missing `merchant_id` instead of only the generic validation wrapper text.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Centralized validation-detail extraction in the shared frontend API client used across admin pages.
+
+### Verification
+- Updated files:
+  - `website/src/lib/api/client.ts`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run in this session.
+
+## 2026-04-02 | Version: unreleased
+
+### Summary
 - Added the assigned driver column to the logistics shipments list so dispatch teams can see shipment ownership without opening each shipment.
 
 ### API Changes

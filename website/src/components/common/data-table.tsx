@@ -618,7 +618,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 <TableHead
                   key={String(column.key)}
                   className={cn(
-                    "sticky top-0 z-20",
+                    "sticky top-0 z-10",
                     column.className,
                     columnIndex === columns.length - 1 &&
                     "right-0"
