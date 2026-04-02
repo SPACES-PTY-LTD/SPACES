@@ -112,15 +112,18 @@ export function VehicleDialog({
     setValues((prev) => ({ ...prev, [key]: value }))
   }
 
+  const requiredFields: Array<{ key: keyof FormState; label: string }> = [
+    { key: "vehicleTypeId", label: "Vehicle type" },
+    { key: "make", label: "Make" },
+    { key: "model", label: "Model" },
+    { key: "color", label: "Color" },
+    { key: "plateNumber", label: "Plate number" },
+  ]
+
   const handleSubmit = async () => {
-    if (
-      !values.vehicleTypeId ||
-      !values.make ||
-      !values.model ||
-      !values.color ||
-      !values.plateNumber
-    ) {
-      toast.error("Fill in all required fields.")
+    const missingField = requiredFields.find(({ key }) => values[key].trim() === "")
+    if (missingField) {
+      toast.error(`${missingField.label} is required.`)
       return
     }
     setLoading(true)

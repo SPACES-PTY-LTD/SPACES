@@ -23,7 +23,7 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
-- Fixed admin vehicle edits to submit only the fields present on the vehicle form, avoiding save failures caused by extra hidden payload fields.
+- Fixed admin vehicle edits to submit only the fields present on the vehicle form, and made vehicle form validation identify the exact missing required field.
 
 ### API Changes
 - None.
@@ -34,12 +34,13 @@ Add new entries at the top (newest first).
 ### Behavior Changes
 - The vehicle edit dialog now sends only the editable vehicle fields shown in the form when saving changes.
 - Vehicle update requests no longer include hidden location data or create-only merchant assignment data from the admin vehicle dialog.
+- Vehicle form validation now shows the specific missing required field, such as `Plate number is required.`, instead of a generic message.
 
 ### Breaking Changes
 - None.
 
 ### Internal Changes
-- Removed unused hidden vehicle location form state from the admin vehicle dialog and split create vs update payload construction.
+- Removed unused hidden vehicle location form state, split create vs update payload construction, and centralized required field labels for clearer validation errors.
 
 ### Verification
 - Updated files:
