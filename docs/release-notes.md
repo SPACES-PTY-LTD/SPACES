@@ -23,6 +23,35 @@ Add new entries at the top (newest first).
 ## 2026-04-02 | Version: unreleased
 
 ### Summary
+- Added the assigned driver column to the logistics shipments list so dispatch teams can see shipment ownership without opening each shipment.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The `admin/logistics/shipments` table now shows the current shipment driver name.
+- Driver names in the shipments list link directly to the driver details page when a driver is assigned.
+- Shipments without an assigned driver now show `Unassigned` in the new column.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Reused the existing `ShipmentResource.driver` payload already returned by the shipments API instead of introducing a new field.
+
+### Verification
+- Updated files:
+  - `website/src/app/admin/logistics/shipments/page.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run in this session.
+
+## 2026-04-02 | Version: unreleased
+
+### Summary
 - Scoped the admin shipments report page to the selected merchant so report results no longer span multiple merchants unexpectedly.
 
 ### API Changes
@@ -34,19 +63,22 @@ Add new entries at the top (newest first).
 ### Behavior Changes
 - `admin/logistics/shipments/reports/shipments_report` now sends the active `merchant_id` with the shipments full report request.
 - Super admins without a selected merchant now see a prompt to choose a merchant instead of loading an unscoped shipments report.
+- The `/api/v1/reports/shipments_full_report` endpoint now requires `merchant_id` when no merchant environment is present and returns only shipments for the requested merchant.
 
 ### Breaking Changes
 - None.
 
 ### Internal Changes
-- Reused the existing `getScopedMerchantId(session)` frontend pattern already used by other logistics shipment pages.
+- Added backend enforcement so direct API calls cannot load an unscoped shipments full report outside a merchant context.
 
 ### Verification
 - Updated files:
+  - `app/Http/Controllers/Api/V1/ReportController.php`
+  - `tests/Feature/ShipmentsFullReportTest.php`
   - `website/src/app/admin/logistics/shipments/reports/shipments_report/page.tsx`
   - `docs/release-notes.md`
 - Verification run:
-  - `pnpm`/`npm` not run in this session.
+  - `php artisan test tests/Feature/ShipmentsFullReportTest.php`
 
 ## 2026-04-02 | Version: unreleased
 

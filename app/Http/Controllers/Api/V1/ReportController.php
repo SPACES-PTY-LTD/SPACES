@@ -35,6 +35,8 @@ use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator as PaginationLengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -50,14 +52,24 @@ class ReportController extends Controller
         try {
             $environment = $request->attributes->get('merchant_environment');
             $user = $request->user();
+            $merchantUuid = $request->get('merchant_id');
+
+            if (empty($merchantUuid) && !$environment) {
+                throw ValidationException::withMessages([
+                    'merchant_id' => 'The merchant_id field is required.',
+                ]);
+            }
 
             $latestRunShipmentSub = RunShipment::query()
                 ->selectRaw('shipment_id, MAX(id) as latest_run_shipment_id')
                 ->where('status', '!=', RunShipment::STATUS_REMOVED)
                 ->groupBy('shipment_id');
 
+            $parcelWeightColumn = Schema::hasColumn('shipment_parcels', 'weight')
+                ? 'weight'
+                : 'weight_kg';
             $parcelTotalsSub = DB::table('shipment_parcels')
-                ->selectRaw('shipment_id, COALESCE(SUM(weight), 0) as delivered_volume_order')
+                ->selectRaw("shipment_id, COALESCE(SUM({$parcelWeightColumn}), 0) as delivered_volume_order")
                 ->whereNull('deleted_at')
                 ->groupBy('shipment_id');
 
@@ -92,11 +104,13 @@ class ReportController extends Controller
                 $user
             );
 
-            if (!empty($request->get('merchant_id'))) {
+            if (!empty($merchantUuid)) {
                 $merchantId = Merchant::query()
-                    ->where('uuid', (string) $request->get('merchant_id'))
+                    ->where('uuid', (string) $merchantUuid)
                     ->value('id');
                 $query->where('shipments.merchant_id', $merchantId ?? 0);
+            } elseif ($environment) {
+                $query->where('shipments.merchant_id', $environment->merchant_id);
             }
 
             if (!empty($request->get('date_created'))) {

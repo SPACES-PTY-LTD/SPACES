@@ -106,6 +106,10 @@ export default async function ShipmentsPage({
     : shipments.map((shipment) => ({
         ...shipment,
         href: AdminRoute.shipmentDetails(shipment.shipment_id),
+        driverName: shipment.driver?.name || "Unassigned",
+        driverHref: shipment.driver?.driver_id
+          ? AdminRoute.driverDetails(shipment.driver.driver_id)
+          : "",
         dropoff_location: formatAddress(
           shipment.dropoff_location ?? shipment.dropoff_address
         ),
@@ -293,6 +297,7 @@ export default async function ShipmentsPage({
             link: "href",
           },
           { key: "dropoff_location", label: "To", link: "href" },
+          { key: "driverName", label: "Driver", link: "driverHref" },
           {
             key: "status",
             label: "Status",
