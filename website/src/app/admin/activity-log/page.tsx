@@ -148,18 +148,18 @@ export default async function ActivityLogPage({ searchParams }: ActivityLogPageP
             url_param_name: "account_id",
             placeholder: "Account ID",
           },
-          ...(session.user.role === "super_admin"
-            ? [
-                {
-                  key: "merchant_id",
-                  label: "Merchant ID",
-                  type: "text" as const,
-                  value: merchantId,
-                  url_param_name: "merchant_id",
-                  placeholder: "Merchant ID",
-                },
-              ]
-            : []),
+          // ...(session.user.role === "super_admin"
+          //   ? [
+          //       {
+          //         key: "merchant_id",
+          //         label: "Merchant ID",
+          //         type: "text" as const,
+          //         value: merchantId,
+          //         url_param_name: "merchant_id",
+          //         placeholder: "Merchant ID",
+          //       },
+          //     ]
+          //   : []),
           {
             key: "environment_id",
             label: "Environment ID",

@@ -35,12 +35,14 @@ Add new entries at the top (newest first).
 - The website admin activity log list and detail pages now send the selected session `merchant_id` with each activity log request.
 - Merchant users now see only activity log records for the merchant passed from the current session context on `/admin/activity-log`.
 - Activity log requests without `merchant_id` now fail validation for merchant users, matching other merchant-scoped endpoints.
+- Merchant-scoped website pages that use the shared auth helper now fall back to the first session merchant when `selected_merchant` is temporarily unset, preventing missing `merchant_id` requests during SSR.
 
 ### Breaking Changes
 - None.
 
 ### Internal Changes
 - Switched backend activity log scoping to use resolved request merchant context and added regression coverage for required request merchant scoping.
+- Updated the shared website merchant-scoping helper to resolve a fallback merchant ID from `session.merchants`.
 
 ### Verification
 - Updated files:
@@ -49,6 +51,7 @@ Add new entries at the top (newest first).
   - `website/src/app/admin/activity-log/page.tsx`
   - `website/src/app/admin/activity-log/[logId]/page.tsx`
   - `website/src/lib/api/activity-logs.ts`
+  - `website/src/lib/auth.ts`
   - `tests/Feature/ActivityLogTest.php`
   - `docs/release-notes.md`
 - Verification run:
