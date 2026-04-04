@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listAdminMerchants } from "@/lib/api/admin"
 import { listActivityLogs } from "@/lib/api/activity-logs"
-import { requireAuth } from "@/lib/auth"
+import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { getActivityEntityHref, getActivityLogHref } from "@/lib/activity-log"
 import { normalizeTableMeta } from "@/lib/table"
 
@@ -51,6 +51,8 @@ export default async function ActivityLogPage({ searchParams }: ActivityLogPageP
   const sortDir = normalizeSortDir(getSingleValue(params.sort_dir))
 
   const session = await requireAuth()
+  const scopedMerchantId = getScopedMerchantId(session)
+  const canLoad = session.user.role === "super_admin" || Boolean(scopedMerchantId)
   const adminMerchantsResponse =
     session.user.role === "super_admin"
       ? await listAdminMerchants(session.accessToken)
@@ -69,25 +71,38 @@ export default async function ActivityLogPage({ searchParams }: ActivityLogPageP
     }
   })
 
-  const response = await listActivityLogs(session.accessToken, {
-    page,
-    per_page: perPage,
-    sort_by: sortBy,
-    sort_dir: sortDir,
-    account_id: normalizeText(accountId),
-    merchant_id: normalizeText(merchantId),
-    environment_id: nullEnvironment ? "" : normalizeText(environmentId),
-    actor_user_id: normalizeText(actorUserId),
-    action: normalizeText(action),
-    entity_type: normalizeText(entityType),
-    entity_id: normalizeText(entityId),
-    from: normalizeText(from),
-    to: normalizeText(to),
-  })
+  const resolvedMerchantId =
+    session.user.role === "super_admin"
+      ? normalizeText(merchantId)
+      : scopedMerchantId
 
-  const isError = isApiErrorResponse(response)
-  const loadingError = isError ? response.message : null
-  const rows = isError
+  const response = canLoad
+    ? await listActivityLogs(session.accessToken, {
+        page,
+        per_page: perPage,
+        sort_by: sortBy,
+        sort_dir: sortDir,
+        account_id: normalizeText(accountId),
+        merchant_id: resolvedMerchantId,
+        environment_id: nullEnvironment ? "" : normalizeText(environmentId),
+        actor_user_id: normalizeText(actorUserId),
+        action: normalizeText(action),
+        entity_type: normalizeText(entityType),
+        entity_id: normalizeText(entityId),
+        from: normalizeText(from),
+        to: normalizeText(to),
+      })
+    : null
+
+  const isError = response ? isApiErrorResponse(response) : false
+  const loadingError = canLoad
+    ? isError
+      ? (response && isApiErrorResponse(response)
+          ? response.message
+          : "Failed to load activity logs.")
+      : null
+    : "Select a merchant to view activity logs."
+  const rows = !response || isError
     ? []
     : response.data.map((item) => ({
         ...item,
@@ -98,7 +113,8 @@ export default async function ActivityLogPage({ searchParams }: ActivityLogPageP
         entity_href: getActivityEntityHref(item.entity_type, item.entity_id),
         log_href: getActivityLogHref(item.activity_id),
       }))
-  const tableMeta = isError ? undefined : normalizeTableMeta(response.meta)
+  const tableMeta =
+    response && !isApiErrorResponse(response) ? normalizeTableMeta(response.meta) : undefined
 
   return (
     <div className="space-y-6">
@@ -132,14 +148,18 @@ export default async function ActivityLogPage({ searchParams }: ActivityLogPageP
             url_param_name: "account_id",
             placeholder: "Account ID",
           },
-          {
-            key: "merchant_id",
-            label: "Merchant ID",
-            type: "text",
-            value: merchantId,
-            url_param_name: "merchant_id",
-            placeholder: "Merchant ID",
-          },
+          ...(session.user.role === "super_admin"
+            ? [
+                {
+                  key: "merchant_id",
+                  label: "Merchant ID",
+                  type: "text" as const,
+                  value: merchantId,
+                  url_param_name: "merchant_id",
+                  placeholder: "Merchant ID",
+                },
+              ]
+            : []),
           {
             key: "environment_id",
             label: "Environment ID",

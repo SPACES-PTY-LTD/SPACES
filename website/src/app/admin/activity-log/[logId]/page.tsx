@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { getActivityLog } from "@/lib/api/activity-logs"
-import { requireAuth } from "@/lib/auth"
+import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { getActivityEntityHref } from "@/lib/activity-log"
 
 function formatDateTime(value?: string | null) {
@@ -59,7 +59,10 @@ export default async function ActivityLogDetailPage({
 }) {
   const { logId } = await params
   const session = await requireAuth()
-  const activity = await getActivityLog(logId, session.accessToken)
+  const merchantId = getScopedMerchantId(session)
+  const activity = await getActivityLog(logId, session.accessToken, {
+    merchant_id: merchantId,
+  })
 
   if (isApiErrorResponse(activity)) {
     return (

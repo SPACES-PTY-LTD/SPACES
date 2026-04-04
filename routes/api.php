@@ -215,8 +215,8 @@ Route::prefix('v1')->group(function () {
             Route::patch('billing/merchants/{merchant_uuid}/plan', [BillingController::class, 'updateMerchantPlan']);
 
             Route::get('tracking-providers', [AdminTrackingProviderController::class, 'index']);
-            Route::get('activity-logs', [ActivityLogController::class, 'index']);
-            Route::get('activity-logs/{log_id}', [ActivityLogController::class, 'show']);
+            Route::get('activity-logs', [ActivityLogController::class, 'index'])->middleware('merchant.context');
+            Route::get('activity-logs/{log_id}', [ActivityLogController::class, 'show'])->middleware('merchant.context');
             Route::get('vehicle-activities', [VehicleActivityController::class, 'index']);
             Route::get('vehicle-activities/{activity_uuid}', [VehicleActivityController::class, 'show']);
             Route::get('vehicles/latest-activity-check', [VehicleActivityController::class, 'latestActivityCheck']);

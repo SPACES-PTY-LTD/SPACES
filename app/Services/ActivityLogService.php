@@ -165,6 +165,11 @@ class ActivityLogService
             return $query;
         }
 
+        $requestMerchantId = request()->attributes->get('merchant_id');
+        if (!empty($requestMerchantId)) {
+            return $query->where('merchant_id', $requestMerchantId);
+        }
+
         return MerchantAccess::scopeToMerchants($query, $user);
     }
 }

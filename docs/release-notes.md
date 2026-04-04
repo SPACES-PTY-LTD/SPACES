@@ -20,6 +20,40 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-04-04 | Version: unreleased
+
+### Summary
+- Updated the admin activity log flow to send the current session merchant ID to the activity log endpoints and enforce merchant context from the request.
+
+### API Changes
+- `GET /api/v1/activity-logs` and `GET /api/v1/activity-logs/{log_id}` now run behind `merchant.context` for merchant users and expect the active `merchant_id` to be supplied by the client request.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The website admin activity log list and detail pages now send the selected session `merchant_id` with each activity log request.
+- Merchant users now see only activity log records for the merchant passed from the current session context on `/admin/activity-log`.
+- Activity log requests without `merchant_id` now fail validation for merchant users, matching other merchant-scoped endpoints.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Switched backend activity log scoping to use resolved request merchant context and added regression coverage for required request merchant scoping.
+
+### Verification
+- Updated files:
+  - `app/Services/ActivityLogService.php`
+  - `routes/api.php`
+  - `website/src/app/admin/activity-log/page.tsx`
+  - `website/src/app/admin/activity-log/[logId]/page.tsx`
+  - `website/src/lib/api/activity-logs.ts`
+  - `tests/Feature/ActivityLogTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test tests/Feature/ActivityLogTest.php`
+
 ## 2026-04-02 | Version: unreleased
 
 ### Summary

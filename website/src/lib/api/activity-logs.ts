@@ -17,6 +17,10 @@ export type ListActivityLogsParams = {
   to?: string
 }
 
+type GetActivityLogParams = {
+  merchant_id?: string
+}
+
 type ActivityLogsResponse = ApiEnvelope<ActivityLog[]> & ApiListResponse<ActivityLog>
 
 export async function listActivityLogs(
@@ -43,10 +47,19 @@ export async function listActivityLogs(
   })
 }
 
-export async function getActivityLog(activityId: string, token?: string | null) {
+export async function getActivityLog(
+  activityId: string,
+  token?: string | null,
+  params: GetActivityLogParams = {}
+) {
   const response = await apiFetch<ApiEnvelope<ActivityLog>>(
     `/api/v1/activity-logs/${activityId}`,
-    { token }
+    {
+      token,
+      params: {
+        merchant_id: params.merchant_id,
+      },
+    }
   )
   if (isApiErrorResponse(response)) {
     return response
