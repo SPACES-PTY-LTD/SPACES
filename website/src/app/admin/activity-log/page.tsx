@@ -102,9 +102,11 @@ export default async function ActivityLogPage({ searchParams }: ActivityLogPageP
           : "Failed to load activity logs.")
       : null
     : "Select a merchant to view activity logs."
+  const activityLogs =
+    response && !isApiErrorResponse(response) ? response.data ?? [] : []
   const rows = !response || isError
     ? []
-    : response.data.map((item) => ({
+    : activityLogs.map((item) => ({
         ...item,
         merchant_name_display: item.merchant_id
           ? merchantNameById.get(item.merchant_id) ?? item.merchant_id
