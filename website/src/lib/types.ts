@@ -213,6 +213,13 @@ export interface Shipment {
     email?: string | null
     telephone?: string | null
   } | null
+  vehicle?: {
+    vehicle_id?: UUID
+    plate_number?: string | null
+    ref_code?: string | null
+    make?: string | null
+    model?: string | null
+  } | null
   parcels?: ShipmentParcel[]
   stops?: ShipmentStop[]
   files?: EntityFile[]

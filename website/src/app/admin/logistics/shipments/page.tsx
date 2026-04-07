@@ -110,6 +110,7 @@ export default async function ShipmentsPage({
         driverHref: shipment.driver?.driver_id
           ? AdminRoute.driverDetails(shipment.driver.driver_id)
           : "",
+        truckRegistration: shipment.vehicle?.plate_number || "Unassigned",
         dropoff_location: formatAddress(
           shipment.dropoff_location ?? shipment.dropoff_address
         ),
@@ -282,6 +283,9 @@ export default async function ShipmentsPage({
           { key: "merchant_order_ref", label: "Reference", link: "href" },
           { key: "delivery_note_number", label: "Delivery Note", link: "href" },
           { key: "collection_date", label: "Collection Date", link: "href" },
+          { key: "created_at", label: "Created", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "href" },
+          { key: "truckRegistration", label: "Truck Reg Number", link: "href" },
+          { key: "driverName", label: "Driver", link: "driverHref" },
           ...(isSuperAdmin
             ? [
                 {
@@ -296,15 +300,18 @@ export default async function ShipmentsPage({
             label: "From",
             link: "href",
           },
-          { key: "dropoff_location", label: "To", link: "href" },
-          { key: "driverName", label: "Driver", link: "driverHref" },
+          {
+            key: "dropoff_location",
+            label: "To",
+            link: "href"
+          },
           {
             key: "status",
             label: "Status",
             type: "status",
           },
           { key: "parcels", label: "Parcels Count", type: "count_array" },
-          { key: "created_at", label: "Created", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "href" },
+          
         ]}
       />
 

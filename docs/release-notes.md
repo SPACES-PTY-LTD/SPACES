@@ -20,6 +20,35 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-04-05 | Version: unreleased
+
+### Summary
+- Added the assigned truck registration number to the admin shipments table.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/shipments` now shows a `Truck Reg Number` column immediately after `Created`, using the assigned vehicle plate number when available.
+- Shipments without an assigned vehicle display `Unassigned` in the new column.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Extended the shared frontend `Shipment` type with the optional vehicle payload used by the shipments listing.
+
+### Verification
+- Updated files:
+  - `website/src/app/admin/logistics/shipments/page.tsx`
+  - `website/src/lib/types.ts`
+  - `docs/release-notes.md`
+- Verification run:
+  - Not run.
+
 ## 2026-04-04 | Version: unreleased
 
 ### Summary
