@@ -67,15 +67,7 @@ export function getScopedMerchantId(session: Session): string | undefined {
     return undefined
   }
 
-  const selectedMerchantId = session.selected_merchant?.merchant_id?.trim()
-  if (selectedMerchantId) {
-    return selectedMerchantId
-  }
-
-  const fallbackMerchantId = session.merchants?.find((merchant) => merchant.merchant_id?.trim())
-    ?.merchant_id
-
-  return fallbackMerchantId?.trim() || undefined
+  return session.selected_merchant?.merchant_id
 }
 
 export function canManageSelectedMerchantUsers(session: Session): boolean {
