@@ -44,6 +44,7 @@ class LocationResource extends JsonResource
             'polygon_bounds' => $this->formatPolygonBounds($this->polygon_bounds),
             'google_place_id' => $this->google_place_id,
             'type'=> $this->locationType ? new LocationTypeResource($this->locationType) : null,
+            'tags' => TagResource::collection($this->whenLoaded('tags')),
             'metadata' => $this->metadata,
             'intergration_id' => $this->intergration_id,
             'imported_at' => optional($this->imported_at)?->toIso8601String(),

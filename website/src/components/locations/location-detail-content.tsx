@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { LocationDetailActions } from "@/components/locations/location-detail-actions"
 import { LocationGeofence } from "@/components/locations/location-geofence"
 import { LocationTruckActivityTimelineCard } from "@/components/locations/location-truck-activity-timeline-card"
+import { EntryTagsManager } from "@/components/common/entry-tags-manager"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { getLocation } from "@/lib/api/locations"
 import { getShipmentsFullReport } from "@/lib/api/reports"
@@ -194,6 +195,14 @@ export async function LocationDetailContent({
           </CardContent>
         </Card>
       </div>
+
+      <EntryTagsManager
+        entityType="location"
+        entityId={locationId}
+        merchantId={merchantId ?? location.merchant_id ?? null}
+        accessToken={accessToken}
+        initialTags={location.tags ?? []}
+      />
 
       <LocationTruckActivityTimelineCard
         locationId={locationId}

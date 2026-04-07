@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ImportLocationsRequest;
 use App\Http\Requests\ListLocationsRequest;
 use App\Http\Requests\StoreLocationRequest;
+use App\Http\Requests\SyncTagsRequest;
 use App\Http\Requests\UpdateLocationRequest;
 use App\Http\Resources\LocationResource;
 use App\Services\LocationService;
@@ -79,6 +80,19 @@ class LocationController extends Controller
             Log::error('Location delete failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
 
             return $this->apiError($e, 'LOCATION_DELETE_FAILED', 'Unable to delete location.');
+        }
+    }
+
+    public function syncTags(SyncTagsRequest $request, string $location_uuid, LocationService $service)
+    {
+        try {
+            $location = $service->syncTags($request->user(), $location_uuid, $request->validated('tags'));
+
+            return ApiResponse::success(new LocationResource($location));
+        } catch (Throwable $e) {
+            Log::error('Location tags update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
+            return $this->apiError($e, 'LOCATION_TAGS_UPDATE_FAILED', 'Unable to update location tags.');
         }
     }
 

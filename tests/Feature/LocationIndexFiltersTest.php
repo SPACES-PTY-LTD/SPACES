@@ -16,15 +16,15 @@ class LocationIndexFiltersTest extends TestCase
 
     public function test_it_filters_locations_by_location_type_and_search_term(): void
     {
-        $user = User::withoutEvents(fn () => User::factory()->create(['role' => 'user']));
+        $user = User::factory()->create(['role' => 'user']);
         $account = Account::create(['owner_user_id' => $user->id]);
         $user->account_id = $account->id;
         $user->save();
 
-        $merchant = Merchant::withoutEvents(fn () => Merchant::factory()->create([
+        $merchant = Merchant::factory()->create([
             'owner_user_id' => $user->id,
             'account_id' => $account->id,
-        ]));
+        ]);
         $merchant->users()->attach($user->id, ['role' => 'owner']);
 
         $pickupType = LocationType::create([
@@ -85,7 +85,7 @@ class LocationIndexFiltersTest extends TestCase
             'post_code' => '8001',
         ]);
 
-        $response = $this->actingAs($user)
+        $response = $this->withHeader('Authorization', 'Bearer '.$user->createToken('test-suite')->plainTextToken)
             ->getJson('/api/v1/locations?' . http_build_query([
                 'merchant_id' => $merchant->uuid,
                 'location_type_id' => $pickupType->uuid,

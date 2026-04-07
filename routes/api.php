@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\V1\RouteController;
 use App\Http\Controllers\Api\V1\RunController;
 use App\Http\Controllers\Api\V1\ShipmentController;
 use App\Http\Controllers\Api\V1\ShipmentOfferController;
+use App\Http\Controllers\Api\V1\TagController;
 use App\Http\Controllers\Api\V1\VehicleController;
 use App\Http\Controllers\Api\V1\VehicleActivityController;
 use App\Http\Controllers\Api\V1\WebhookSubscriptionController;
@@ -220,6 +221,7 @@ Route::prefix('v1')->group(function () {
             Route::get('vehicle-activities', [VehicleActivityController::class, 'index']);
             Route::get('vehicle-activities/{activity_uuid}', [VehicleActivityController::class, 'show']);
             Route::get('vehicles/latest-activity-check', [VehicleActivityController::class, 'latestActivityCheck']);
+            Route::get('tags', [TagController::class, 'index'])->middleware('merchant.context');
             
             Route::middleware('role:user')->group(function () {
                 Route::post('tracking-providers/activate', [MerchantIntegrationController::class, 'activateTrackingProvider']);
@@ -258,6 +260,7 @@ Route::prefix('v1')->group(function () {
             Route::get('vehicles/{vehicle_uuid}', [VehicleController::class, 'show']);
             Route::post('vehicles', [VehicleController::class, 'store']);
             Route::patch('vehicles/{vehicle_uuid}/maintenance', [VehicleController::class, 'updateMaintenance']);
+            Route::patch('vehicles/{vehicle_uuid}/tags', [VehicleController::class, 'syncTags']);
             Route::patch('vehicles/{vehicle_uuid}', [VehicleController::class, 'update']);
             Route::delete('vehicles/{vehicle_uuid}', [VehicleController::class, 'destroy']);
 
@@ -272,6 +275,7 @@ Route::prefix('v1')->group(function () {
             Route::get('locations/{location_uuid}', [LocationController::class, 'show']);
             Route::post('locations/import', [LocationController::class, 'import']);
             Route::post('locations', [LocationController::class, 'store']);
+            Route::patch('locations/{location_uuid}/tags', [LocationController::class, 'syncTags']);
             Route::patch('locations/{location_uuid}', [LocationController::class, 'update']);
             Route::delete('locations/{location_uuid}', [LocationController::class, 'destroy']);
 

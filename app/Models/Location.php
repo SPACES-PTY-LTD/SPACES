@@ -6,6 +6,7 @@ use App\Http\Traits\HasAccountId;
 use App\Http\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Location extends Model
@@ -68,6 +69,11 @@ class Location extends Model
     public function locationType()
     {
         return $this->belongsTo(LocationType::class);
+    }
+
+    public function tags(): MorphToMany
+    {
+        return $this->morphToMany(Tag::class, 'taggable')->withTimestamps()->orderBy('name');
     }
 
     public function toAddressArray(): array

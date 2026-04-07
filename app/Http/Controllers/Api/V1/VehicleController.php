@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ImportVehiclesRequest;
 use App\Http\Requests\StoreVehicleRequest;
+use App\Http\Requests\SyncTagsRequest;
 use App\Http\Requests\UpdateVehicleMaintenanceRequest;
 use App\Http\Requests\UpdateVehicleRequest;
 use App\Http\Resources\VehicleResource;
@@ -91,6 +92,19 @@ class VehicleController extends Controller
             Log::error('Vehicle maintenance update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
 
             return $this->apiError($e, 'VEHICLE_MAINTENANCE_UPDATE_FAILED', 'Unable to update vehicle maintenance.');
+        }
+    }
+
+    public function syncTags(SyncTagsRequest $request, string $vehicle_uuid, VehicleService $service)
+    {
+        try {
+            $vehicle = $service->syncTags($request->user(), $vehicle_uuid, $request->validated('tags'));
+
+            return ApiResponse::success(new VehicleResource($vehicle));
+        } catch (Throwable $e) {
+            Log::error('Vehicle tags update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
+            return $this->apiError($e, 'VEHICLE_TAGS_UPDATE_FAILED', 'Unable to update vehicle tags.');
         }
     }
 

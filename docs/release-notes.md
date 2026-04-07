@@ -20,6 +20,52 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-04-07 | Version: unreleased
+
+### Summary
+- Added shared merchant-scoped tags for fleet vehicles and locations, with detail-page tag management in the admin website.
+
+### API Changes
+- Added `GET /api/v1/tags` for merchant-scoped tag lookup.
+- Added `PATCH /api/v1/vehicles/{vehicle_uuid}/tags` to replace a vehicle's assigned tags from a list of tag names.
+- Added `PATCH /api/v1/locations/{location_uuid}/tags` to replace a location's assigned tags from a list of tag names.
+- Vehicle and location API resources now include `tags: [{ tag_id, name, slug }]` when tags are loaded.
+
+### Database Changes
+- Added `tags` for per-merchant shared tag catalog records.
+- Added `taggables` as a polymorphic pivot for assigning tags to vehicles and locations.
+
+### Behavior Changes
+- Vehicle and location detail pages now include a shared tag manager that can search existing tags, create new tags inline, remove assigned tags, and save the updated assignment.
+- Tag assignments are shared between fleet and location entries within the same merchant.
+- Tag assignment updates are recorded in the activity log.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added shared tag synchronization logic, tag resources, request validation, and regression coverage for tag assignment and resource serialization.
+- Updated existing location and vehicle test fixtures to use normal model events so UUIDs are generated during test setup.
+
+### Verification
+- Updated files include:
+  - `app/Services/TagService.php`
+  - `app/Http/Controllers/Api/V1/TagController.php`
+  - `app/Http/Controllers/Api/V1/VehicleController.php`
+  - `app/Http/Controllers/Api/V1/LocationController.php`
+  - `app/Http/Resources/VehicleResource.php`
+  - `app/Http/Resources/LocationResource.php`
+  - `database/migrations/2026_04_07_000001_create_tags_tables.php`
+  - `website/src/components/common/entry-tags-manager.tsx`
+  - `website/src/lib/api/tags.ts`
+  - `website/src/lib/types.ts`
+  - `tests/Feature/EntryTagsTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php artisan test tests/Feature/EntryTagsTest.php`
+  - `php artisan test tests/Feature/EntryTagsTest.php tests/Unit/LocationResourceTest.php tests/Feature/LocationIndexFiltersTest.php tests/Feature/VehicleServiceTest.php`
+  - `npx eslint src/components/common/entry-tags-manager.tsx 'src/app/admin/logistics/vehicles/[vehicleId]/page.tsx' src/components/locations/location-detail-content.tsx src/lib/api/tags.ts src/lib/types.ts`
+
 ## 2026-04-05 | Version: unreleased
 
 ### Summary

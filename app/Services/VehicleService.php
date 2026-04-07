@@ -15,7 +15,10 @@ use Illuminate\Validation\ValidationException;
 
 class VehicleService
 {
-    public function __construct(private ActivityLogService $activityLogService)
+    public function __construct(
+        private ActivityLogService $activityLogService,
+        private TagService $tagService
+    )
     {
     }
 
@@ -35,7 +38,7 @@ class VehicleService
         $sortDirection = in_array($sortDirection, ['asc', 'desc'], true) ? $sortDirection : 'desc';
 
         $query = $this->buildScopedVehicleQuery($user, $filters)
-            ->with(['merchant', 'vehicleType', 'lastDriver.user'])
+            ->with(['merchant', 'vehicleType', 'lastDriver.user', 'tags'])
             ->orderBy($sortColumn, $sortDirection)
             ->orderBy('vehicles.id');
 
@@ -82,7 +85,7 @@ class VehicleService
     public function getVehicle(User $user, string $vehicleUuid, array $filters = []): Vehicle
     {
         $query = $this->buildScopedVehicleQuery($user, $filters)
-            ->with(['merchant', 'vehicleType', 'lastDriver.user'])
+            ->with(['merchant', 'vehicleType', 'lastDriver.user', 'tags'])
             ->where('uuid', $vehicleUuid);
 
         return $query->firstOrFail();
@@ -135,7 +138,7 @@ class VehicleService
             ])
         );
 
-        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user']);
+        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags']);
     }
 
     public function updateMaintenanceMode(User $user, string $vehicleUuid, array $data): Vehicle
@@ -155,7 +158,7 @@ class VehicleService
 
         $vehicle->save();
 
-        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user']);
+        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags']);
     }
 
     public function buildFleetStatusSummary(User $user, array $filters = []): array
@@ -255,7 +258,33 @@ class VehicleService
             );
         }
 
-        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user']);
+        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags']);
+    }
+
+    public function syncTags(User $user, string $vehicleUuid, array $tagNames): Vehicle
+    {
+        $vehicle = $this->getVehicle($user, $vehicleUuid);
+        $before = ['tags' => $this->tagService->namesFor($vehicle)];
+
+        /** @var Vehicle $vehicle */
+        $vehicle = $this->tagService->syncTags($user, $vehicle, $tagNames);
+        $after = ['tags' => $this->tagService->namesFor($vehicle)];
+        $changes = $this->activityLogService->diffChanges($before, $after);
+
+        if (!empty($changes)) {
+            $this->activityLogService->log(
+                action: 'updated',
+                entityType: 'vehicle',
+                entity: $vehicle,
+                actor: $user,
+                accountId: $vehicle->account_id,
+                merchantId: $vehicle->merchant_id,
+                title: 'Vehicle tags updated',
+                changes: $changes
+            );
+        }
+
+        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags']);
     }
 
     public function deleteVehicle(User $user, string $vehicleUuid): void

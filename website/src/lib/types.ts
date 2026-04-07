@@ -534,6 +534,7 @@ export interface Vehicle {
   maintenance_mode_at?: string | null
   maintenance_expected_resolved_at?: string | null
   maintenance_description?: string | null
+  tags?: Tag[]
   status?: Status
   files?: EntityFile[]
   created_at?: string
@@ -569,9 +570,16 @@ export interface Location {
   full_address?: string | null
   google_place_id?: string | null
   polygon_bounds?: number[][] | null
+  tags?: Tag[]
   status?: Status
   created_at?: string
   updated_at?: string
+}
+
+export interface Tag {
+  tag_id: UUID
+  name: string
+  slug: string
 }
 
 export interface LocationType {

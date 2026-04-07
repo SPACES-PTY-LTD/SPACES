@@ -18,7 +18,7 @@ class VehicleServiceTest extends TestCase
     {
         Carbon::setTestNow('2026-02-16 12:00:00');
 
-        $user = User::withoutEvents(fn () => User::factory()->create(['role' => 'user']));
+        $user = User::factory()->create(['role' => 'user']);
         $account = Account::create(['owner_user_id' => $user->id]);
         $user->account_id = $account->id;
         $user->save();
@@ -44,7 +44,7 @@ class VehicleServiceTest extends TestCase
     {
         Carbon::setTestNow('2026-02-16 12:00:00');
 
-        $user = User::withoutEvents(fn () => User::factory()->create(['role' => 'user']));
+        $user = User::factory()->create(['role' => 'user']);
         $account = Account::create(['owner_user_id' => $user->id]);
         $user->account_id = $account->id;
         $user->save();

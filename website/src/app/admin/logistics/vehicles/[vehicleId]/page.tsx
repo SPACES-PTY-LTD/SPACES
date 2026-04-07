@@ -7,6 +7,7 @@ import { VehicleDetailActions } from "@/components/vehicles/vehicle-detail-actio
 import { VehicleLocationMap } from "@/components/vehicles/vehicle-location-map"
 import { VehicleActivityTimelineCard } from "@/components/vehicles/vehicle-activity-timeline-card"
 import { EntityFilesSection } from "@/components/files/entity-files-section"
+import { EntryTagsManager } from "@/components/common/entry-tags-manager"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { getVehicle } from "@/lib/api/vehicles"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
@@ -162,6 +163,14 @@ export default async function VehicleDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <EntryTagsManager
+        entityType="vehicle"
+        entityId={vehicleId}
+        merchantId={scopedMerchantId ?? vehicle.merchant_id ?? null}
+        accessToken={session.accessToken}
+        initialTags={vehicle.tags ?? []}
+      />
 
       <EntityFilesSection
         entityType="vehicle"

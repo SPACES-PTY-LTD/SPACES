@@ -15,7 +15,10 @@ use Illuminate\Validation\ValidationException;
 
 class LocationService
 {
-    public function __construct(private ActivityLogService $activityLogService)
+    public function __construct(
+        private ActivityLogService $activityLogService,
+        private TagService $tagService
+    )
     {
     }
 
@@ -37,7 +40,7 @@ class LocationService
 
         $query = Location::query()
             ->select('locations.*')
-            ->with(['locationType:id,uuid,slug,title'])
+            ->with(['locationType:id,uuid,slug,title', 'tags'])
             ->orderBy($sortColumn, $sortDirection)
             ->orderBy('locations.id');
 
@@ -140,7 +143,7 @@ class LocationService
 
         $query = Location::query()
             ->select('locations.*')
-            ->with(['locationType:id,uuid,slug,title'])
+            ->with(['locationType:id,uuid,slug,title', 'tags'])
             ->where('uuid', $locationUuid);
 
         if ($supportsSpatialText) {
@@ -226,7 +229,7 @@ class LocationService
             ])
         );
 
-        return $location;
+        return $location->load(['locationType:id,uuid,slug,title', 'tags']);
     }
 
     public function updateLocation(User $user, string $locationUuid, array $data): Location
@@ -323,7 +326,34 @@ class LocationService
             );
         }
 
-        return $location;
+        return $location->load(['locationType:id,uuid,slug,title', 'tags']);
+    }
+
+    public function syncTags(User $user, string $locationUuid, array $tagNames): Location
+    {
+        $location = $this->getLocation($user, $locationUuid);
+        $before = ['tags' => $this->tagService->namesFor($location)];
+
+        /** @var Location $location */
+        $location = $this->tagService->syncTags($user, $location, $tagNames);
+        $after = ['tags' => $this->tagService->namesFor($location)];
+        $changes = $this->activityLogService->diffChanges($before, $after);
+
+        if (!empty($changes)) {
+            $this->activityLogService->log(
+                action: 'updated',
+                entityType: 'location',
+                entity: $location,
+                actor: $user,
+                accountId: $location->account_id,
+                merchantId: $location->merchant_id,
+                environmentId: $location->environment_id,
+                title: 'Location tags updated',
+                changes: $changes
+            );
+        }
+
+        return $location->load(['locationType:id,uuid,slug,title', 'tags']);
     }
 
     public function deleteLocation(User $user, string $locationUuid): void
