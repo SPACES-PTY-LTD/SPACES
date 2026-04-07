@@ -36,7 +36,7 @@ Add new entries at the top (newest first).
 - Added `taggables` as a polymorphic pivot for assigning tags to vehicles and locations.
 
 ### Behavior Changes
-- Vehicle and location detail pages now include a shared tag manager that can search existing tags, create new tags inline, remove assigned tags, and save the updated assignment.
+- Vehicle and location detail pages now include a shared tag manager that can search existing tags, create new tags inline, and autosave when tags are added or removed.
 - Tag assignments are shared between fleet and location entries within the same merchant.
 - Tag assignment updates are recorded in the activity log.
 
@@ -65,6 +65,7 @@ Add new entries at the top (newest first).
   - `php artisan test tests/Feature/EntryTagsTest.php`
   - `php artisan test tests/Feature/EntryTagsTest.php tests/Unit/LocationResourceTest.php tests/Feature/LocationIndexFiltersTest.php tests/Feature/VehicleServiceTest.php`
   - `npx eslint src/components/common/entry-tags-manager.tsx 'src/app/admin/logistics/vehicles/[vehicleId]/page.tsx' src/components/locations/location-detail-content.tsx src/lib/api/tags.ts src/lib/types.ts`
+  - `npx eslint src/components/common/entry-tags-manager.tsx`
 
 ## 2026-04-05 | Version: unreleased
 

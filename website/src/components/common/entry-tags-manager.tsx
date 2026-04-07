@@ -92,34 +92,10 @@ export function EntryTagsManager({
     !selectedKeys.has(tagKey(searchName)) &&
     !availableTags.some((tag) => tagKey(tag.name) === tagKey(searchName))
 
-  const addTag = (tag: Tag) => {
-    if (selectedKeys.has(tagKey(tag.name))) return
-    setSelectedTags((current) => [...current, tag])
-    setSearch("")
-  }
-
-  const createDraftTag = () => {
-    if (!canCreate) return
-    setSelectedTags((current) => [
-      ...current,
-      {
-        tag_id: `draft-${tagKey(searchName)}`,
-        name: searchName,
-        slug: tagKey(searchName).replace(/\s+/g, "-"),
-      },
-    ])
-    setSearch("")
-  }
-
-  const removeTag = (tag: Tag) => {
-    setSelectedTags((current) =>
-      current.filter((item) => tagKey(item.name) !== tagKey(tag.name))
-    )
-  }
-
-  const saveTags = async () => {
+  const syncTags = async (nextTags: Tag[], previousTags: Tag[]) => {
     setSaving(true)
-    const names = selectedTags.map((tag) => tag.name)
+    setSelectedTags(nextTags)
+    const names = nextTags.map((tag) => tag.name)
     const response =
       entityType === "vehicle"
         ? await updateVehicleTags(entityId, names, accessToken)
@@ -127,6 +103,7 @@ export function EntryTagsManager({
 
     if (isApiErrorResponse(response)) {
       toast.error(response.message || "Failed to update tags.")
+      setSelectedTags(previousTags)
       setSaving(false)
       return
     }
@@ -135,6 +112,37 @@ export function EntryTagsManager({
     toast.success("Tags updated.")
     setSaving(false)
     router.refresh()
+  }
+
+  const addTag = (tag: Tag) => {
+    if (selectedKeys.has(tagKey(tag.name)) || saving) return
+    const nextTags = [...selectedTags, tag]
+    const previousTags = selectedTags
+    setSearch("")
+    void syncTags(nextTags, previousTags)
+  }
+
+  const createDraftTag = () => {
+    if (!canCreate || saving) return
+    const nextTags = [
+      ...selectedTags,
+      {
+        tag_id: `draft-${tagKey(searchName)}`,
+        name: searchName,
+        slug: tagKey(searchName).replace(/\s+/g, "-"),
+      },
+    ]
+    const previousTags = selectedTags
+    setSearch("")
+    void syncTags(nextTags, previousTags)
+  }
+
+  const removeTag = (tag: Tag) => {
+    if (saving) return
+    const nextTags = selectedTags.filter(
+      (item) => tagKey(item.name) !== tagKey(tag.name)
+    )
+    void syncTags(nextTags, selectedTags)
   }
 
   return (
@@ -146,10 +154,12 @@ export function EntryTagsManager({
             Assign shared fleet and location tags.
           </p>
         </div>
-        <Button size="sm" onClick={saveTags} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Save
-        </Button>
+        {saving ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Saving
+          </div>
+        ) : null}
       </div>
 
       <div className="mb-3 flex min-h-9 flex-wrap gap-2">
@@ -160,7 +170,8 @@ export function EntryTagsManager({
               <button
                 type="button"
                 onClick={() => removeTag(tag)}
-                className="rounded-sm text-muted-foreground hover:text-foreground"
+                disabled={saving}
+                className="rounded-sm text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label={`Remove ${tag.name}`}
               >
                 <X className="h-3 w-3" />
@@ -180,7 +191,7 @@ export function EntryTagsManager({
             role="combobox"
             aria-expanded={open}
             className="w-full justify-between"
-            disabled={!merchantId}
+            disabled={!merchantId || saving}
           >
             Add tag
             <ChevronsUpDown className="h-4 w-4 opacity-50" />
