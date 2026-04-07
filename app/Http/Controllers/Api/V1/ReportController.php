@@ -153,6 +153,37 @@ class ReportController extends Controller
                 $query->where('report_dropoff_locations.uuid', $request->get('to_location_id'));
             }
 
+            if (!empty($request->get('location_tag_id'))) {
+                $locationTagId = $request->get('location_tag_id');
+                $query->where(function (Builder $builder) use ($locationTagId) {
+                    $builder
+                        ->whereHas('pickupLocation.tags', function (Builder $tagQuery) use ($locationTagId) {
+                            $tagQuery->where('tags.uuid', $locationTagId);
+                        })
+                        ->orWhereHas('dropoffLocation.tags', function (Builder $tagQuery) use ($locationTagId) {
+                            $tagQuery->where('tags.uuid', $locationTagId);
+                        });
+                });
+            }
+
+            if (!empty($request->get('vehicle_tag_id'))) {
+                $vehicleTagId = $request->get('vehicle_tag_id');
+                $query->whereExists(function ($subquery) use ($vehicleTagId) {
+                    $subquery
+                        ->selectRaw('1')
+                        ->from('taggables as report_vehicle_tag_filter_taggables')
+                        ->join(
+                            'tags as report_vehicle_tag_filter_tags',
+                            'report_vehicle_tag_filter_tags.id',
+                            '=',
+                            'report_vehicle_tag_filter_taggables.tag_id'
+                        )
+                        ->whereColumn('report_vehicle_tag_filter_taggables.taggable_id', 'report_vehicles.id')
+                        ->where('report_vehicle_tag_filter_taggables.taggable_type', Vehicle::class)
+                        ->where('report_vehicle_tag_filter_tags.uuid', $vehicleTagId);
+                });
+            }
+
             if (!empty($request->get('shipment_status'))) {
                 $query->where('shipments.status', $request->get('shipment_status'));
             }
@@ -184,7 +215,16 @@ class ReportController extends Controller
             $visitMap = $this->buildShipmentLocationVisitMap($shipments, $request);
 
             $rows = $shipments->getCollection()->map(function (Shipment $shipment) use ($stageActivityMap, $visitMap, $request) {
-                $runShipment = $shipment->runShipments->first();
+                $runShipments = $shipment->relationLoaded('runShipments')
+                    ? $shipment->getRelation('runShipments')
+                    : $shipment->runShipments()
+                        ->where('status', '!=', RunShipment::STATUS_REMOVED)
+                        ->with(['run.driver.user', 'run.vehicle'])
+                        ->orderByDesc('id')
+                        ->get();
+                $runShipment = $runShipments instanceof \Illuminate\Support\Collection
+                    ? $runShipments->first()
+                    : null;
                 $run = $runShipment?->run;
 
                 $fromVisit = $stageActivityMap[$shipment->id . ':' . VehicleActivity::EVENT_SHIPMENT_COLLECTION]
@@ -232,6 +272,8 @@ class ReportController extends Controller
         } catch (Throwable $e) {
             Log::error('Reports shipments_full_report failed', [
                 'request_id' => ApiResponse::requestId(),
+                'exception_file' => $e->getFile(),
+                'exception_line' => $e->getLine(),
                 'error' => $e->getMessage(),
             ]);
 

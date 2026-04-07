@@ -181,6 +181,24 @@ class ShipmentService
             $query->whereDate('shipments.created_at', '<=', $filters['to']);
         }
 
+        if (!empty($filters['location_tag_id'])) {
+            $query->where(function (Builder $builder) use ($filters) {
+                $builder
+                    ->whereHas('pickupLocation.tags', function (Builder $tagQuery) use ($filters) {
+                        $tagQuery->where('tags.uuid', $filters['location_tag_id']);
+                    })
+                    ->orWhereHas('dropoffLocation.tags', function (Builder $tagQuery) use ($filters) {
+                        $tagQuery->where('tags.uuid', $filters['location_tag_id']);
+                    });
+            });
+        }
+
+        if (!empty($filters['vehicle_tag_id'])) {
+            $query->whereHas('currentRunShipment.run.vehicle.tags', function (Builder $tagQuery) use ($filters) {
+                $tagQuery->where('tags.uuid', $filters['vehicle_tag_id']);
+            });
+        }
+
         $perPage = min((int) ($filters['per_page'] ?? 15), 100);
         $this->applyShipmentListSorting($query, $filters);
 
@@ -240,6 +258,24 @@ class ShipmentService
 
         if (!empty($filters['to'])) {
             $query->whereDate('shipments.created_at', '<=', $filters['to']);
+        }
+
+        if (!empty($filters['location_tag_id'])) {
+            $query->where(function (Builder $builder) use ($filters) {
+                $builder
+                    ->whereHas('pickupLocation.tags', function (Builder $tagQuery) use ($filters) {
+                        $tagQuery->where('tags.uuid', $filters['location_tag_id']);
+                    })
+                    ->orWhereHas('dropoffLocation.tags', function (Builder $tagQuery) use ($filters) {
+                        $tagQuery->where('tags.uuid', $filters['location_tag_id']);
+                    });
+            });
+        }
+
+        if (!empty($filters['vehicle_tag_id'])) {
+            $query->whereHas('currentRunShipment.run.vehicle.tags', function (Builder $tagQuery) use ($filters) {
+                $tagQuery->where('tags.uuid', $filters['vehicle_tag_id']);
+            });
         }
 
         $perPage = min((int) ($filters['per_page'] ?? 15), 100);

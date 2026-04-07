@@ -43,7 +43,7 @@ class VehicleResource extends JsonResource
             'maintenance_mode_at' => optional($this->maintenance_mode_at)?->toIso8601String(),
             'maintenance_expected_resolved_at' => optional($this->maintenance_expected_resolved_at)?->toIso8601String(),
             'maintenance_description' => $this->maintenance_description,
-            'tags' => TagResource::collection($this->whenLoaded('tags')),
+            'tags' => $this->whenLoaded('tags', fn () => TagResource::collection($this->tags)),
             'metadata' => $this->metadata,
             'imported_at' => optional($this->imported_at)?->toIso8601String(),
             'created_at' => optional($this->created_at)?->toIso8601String(),

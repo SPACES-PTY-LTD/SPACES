@@ -7,6 +7,7 @@ import {
 } from "@/components/shipments/shipment-quote-dialog"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { createShipment, listShipments } from "@/lib/api/shipments"
+import { listTags } from "@/lib/api/tags"
 import { formatAddress } from "@/lib/address"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { normalizeTableMeta } from "@/lib/table"
@@ -50,6 +51,8 @@ export default async function ShipmentsPage({
   const invoicedParam = resolvedSearchParams.invoiced
   const fromParam = resolvedSearchParams.from
   const toParam = resolvedSearchParams.to
+  const locationTagParam = resolvedSearchParams.location_tag_id
+  const vehicleTagParam = resolvedSearchParams.vehicle_tag_id
   const pageParam = resolvedSearchParams.page
   const perPageParam = resolvedSearchParams.per_page
   const sortByParam = resolvedSearchParams.sort_by
@@ -62,6 +65,12 @@ export default async function ShipmentsPage({
   const invoiced = Array.isArray(invoicedParam) ? invoicedParam[0] : invoicedParam
   const from = Array.isArray(fromParam) ? fromParam[0] : fromParam
   const to = Array.isArray(toParam) ? toParam[0] : toParam
+  const locationTagId = Array.isArray(locationTagParam)
+    ? locationTagParam[0]
+    : locationTagParam
+  const vehicleTagId = Array.isArray(vehicleTagParam)
+    ? vehicleTagParam[0]
+    : vehicleTagParam
   const page = Array.isArray(pageParam) ? pageParam[0] : pageParam
   const perPage = Array.isArray(perPageParam) ? perPageParam[0] : perPageParam
   const sortBy = Array.isArray(sortByParam) ? sortByParam[0] : sortByParam
@@ -73,6 +82,13 @@ export default async function ShipmentsPage({
       ? Math.floor(parsedPage)
       : undefined
   const canLoad = session.user.role === "super_admin" || Boolean(merchantId)
+  const tagsResponse = merchantId
+    ? await listTags(session.accessToken, { merchant_id: merchantId, per_page: 100 })
+    : null
+  const tags =
+    tagsResponse && !isApiErrorResponse(tagsResponse)
+      ? tagsResponse.data
+      : []
   const response = canLoad
     ? await listShipments(session.accessToken, {
         merchant_id: merchantId,
@@ -85,6 +101,8 @@ export default async function ShipmentsPage({
           invoiced === "true" ? true : invoiced === "false" ? false : undefined,
         from: from || undefined,
         to: to || undefined,
+        location_tag_id: locationTagId || undefined,
+        vehicle_tag_id: vehicleTagId || undefined,
         per_page: perPage ? Number(perPage) : undefined,
         sort_by: sortBy,
         sort_dir: sortDir,
@@ -264,6 +282,26 @@ export default async function ShipmentsPage({
             value: to ?? "",
             url_param_name: "to",
           },
+          {
+            key: "location_tag",
+            label: "Location tag",
+            value: locationTagId ?? "",
+            url_param_name: "location_tag_id",
+            options: tags.map((tag) => ({
+              label: tag.name,
+              value: tag.tag_id,
+            })),
+          },
+          {
+            key: "vehicle_tag",
+            label: "Vehicle tag",
+            value: vehicleTagId ?? "",
+            url_param_name: "vehicle_tag_id",
+            options: tags.map((tag) => ({
+              label: tag.name,
+              value: tag.tag_id,
+            })),
+          },
           //per page
           {
             key: "per_page",
@@ -282,8 +320,8 @@ export default async function ShipmentsPage({
         columns={[
           { key: "merchant_order_ref", label: "Reference", link: "href" },
           { key: "delivery_note_number", label: "Delivery Note", link: "href" },
-          { key: "collection_date", label: "Collection Date", link: "href" },
-          { key: "created_at", label: "Created", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "href" },
+          { key: "collection_date", label: "Collection Date", link: "href", type: "date_time", format: "YYYY-MM-DD", },
+          { key: "created_at", label: "Created", type: "date_time", format: "YYYY-MM-DD", link: "href" },
           { key: "truckRegistration", label: "Truck Reg Number", link: "href" },
           { key: "driverName", label: "Driver", link: "driverHref" },
           ...(isSuperAdmin

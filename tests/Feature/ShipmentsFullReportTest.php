@@ -67,6 +67,107 @@ class ShipmentsFullReportTest extends TestCase
             ->assertJsonPath('data.0.shipment_number', 'ORDER-SELECTED');
     }
 
+    public function test_report_filters_shipments_by_pickup_or_dropoff_location_tag(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+
+        $taggedPickup = $this->createLocation($account->id, $merchant->id, 'Warehouse A', 'PICKUP-A', 'Cape Town');
+        $taggedDropoff = $this->createLocation($account->id, $merchant->id, 'Store A', 'STORE-A', 'Cape Town');
+        $untaggedLocation = $this->createLocation($account->id, $merchant->id, 'Plain Hub', 'PLAIN', 'Cape Town');
+        $tagId = $this->createTag($account->id, $merchant->id, 'Depot', 'depot');
+        $tagUuid = DB::table('tags')->where('id', $tagId)->value('uuid');
+
+        $this->attachTagToLocation($tagId, $taggedPickup);
+        $this->attachTagToLocation($tagId, $taggedDropoff);
+
+        $pickupMatchUuid = $this->createShipment(
+            $account->id,
+            $merchant->id,
+            'PICKUP-MATCH',
+            $taggedPickup,
+            $untaggedLocation
+        );
+        $dropoffMatchUuid = $this->createShipment(
+            $account->id,
+            $merchant->id,
+            'DROPOFF-MATCH',
+            $untaggedLocation,
+            $taggedDropoff
+        );
+        $nonMatchUuid = $this->createShipment(
+            $account->id,
+            $merchant->id,
+            'NO-MATCH',
+            $untaggedLocation,
+            $untaggedLocation
+        );
+
+        $response = $this->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/reports/shipments_full_report?' . http_build_query([
+                'merchant_id' => $merchant->uuid,
+                'location_tag_id' => $tagUuid,
+                'per_page' => 10,
+            ]));
+
+        $response->assertOk()
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonFragment(['shipment_id' => $pickupMatchUuid])
+            ->assertJsonFragment(['shipment_id' => $dropoffMatchUuid])
+            ->assertJsonMissing(['shipment_id' => $nonMatchUuid]);
+    }
+
+    public function test_report_filters_shipments_by_report_vehicle_tag(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+
+        $location = $this->createLocation($account->id, $merchant->id, 'Warehouse A', 'PICKUP-A', 'Cape Town');
+        $matchingVehicle = $this->createVehicle($account->id, $merchant->id, 'TAG-REPORT-1');
+        $otherVehicle = $this->createVehicle($account->id, $merchant->id, 'TAG-REPORT-2');
+        $tagId = $this->createTag($account->id, $merchant->id, 'Cold Chain', 'cold-chain');
+        $tagUuid = DB::table('tags')->where('id', $tagId)->value('uuid');
+        $this->attachTagToVehicle($tagId, $matchingVehicle);
+
+        $matchingShipmentUuid = $this->createShipment(
+            $account->id,
+            $merchant->id,
+            'VEHICLE-TAG-MATCH',
+            $location,
+            $location
+        );
+        $nonMatchShipmentUuid = $this->createShipment(
+            $account->id,
+            $merchant->id,
+            'VEHICLE-TAG-NO-MATCH',
+            $location,
+            $location
+        );
+
+        $this->attachShipmentToRun(
+            $account->id,
+            $merchant->id,
+            (int) DB::table('shipments')->where('uuid', $matchingShipmentUuid)->value('id'),
+            $matchingVehicle
+        );
+        $this->attachShipmentToRun(
+            $account->id,
+            $merchant->id,
+            (int) DB::table('shipments')->where('uuid', $nonMatchShipmentUuid)->value('id'),
+            $otherVehicle
+        );
+
+        $response = $this->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/reports/shipments_full_report?' . http_build_query([
+                'merchant_id' => $merchant->uuid,
+                'vehicle_tag_id' => $tagUuid,
+                'per_page' => 10,
+            ]));
+
+        $response->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonFragment(['shipment_id' => $matchingShipmentUuid])
+            ->assertJsonMissing(['shipment_id' => $nonMatchShipmentUuid]);
+    }
+
     private function createMerchantContext(): array
     {
         $user = User::factory()->create();
@@ -146,5 +247,78 @@ class ShipmentsFullReportTest extends TestCase
         ]);
 
         return $uuid;
+    }
+
+    private function createTag(int $accountId, int $merchantId, string $name, string $slug): int
+    {
+        return DB::table('tags')->insertGetId([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $accountId,
+            'merchant_id' => $merchantId,
+            'name' => $name,
+            'slug' => $slug,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function createVehicle(int $accountId, int $merchantId, string $plateNumber): int
+    {
+        return DB::table('vehicles')->insertGetId([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $accountId,
+            'merchant_id' => $merchantId,
+            'plate_number' => $plateNumber,
+            'is_active' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+            'deleted_at' => null,
+        ]);
+    }
+
+    private function attachTagToLocation(int $tagId, int $locationId): void
+    {
+        DB::table('taggables')->insert([
+            'tag_id' => $tagId,
+            'taggable_type' => \App\Models\Location::class,
+            'taggable_id' => $locationId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function attachTagToVehicle(int $tagId, int $vehicleId): void
+    {
+        DB::table('taggables')->insert([
+            'tag_id' => $tagId,
+            'taggable_type' => \App\Models\Vehicle::class,
+            'taggable_id' => $vehicleId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function attachShipmentToRun(int $accountId, int $merchantId, int $shipmentId, int $vehicleId): void
+    {
+        $runId = DB::table('runs')->insertGetId([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $accountId,
+            'merchant_id' => $merchantId,
+            'vehicle_id' => $vehicleId,
+            'status' => 'dispatched',
+            'created_at' => now(),
+            'updated_at' => now(),
+            'deleted_at' => null,
+        ]);
+
+        DB::table('run_shipments')->insert([
+            'uuid' => (string) Str::uuid(),
+            'run_id' => $runId,
+            'shipment_id' => $shipmentId,
+            'sequence' => 1,
+            'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }

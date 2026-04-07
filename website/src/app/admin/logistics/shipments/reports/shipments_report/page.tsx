@@ -9,6 +9,7 @@ import {
   type ShipmentFullReportRow,
   type ShipmentsFullReportSortBy,
 } from "@/lib/api/reports"
+import { listTags } from "@/lib/api/tags"
 import { requireAuth } from "@/lib/auth"
 import { normalizeTableMeta } from "@/lib/table"
 import type { Location } from "@/lib/types"
@@ -89,6 +90,8 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
   const driverId = getSingleValue(params.driver_id)
   const fromLocationId = getSingleValue(params.from_location_id)
   const toLocationId = getSingleValue(params.to_location_id)
+  const locationTagId = getSingleValue(params.location_tag_id)
+  const vehicleTagId = getSingleValue(params.vehicle_tag_id)
   const shipmentStatus = getSingleValue(params.shipment_status)
   const page = toPositiveInt(getSingleValue(params.page), 1)
   const perPage = Math.min(200, toPositiveInt(getSingleValue(params.per_page), 50))
@@ -98,6 +101,13 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
   const session = await requireAuth()
   const merchantId = session.selected_merchant?.merchant_id ?? undefined
   const canLoad = Boolean(merchantId)
+  const tagsResponse = merchantId
+    ? await listTags(session.accessToken, { merchant_id: merchantId, per_page: 100 })
+    : null
+  const tags =
+    tagsResponse && !isApiErrorResponse(tagsResponse)
+      ? tagsResponse.data
+      : []
   const response = canLoad
     ? await getShipmentsFullReport(
         {
@@ -112,6 +122,8 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           driver_id: normalizeText(driverId),
           from_location_id: normalizeText(fromLocationId),
           to_location_id: normalizeText(toLocationId),
+          location_tag_id: normalizeText(locationTagId),
+          vehicle_tag_id: normalizeText(vehicleTagId),
           shipment_status: normalizeText(shipmentStatus),
           sort_by: sortBy,
           sort_direction: sortDirection,
@@ -237,6 +249,26 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
             value: toLocationId,
             url_param_name: "to_location_id",
             placeholder: "Location UUID",
+          },
+          {
+            key: "location_tag",
+            label: "Location tag",
+            value: locationTagId,
+            url_param_name: "location_tag_id",
+            options: tags.map((tag) => ({
+              label: tag.name,
+              value: tag.tag_id,
+            })),
+          },
+          {
+            key: "vehicle_tag",
+            label: "Vehicle tag",
+            value: vehicleTagId,
+            url_param_name: "vehicle_tag_id",
+            options: tags.map((tag) => ({
+              label: tag.name,
+              value: tag.tag_id,
+            })),
           },
           {
             key: "shipment_status",

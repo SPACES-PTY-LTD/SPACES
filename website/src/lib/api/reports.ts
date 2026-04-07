@@ -70,6 +70,8 @@ export type ShipmentsFullReportParams = {
   driver_id?: string
   from_location_id?: string
   to_location_id?: string
+  location_tag_id?: string
+  vehicle_tag_id?: string
   shipment_status?: string
   sort_by?: ShipmentsFullReportSortBy
   sort_direction?: "asc" | "desc"

@@ -5,6 +5,9 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\Location;
 use App\Models\Merchant;
+use App\Models\Run;
+use App\Models\RunShipment;
+use App\Models\Shipment;
 use App\Models\Tag;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -246,5 +249,148 @@ class EntryTagsTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.location_id', $matchingLocation->uuid)
             ->assertJsonMissing(['location_id' => $otherLocation->uuid]);
+    }
+
+    public function test_it_filters_shipments_by_pickup_or_dropoff_location_tag(): void
+    {
+        [$user, $account, $merchant] = $this->createMerchantUser();
+        $taggedPickup = $this->createLocation($account, $merchant);
+        $taggedDropoff = Location::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Dropoff Depot',
+            'address_line_1' => '3 Delivery Avenue',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+        ]);
+        $untaggedLocation = Location::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Plain Hub',
+            'address_line_1' => '4 Plain Road',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+        ]);
+        $tag = Tag::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Depot',
+            'slug' => 'depot',
+        ]);
+        $taggedPickup->tags()->sync([$tag->id]);
+        $taggedDropoff->tags()->sync([$tag->id]);
+
+        $pickupMatch = Shipment::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'merchant_order_ref' => 'PICKUP-MATCH',
+            'status' => 'draft',
+            'pickup_location_id' => $taggedPickup->id,
+            'dropoff_location_id' => $untaggedLocation->id,
+        ]);
+        $dropoffMatch = Shipment::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'merchant_order_ref' => 'DROPOFF-MATCH',
+            'status' => 'draft',
+            'pickup_location_id' => $untaggedLocation->id,
+            'dropoff_location_id' => $taggedDropoff->id,
+        ]);
+        $nonMatch = Shipment::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'merchant_order_ref' => 'NO-MATCH',
+            'status' => 'draft',
+            'pickup_location_id' => $untaggedLocation->id,
+            'dropoff_location_id' => $untaggedLocation->id,
+        ]);
+
+        $this->authenticated($user)
+            ->getJson('/api/v1/shipments?'.http_build_query([
+                'merchant_id' => $merchant->uuid,
+                'location_tag_id' => $tag->uuid,
+                'per_page' => 10,
+            ]))
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment(['shipment_id' => $pickupMatch->uuid])
+            ->assertJsonFragment(['shipment_id' => $dropoffMatch->uuid])
+            ->assertJsonMissing(['shipment_id' => $nonMatch->uuid]);
+    }
+
+    public function test_it_filters_shipments_by_current_vehicle_tag(): void
+    {
+        [$user, $account, $merchant] = $this->createMerchantUser();
+        $location = $this->createLocation($account, $merchant);
+        $matchingVehicle = $this->createVehicle($account, $merchant);
+        $otherVehicle = Vehicle::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'make' => 'Isuzu',
+            'model' => 'NPR',
+            'plate_number' => 'TAG-003',
+            'is_active' => true,
+        ]);
+        $tag = Tag::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Cold Chain',
+            'slug' => 'cold-chain',
+        ]);
+        $matchingVehicle->tags()->sync([$tag->id]);
+
+        $matchingShipment = Shipment::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'merchant_order_ref' => 'VEHICLE-TAG-MATCH',
+            'status' => 'draft',
+            'pickup_location_id' => $location->id,
+            'dropoff_location_id' => $location->id,
+        ]);
+        $nonMatchShipment = Shipment::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'merchant_order_ref' => 'VEHICLE-TAG-NO-MATCH',
+            'status' => 'draft',
+            'pickup_location_id' => $location->id,
+            'dropoff_location_id' => $location->id,
+        ]);
+
+        $matchingRun = Run::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $matchingVehicle->id,
+            'status' => Run::STATUS_DISPATCHED,
+        ]);
+        RunShipment::create([
+            'run_id' => $matchingRun->id,
+            'shipment_id' => $matchingShipment->id,
+            'status' => RunShipment::STATUS_ACTIVE,
+        ]);
+
+        $nonMatchRun = Run::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $otherVehicle->id,
+            'status' => Run::STATUS_DISPATCHED,
+        ]);
+        RunShipment::create([
+            'run_id' => $nonMatchRun->id,
+            'shipment_id' => $nonMatchShipment->id,
+            'status' => RunShipment::STATUS_ACTIVE,
+        ]);
+
+        $this->authenticated($user)
+            ->getJson('/api/v1/shipments?'.http_build_query([
+                'merchant_id' => $merchant->uuid,
+                'vehicle_tag_id' => $tag->uuid,
+                'per_page' => 10,
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonFragment(['shipment_id' => $matchingShipment->uuid])
+            ->assertJsonMissing(['shipment_id' => $nonMatchShipment->uuid]);
     }
 }

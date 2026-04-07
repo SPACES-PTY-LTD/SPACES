@@ -34,6 +34,8 @@ export async function listShipments(
     invoiced?: boolean
     from?: string
     to?: string
+    location_tag_id?: string
+    vehicle_tag_id?: string
     sort_by?: string
     sort_dir?: "asc" | "desc"
   }
