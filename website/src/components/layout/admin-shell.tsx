@@ -265,12 +265,12 @@ export function AdminShell({
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
-      <SidebarInset className="bg-background">
+      <SidebarInset className="min-w-0 bg-background">
         <header className="flex items-center gap-2 border-b px-4 py-3 md:hidden">
           <SidebarTrigger />
           <span className="text-sm font-semibold">{appName}</span>
         </header>
-        <main className="min-h-[calc(100vh-4rem)] flex-1 overflow-hidden px-6 py-6">
+        <main className="min-h-[calc(100vh-4rem)] min-w-0 flex-1 overflow-x-auto px-6 py-6">
           {children}
         </main>
       </SidebarInset>

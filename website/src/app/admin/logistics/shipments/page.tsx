@@ -317,11 +317,12 @@ export default async function ShipmentsPage({
             ],
           },
         ]}
+        width={""}
         columns={[
-          { key: "merchant_order_ref", label: "Reference", link: "href" },
+          { key: "merchant_order_ref", label: "Reference", link: "href", className:"w-[200px]" },
           { key: "delivery_note_number", label: "Delivery Note", link: "href" },
-          { key: "collection_date", label: "Collection Date", link: "href", type: "date_time", format: "YYYY-MM-DD", },
-          { key: "created_at", label: "Created", type: "date_time", format: "YYYY-MM-DD", link: "href" },
+          { key: "collection_date", label: "Collection Date", link: "href", type: "date_time", format: "YYYY-MM-DD", className:"w-[150px]" },
+          { key: "created_at", label: "Created", type: "date_time", format: "YYYY-MM-DD", link: "href", className:"w-[150px]" },
           { key: "truckRegistration", label: "Truck Reg Number", link: "href" },
           { key: "driverName", label: "Driver", link: "driverHref" },
           ...(isSuperAdmin

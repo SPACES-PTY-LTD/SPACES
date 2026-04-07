@@ -157,7 +157,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
   const tableMeta = successResponse ? normalizeTableMeta(successResponse.meta) : undefined
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-full ">
       <PageHeader
         title="Shipments Report"
         description="Review shipment delivery performance with filterable and sortable report data."
@@ -172,7 +172,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         data={rows}
         meta={tableMeta}
         loading_error={loadingError}
-        width="3000px"
+        width="3300px"
         filters={[
           {
             key: "date_created",
@@ -315,15 +315,15 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           "to_location_display",
         ]}
         columns={[
-          { key: "date_created", label: "Date Created", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm" },
-          { key: "collection_date", label: "Collection Date", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm" },
-          { key: "shipment_number", label: "Shipment Number", link: "shipment_href" },
-          { key: "delivery_note_number", label: "Delivery Note Number", link: "shipment_href" },
-          { key: "truck_plate_number", label: "Truck Plate Number", link: "vehicle_href" },
-          { key: "driver", label: "Driver", link: "driver_href" },
+          { key: "date_created", label: "Date Created", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm", className: "w-[150px]" },
+          { key: "collection_date", label: "Collection Date", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm" , className: "w-[150px]"},
+          { key: "shipment_number", label: "Shipment Number", link: "shipment_href" , className: "w-[250px]"},
+          { key: "delivery_note_number", label: "Delivery Note Number", link: "shipment_href", className: "w-[250px]" },
+          { key: "truck_plate_number", label: "Truck Plate Number", link: "vehicle_href", className: "w-[250px]" },
+          { key: "driver", label: "Driver", link: "driver_href", className: "w-[250px]" },
           { key: "shipment_type", label: "Shipment Type", link: "shipment_href" },
-          { key: "from_location_display", label: "From Location", link: "from_location_href" },
-          { key: "to_location_display", label: "To Location", link: "to_location_href" },
+          { key: "from_location_display", label: "From Location", link: "from_location_href", className: "w-[350px]" },
+          { key: "to_location_display", label: "To Location", link: "to_location_href", className: " w-[350px]" },
           { key: "from_time_in", label: "From Time In", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "from_time_to", label: "From Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "to_time_in", label: "To Time In", type: "date_time", format: "YYYY-MM-DD HH:mm" },

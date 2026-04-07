@@ -20,6 +20,33 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-04-08 | Version: unreleased
+
+### Summary
+- Fixed the admin shell content area so wide content scrolls horizontally instead of stretching the main layout.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Admin pages now keep the sidebar content area constrained and expose a horizontal scrollbar when child content is wider than the viewport.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Restored the admin shell child render path after layout overflow testing and added shrink constraints to the sidebar inset/main content area.
+
+### Verification
+- Updated files:
+  - `website/src/components/layout/admin-shell.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `npm run lint -- src/components/layout/admin-shell.tsx`
+
 ## 2026-04-07 | Version: unreleased
 
 ### Summary

@@ -521,9 +521,9 @@ export function DataTable<T extends Record<string, unknown>>({
   )
 
   return (
-    <div className="space-y-4 w-full min-w-0">
+    <>
       
-      <div className="w-full min-w-0 rounded-lg border overflow-hidden">
+      <div className="rounded-lg border">
 
         <div className="border-b px-3 py-2 flex items-center justify-between">
 
@@ -576,7 +576,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
         {show_filters && (
           <div className="border-b px-3 py-2">
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap gap-2 items-center space-x-2">
               {filters?.map((filter) => {
                 if (filter.type === "date") {
                   return (
@@ -643,146 +643,149 @@ export function DataTable<T extends Record<string, unknown>>({
             </div>
           </div>
         )}
-  
-        <Table className={cn(width ? `table-auto` : "table-auto")} style={width ? { width } : undefined}>
-          <TableHeader className="bg-muted/30">
-            <TableRow>
-              {columns.map((column, columnIndex) => (
-                <TableHead
-                  key={String(column.key)}
-                  className={cn(
-                    "sticky top-0",
-                    column.className,
-                    columnIndex === columns.length - 1 &&
-                    "right-0"
-                  )}
-                >
-                  {enableSorting &&
-                    (!sortableColumnSet || sortableColumnSet.has(String(column.key))) ? (
-                    (() => {
-                      const columnKey = String(column.key)
-                      const sortKey = sortKeyMap?.[columnKey] ?? columnKey
-                      const isActive = currentSortBy === sortKey
-                      return (
-                        <Link
-                          href={buildSortHref(column)}
-                          className="inline-flex items-center gap-1 text-foreground hover:text-primary"
-                        >
-                          <span>{column.label}</span>
-                          {isActive ? (
-                            currentSortDir === "desc" ? (
-                              <ArrowDown className="h-3.5 w-3.5" />
-                            ) : (
-                              <ArrowUp className="h-3.5 w-3.5" />
-                            )
-                          ) : (
-                            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                          )}
-                        </Link>
-                      )
-                    })()
-                  ) : (
-                    column.label
-                  )}
-                </TableHead>
-              ))}
-              {rowActions?.length ? (
-                <TableHead className="sticky top-0 right-0 z-20 bg-background" />
-              ) : null}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading_error ? (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} className="py-10">
-                  <div className="text-center text-sm text-destructive">
-                    {loading_error}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length + 1} className="py-10">
-                  <div className="text-center text-sm text-muted-foreground">
-                    {emptyMessage}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((row, rowIndex) => (
-                <TableRow key={rowIndex}>
+        <div className="overflow-x">
+
+            <Table className={cn(width ? `table-fixed` : "table-auto")} style={width ? { minWidth:width } : undefined}>
+              <TableHeader className="bg-muted/30">
+                <TableRow>
                   {columns.map((column, columnIndex) => (
-                    <TableCell
+                    <TableHead
                       key={String(column.key)}
                       className={cn(
-                        columnIndex === columns.length - 1 &&
-                        "sticky right-0 bg-background"
+                        "sticky top-0",
+                        column.className,
+                        // columnIndex === columns.length - 1 &&
+                        // "right-0"
                       )}
                     >
-                      {column.type === "status" ? (
-                        <StatusBadge
-                          status={String(getCellValue(row, column.key) ?? "")}
-                        />
-                      ) : column.type === "image" ? (
-                        renderImageValue(row, column)
-                      ) : column.type === "tags" ? (
-                        renderTagsValue(row, column)
-                      ) : (
+                      {enableSorting &&
+                        (!sortableColumnSet || sortableColumnSet.has(String(column.key))) ? (
                         (() => {
-                          const value = getDisplayValue(row, column)
-                          if (!column.link) return renderValue(value)
-                          const href = getValue(row, column.link)
-                          if (typeof href === "string" && href.length > 0) {
-                            return (
-                              <Link href={href} className="text-primary underline-offset-4 hover:underline">
-                                {renderValue(value)}
-                              </Link>
-                            )
-                          }
-                          return renderValue(value)
+                          const columnKey = String(column.key)
+                          const sortKey = sortKeyMap?.[columnKey] ?? columnKey
+                          const isActive = currentSortBy === sortKey
+                          return (
+                            <Link
+                              href={buildSortHref(column)}
+                              className="inline-flex items-center gap-1 text-foreground hover:text-primary"
+                            >
+                              <span>{column.label}</span>
+                              {isActive ? (
+                                currentSortDir === "desc" ? (
+                                  <ArrowDown className="h-3.5 w-3.5" />
+                                ) : (
+                                  <ArrowUp className="h-3.5 w-3.5" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                              )}
+                            </Link>
+                          )
                         })()
+                      ) : (
+                        column.label
                       )}
-                    </TableCell>
+                    </TableHead>
                   ))}
                   {rowActions?.length ? (
-                    <TableCell className="sticky right-0 bg-background text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background shadow-xs">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {rowActions.map((action) => {
-                            const href =
-                              action.href ??
-                              (action.hrefKey
-                                ? String(getValue(row, action.hrefKey) ?? "")
-                                : "")
-                            return (
-                              <DropdownMenuItem
-                                key={action.label}
-                                className={cn(
-                                  action.variant === "destructive" &&
-                                  "text-destructive"
-                                )}
-                                asChild={Boolean(href)}
-                              >
-                                {href ? (
-                                  <Link href={href}>{action.label}</Link>
-                                ) : (
-                                  action.label
-                                )}
-                              </DropdownMenuItem>
-                            )
-                          })}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+                    <TableHead className="sticky top-0 right-0 z-20 bg-background" />
                   ) : null}
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {loading_error ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length + 1} className="py-10">
+                      <div className="text-center text-sm text-destructive">
+                        {loading_error}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length + 1} className="py-10">
+                      <div className="text-center text-sm text-muted-foreground">
+                        {emptyMessage}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  rows.map((row, rowIndex) => (
+                    <TableRow key={rowIndex}>
+                      {columns.map((column, columnIndex) => (
+                        <TableCell
+                          key={String(column.key)}
+                          className={cn(
+                            // columnIndex === columns.length - 1 &&
+                            // "sticky right-0 bg-background"
+                          )}
+                        >
+                          {column.type === "status" ? (
+                            <StatusBadge
+                              status={String(getCellValue(row, column.key) ?? "")}
+                            />
+                          ) : column.type === "image" ? (
+                            renderImageValue(row, column)
+                          ) : column.type === "tags" ? (
+                            renderTagsValue(row, column)
+                          ) : (
+                            (() => {
+                              const value = getDisplayValue(row, column)
+                              if (!column.link) return renderValue(value)
+                              const href = getValue(row, column.link)
+                              if (typeof href === "string" && href.length > 0) {
+                                return (
+                                  <Link href={href} className="text-primary underline-offset-4 hover:underline">
+                                    {renderValue(value)}
+                                  </Link>
+                                )
+                              }
+                              return renderValue(value)
+                            })()
+                          )}
+                        </TableCell>
+                      ))}
+                      {rowActions?.length ? (
+                        <TableCell className="sticky right-0 bg-background text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background shadow-xs">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {rowActions.map((action) => {
+                                const href =
+                                  action.href ??
+                                  (action.hrefKey
+                                    ? String(getValue(row, action.hrefKey) ?? "")
+                                    : "")
+                                return (
+                                  <DropdownMenuItem
+                                    key={action.label}
+                                    className={cn(
+                                      action.variant === "destructive" &&
+                                      "text-destructive"
+                                    )}
+                                    asChild={Boolean(href)}
+                                  >
+                                    {href ? (
+                                      <Link href={href}>{action.label}</Link>
+                                    ) : (
+                                      action.label
+                                    )}
+                                  </DropdownMenuItem>
+                                )
+                              })}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      ) : null}
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+
+        </div>
       </div>
       {hasMetaPagination ? (
         <Pagination>
@@ -820,6 +823,6 @@ export function DataTable<T extends Record<string, unknown>>({
           </PaginationContent>
         </Pagination>
       ) : null}
-    </div>
+    </>
   )
 }
