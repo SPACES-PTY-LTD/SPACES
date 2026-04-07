@@ -86,6 +86,12 @@ class LocationService
             }
         }
 
+        if (!empty($filters['tag_id'])) {
+            $query->whereHas('tags', function ($tagQuery) use ($filters) {
+                $tagQuery->where('tags.uuid', $filters['tag_id']);
+            });
+        }
+
         if (array_key_exists('environment_id', $filters)) {
             if ($filters['environment_id']) {
                 $environmentId = MerchantEnvironment::query()

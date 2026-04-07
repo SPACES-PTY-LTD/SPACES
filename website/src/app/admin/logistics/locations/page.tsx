@@ -6,6 +6,7 @@ import { LocationDialog } from "@/components/locations/location-dialog"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listLocations } from "@/lib/api/locations"
 import { listLocationTypes } from "@/lib/api/location-types"
+import { listTags } from "@/lib/api/tags"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { normalizeTableMeta } from "@/lib/table"
 
@@ -42,6 +43,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
   const page = toPositiveInt(getSingleValue(params.page), 1)
   const perPage = Math.min(100, toPositiveInt(getSingleValue(params.per_page), 20))
   const locationTypeId = getSingleValue(params.location_type_id)
+  const tagId = getSingleValue(params.tag_id)
   const search = getSingleValue(params.search)
   const sortBy = normalizeSortBy(getSingleValue(params.sort_by))
   const sortDir = normalizeSortDir(getSingleValue(params.sort_dir))
@@ -57,6 +59,14 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
     locationTypesResponse && !isApiErrorResponse(locationTypesResponse)
       ? locationTypesResponse.data
       : []
+  const tagsResponse =
+    merchantId
+      ? await listTags(session.accessToken, { merchant_id: merchantId, per_page: 100 })
+      : null
+  const tags =
+    tagsResponse && !isApiErrorResponse(tagsResponse)
+      ? tagsResponse.data
+      : []
   const response = canLoad
     ? await listLocations(session.accessToken, {
         merchant_id: merchantId,
@@ -64,6 +74,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
         per_page: perPage,
         search: normalizeText(search),
         location_type_id: normalizeText(locationTypeId),
+        tag_id: normalizeText(tagId),
         sort_by: sortBy,
         sort_dir: sortDir,
       })
@@ -137,6 +148,16 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
               })),
           },
           {
+            key: "tag",
+            label: "Tag",
+            value: tagId ?? "",
+            url_param_name: "tag_id",
+            options: tags.map((tag) => ({
+              label: tag.name,
+              value: tag.tag_id,
+            })),
+          },
+          {
             key: "per_page",
             label: "Per page",
             value: String(perPage),
@@ -153,6 +174,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
           { key: "code", label: "Code", link: "href" },
           { key: "company", label: "Company", link: "href" },
           { key: "type", label: "Type" , link: "href" },
+          { key: "tags", label: "Tags", type: "tags" },
           { key: "city", label: "City", link: "href" },
           
         ]}

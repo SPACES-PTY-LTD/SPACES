@@ -182,4 +182,69 @@ class EntryTagsTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.tag_id', $matching->uuid);
     }
+
+    public function test_it_filters_vehicles_by_tag(): void
+    {
+        [$user, $account, $merchant] = $this->createMerchantUser();
+        $matchingVehicle = $this->createVehicle($account, $merchant);
+        $otherVehicle = Vehicle::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'make' => 'Isuzu',
+            'model' => 'NPR',
+            'plate_number' => 'TAG-002',
+            'is_active' => true,
+        ]);
+        $tag = Tag::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Cold Chain',
+            'slug' => 'cold-chain',
+        ]);
+
+        $matchingVehicle->tags()->sync([$tag->id]);
+
+        $this->authenticated($user)
+            ->getJson('/api/v1/vehicles?'.http_build_query([
+                'merchant_id' => $merchant->uuid,
+                'tag_id' => $tag->uuid,
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.vehicle_id', $matchingVehicle->uuid)
+            ->assertJsonMissing(['vehicle_id' => $otherVehicle->uuid]);
+    }
+
+    public function test_it_filters_locations_by_tag(): void
+    {
+        [$user, $account, $merchant] = $this->createMerchantUser();
+        $matchingLocation = $this->createLocation($account, $merchant);
+        $otherLocation = Location::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'name' => 'North Hub',
+            'address_line_1' => '2 Warehouse Road',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+        ]);
+        $tag = Tag::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Depot',
+            'slug' => 'depot',
+        ]);
+
+        $matchingLocation->tags()->sync([$tag->id]);
+
+        $this->authenticated($user)
+            ->getJson('/api/v1/locations?'.http_build_query([
+                'merchant_id' => $merchant->uuid,
+                'tag_id' => $tag->uuid,
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.location_id', $matchingLocation->uuid)
+            ->assertJsonMissing(['location_id' => $otherLocation->uuid]);
+    }
 }

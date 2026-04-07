@@ -26,14 +26,15 @@ export type VehicleMaintenancePayload = {
 }
 
 export async function listVehicles(
-    token?: string | null, 
-    { per_page, page, search, with_location_only, merchant_id, sort_by, sort_dir }: 
+    token?: string | null,
+    { per_page, page, search, with_location_only, merchant_id, tag_id, sort_by, sort_dir }:
     {
       per_page?: number
       page?: number
       search?: string
       with_location_only?: boolean
       merchant_id?: string
+      tag_id?: string
       sort_by?: string
       sort_dir?: "asc" | "desc"
     } = {}) {
@@ -44,6 +45,7 @@ export async function listVehicles(
       page: page ?? 1,
       search,
       merchant_id,
+      tag_id,
       sort_by,
       sort_dir,
       with_location_only: with_location_only ? "true" : undefined,

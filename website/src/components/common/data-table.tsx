@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { StatusBadge } from "@/components/common/status-badge"
+import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { format, parseISO } from "date-fns"
 import { ArrowDown, ArrowUp, ArrowUpDown, Filter, ImageIcon, MoreHorizontal, Search } from "lucide-react"
@@ -46,7 +47,7 @@ export type Column<T> = {
   key: keyof T | string
   label: string
   className?: string
-  type?: "text" | "status" | "date_time" | "count_array" | "image"
+  type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags"
   size?: "sm" | "md" | "lg"
   format?: string
   customValue?: (row: T) => React.ReactNode
@@ -191,6 +192,38 @@ export function DataTable<T extends Record<string, unknown>>({
     if (["string", "number", "boolean"].includes(typeof value)) return value as React.ReactNode
     return String(value)
   }, [])
+
+  const renderTagsValue = React.useCallback((row: T, column: Column<T>): React.ReactNode => {
+    const rawValue = getCellValue(row, column.key)
+    if (!Array.isArray(rawValue) || rawValue.length === 0) return "-"
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {rawValue.map((tag, index) => {
+          if (!tag || typeof tag !== "object") {
+            return null
+          }
+
+          const tagRecord = tag as { tag_id?: unknown; name?: unknown; slug?: unknown }
+          const name = typeof tagRecord.name === "string" ? tagRecord.name : ""
+          if (!name) return null
+
+          const key =
+            typeof tagRecord.tag_id === "string"
+              ? tagRecord.tag_id
+              : typeof tagRecord.slug === "string"
+                ? tagRecord.slug
+                : `${name}-${index}`
+
+          return (
+            <Badge key={key} variant="secondary">
+              {name}
+            </Badge>
+          )
+        })}
+      </div>
+    )
+  }, [getCellValue])
 
   const renderImageValue = React.useCallback(
     (row: T, column: Column<T>): React.ReactNode => {
@@ -590,7 +623,7 @@ export function DataTable<T extends Record<string, unknown>>({
                             (opt) => opt.value === value
                           )
                           if (value) {
-                            return filter.label + ": " + value
+                            return filter.label + ": " + (option ? option.label : value)
                           }
                           return option ? option.label : value
                         })()}
@@ -692,6 +725,8 @@ export function DataTable<T extends Record<string, unknown>>({
                         />
                       ) : column.type === "image" ? (
                         renderImageValue(row, column)
+                      ) : column.type === "tags" ? (
+                        renderTagsValue(row, column)
                       ) : (
                         (() => {
                           const value = getDisplayValue(row, column)

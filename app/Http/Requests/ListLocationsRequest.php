@@ -15,6 +15,7 @@ class ListLocationsRequest extends BaseRequest
             'merchant_id' => ['required', 'uuid', 'exists:merchants,uuid'],
             'environment_id' => ['nullable', 'uuid', 'exists:merchant_environments,uuid'],
             'location_type_id' => ['nullable', 'uuid', 'exists:location_types,uuid'],
+            'tag_id' => ['nullable', 'uuid', 'exists:tags,uuid'],
             'code' => ['nullable', 'string', 'max:100'],
             'city' => ['nullable', 'string', 'max:255'],
             'search' => ['nullable', 'string', 'max:255'],

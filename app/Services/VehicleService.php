@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Merchant;
 use App\Models\RunShipment;
+use App\Models\Tag;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleType;
@@ -54,6 +55,21 @@ class VehicleService
             $vehicleTypeId = VehicleType::where('uuid', $filters['vehicle_type_id'])->value('id');
             if ($vehicleTypeId) {
                 $query->where('vehicles.vehicle_type_id', $vehicleTypeId);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        if (!empty($filters['tag_id'])) {
+            $tagQuery = Tag::query()->where('uuid', $filters['tag_id']);
+            if ($this->shouldScopeToAccount($user)) {
+                $tagQuery->where('account_id', $user->account_id);
+            }
+            $tag = $tagQuery->first();
+            if ($tag) {
+                $query->whereHas('tags', function ($builder) use ($tag) {
+                    $builder->where('tags.id', $tag->id);
+                });
             } else {
                 $query->whereRaw('1 = 0');
             }

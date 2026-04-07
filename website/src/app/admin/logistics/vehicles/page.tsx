@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/page-header"
 import { ImportVehiclesDialog } from "@/components/vehicles/import-vehicles-dialog"
 import { VehicleDialog } from "@/components/vehicles/vehicle-dialog"
 import { isApiErrorResponse } from "@/lib/api/client"
+import { listTags } from "@/lib/api/tags"
 import { listVehicles } from "@/lib/api/vehicles"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { normalizeTableMeta } from "@/lib/table"
@@ -11,6 +12,7 @@ import { normalizeTableMeta } from "@/lib/table"
 type VehiclesPageProps = {
   searchParams?: Promise<{
     page?: string | string[]
+    tag_id?: string | string[]
     sort_by?: string | string[]
     sort_dir?: string | string[]
   }>
@@ -28,9 +30,11 @@ function normalizeSortDir(value?: string) {
 export default async function VehiclesPage({ searchParams }: VehiclesPageProps) {
   const params = (await searchParams) ?? {}
   const rawPage = Array.isArray(params.page) ? params.page[0] : params.page
+  const rawTagId = Array.isArray(params.tag_id) ? params.tag_id[0] : params.tag_id
   const rawSortBy = Array.isArray(params.sort_by) ? params.sort_by[0] : params.sort_by
   const rawSortDir = Array.isArray(params.sort_dir) ? params.sort_dir[0] : params.sort_dir
   const page = rawPage ? parseInt(rawPage, 10) : 1
+  const tagId = rawTagId?.trim() || ""
   const sortBy = normalizeSortBy(rawSortBy)
   const sortDir = normalizeSortDir(rawSortDir)
   const per_page = 100;
@@ -38,11 +42,19 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
   const merchantId = getScopedMerchantId(session)
   const defaultImportMerchantId = merchantId ?? session.selected_merchant?.merchant_id ?? null
   const canLoad = session.user.role === "super_admin" || Boolean(merchantId)
+  const tagsResponse = merchantId
+    ? await listTags(session.accessToken, { merchant_id: merchantId, per_page: 100 })
+    : null
+  const tags =
+    tagsResponse && !isApiErrorResponse(tagsResponse)
+      ? tagsResponse.data
+      : []
   const response = canLoad
     ? await listVehicles(session.accessToken, {
         page: page ?? 1,
         per_page: per_page ?? 100,
         merchant_id: merchantId,
+        tag_id: tagId || undefined,
         sort_by: sortBy,
         sort_dir: sortDir,
       })
@@ -98,12 +110,25 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
         data={rows}
         meta={tableMeta}
         loading_error={loading_error}
-        searchKeys={["plate_number", "make", "model", "type.name"]}
+        searchKeys={["plate_number", "make", "model", "type.name", "tags"]}
+        filters={[
+          {
+            key: "tag",
+            label: "Tag",
+            value: tagId,
+            url_param_name: "tag_id",
+            options: tags.map((tag) => ({
+              label: tag.name,
+              value: tag.tag_id,
+            })),
+          },
+        ]}
         columns={[
           { key: "plate_number", label: "Plate", link: "href" },
           { key: "type.name", label: "Type", link: "href" },
           { key: "make", label: "Make", link: "href" },
           { key: "model", label: "Model", link: "href" },
+          { key: "tags", label: "Tags", type: "tags" },
           { key: "status_label", label: "Status", type: "status", link: "href" },
         ]}
         rowActions={[

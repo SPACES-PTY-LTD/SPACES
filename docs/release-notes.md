@@ -23,13 +23,14 @@ Add new entries at the top (newest first).
 ## 2026-04-07 | Version: unreleased
 
 ### Summary
-- Added shared merchant-scoped tags for fleet vehicles and locations, with detail-page tag management in the admin website.
+- Added shared merchant-scoped tags for fleet vehicles and locations, with admin tag management and list filtering.
 
 ### API Changes
 - Added `GET /api/v1/tags` for merchant-scoped tag lookup.
 - Added `PATCH /api/v1/vehicles/{vehicle_uuid}/tags` to replace a vehicle's assigned tags from a list of tag names.
 - Added `PATCH /api/v1/locations/{location_uuid}/tags` to replace a location's assigned tags from a list of tag names.
 - Vehicle and location API resources now include `tags: [{ tag_id, name, slug }]` when tags are loaded.
+- `GET /api/v1/vehicles` and `GET /api/v1/locations` now accept `tag_id` to filter entries by assigned tag.
 
 ### Database Changes
 - Added `tags` for per-merchant shared tag catalog records.
@@ -37,6 +38,7 @@ Add new entries at the top (newest first).
 
 ### Behavior Changes
 - Vehicle and location detail pages now include a shared tag manager that can search existing tags, create new tags inline, and autosave when tags are added or removed.
+- `/admin/logistics/vehicles` and `/admin/logistics/locations` now show assigned tags in the table and include a tag filter.
 - Tag assignments are shared between fleet and location entries within the same merchant.
 - Tag assignment updates are recorded in the activity log.
 
@@ -45,6 +47,7 @@ Add new entries at the top (newest first).
 
 ### Internal Changes
 - Added shared tag synchronization logic, tag resources, request validation, and regression coverage for tag assignment and resource serialization.
+- Added a shared `tags` column type to the admin data table so server-rendered pages can show tag badges without passing render functions to the client table.
 - Updated existing location and vehicle test fixtures to use normal model events so UUIDs are generated during test setup.
 
 ### Verification
@@ -57,7 +60,12 @@ Add new entries at the top (newest first).
   - `app/Http/Resources/LocationResource.php`
   - `database/migrations/2026_04_07_000001_create_tags_tables.php`
   - `website/src/components/common/entry-tags-manager.tsx`
+  - `website/src/components/common/data-table.tsx`
+  - `website/src/app/admin/logistics/vehicles/page.tsx`
+  - `website/src/app/admin/logistics/locations/page.tsx`
   - `website/src/lib/api/tags.ts`
+  - `website/src/lib/api/vehicles.ts`
+  - `website/src/lib/api/locations.ts`
   - `website/src/lib/types.ts`
   - `tests/Feature/EntryTagsTest.php`
   - `docs/release-notes.md`
@@ -66,6 +74,7 @@ Add new entries at the top (newest first).
   - `php artisan test tests/Feature/EntryTagsTest.php tests/Unit/LocationResourceTest.php tests/Feature/LocationIndexFiltersTest.php tests/Feature/VehicleServiceTest.php`
   - `npx eslint src/components/common/entry-tags-manager.tsx 'src/app/admin/logistics/vehicles/[vehicleId]/page.tsx' src/components/locations/location-detail-content.tsx src/lib/api/tags.ts src/lib/types.ts`
   - `npx eslint src/components/common/entry-tags-manager.tsx`
+  - `npx eslint 'src/app/admin/logistics/vehicles/page.tsx' 'src/app/admin/logistics/locations/page.tsx' src/components/common/data-table.tsx src/lib/api/vehicles.ts src/lib/api/locations.ts`
 
 ## 2026-04-05 | Version: unreleased
 

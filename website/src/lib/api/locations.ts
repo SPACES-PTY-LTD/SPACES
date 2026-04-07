@@ -43,6 +43,7 @@ export async function listLocations(
     per_page?: number
     search?: string
     location_type_id?: string
+    tag_id?: string
     sort_by?: string
     sort_dir?: "asc" | "desc"
   }
