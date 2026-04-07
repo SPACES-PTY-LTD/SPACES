@@ -66,19 +66,24 @@ export const adminNavGroups: NavGroup[] = [
           // },
 
           {
-            title: "Shipments Report",
+            title: "Report",
             href: AdminLinks.reportsShipments,
             icon: ClipboardCheck,
           },
-          {
-            title: "Bookings",
-            href: AdminLinks.bookings,
-            icon: CalendarClock,
-          },
+          // {
+          //   title: "Bookings",
+          //   href: AdminLinks.bookings,
+          //   icon: CalendarClock,
+          // },
           {
             title: "Tracking",
             href: AdminLinks.tracking,
             icon: Compass,
+          },
+          {
+            title: "3D Monitor",
+            href: AdminLinks.threeDMonitoring,
+            icon: Activity,
           },
           {
             title: "Invoiced",
@@ -92,11 +97,7 @@ export const adminNavGroups: NavGroup[] = [
         href: AdminLinks.locations,
         icon: MapPin,
         subItems: [
-          {
-            title: "Activity",
-            href: AdminLinks.locations + "/activity",
-            icon: Activity,
-          },
+          
         ]
       },
       {

@@ -31,6 +31,7 @@ export const AdminLinks = {
   settingsWorkspace: `${ADMIN_BASE}/settings/workspace`,
   shipments: `${LOGISTICS_BASE}/shipments`,
   tracking: `${SHIPMENTS_BASE}/tracking`,
+  threeDMonitoring: `${SHIPMENTS_BASE}/monitoring`,
   invoiced: `${SHIPMENTS_BASE}/invoiced`,
   users: `${ADMIN_BASE}/settings/users`,
   vehicleActivities: `${LOGISTICS_BASE}/vehicles/activities`,
