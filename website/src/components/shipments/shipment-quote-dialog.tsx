@@ -47,6 +47,7 @@ export function ShipmentQuoteDialog({
   description,
   triggerLabel,
   includeOrderRef = false,
+  includeInvoicedAt = true,
   initialValues,
   submitLabel,
   trigger,
@@ -57,6 +58,7 @@ export function ShipmentQuoteDialog({
   description?: string
   triggerLabel: string
   includeOrderRef?: boolean
+  includeInvoicedAt?: boolean
   initialValues?: Partial<ShipmentQuoteFormValues>
   submitLabel?: string
   trigger?: React.ReactElement
@@ -198,8 +200,8 @@ export function ShipmentQuoteDialog({
       setError("Collection date must be in the future.")
       return
     }
-    const invoicedAtIso = invoicedAt ? toIsoDateTime(invoicedAt) : undefined
-    if (invoicedAt && !invoicedAtIso) {
+    const invoicedAtIso = includeInvoicedAt && invoicedAt ? toIsoDateTime(invoicedAt) : undefined
+    if (includeInvoicedAt && invoicedAt && !invoicedAtIso) {
       setError("Invoiced at is invalid.")
       return
     }
@@ -280,14 +282,16 @@ export function ShipmentQuoteDialog({
               />
             </div>
           </div>
-          <div className="grid gap-2">
-            <Label>Invoiced at</Label>
-            <Input
-              type="datetime-local"
-              value={invoicedAt}
-              onChange={(event) => setInvoicedAt(event.target.value)}
-            />
-          </div>
+          {includeInvoicedAt ? (
+            <div className="grid gap-2">
+              <Label>Invoiced at</Label>
+              <Input
+                type="datetime-local"
+                value={invoicedAt}
+                onChange={(event) => setInvoicedAt(event.target.value)}
+              />
+            </div>
+          ) : null}
           <div className="grid gap-2">
             <Label>Collection date</Label>
             <Input

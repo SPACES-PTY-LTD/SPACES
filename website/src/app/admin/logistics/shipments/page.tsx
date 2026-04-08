@@ -154,7 +154,6 @@ export default async function ShipmentsPage({
         merchant_order_ref: values.merchantOrderRef ?? "",
         delivery_note_number: values.deliveryNoteNumber ?? "",
         invoice_number: values.invoiceInvoiceNumber ?? "",
-        invoiced_at: values.invoicedAt,
         collection_date: values.collectionDate,
         pickup_address: toShipmentAddress(values.pickupLocation),
         dropoff_address: toShipmentAddress(values.dropoffLocation),
@@ -189,6 +188,7 @@ export default async function ShipmentsPage({
             description="Capture pickup, destination, and parcel details."
             triggerLabel="New shipment"
             includeOrderRef
+            includeInvoicedAt={false}
             onSubmit={createShipmentAction}
           />
         }

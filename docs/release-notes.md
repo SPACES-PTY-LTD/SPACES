@@ -24,6 +24,7 @@ Add new entries at the top (newest first).
 
 ### Summary
 - Fixed the admin shell content area so wide content scrolls horizontally instead of stretching the main layout.
+- Removed the `Invoiced at` field from the admin new shipment form.
 
 ### API Changes
 - None.
@@ -33,19 +34,24 @@ Add new entries at the top (newest first).
 
 ### Behavior Changes
 - Admin pages now keep the sidebar content area constrained and expose a horizontal scrollbar when child content is wider than the viewport.
+- Creating a shipment from `/admin/logistics/shipments` no longer asks for or submits an invoice timestamp.
 
 ### Breaking Changes
 - None.
 
 ### Internal Changes
 - Restored the admin shell child render path after layout overflow testing and added shrink constraints to the sidebar inset/main content area.
+- Added a shared shipment dialog option for hiding the invoice timestamp while leaving existing edit and quote flows unchanged by default.
 
 ### Verification
 - Updated files:
   - `website/src/components/layout/admin-shell.tsx`
+  - `website/src/app/admin/logistics/shipments/page.tsx`
+  - `website/src/components/shipments/shipment-quote-dialog.tsx`
   - `docs/release-notes.md`
 - Verification run:
   - `npm run lint -- src/components/layout/admin-shell.tsx`
+  - `npm run lint -- src/app/admin/logistics/shipments/page.tsx src/components/shipments/shipment-quote-dialog.tsx` (passes with existing `react-hooks/exhaustive-deps` warning in `shipment-quote-dialog.tsx`)
 
 ## 2026-04-07 | Version: unreleased
 
