@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { isApiErrorResponse } from "@/lib/api/client"
-import { updateShipment } from "@/lib/api/shipments"
+import { updateShipmentDeliveryNoteNumber } from "@/lib/api/shipments"
 
 export function UpdateDeliveryNoteDialog({
   open,
@@ -47,11 +47,9 @@ export function UpdateDeliveryNoteDialog({
 
     setSaving(true)
     try {
-      const result = await updateShipment(
+      const result = await updateShipmentDeliveryNoteNumber(
         shipmentId,
-        {
-          delivery_note_number: value.trim(),
-        },
+        value.trim(),
         accessToken
       )
       if (isApiErrorResponse(result)) {

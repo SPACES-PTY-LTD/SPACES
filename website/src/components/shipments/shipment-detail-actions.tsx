@@ -99,11 +99,9 @@ export function ShipmentDetailActions({
           <DropdownMenuItem onSelect={() => setActiveDialog("deliveryNote")}>
             Update delivery note
           </DropdownMenuItem>
-          {!shipment.invoiced_at ? (
-            <DropdownMenuItem onSelect={() => setActiveDialog("invoice")}>
-              Update invoice number
-            </DropdownMenuItem>
-          ) : null}
+          <DropdownMenuItem onSelect={() => setActiveDialog("invoice")}>
+            Update invoice number
+          </DropdownMenuItem>
           {!runDriverExists ? (
             <DropdownMenuItem onSelect={() => setActiveDialog("driver")}>
               Assign driver
@@ -139,6 +137,7 @@ export function ShipmentDetailActions({
         onOpenChange={(open) => setActiveDialog(open ? "invoice" : null)}
         shipmentId={shipment.shipment_id}
         invoiceNumber={invoiceNumber}
+        deliveryNoteNumber={deliveryNoteNumber}
         accessToken={accessToken}
       />
 

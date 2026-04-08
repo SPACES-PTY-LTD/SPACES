@@ -37,17 +37,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { StatusBadge } from "@/components/common/status-badge"
+import { UpdateDeliveryNoteDialog } from "@/components/shipments/update-delivery-note-dialog"
+import { UpdateInvoiceNumberDialog } from "@/components/shipments/update-invoice-number-dialog"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { format, parseISO } from "date-fns"
-import { ArrowDown, ArrowUp, ArrowUpDown, Filter, ImageIcon, MoreHorizontal, Search } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, Filter, ImageIcon, MoreHorizontal, Pencil, Search } from "lucide-react"
 import { Button } from "../ui/button"
 
 export type Column<T> = {
   key: keyof T | string
   label: string
   className?: string
-  type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags"
+  type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number"
   size?: "sm" | "md" | "lg"
   format?: string
   customValue?: (row: T) => React.ReactNode
@@ -77,6 +79,91 @@ export type DataTableView = {
   link?: string
   match?: "exact" | "subset"
   ignoreParams?: string[]
+}
+
+function DeliveryNoteNumberCell<T extends Record<string, unknown>>({
+  row,
+  displayValue,
+  deliveryNoteNumber,
+}: {
+  row: T
+  displayValue: React.ReactNode
+  deliveryNoteNumber: string
+}) {
+  const [open, setOpen] = React.useState(false)
+  const rawShipmentId = getValue(row, "shipment_id")
+  const shipmentId =
+    typeof rawShipmentId === "string" && rawShipmentId.trim().length > 0
+      ? rawShipmentId.trim()
+      : ""
+
+  if (!shipmentId) {
+    return displayValue
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 text-left text-primary underline-offset-4 hover:underline"
+      >
+        <span>{displayValue}</span>
+        <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span className="sr-only">Edit delivery note number</span>
+      </button>
+      <UpdateDeliveryNoteDialog
+        open={open}
+        onOpenChange={setOpen}
+        shipmentId={shipmentId}
+        deliveryNoteNumber={deliveryNoteNumber}
+      />
+    </>
+  )
+}
+
+function InvoiceNumberCell<T extends Record<string, unknown>>({
+  row,
+  displayValue,
+  invoiceNumber,
+  deliveryNoteNumber,
+}: {
+  row: T
+  displayValue: React.ReactNode
+  invoiceNumber: string
+  deliveryNoteNumber: string
+}) {
+  const [open, setOpen] = React.useState(false)
+  const rawShipmentId = getValue(row, "shipment_id")
+  const shipmentId =
+    typeof rawShipmentId === "string" && rawShipmentId.trim().length > 0
+      ? rawShipmentId.trim()
+      : ""
+
+  if (!shipmentId) {
+    return displayValue
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 text-left text-primary underline-offset-4 hover:underline"
+      >
+        <span>{displayValue}</span>
+        <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <span className="sr-only">Edit invoice number</span>
+      </button>
+      <UpdateInvoiceNumberDialog
+        open={open}
+        onOpenChange={setOpen}
+        shipmentId={shipmentId}
+        invoiceNumber={invoiceNumber}
+        deliveryNoteNumber={deliveryNoteNumber}
+      />
+    </>
+  )
 }
 
 function getValue<T extends Record<string, unknown>>(
@@ -648,14 +735,12 @@ export function DataTable<T extends Record<string, unknown>>({
             <Table className={cn(width ? `table-fixed` : "table-auto")} style={width ? { minWidth:width } : undefined}>
               <TableHeader className="bg-muted/30">
                 <TableRow>
-                  {columns.map((column, columnIndex) => (
+                  {columns.map((column) => (
                     <TableHead
                       key={String(column.key)}
                       className={cn(
                         "sticky top-0",
-                        column.className,
-                        // columnIndex === columns.length - 1 &&
-                        // "right-0"
+                        column.className
                       )}
                     >
                       {enableSorting &&
@@ -712,13 +797,9 @@ export function DataTable<T extends Record<string, unknown>>({
                 ) : (
                   rows.map((row, rowIndex) => (
                     <TableRow key={rowIndex}>
-                      {columns.map((column, columnIndex) => (
+                      {columns.map((column) => (
                         <TableCell
                           key={String(column.key)}
-                          className={cn(
-                            // columnIndex === columns.length - 1 &&
-                            // "sticky right-0 bg-background"
-                          )}
                         >
                           {column.type === "status" ? (
                             <StatusBadge
@@ -728,6 +809,19 @@ export function DataTable<T extends Record<string, unknown>>({
                             renderImageValue(row, column)
                           ) : column.type === "tags" ? (
                             renderTagsValue(row, column)
+                          ) : column.type === "delivery_note_number" ? (
+                            <DeliveryNoteNumberCell
+                              row={row}
+                              displayValue={renderValue(getDisplayValue(row, column))}
+                              deliveryNoteNumber={String(getCellValue(row, column.key) ?? "")}
+                            />
+                          ) : column.type === "invoice_number" ? (
+                            <InvoiceNumberCell
+                              row={row}
+                              displayValue={renderValue(getDisplayValue(row, column))}
+                              invoiceNumber={String(getCellValue(row, column.key) ?? "")}
+                              deliveryNoteNumber={String(getValue(row, "delivery_note_number") ?? "")}
+                            />
                           ) : (
                             (() => {
                               const value = getDisplayValue(row, column)

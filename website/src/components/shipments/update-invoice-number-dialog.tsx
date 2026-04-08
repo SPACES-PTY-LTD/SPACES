@@ -15,19 +15,24 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { isApiErrorResponse } from "@/lib/api/client"
-import { updateShipment } from "@/lib/api/shipments"
+import { updateShipmentInvoiceNumber } from "@/lib/api/shipments"
+
+const DELIVERY_NOTE_REQUIRED_MESSAGE =
+  "Delivery note number is required before updating the invoice number."
 
 export function UpdateInvoiceNumberDialog({
   open,
   onOpenChange,
   shipmentId,
   invoiceNumber,
+  deliveryNoteNumber,
   accessToken,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   shipmentId: string
   invoiceNumber?: string
+  deliveryNoteNumber?: string
   accessToken?: string | null
 }) {
   const router = useRouter()
@@ -45,14 +50,16 @@ export function UpdateInvoiceNumberDialog({
       return
     }
 
+    if (!deliveryNoteNumber?.trim()) {
+      toast.error(DELIVERY_NOTE_REQUIRED_MESSAGE)
+      return
+    }
+
     setSaving(true)
     try {
-      const result = await updateShipment(
+      const result = await updateShipmentInvoiceNumber(
         shipmentId,
-        {
-          invoice_number: value.trim(),
-          invoice_invoice_number: value.trim(),
-        },
+        value.trim(),
         accessToken
       )
       if (isApiErrorResponse(result)) {

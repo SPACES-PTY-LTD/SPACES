@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AssignShipmentDriverRequest;
 use App\Http\Requests\StoreShipmentRequest;
+use App\Http\Requests\UpdateShipmentDeliveryNoteRequest;
+use App\Http\Requests\UpdateShipmentInvoiceNumberRequest;
 use App\Http\Requests\UpdateShipmentRequest;
 use App\Http\Resources\BookingResource;
 use App\Http\Resources\ShipmentResource;
@@ -237,6 +239,70 @@ class ShipmentController extends Controller
         } catch (Throwable $e) {
             Log::error('Shipment update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'SHIPMENT_UPDATE_FAILED', 'Unable to update shipment.');
+        }
+    }
+
+    public function updateDeliveryNoteNumber(UpdateShipmentDeliveryNoteRequest $request, string $shipment_uuid, ShipmentService $service)
+    {
+        try {
+            $shipment = Shipment::where('uuid', $shipment_uuid)->firstOrFail();
+            $environment = $request->attributes->get('merchant_environment');
+            if ($environment) {
+                if ($shipment->merchant_id !== $environment->merchant_id) {
+                    return ApiResponse::error('FORBIDDEN', 'You are not authorized to access this resource.', [], Response::HTTP_FORBIDDEN);
+                }
+                if ($shipment->environment_id && $shipment->environment_id !== $environment->id) {
+                    return ApiResponse::error('FORBIDDEN', 'You are not authorized to access this resource.', [], Response::HTTP_FORBIDDEN);
+                }
+            } else {
+                $this->authorize('update', $shipment);
+            }
+
+            if ($shipment->invoiced_at) {
+                return ApiResponse::error('SHIPMENT_INVOICED', 'Delivery note number cannot be updated after the shipment has been invoiced.', [], Response::HTTP_CONFLICT);
+            }
+
+            $shipment = $service->updateDeliveryNoteNumber($shipment, $request->validated('delivery_note_number'));
+
+            return ApiResponse::success(new ShipmentResource($this->loadShipmentRelations($shipment)));
+        } catch (Throwable $e) {
+            Log::error('Shipment delivery note update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+            return $this->apiError($e, 'SHIPMENT_DELIVERY_NOTE_UPDATE_FAILED', 'Unable to update shipment delivery note number.');
+        }
+    }
+
+    public function updateInvoiceNumber(UpdateShipmentInvoiceNumberRequest $request, string $shipment_uuid, ShipmentService $service)
+    {
+        try {
+            $shipment = Shipment::where('uuid', $shipment_uuid)->firstOrFail();
+            $environment = $request->attributes->get('merchant_environment');
+            if ($environment) {
+                if ($shipment->merchant_id !== $environment->merchant_id) {
+                    return ApiResponse::error('FORBIDDEN', 'You are not authorized to access this resource.', [], Response::HTTP_FORBIDDEN);
+                }
+                if ($shipment->environment_id && $shipment->environment_id !== $environment->id) {
+                    return ApiResponse::error('FORBIDDEN', 'You are not authorized to access this resource.', [], Response::HTTP_FORBIDDEN);
+                }
+            } else {
+                $this->authorize('update', $shipment);
+            }
+
+            if (trim((string) ($shipment->delivery_note_number ?? '')) === '') {
+                return ApiResponse::error(
+                    'SHIPMENT_DELIVERY_NOTE_REQUIRED',
+                    'Delivery note number is required before updating the invoice number.',
+                    [],
+                    Response::HTTP_UNPROCESSABLE_ENTITY
+                );
+            }
+
+            $invoiceNumber = trim($request->validated('invoice_number'));
+            $shipment = $service->updateInvoiceNumber($shipment, $invoiceNumber);
+
+            return ApiResponse::success(new ShipmentResource($this->loadShipmentRelations($shipment)));
+        } catch (Throwable $e) {
+            Log::error('Shipment invoice number update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+            return $this->apiError($e, 'SHIPMENT_INVOICE_NUMBER_UPDATE_FAILED', 'Unable to update shipment invoice number.');
         }
     }
 

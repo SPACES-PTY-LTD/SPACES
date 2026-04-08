@@ -376,6 +376,29 @@ class ShipmentService
         });
     }
 
+    public function updateDeliveryNoteNumber(Shipment $shipment, string $deliveryNoteNumber): Shipment
+    {
+        return DB::transaction(function () use ($shipment, $deliveryNoteNumber) {
+            $shipment->delivery_note_number = $deliveryNoteNumber;
+            $shipment->save();
+
+            return $shipment;
+        });
+    }
+
+    public function updateInvoiceNumber(Shipment $shipment, string $invoiceNumber): Shipment
+    {
+        return DB::transaction(function () use ($shipment, $invoiceNumber) {
+            $shipment->invoice_number = $invoiceNumber;
+            if (!$shipment->invoiced_at) {
+                $shipment->invoiced_at = now();
+            }
+            $shipment->save();
+
+            return $shipment;
+        });
+    }
+
     private function resolveInvoicedAtForWrite(array $data): ?Carbon
     {
         if (!empty($data['invoiced_at'])) {

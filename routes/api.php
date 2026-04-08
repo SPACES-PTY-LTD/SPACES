@@ -143,6 +143,8 @@ Route::prefix('v1')->group(function () {
         Route::get('shipments/{shipment_uuid}', [ShipmentController::class, 'show']);
         Route::post('shipments/{shipment_uuid}/assign_driver', [ShipmentController::class, 'assignDriver']);
         Route::post('shipments/{shipment_uuid}/dispatch-offers/start', [ShipmentOfferController::class, 'start']);
+        Route::patch('shipments/{shipment_uuid}/delivery-note-number', [ShipmentController::class, 'updateDeliveryNoteNumber']);
+        Route::patch('shipments/{shipment_uuid}/invoice-number', [ShipmentController::class, 'updateInvoiceNumber']);
         Route::patch('shipments/{shipment_uuid}', [ShipmentController::class, 'update']);
         Route::delete('shipments/{shipment_uuid}', [ShipmentController::class, 'destroy']);
         Route::get('shipments/{shipment_uuid}/label', [ShipmentController::class, 'label']);

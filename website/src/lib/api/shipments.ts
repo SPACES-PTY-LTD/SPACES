@@ -95,6 +95,34 @@ export async function updateShipment(
   })
 }
 
+export async function updateShipmentDeliveryNoteNumber(
+  shipmentId: string,
+  deliveryNoteNumber: string,
+  token?: string | null
+) {
+  return apiFetch<Shipment>(`/api/v1/shipments/${shipmentId}/delivery-note-number`, {
+    method: "PATCH",
+    body: {
+      delivery_note_number: deliveryNoteNumber,
+    },
+    token,
+  })
+}
+
+export async function updateShipmentInvoiceNumber(
+  shipmentId: string,
+  invoiceNumber: string,
+  token?: string | null
+) {
+  return apiFetch<Shipment>(`/api/v1/shipments/${shipmentId}/invoice-number`, {
+    method: "PATCH",
+    body: {
+      invoice_number: invoiceNumber,
+    },
+    token,
+  })
+}
+
 export async function assignShipmentDriver(
   shipmentId: string,
   payload: AssignShipmentDriverPayload,

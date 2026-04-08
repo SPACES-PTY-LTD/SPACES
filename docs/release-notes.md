@@ -23,6 +23,62 @@ Add new entries at the top (newest first).
 ## 2026-04-08 | Version: unreleased
 
 ### Summary
+- Added an editable delivery note number column type to the admin shipments table.
+- Added a dedicated shipment delivery note update endpoint that allows updates after draft while the shipment is not invoiced.
+- Added an editable invoice number column type to the admin shipments table.
+- Added a dedicated shipment invoice number update endpoint that requires a delivery note number before invoicing.
+
+### API Changes
+- Added `PATCH /api/v1/shipments/{shipment_uuid}/delivery-note-number` for updating only `delivery_note_number`.
+- The delivery note update endpoint returns `409 SHIPMENT_INVOICED` when `invoiced_at` is already set.
+- Added `PATCH /api/v1/shipments/{shipment_uuid}/invoice-number` for updating only `invoice_number`.
+- The invoice number update endpoint returns `422 SHIPMENT_DELIVERY_NOTE_REQUIRED` when the shipment has no delivery note number.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/shipments` now shows delivery note numbers with an edit icon that opens the existing update delivery note dialog from the table cell.
+- Delivery note numbers can now be updated from the shipment table for non-draft shipments until the shipment is invoiced.
+- `/admin/logistics/shipments` now shows an Invoice Number column after Delivery Note with an edit icon that opens the existing update invoice number dialog.
+- Invoice numbers can now be updated for non-draft and already invoiced shipments when a delivery note number exists.
+- Attempting to update an invoice number without a delivery note number shows that the delivery note number is required first.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added a shared `delivery_note_number` data table column type that reuses `UpdateDeliveryNoteDialog` for shipment rows.
+- Added a shared `invoice_number` data table column type that reuses `UpdateInvoiceNumberDialog` for shipment rows.
+- Updated the delivery note dialog to use the dedicated endpoint instead of the full shipment update endpoint.
+- Updated the invoice number dialog to use the dedicated endpoint instead of the full shipment update endpoint.
+- Added focused API regression coverage for allowed non-draft updates and blocked invoiced updates.
+- Added focused API regression coverage for invoice updates, invoice timestamp preservation, and delivery note prerequisite validation.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/ShipmentController.php`
+  - `app/Http/Requests/UpdateShipmentDeliveryNoteRequest.php`
+  - `app/Http/Requests/UpdateShipmentInvoiceNumberRequest.php`
+  - `app/Services/ShipmentService.php`
+  - `routes/api.php`
+  - `tests/Feature/ShipmentDeliveryNoteUpdateTest.php`
+  - `tests/Feature/ShipmentInvoiceNumberUpdateTest.php`
+  - `website/src/components/common/data-table.tsx`
+  - `website/src/components/shipments/update-delivery-note-dialog.tsx`
+  - `website/src/components/shipments/update-invoice-number-dialog.tsx`
+  - `website/src/components/shipments/shipment-detail-actions.tsx`
+  - `website/src/app/admin/logistics/shipments/page.tsx`
+  - `website/src/lib/api/shipments.ts`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Http/Controllers/Api/V1/ShipmentController.php && php -l app/Http/Requests/UpdateShipmentDeliveryNoteRequest.php && php -l app/Http/Requests/UpdateShipmentInvoiceNumberRequest.php && php -l app/Services/ShipmentService.php && php -l routes/api.php && php -l tests/Feature/ShipmentDeliveryNoteUpdateTest.php && php -l tests/Feature/ShipmentInvoiceNumberUpdateTest.php`
+  - `php artisan test tests/Feature/ShipmentDeliveryNoteUpdateTest.php tests/Feature/ShipmentInvoiceNumberUpdateTest.php`
+  - `npm run lint -- src/lib/api/shipments.ts src/components/shipments/update-invoice-number-dialog.tsx src/components/common/data-table.tsx src/app/admin/logistics/shipments/page.tsx src/components/shipments/shipment-detail-actions.tsx`
+
+## 2026-04-08 | Version: unreleased
+
+### Summary
 - Added an admin location geofence map page for searching locations, editing address details, and updating geofence polygons.
 - Fixed API-submitted location polygon coordinate persistence so `[latitude, longitude]` arrays round-trip correctly.
 - Fixed the admin location geofence map so markers and polygons render after the Google Maps loader finishes instead of waiting for another state change.
