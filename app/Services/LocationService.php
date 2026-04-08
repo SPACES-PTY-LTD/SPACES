@@ -262,6 +262,7 @@ class LocationService
             'longitude',
             'google_place_id',
             'location_type_id',
+            'polygon_bounds',
             'metadata',
         ]);
 
@@ -317,7 +318,13 @@ class LocationService
         }
 
         $location->save();
-        $changes = $this->activityLogService->diffChanges($before, $location->only(array_keys($before)));
+        $after = $location->only(array_keys($before));
+        if (array_key_exists('polygon_bounds', $data)) {
+            $after['polygon_bounds'] = $data['polygon_bounds'] === null
+                ? null
+                : $this->polygonToWkt($data['polygon_bounds']);
+        }
+        $changes = $this->activityLogService->diffChanges($before, $after);
         if (!empty($changes)) {
             $this->activityLogService->log(
                 action: 'updated',
@@ -817,7 +824,7 @@ class LocationService
         return is_numeric($value) ? (float) $value : null;
     }
 
-    private function polygonToSql(array $points): string
+    private function polygonToWkt(array $points): string
     {
         if (count($points) < 3) {
             throw ValidationException::withMessages([
@@ -847,8 +854,12 @@ class LocationService
             $normalized[] = $first;
         }
 
-        $pairs = array_map(fn ($pair) => $pair[0].' '.$pair[1], $normalized);
-        $wkt = 'POLYGON((' . implode(', ', $pairs) . '))';
+        return 'POLYGON((' . implode(', ', array_map(fn ($pair) => $pair[1].' '.$pair[0], $normalized)) . '))';
+    }
+
+    private function polygonToSql(array $points): string
+    {
+        $wkt = $this->polygonToWkt($points);
         $safeWkt = str_replace("'", "''", $wkt);
 
         return "ST_GeomFromText('{$safeWkt}')";

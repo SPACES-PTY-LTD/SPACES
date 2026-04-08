@@ -13,6 +13,7 @@ export const AdminLinks = {
   carriers: `${ADMIN_BASE}/settings/carriers`,
   drivers: `${LOGISTICS_BASE}/drivers`,
   locations: `${LOGISTICS_BASE}/locations`,
+  locationGeofence: `${LOGISTICS_BASE}/locations/geofence`,
   members: `${ADMIN_BASE}/members`,
   merchants: `${ADMIN_BASE}/settings/merchants`,
   quotes: `${SHIPMENTS_BASE}/quotes`,

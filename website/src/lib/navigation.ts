@@ -2,7 +2,6 @@ import { AdminLinks } from "@/lib/routes/admin"
 import {
   Activity,
   Boxes,
-  CalendarClock,
   ClipboardCheck,
   CreditCard,
   Globe,
@@ -17,13 +16,11 @@ import {
   Compass,
   FileUser,
   CogIcon,
-  Blocks,
   Home,
   ChartArea,
   ChartNoAxesColumn,
   Trash2,
   FileText,
-  UserCircle2,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import type { Role } from "@/lib/types"
@@ -97,7 +94,11 @@ export const adminNavGroups: NavGroup[] = [
         href: AdminLinks.locations,
         icon: MapPin,
         subItems: [
-          
+          {
+            title: "Geofence",
+            href: AdminLinks.locationGeofence,
+            icon: Map,
+          },
         ]
       },
       {

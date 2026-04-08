@@ -8,6 +8,7 @@ export type LocationPayload = {
   name: string
   code?: string | null
   company?: string | null
+  full_address?: string | null
   address_line_1?: string | null
   address_line_2?: string | null
   town?: string | null

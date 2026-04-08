@@ -23,6 +23,60 @@ Add new entries at the top (newest first).
 ## 2026-04-08 | Version: unreleased
 
 ### Summary
+- Added an admin location geofence map page for searching locations, editing address details, and updating geofence polygons.
+- Fixed API-submitted location polygon coordinate persistence so `[latitude, longitude]` arrays round-trip correctly.
+- Fixed the admin location geofence map so markers and polygons render after the Google Maps loader finishes instead of waiting for another state change.
+
+### API Changes
+- `PATCH /api/v1/locations/{location_uuid}` now persists `polygon_bounds` arrays using the correct longitude/latitude WKT storage order while keeping the public API shape as `[latitude, longitude]`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/locations/geofence` now shows a searchable paginated location list beside a Google map with location markers, geofence polygons, and a bottom-right editor panel.
+- Users can update a selected location's name, address via Google Places search, and polygon bounds, with all edits saved only when the user clicks Save.
+- Reset Polygon now creates a default rectangle around the selected location's coordinates without persisting it until Save.
+- Geofence-only location updates now create a location activity-log entry.
+- The geofence map now waits for the Maps instance to be ready before drawing overlays and uses Google Advanced Markers when a Map ID enables them.
+- Selecting a location on the geofence map now updates the existing overlays instead of rebuilding every marker and polygon.
+- The geofence page now ignores synthetic sidebar and map overlay clicks when selecting locations.
+- The geofence location list now loads additional locations only when the user clicks Load more locations.
+- The geofence map now skips Advanced Marker loading unless `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` is configured.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added a locations geofence page component that reuses the existing Google Maps loader, marker clustering, Places address search, and locations API client.
+- Added explicit map-readiness state to avoid dropping the initial marker and polygon render after async Google Maps loading.
+- Split geofence overlay creation from selection styling to reduce repeated Google Maps work during location selection.
+- Added idempotent selection handling and trusted-event guards around geofence location selection.
+- Replaced geofence list infinite-scroll observation with explicit button-driven pagination.
+- Gated the Google Maps marker library and Advanced Marker construction behind the configured Map ID.
+- Added backend regression coverage for location geofence coordinate order and activity logging.
+
+### Verification
+- Updated files:
+  - `app/Services/LocationService.php`
+  - `tests/Feature/LocationGeofenceUpdateTest.php`
+  - `website/src/app/admin/logistics/locations/geofence/page.tsx`
+  - `website/src/components/locations/locations-geofence-page-content.tsx`
+  - `website/src/lib/api/locations.ts`
+  - `website/src/lib/routes/admin.ts`
+  - `website/src/lib/navigation.ts`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Services/LocationService.php && php -l tests/Feature/LocationGeofenceUpdateTest.php`
+  - `php artisan test tests/Feature/LocationIndexFiltersTest.php tests/Unit/LocationResourceTest.php tests/Feature/LocationGeofenceUpdateTest.php`
+  - `npm run lint -- 'src/app/admin/logistics/locations/geofence/page.tsx' src/components/locations/locations-geofence-page-content.tsx src/lib/api/locations.ts src/lib/routes/admin.ts src/lib/navigation.ts`
+  - `npm run lint -- 'src/app/admin/logistics/locations/geofence/page.tsx' src/components/locations src/lib/api/locations.ts src/lib/routes/admin.ts src/lib/navigation.ts` (passes with existing unused-variable warnings in broader linted files)
+  - `npm run lint -- src/components/locations/locations-geofence-page-content.tsx`
+  - `npx tsc --noEmit --pretty false`
+
+## 2026-04-08 | Version: unreleased
+
+### Summary
 - Fixed the admin shell content area so wide content scrolls horizontally instead of stretching the main layout.
 - Removed the `Invoiced at` field from the admin new shipment form.
 
