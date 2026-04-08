@@ -43,6 +43,9 @@ Add new entries at the top (newest first).
 - The geofence page now ignores synthetic sidebar and map overlay clicks when selecting locations.
 - The geofence location list now loads additional locations only when the user clicks Load more locations.
 - The geofence map now skips Advanced Marker loading unless `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` is configured.
+- Prefilled Places address fields now wait for the user to type before showing Google Places suggestions.
+- Reset Polygon now uses the selected location's saved latitude and longitude, not the edited address draft coordinates.
+- The geofence location list now shows each location's type in the aside.
 
 ### Breaking Changes
 - None.
@@ -54,6 +57,9 @@ Add new entries at the top (newest first).
 - Added idempotent selection handling and trusted-event guards around geofence location selection.
 - Replaced geofence list infinite-scroll observation with explicit button-driven pagination.
 - Gated the Google Maps marker library and Advanced Marker construction behind the configured Map ID.
+- Added explicit user-typing state to Places suggestions so `initialQuery` changes do not trigger autocomplete searches.
+- Updated the geofence reset handler to derive its square center from the selected location record.
+- Added a helper for rendering the best available location type label in geofence list rows.
 - Added backend regression coverage for location geofence coordinate order and activity logging.
 
 ### Verification
@@ -61,6 +67,7 @@ Add new entries at the top (newest first).
   - `app/Services/LocationService.php`
   - `tests/Feature/LocationGeofenceUpdateTest.php`
   - `website/src/app/admin/logistics/locations/geofence/page.tsx`
+  - `website/src/components/locations/places-suggestions.tsx`
   - `website/src/components/locations/locations-geofence-page-content.tsx`
   - `website/src/lib/api/locations.ts`
   - `website/src/lib/routes/admin.ts`
@@ -72,6 +79,7 @@ Add new entries at the top (newest first).
   - `npm run lint -- 'src/app/admin/logistics/locations/geofence/page.tsx' src/components/locations/locations-geofence-page-content.tsx src/lib/api/locations.ts src/lib/routes/admin.ts src/lib/navigation.ts`
   - `npm run lint -- 'src/app/admin/logistics/locations/geofence/page.tsx' src/components/locations src/lib/api/locations.ts src/lib/routes/admin.ts src/lib/navigation.ts` (passes with existing unused-variable warnings in broader linted files)
   - `npm run lint -- src/components/locations/locations-geofence-page-content.tsx`
+  - `npm run lint -- src/components/locations/places-suggestions.tsx src/components/locations/locations-geofence-page-content.tsx`
   - `npx tsc --noEmit --pretty false`
 
 ## 2026-04-08 | Version: unreleased

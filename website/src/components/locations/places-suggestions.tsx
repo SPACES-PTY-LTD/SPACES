@@ -36,7 +36,7 @@ export function PlacesSuggestions({
 }) {
   const [query, setQuery] = React.useState("")
   const [suggestions, setSuggestions] = React.useState<PlaceSuggestion[]>([])
-  const [suppressSuggestions, setSuppressSuggestions] = React.useState(false)
+  const [suggestionsEnabled, setSuggestionsEnabled] = React.useState(false)
   const [placesReady, setPlacesReady] = React.useState(false)
   const [placesLoading, setPlacesLoading] = React.useState(false)
   const [placesError, setPlacesError] = React.useState<string | null>(null)
@@ -51,7 +51,7 @@ export function PlacesSuggestions({
   React.useEffect(() => {
     setQuery(initialQuery)
     setSuggestions([])
-    setSuppressSuggestions(false)
+    setSuggestionsEnabled(false)
   }, [initialQuery, resetKey])
 
   React.useEffect(() => {
@@ -90,7 +90,7 @@ export function PlacesSuggestions({
   React.useEffect(() => {
     if (!placesReady) return
     if (!autocompleteServiceRef.current) return
-    if (suppressSuggestions) return
+    if (!suggestionsEnabled) return
     const trimmed = query.trim()
     if (trimmed.length < 3) {
       setSuggestions([])
@@ -123,12 +123,12 @@ export function PlacesSuggestions({
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [countryCode, placesReady, query, suppressSuggestions])
+  }, [countryCode, placesReady, query, suggestionsEnabled])
 
   const handleSelect = (suggestion: PlaceSuggestion) => {
     if (!placesServiceRef.current) return
     setPlacesLoading(true)
-    setSuppressSuggestions(true)
+    setSuggestionsEnabled(false)
     placesServiceRef.current.getDetails(
       {
         placeId: suggestion.place_id,
@@ -210,13 +210,13 @@ export function PlacesSuggestions({
           value={query}
           placeholder={placeholder}
           onChange={(event) => {
-            setSuppressSuggestions(false)
+            setSuggestionsEnabled(true)
             setQuery(event.target.value)
           }}
           disabled={!placesReady && Boolean(placesError)}
         />
         {suggestions.length > 0 ? (
-          <div className="absolute z-20 mt-1 w-full rounded-md border bg-background shadow">
+          <div className="absolute z-20 mt-1 w-full rounded-md border bg-background shadow" id="dropdown">
             <div className="max-h-56 overflow-y-auto py-1 text-sm">
               {suggestions.map((suggestion) => (
                 <button

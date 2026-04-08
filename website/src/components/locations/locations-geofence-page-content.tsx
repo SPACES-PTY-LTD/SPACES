@@ -112,6 +112,15 @@ function getLocationAddress(location: Location) {
   )
 }
 
+function getLocationTypeLabel(location: Location) {
+  return (
+    location.type?.title ||
+    location.type?.slug ||
+    location.location_type_id ||
+    "No type"
+  )
+}
+
 function toLatLngLiteral(location: Location): LatLngLiteral | null {
   const lat = Number(location.latitude)
   const lng = Number(location.longitude)
@@ -376,7 +385,7 @@ export function LocationsGeofencePageContent({
             />
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto max-h-[calc(100vh-15rem)]">
+        <div className="min-h-0 flex-1 overflow-y-auto max-h-[calc(100vh-12rem)]">
           {loadingError && locations.length === 0 ? (
             <div className="p-4 text-sm text-destructive">{loadingError}</div>
           ) : null}
@@ -401,6 +410,9 @@ export function LocationsGeofencePageContent({
                 <span className="min-w-0">
                   <span className="block truncate font-medium">
                     {getLocationLabel(location)}
+                  </span>
+                  <span className="mt-1 inline-flex max-w-full rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    <span className="truncate">{getLocationTypeLabel(location)}</span>
                   </span>
                   <span className="line-clamp-2 text-xs text-muted-foreground">
                     {getLocationAddress(location) || "No address captured"}
@@ -697,15 +709,17 @@ function LocationsGeofenceMap({
   }, [])
 
   const handleResetPolygon = React.useCallback(() => {
-    const lat = Number(draft.latitude)
-    const lng = Number(draft.longitude)
+    if (!selectedLocation) return
+
+    const lat = Number(selectedLocation.latitude)
+    const lng = Number(selectedLocation.longitude)
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      toast.error("Select an address with coordinates before resetting the polygon.")
+      toast.error("The selected location does not have saved coordinates.")
       return
     }
 
     setSelectedPolygonPath(buildDefaultGeofence({ lat, lng }))
-  }, [draft.latitude, draft.longitude, setSelectedPolygonPath])
+  }, [selectedLocation, setSelectedPolygonPath])
 
   const handleSave = React.useCallback(async () => {
     if (!selectedLocation) return
