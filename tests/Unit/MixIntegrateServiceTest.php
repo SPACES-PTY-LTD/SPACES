@@ -340,6 +340,59 @@ class MixIntegrateServiceTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_inspect_token_response_retries_token_request_once_before_succeeding(): void
+    {
+        config([
+            'services.mix.identity_url' => 'https://identity.example.test',
+            'services.mix.client_id' => 'client-id',
+            'services.mix.client_secret' => 'client-secret',
+            'services.mix.username' => 'username',
+            'services.mix.password' => 'password',
+        ]);
+
+        Http::fake([
+            'https://identity.example.test/connect/token' => Http::sequence()
+                ->push(['error' => 'temporary'], 500)
+                ->push([
+                    'access_token' => $this->buildJwt([
+                        'sub' => 'mix-user',
+                        'iat' => 1775728800,
+                        'exp' => 1775732400,
+                    ]),
+                    'token_type' => 'Bearer',
+                    'expires_in' => 3600,
+                ], 200),
+        ]);
+
+        $service = $this->serviceWithCacheStore(Mockery::mock(CacheRepository::class));
+        $analysis = $service->inspectTokenResponse();
+
+        $this->assertIsString($analysis['access_token']);
+        Http::assertSentCount(2);
+    }
+
+    public function test_inspect_token_response_throws_after_second_failed_token_request(): void
+    {
+        config([
+            'services.mix.identity_url' => 'https://identity.example.test',
+            'services.mix.client_id' => 'client-id',
+            'services.mix.client_secret' => 'client-secret',
+            'services.mix.username' => 'username',
+            'services.mix.password' => 'password',
+        ]);
+
+        Http::fake([
+            'https://identity.example.test/connect/token' => Http::sequence()
+                ->push(['error' => 'temporary'], 500)
+                ->push(['error' => 'still failing'], 500),
+        ]);
+
+        $this->expectException(\Illuminate\Http\Client\RequestException::class);
+
+        $service = $this->serviceWithCacheStore(Mockery::mock(CacheRepository::class));
+        $service->inspectTokenResponse();
+    }
+
     private function buildJwt(array $payload): string
     {
         $header = ['alg' => 'HS256', 'typ' => 'JWT'];

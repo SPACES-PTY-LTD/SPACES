@@ -704,17 +704,14 @@ class MixIntegrateService
         $password = $integrationData['password'] ?? config('services.mix.password');
         $identityUrl = $integrationData['identity_server_url'] ?? config('services.mix.identity_url');
 
-        $response = Http::asForm()
-            ->acceptJson()
-            ->timeout(20)
-            ->post($identityUrl . '/connect/token', [
-                'client_id' => $clientId,
-                'client_secret' => $clientSecret,
-                'grant_type' => 'password',
-                'username' => $username,
-                'password' => $password,
-                'scope' => 'offline_access MiX.Integrate',
-            ]);
+        $response = $this->requestTokenWithRetry($identityUrl, [
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
+            'grant_type' => 'password',
+            'username' => $username,
+            'password' => $password,
+            'scope' => 'offline_access MiX.Integrate',
+        ]);
 
         if ($response->failed()) {
             Log::warning('Mix Integrate token request failed.', [
@@ -751,6 +748,48 @@ class MixIntegrateService
             'timing' => $timing,
             'summary' => $this->buildTokenSummary($timing, $data),
         ];
+    }
+
+    private function requestTokenWithRetry(string $identityUrl, array $payload)
+    {
+        $response = null;
+
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            $response = $this->performTokenRequest($identityUrl, $payload);
+
+            if (!$response->failed()) {
+                return $response;
+            }
+
+            if ($attempt < 2) {
+                Log::warning('Mix Integrate token request failed, retrying.', [
+                    'identity_url' => $identityUrl,
+                    'status' => $response->status(),
+                    'attempt' => $attempt,
+                    'next_attempt' => $attempt + 1,
+                    'body' => $response->body(),
+                ]);
+            }
+        }
+
+        Log::warning('Mix Integrate token request failed.', [
+            'identity_url' => $identityUrl,
+            'status' => $response?->status(),
+            'body' => $response?->body(),
+            'attempts' => 2,
+        ]);
+
+        $response?->throw();
+
+        throw new \RuntimeException('Mix Integrate token request failed without a response.');
+    }
+
+    private function performTokenRequest(string $identityUrl, array $payload)
+    {
+        return Http::asForm()
+            ->acceptJson()
+            ->timeout(20)
+            ->post($identityUrl . '/connect/token', $payload);
     }
 
     private function getCachedTokenAnalysis(array $integrationData = []): ?array

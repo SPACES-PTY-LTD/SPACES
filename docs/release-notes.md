@@ -23,6 +23,38 @@ Add new entries at the top (newest first).
 ## 2026-04-09 | Version: unreleased
 
 ### Summary
+- Updated MiX token login so a failed `/connect/token` request is retried once before the service throws an error.
+
+### API Changes
+- No public API contract changes.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- MiX authentication now makes a second `/connect/token` attempt when the first request fails.
+- If the second attempt also fails, the original HTTP exception is still thrown and the request fails as before.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Extracted MiX token request execution into reusable helper methods so the fresh-login path can retry once before logging and throwing.
+- Added focused unit coverage for success-on-retry and fail-after-second-attempt behavior.
+
+### Verification
+- Updated files:
+  - `app/Services/Mixtelematics/MixIntegrateService.php`
+  - `tests/Unit/MixIntegrateServiceTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Services/Mixtelematics/MixIntegrateService.php`
+  - `php -l tests/Unit/MixIntegrateServiceTest.php`
+  - `php artisan test tests/Unit/MixIntegrateServiceTest.php`
+
+## 2026-04-09 | Version: unreleased
+
+### Summary
 - Updated location CSV import so `is_loading_location=true` maps imported rows to the first collection-point location type for the merchant.
 
 ### API Changes
