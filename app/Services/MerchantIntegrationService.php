@@ -7,7 +7,6 @@ use App\Jobs\ImportProviderLocationsJob;
 use App\Jobs\ImportProviderVehiclesJob;
 use App\Models\Merchant;
 use App\Models\MerchantIntegration;
-use App\Models\Driver;
 use App\Models\Location;
 use App\Models\TrackingProvider;
 use App\Models\TrackingProviderIntegrationFormField;
@@ -194,10 +193,22 @@ class MerchantIntegrationService
         return $vehicles;
     }
 
-    public function queueProviderDriversImport(User $user, string $providerUuid, string $merchantUuid): array
+    public function queueProviderDriversImport(
+        User $user,
+        string $providerUuid,
+        string $merchantUuid,
+        array $drivers = []
+    ): array
     {
         $merchant = $this->resolveAuthorizedMerchant($user, $merchantUuid);
         $this->ensureProviderSupportsImport($merchant, $providerUuid, 'import_drivers', 'drivers');
+        $normalizedDrivers = $this->normalizeSelectedProviderDrivers($drivers);
+
+        if (!empty($drivers) && empty($normalizedDrivers)) {
+            throw ValidationException::withMessages([
+                'drivers' => 'Please select at least one driver to import.',
+            ]);
+        }
 
         $start = $this->startImportInProgress($merchant->id, 'drivers');
         if (!$start['started']) {
@@ -212,7 +223,8 @@ class MerchantIntegrationService
             $user->id,
             $merchant->id,
             $merchant->uuid,
-            $providerUuid
+            $providerUuid,
+            $normalizedDrivers
         );
 
         return [
@@ -220,6 +232,40 @@ class MerchantIntegrationService
             'already_in_progress' => false,
             'stats' => $start['stats'],
         ];
+    }
+
+    public function listProviderDrivers(User $user, string $providerUuid, string $merchantUuid): array
+    {
+        [$merchant, $provider, $integration, $providerService] = $this->resolveDriverImportContext(
+            $user,
+            $providerUuid,
+            $merchantUuid
+        );
+
+        $payload = $this->fetchProviderDriverPayload($provider, $integration, $merchant, $providerService);
+        $drivers = [];
+
+        foreach ($payload as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $normalized = $this->normalizeProviderDriverPreviewItem($item);
+            if ($normalized === null) {
+                continue;
+            }
+
+            $drivers[] = $normalized;
+        }
+
+        usort($drivers, function (array $left, array $right): int {
+            $leftLabel = trim(($left['name'] ?? '').' '.($left['email'] ?? '').' '.($left['provider_driver_id'] ?? ''));
+            $rightLabel = trim(($right['name'] ?? '').' '.($right['email'] ?? '').' '.($right['provider_driver_id'] ?? ''));
+
+            return strcasecmp($leftLabel, $rightLabel);
+        });
+
+        return $drivers;
     }
 
     public function queueProviderLocationsImport(
@@ -451,7 +497,12 @@ class MerchantIntegrationService
         ];
     }
 
-    public function importProviderDrivers(User $user, string $providerUuid, string $merchantUuid): array
+    public function importProviderDrivers(
+        User $user,
+        string $providerUuid,
+        string $merchantUuid,
+        array $drivers = []
+    ): array
     {
         $merchant = Merchant::where('uuid', $merchantUuid)->first();
         if (!$merchant) {
@@ -496,6 +547,24 @@ class MerchantIntegrationService
 
         if (!is_array($payload)) {
             $payload = [];
+        }
+
+        $selectedDriverIds = array_values(array_unique(array_map(
+            static fn (array $driver): string => (string) $driver['provider_driver_id'],
+            $this->normalizeSelectedProviderDrivers($drivers)
+        )));
+
+        if (!empty($selectedDriverIds)) {
+            $selectedDriverLookup = array_fill_keys($selectedDriverIds, true);
+            $payload = array_values(array_filter($payload, static function ($item) use ($selectedDriverLookup) {
+                if (!is_array($item)) {
+                    return false;
+                }
+
+                $integrationId = (string) ($item['integration_id'] ?? '');
+
+                return $integrationId !== '' && isset($selectedDriverLookup[$integrationId]);
+            }));
         }
 
         $providerSlug = Str::slug($provider->name);
@@ -769,6 +838,35 @@ class MerchantIntegrationService
         return [$merchant, $provider, $integration, $providerService];
     }
 
+    private function resolveDriverImportContext(
+        User $user,
+        string $providerUuid,
+        string $merchantUuid
+    ): array {
+        $merchant = $this->resolveAuthorizedMerchant($user, $merchantUuid);
+        $provider = TrackingProvider::where('uuid', $providerUuid)->firstOrFail();
+
+        $integration = MerchantIntegration::query()
+            ->where('merchant_id', $merchant->id)
+            ->where('provider_id', $provider->id)
+            ->first();
+
+        if (!$integration) {
+            throw ValidationException::withMessages([
+                'provider_id' => 'Tracking provider is not activated for this merchant.',
+            ]);
+        }
+
+        $providerService = $this->resolveProviderService($provider);
+        if (!$providerService || !method_exists($providerService, 'import_drivers')) {
+            throw ValidationException::withMessages([
+                'provider_id' => 'This provider does not support importing of drivers.',
+            ]);
+        }
+
+        return [$merchant, $provider, $integration, $providerService];
+    }
+
     private function fetchProviderVehiclePayload(
         TrackingProvider $provider,
         MerchantIntegration $integration,
@@ -781,6 +879,26 @@ class MerchantIntegrationService
         $payload = method_exists($providerService, 'list_importable_vehicles')
             ? $providerService->list_importable_vehicles($integrationData, $integrationOptions)
             : $providerService->import_vehicles($integrationData, $integrationOptions);
+
+        if (!is_array($payload)) {
+            return [];
+        }
+
+        return $payload;
+    }
+
+    private function fetchProviderDriverPayload(
+        TrackingProvider $provider,
+        MerchantIntegration $integration,
+        Merchant $merchant,
+        object $providerService
+    ): array {
+        $integrationData = $this->buildProviderIntegrationData($integration, $merchant);
+        $integrationOptions = $integration->integration_options_data ?? [];
+
+        $payload = method_exists($providerService, 'list_importable_drivers')
+            ? $providerService->list_importable_drivers($integrationData, $integrationOptions)
+            : $providerService->import_drivers($integrationData, $integrationOptions);
 
         if (!is_array($payload)) {
             return [];
@@ -802,6 +920,24 @@ class MerchantIntegrationService
             'description' => $item['description'] ?? $item['ref_code'] ?? null,
             'make' => $item['make'] ?? null,
             'model' => $item['model'] ?? null,
+        ];
+    }
+
+    private function normalizeProviderDriverPreviewItem(array $item): ?array
+    {
+        $integrationId = $item['integration_id'] ?? null;
+        if ($integrationId === null || $integrationId === '') {
+            return null;
+        }
+
+        return [
+            'provider_driver_id' => (string) $integrationId,
+            'name' => $item['name'] ?? null,
+            'email' => $item['email'] ?? null,
+            'telephone' => $item['telephone'] ?? null,
+            'employee_number' => $item['employee_number'] ?? null,
+            'is_active' => $item['is_active'] ?? null,
+            'notes' => $item['notes'] ?? null,
         ];
     }
 
@@ -835,6 +971,28 @@ class MerchantIntegrationService
                 'provider_vehicle_id' => $providerVehicleId,
                 'vehicle_type_id' => (int) $vehicleTypeId,
                 'vehicle_type_uuid' => $vehicleTypeUuid,
+            ];
+        }
+
+        return array_values($normalized);
+    }
+
+    private function normalizeSelectedProviderDrivers(array $drivers): array
+    {
+        $normalized = [];
+
+        foreach ($drivers as $driver) {
+            if (!is_array($driver)) {
+                continue;
+            }
+
+            $providerDriverId = trim((string) ($driver['provider_driver_id'] ?? ''));
+            if ($providerDriverId === '') {
+                continue;
+            }
+
+            $normalized[$providerDriverId] = [
+                'provider_driver_id' => $providerDriverId,
             ];
         }
 

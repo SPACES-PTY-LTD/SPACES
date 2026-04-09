@@ -17,6 +17,34 @@ class TrackingProviderImportDriversTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_list_provider_drivers_endpoint_returns_preview_rows(): void
+    {
+        [$user, $merchant, $account] = $this->createUserMerchantAccount();
+
+        $provider = TrackingProvider::create([
+            'name' => 'Fake Import Drivers Provider',
+            'status' => 'active',
+            'has_driver_importing' => true,
+        ]);
+
+        config()->set('tracking_providers.services.fake-import-drivers-provider', FakeImportDriversProviderService::class);
+
+        MerchantIntegration::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'provider_id' => $provider->id,
+            'integration_data' => ['token' => 'abc'],
+        ]);
+
+        $response = $this->apiFor($user)->getJson("/api/v1/tracking-providers/{$provider->uuid}/drivers?merchant_id={$merchant->uuid}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.provider_driver_id', 'drv-123')
+            ->assertJsonPath('data.0.name', 'Jane Doe')
+            ->assertJsonPath('data.0.employee_number', 'EMP-001')
+            ->assertJsonPath('data.1.provider_driver_id', 'drv-456');
+    }
+
     public function test_import_drivers_endpoint_queues_import_when_provider_supports_it(): void
     {
         [$user, $merchant, $account] = $this->createUserMerchantAccount();
@@ -39,6 +67,10 @@ class TrackingProviderImportDriversTest extends TestCase
 
         $response = $this->apiFor($user)->postJson("/api/v1/tracking-providers/{$provider->uuid}/import_drivers", [
             'merchant_id' => $merchant->uuid,
+            'drivers' => [
+                ['provider_driver_id' => 'drv-123'],
+                ['provider_driver_id' => 'drv-456'],
+            ],
         ]);
 
         $response->assertStatus(202)
@@ -49,7 +81,11 @@ class TrackingProviderImportDriversTest extends TestCase
             return $job->userId === $user->id
                 && $job->merchantId === $merchant->id
                 && $job->merchantUuid === $merchant->uuid
-                && $job->providerUuid === $provider->uuid;
+                && $job->providerUuid === $provider->uuid
+                && $job->drivers === [
+                    ['provider_driver_id' => 'drv-123'],
+                    ['provider_driver_id' => 'drv-456'],
+                ];
         });
     }
 
@@ -118,6 +154,7 @@ class FakeImportDriversProviderService
                 'name' => 'Jane Doe',
                 'email' => 'jane@example.com',
                 'telephone' => '+27110000001',
+                'employee_number' => 'EMP-001',
                 'is_active' => true,
             ],
             [

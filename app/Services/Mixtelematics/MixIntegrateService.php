@@ -285,6 +285,11 @@ class MixIntegrateService
                     ?? $item['mobileNumber']
                     ?? $item['MobileNumber']
                     ?? null,
+                'employee_number' => $item['employeeNumber']
+                    ?? $item['EmployeeNumber']
+                    ?? $item['employee_number']
+                    ?? $item['Employee_Number']
+                    ?? null,
                 'is_active' => $item['isActive']
                     ?? $item['IsActive']
                     ?? $item['active']
@@ -686,7 +691,12 @@ class MixIntegrateService
             $cachedAnalysis = $this->getCachedTokenAnalysis($integrationData);
             if ($cachedAnalysis !== null) {
                 $cachedAnalysis['auth_mode'] = 'redis_cache';
-
+                Log::info('Using cached MiX Integrate token analysis.', [
+                    'integration_uuid' => $integrationData['integration_uuid'] ?? null,
+                    'expires_in' => $cachedAnalysis['expires_in'] ?? null,
+                    'expires_at' => $cachedAnalysis['timing']['expires_at'] ?? null,
+                    'now' => CarbonImmutable::now('UTC')->toDateTimeString(),
+                ]);
                 return $cachedAnalysis;
             }
         }
@@ -722,6 +732,12 @@ class MixIntegrateService
             Log::warning('Mix Integrate token request failed.', [
                 'status' => $response->status(),
                 'body' => $response->body(),
+                'identity_url' => $identityUrl,
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'username' => $username,
+                'password' => $password,
+                'scope' => 'offline_access MiX.Integrate',
             ]);
 
             $response->throw();

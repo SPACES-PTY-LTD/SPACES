@@ -3,6 +3,7 @@ import type {
   ApiEnvelope,
   ApiListResponse,
   MixTokenAnalysis,
+  TrackingProviderDriverPreview,
   TrackingProvider,
   TrackingProviderVehiclePreview,
 } from "@/lib/types"
@@ -103,18 +104,34 @@ export async function listTrackingProviderVehicles(
   return response.data
 }
 
+export async function listTrackingProviderDrivers(
+  providerId: string,
+  merchantId: string,
+  token?: string | null
+) {
+  const response = await apiFetch<ApiEnvelope<TrackingProviderDriverPreview[]>>(
+    `/api/v1/tracking-providers/${providerId}/drivers`,
+    {
+      token,
+      params: { merchant_id: merchantId },
+    }
+  )
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
+}
+
 export async function importTrackingProviderDrivers(
   providerId: string,
   merchantId: string,
-  options?: {
-    filter_type?: "name" | "fmdriverid" | "employeenumber"
-    wildcard?: string
-  },
+  drivers?: Array<{ provider_driver_id: string }>,
   token?: string | null
 ) {
   const payload: Record<string, unknown> = { merchant_id: merchantId }
-  if (options?.filter_type) payload.filter_type = options.filter_type
-  if (options?.wildcard) payload.wildcard = options.wildcard
+  if (drivers?.length) payload.drivers = drivers
 
   return apiFetch<QueuedImportResponse>(
     `/api/v1/tracking-providers/${providerId}/import_drivers`,

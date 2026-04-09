@@ -20,6 +20,85 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-04-10 | Version: unreleased
+
+### Summary
+- Added a dedicated integration ID filter to the tracking-provider driver import dialog.
+
+### API Changes
+- No public API contract changes.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/settings/integrations` driver import selection now includes a specific filter field for provider integration IDs, making it easier to locate drivers by their source-system identifier.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Extended the driver import table filter state and matching logic to support exact search narrowing by `provider_driver_id`.
+
+### Verification
+- Updated files:
+  - `website/src/components/integrations/tracking-provider-driver-import-table.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `npm run lint -- src/components/integrations/tracking-provider-driver-import-table.tsx`
+
+## 2026-04-09 | Version: unreleased
+
+### Summary
+- Added selectable tracking-provider driver imports in admin integrations, including searchable/filterable driver previews before queueing the import.
+
+### API Changes
+- Added `GET /api/v1/tracking-providers/{provider_id}/drivers` to return previewable import rows for provider drivers.
+- Updated `POST /api/v1/tracking-providers/{provider_id}/import_drivers` to accept an optional `drivers` array of `{ provider_driver_id }` selections.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/settings/integrations` now loads provider driver previews and lets admins filter by search text, name, email, telephone, employee number, and status before importing.
+- Driver imports now queue only the checked provider driver IDs instead of always importing the full provider driver list.
+- MiX driver previews now expose employee numbers when available so admins can search and confirm the right drivers before import.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Added dedicated driver preview request/resource plumbing and queued selected driver IDs through the provider import job/service path.
+- Added feature coverage for the new driver preview endpoint and selected-driver queue payload.
+
+### Verification
+- Updated files:
+  - `app/Http/Controllers/Api/V1/MerchantIntegrationController.php`
+  - `app/Http/Requests/ImportTrackingProviderDriversRequest.php`
+  - `app/Http/Requests/ListTrackingProviderDriversRequest.php`
+  - `app/Http/Resources/TrackingProviderDriverResource.php`
+  - `app/Jobs/ImportProviderDriversJob.php`
+  - `app/Services/MerchantIntegrationService.php`
+  - `app/Services/Mixtelematics/MixIntegrateService.php`
+  - `routes/api.php`
+  - `website/src/components/integrations/tracking-provider-driver-import-table.tsx`
+  - `website/src/components/integrations/tracking-providers.tsx`
+  - `website/src/lib/api/tracking-providers.ts`
+  - `website/src/lib/types.ts`
+  - `tests/Feature/TrackingProviderImportDriversTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Http/Controllers/Api/V1/MerchantIntegrationController.php`
+  - `php -l app/Http/Requests/ListTrackingProviderDriversRequest.php`
+  - `php -l app/Http/Requests/ImportTrackingProviderDriversRequest.php`
+  - `php -l app/Http/Resources/TrackingProviderDriverResource.php`
+  - `php -l app/Jobs/ImportProviderDriversJob.php`
+  - `php -l app/Services/MerchantIntegrationService.php`
+  - `php -l app/Services/Mixtelematics/MixIntegrateService.php`
+  - `php -l tests/Feature/TrackingProviderImportDriversTest.php`
+  - `php artisan test tests/Feature/TrackingProviderImportDriversTest.php`
+  - `npm run lint -- src/components/integrations/tracking-providers.tsx src/components/integrations/tracking-provider-driver-import-table.tsx src/lib/api/tracking-providers.ts src/lib/types.ts`
+
 ## 2026-04-09 | Version: unreleased
 
 ### Summary

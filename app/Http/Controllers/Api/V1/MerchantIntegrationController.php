@@ -9,8 +9,10 @@ use App\Http\Requests\ImportTrackingProviderDriversRequest;
 use App\Http\Requests\ImportTrackingProviderLocationsRequest;
 use App\Http\Requests\ImportTrackingProviderVehiclesRequest;
 use App\Http\Requests\InspectTrackingProviderMixTokenRequest;
+use App\Http\Requests\ListTrackingProviderDriversRequest;
 use App\Http\Requests\ListTrackingProviderVehiclesRequest;
 use App\Http\Requests\UpdateTrackingProviderOptionsDataRequest;
+use App\Http\Resources\TrackingProviderDriverResource;
 use App\Http\Resources\TrackingProviderResource;
 use App\Http\Resources\TrackingProviderVehicleResource;
 use App\Services\MerchantIntegrationService;
@@ -124,16 +126,38 @@ class MerchantIntegrationController extends Controller
         }
     }
 
+    public function listTrackingProviderDrivers(
+        ListTrackingProviderDriversRequest $request,
+        string $provider_id,
+        MerchantIntegrationService $service
+    ) {
+        try {
+            $drivers = $service->listProviderDrivers(
+                $request->user(),
+                $provider_id,
+                $request->validated()['merchant_id']
+            );
+
+            return ApiResponse::success(TrackingProviderDriverResource::collection(collect($drivers)));
+        } catch (Throwable $e) {
+            Log::error('List tracking provider drivers failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
+            return $this->apiError($e, 'TRACKING_PROVIDER_LIST_DRIVERS_FAILED', $e->getMessage());
+        }
+    }
+
     public function importTrackingProviderDrivers(
         ImportTrackingProviderDriversRequest $request,
         string $provider_id,
         MerchantIntegrationService $service
     ) {
         try {
+            $validated = $request->validated();
             $result = $service->queueProviderDriversImport(
                 $request->user(),
                 $provider_id,
-                $request->validated()['merchant_id']
+                $validated['merchant_id'],
+                $validated['drivers'] ?? []
             );
 
             return ApiResponse::success([

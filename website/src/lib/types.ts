@@ -726,6 +726,16 @@ export interface TrackingProviderVehiclePreview {
   model?: string | null
 }
 
+export interface TrackingProviderDriverPreview {
+  provider_driver_id: string
+  name?: string | null
+  email?: string | null
+  telephone?: string | null
+  employee_number?: string | null
+  is_active?: boolean | null
+  notes?: string | null
+}
+
 export interface Driver {
   driver_id: UUID
   uuid?: UUID

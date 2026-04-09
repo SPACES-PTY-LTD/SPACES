@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-class ImportTrackingProviderDriversRequest extends BaseRequest
+class ListTrackingProviderDriversRequest extends BaseRequest
 {
     public function authorize(): bool
     {
@@ -13,8 +13,6 @@ class ImportTrackingProviderDriversRequest extends BaseRequest
     {
         return [
             'merchant_id' => ['required', 'uuid', 'exists:merchants,uuid'],
-            'drivers' => ['nullable', 'array', 'min:1'],
-            'drivers.*.provider_driver_id' => ['required_with:drivers', 'string'],
         ];
     }
 }

@@ -496,14 +496,14 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 }
             }
         } catch (\Throwable $exception) {
-            Log::warning('Tracking sync failed to import missing driver from provider.', [
+            Log::warning($driverIntegrationId.': Tracking sync failed to import missing driver from provider.', [
                 'merchant_integration_id' => $merchantIntegration->id,
                 'merchant_id' => $merchantIntegration->merchant_id,
                 'provider_id' => $provider->id,
                 'provider_name' => $provider->name,
                 'driver_integration_id' => $driverIntegrationId,
                 'fetch_method' => $fetchMethod,
-                'exception_message' => $exception->getMessage(),
+                'exception_message' => $exception->getMessage()
             ]);
 
             $activityLogService->log(
