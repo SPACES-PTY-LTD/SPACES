@@ -311,6 +311,7 @@ class MixIntegrateService
         }
 
         $drivers = $this->import_drivers($integrationData, $integrationOptionsData);
+
         
         foreach ($drivers as $driver) {
             if (!is_array($driver)) {
@@ -322,6 +323,8 @@ class MixIntegrateService
                 return $driver;
             }
         }
+
+        Log::warning('Driver with integration ID not found.', ['integration_id' => $driverIntegrationId]);
 
         return null;
     }
