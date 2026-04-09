@@ -679,6 +679,44 @@ export interface TrackingProvider {
   updated_at?: string
 }
 
+export interface MixDecodedToken {
+  decodable: boolean
+  format: string
+  header?: Record<string, unknown> | null
+  payload?: Record<string, unknown> | null
+  claims?: Record<string, unknown> | null
+  issued_at?: string | null
+  expires_at?: string | null
+  expires_in_seconds?: number | null
+  decode_error?: string | null
+}
+
+export interface MixTokenTiming {
+  issued_at?: string | null
+  expires_at?: string | null
+  expires_in_seconds?: number | null
+  seconds_until_expiry?: number | null
+  is_expired?: boolean | null
+}
+
+export interface MixTokenAnalysis {
+  provider_id: UUID
+  merchant_id: UUID
+  credential_source: string
+  raw_response: Record<string, unknown> | null
+  access_token: string | null
+  refresh_token: string | null
+  token_type?: string | null
+  expires_in?: number | null
+  scope?: string | null
+  access_token_masked?: string | null
+  refresh_token_masked?: string | null
+  access_token_decoded: MixDecodedToken
+  refresh_token_decoded: MixDecodedToken
+  timing: MixTokenTiming
+  summary: string
+}
+
 export interface TrackingProviderVehiclePreview {
   provider_vehicle_id: string
   plate_number?: string | null

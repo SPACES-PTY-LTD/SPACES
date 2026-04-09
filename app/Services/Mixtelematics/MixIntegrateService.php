@@ -3,6 +3,7 @@
 namespace App\Services\Mixtelematics;
 
 use App\Models\LocationType;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -656,6 +657,18 @@ class MixIntegrateService
 
     private function getBearerToken(array $integrationData = []): string
     {
+        $analysis = $this->inspectTokenResponse($integrationData);
+        $token = $analysis['access_token'] ?? null;
+
+        if (!$token) {
+            throw new \RuntimeException('Mix Integrate access token missing from response.');
+        }
+
+        return $token;
+    }
+
+    public function inspectTokenResponse(array $integrationData = []): array
+    {
         $clientId = $integrationData['client_id'] ?? config('services.mix.client_id');
         $clientSecret = $integrationData['client_secret'] ?? config('services.mix.client_secret');
         $username = $integrationData['username'] ?? config('services.mix.username');
@@ -683,13 +696,223 @@ class MixIntegrateService
             $response->throw();
         }
 
-        $data = $response->json() ?? [];
-        $token = $data['access_token'] ?? null;
-
-        if (!$token) {
-            throw new \RuntimeException('Mix Integrate access token missing from response.');
+        $data = $response->json();
+        if (!is_array($data)) {
+            $data = [];
         }
 
-        return $token;
+        $accessToken = is_string($data['access_token'] ?? null) ? $data['access_token'] : null;
+        $refreshToken = is_string($data['refresh_token'] ?? null) ? $data['refresh_token'] : null;
+        $expiresIn = is_numeric($data['expires_in'] ?? null) ? (int) $data['expires_in'] : null;
+        $accessTokenDecoded = $this->decodeToken($accessToken, $expiresIn);
+        $refreshTokenDecoded = $this->decodeToken($refreshToken);
+        $timing = $this->buildTokenTiming($accessTokenDecoded, $expiresIn);
+
+        return [
+            'raw_response' => $data,
+            'access_token' => $accessToken,
+            'refresh_token' => $refreshToken,
+            'token_type' => is_string($data['token_type'] ?? null) ? $data['token_type'] : null,
+            'expires_in' => $expiresIn,
+            'scope' => is_string($data['scope'] ?? null) ? $data['scope'] : null,
+            'access_token_masked' => $this->maskToken($accessToken),
+            'refresh_token_masked' => $this->maskToken($refreshToken),
+            'access_token_decoded' => $accessTokenDecoded,
+            'refresh_token_decoded' => $refreshTokenDecoded,
+            'timing' => $timing,
+            'summary' => $this->buildTokenSummary($timing, $data),
+        ];
+    }
+
+    private function decodeToken(?string $token, ?int $expiresIn = null): array
+    {
+        if (!is_string($token) || trim($token) === '') {
+            return [
+                'decodable' => false,
+                'format' => 'missing',
+                'header' => null,
+                'payload' => null,
+                'claims' => null,
+                'issued_at' => null,
+                'expires_at' => null,
+                'expires_in_seconds' => $expiresIn,
+                'decode_error' => 'Token is missing.',
+            ];
+        }
+
+        $segments = explode('.', $token);
+        if (count($segments) !== 3) {
+            return [
+                'decodable' => false,
+                'format' => 'opaque',
+                'header' => null,
+                'payload' => null,
+                'claims' => null,
+                'issued_at' => null,
+                'expires_at' => null,
+                'expires_in_seconds' => $expiresIn,
+                'decode_error' => 'Token is not JWT-shaped.',
+            ];
+        }
+
+        $header = $this->decodeBase64UrlJson($segments[0]);
+        $payload = $this->decodeBase64UrlJson($segments[1]);
+
+        if (!is_array($header) || !is_array($payload)) {
+            return [
+                'decodable' => false,
+                'format' => 'jwt',
+                'header' => is_array($header) ? $header : null,
+                'payload' => is_array($payload) ? $payload : null,
+                'claims' => is_array($payload) ? $payload : null,
+                'issued_at' => null,
+                'expires_at' => null,
+                'expires_in_seconds' => $expiresIn,
+                'decode_error' => 'Unable to decode JWT payload.',
+            ];
+        }
+
+        $issuedAt = $this->normalizeTimestampClaim($payload['iat'] ?? null);
+        $expiresAt = $this->normalizeTimestampClaim($payload['exp'] ?? null);
+
+        return [
+            'decodable' => true,
+            'format' => 'jwt',
+            'header' => $header,
+            'payload' => $payload,
+            'claims' => $payload,
+            'issued_at' => $issuedAt?->toIso8601String(),
+            'expires_at' => $expiresAt?->toIso8601String(),
+            'expires_in_seconds' => $expiresIn,
+            'decode_error' => null,
+        ];
+    }
+
+    private function decodeBase64UrlJson(string $value): ?array
+    {
+        $decoded = $this->decodeBase64Url($value);
+        if ($decoded === null) {
+            return null;
+        }
+
+        $json = json_decode($decoded, true);
+
+        return is_array($json) ? $json : null;
+    }
+
+    private function decodeBase64Url(string $value): ?string
+    {
+        $normalized = strtr($value, '-_', '+/');
+        $padding = strlen($normalized) % 4;
+
+        if ($padding > 0) {
+            $normalized .= str_repeat('=', 4 - $padding);
+        }
+
+        $decoded = base64_decode($normalized, true);
+
+        return $decoded === false ? null : $decoded;
+    }
+
+    private function normalizeTimestampClaim(mixed $value): ?CarbonImmutable
+    {
+        if (is_numeric($value)) {
+            return CarbonImmutable::createFromTimestampUTC((int) $value);
+        }
+
+        if (is_string($value) && trim($value) !== '') {
+            try {
+                return CarbonImmutable::parse($value)->utc();
+            } catch (\Throwable) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private function buildTokenTiming(array $decodedAccessToken, ?int $expiresIn): array
+    {
+        $issuedAt = isset($decodedAccessToken['issued_at']) && is_string($decodedAccessToken['issued_at'])
+            ? CarbonImmutable::parse($decodedAccessToken['issued_at'])->utc()
+            : null;
+        $expiresAt = isset($decodedAccessToken['expires_at']) && is_string($decodedAccessToken['expires_at'])
+            ? CarbonImmutable::parse($decodedAccessToken['expires_at'])->utc()
+            : null;
+
+        if (!$expiresAt && $issuedAt && $expiresIn !== null) {
+            $expiresAt = $issuedAt->addSeconds($expiresIn);
+        }
+
+        if (!$issuedAt && $expiresAt && $expiresIn !== null) {
+            $issuedAt = $expiresAt->subSeconds($expiresIn);
+        }
+
+        $now = CarbonImmutable::now('UTC');
+        $secondsUntilExpiry = $expiresAt?->diffInSeconds($now, false);
+        if ($secondsUntilExpiry !== null) {
+            $secondsUntilExpiry = (int) ($secondsUntilExpiry * -1);
+        }
+
+        return [
+            'issued_at' => $issuedAt?->toIso8601String(),
+            'expires_at' => $expiresAt?->toIso8601String(),
+            'expires_in_seconds' => $expiresIn,
+            'seconds_until_expiry' => $secondsUntilExpiry,
+            'is_expired' => $expiresAt ? $expiresAt->lessThanOrEqualTo($now) : null,
+        ];
+    }
+
+    private function buildTokenSummary(array $timing, array $rawResponse): string
+    {
+        $tokenType = is_string($rawResponse['token_type'] ?? null) ? $rawResponse['token_type'] : 'unknown';
+        $scope = is_string($rawResponse['scope'] ?? null) && $rawResponse['scope'] !== ''
+            ? $rawResponse['scope']
+            : 'none';
+        $expiresAt = $timing['expires_at'] ?? null;
+        $secondsUntilExpiry = $timing['seconds_until_expiry'] ?? null;
+        $status = $timing['is_expired'];
+
+        $expiryDescription = 'Expiry could not be determined.';
+        if (is_string($expiresAt) && is_numeric($secondsUntilExpiry)) {
+            $secondsUntilExpiry = (int) $secondsUntilExpiry;
+            $expiryDescription = $status === true
+                ? "Expired {$this->describeSeconds(abs($secondsUntilExpiry))} ago at {$expiresAt}."
+                : "Expires in {$this->describeSeconds($secondsUntilExpiry)} at {$expiresAt}.";
+        }
+
+        return "token_type={$tokenType}; scope={$scope}; {$expiryDescription}";
+    }
+
+    private function describeSeconds(int $seconds): string
+    {
+        if ($seconds < 60) {
+            return "{$seconds}s";
+        }
+
+        if ($seconds < 3600) {
+            return sprintf('%dm %ds', intdiv($seconds, 60), $seconds % 60);
+        }
+
+        return sprintf(
+            '%dh %dm %ds',
+            intdiv($seconds, 3600),
+            intdiv($seconds % 3600, 60),
+            $seconds % 60
+        );
+    }
+
+    private function maskToken(?string $token): ?string
+    {
+        if (!is_string($token) || $token === '') {
+            return null;
+        }
+
+        $length = strlen($token);
+        if ($length <= 12) {
+            return str_repeat('*', $length);
+        }
+
+        return substr($token, 0, 8) . '...' . substr($token, -4);
     }
 }

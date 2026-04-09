@@ -232,6 +232,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('tracking-providers/{provider_id}/import_vehicles', [MerchantIntegrationController::class, 'importTrackingProviderVehicles']);
                 Route::post('tracking-providers/{provider_id}/import_drivers', [MerchantIntegrationController::class, 'importTrackingProviderDrivers']);
                 Route::post('tracking-providers/{provider_id}/import_locations', [MerchantIntegrationController::class, 'importTrackingProviderLocations']);
+                Route::post('tracking-providers/{provider_id}/mix-token-analysis', [MerchantIntegrationController::class, 'inspectMixToken']);
                 Route::get('tracking-providers/imports-statuses', [MerchantIntegrationController::class, 'importStatuses']);
             });
 

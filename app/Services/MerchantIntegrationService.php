@@ -15,6 +15,7 @@ use App\Models\TrackingProviderOption;
 use App\Models\Vehicle;
 use App\Models\VehicleType;
 use App\Models\User;
+use App\Services\Mixtelematics\MixIntegrateService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -271,6 +272,40 @@ class MerchantIntegrationService
         $merchant = $this->resolveAuthorizedMerchant($user, $merchantUuid);
 
         return $this->normalizeImportStats($merchant->imports_stats);
+    }
+
+    public function inspectMixToken(User $user, string $providerUuid, string $merchantUuid): array
+    {
+        $merchant = $this->resolveAuthorizedMerchant($user, $merchantUuid);
+        $provider = TrackingProvider::where('uuid', $providerUuid)->firstOrFail();
+        $providerService = $this->resolveProviderService($provider);
+
+        if (!$providerService instanceof MixIntegrateService) {
+            throw ValidationException::withMessages([
+                'provider_id' => 'Selected tracking provider does not use the MiX integration service.',
+            ]);
+        }
+
+        $integration = MerchantIntegration::query()
+            ->where('merchant_id', $merchant->id)
+            ->where('provider_id', $provider->id)
+            ->first();
+
+        if (!$integration) {
+            throw ValidationException::withMessages([
+                'provider_id' => 'Tracking provider is not activated for this merchant.',
+            ]);
+        }
+
+        $analysis = $providerService->inspectTokenResponse(
+            $this->buildProviderIntegrationData($integration, $merchant)
+        );
+
+        return array_merge($analysis, [
+            'provider_id' => $provider->uuid,
+            'merchant_id' => $merchant->uuid,
+            'credential_source' => 'stored_integration',
+        ]);
     }
 
     public function completeImportByMerchantId(int $merchantId, string $type, ?int $count = null, ?string $error = null): void

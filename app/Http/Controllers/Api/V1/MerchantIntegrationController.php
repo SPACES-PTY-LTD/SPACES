@@ -8,6 +8,7 @@ use App\Http\Requests\GetTrackingProviderImportStatusesRequest;
 use App\Http\Requests\ImportTrackingProviderDriversRequest;
 use App\Http\Requests\ImportTrackingProviderLocationsRequest;
 use App\Http\Requests\ImportTrackingProviderVehiclesRequest;
+use App\Http\Requests\InspectTrackingProviderMixTokenRequest;
 use App\Http\Requests\ListTrackingProviderVehiclesRequest;
 use App\Http\Requests\UpdateTrackingProviderOptionsDataRequest;
 use App\Http\Resources\TrackingProviderResource;
@@ -191,6 +192,29 @@ class MerchantIntegrationController extends Controller
             ]);
 
             return $this->apiError($e, 'TRACKING_PROVIDER_IMPORT_STATUSES_FAILED', $e->getMessage());
+        }
+    }
+
+    public function inspectMixToken(
+        InspectTrackingProviderMixTokenRequest $request,
+        string $provider_id,
+        MerchantIntegrationService $service
+    ) {
+        try {
+            $analysis = $service->inspectMixToken(
+                $request->user(),
+                $provider_id,
+                $request->validated()['merchant_id']
+            );
+
+            return ApiResponse::success($analysis);
+        } catch (Throwable $e) {
+            Log::error('Inspect Mix token failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->apiError($e, 'TRACKING_PROVIDER_MIX_TOKEN_ANALYSIS_FAILED', $e->getMessage());
         }
     }
 }

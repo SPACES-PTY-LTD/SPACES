@@ -20,6 +20,60 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-04-09 | Version: unreleased
+
+### Summary
+- Added a MiX token inspection endpoint that authenticates with the merchant’s saved MiX integration credentials and returns the full MiX auth payload plus decoded token details.
+- Added an admin tool page at `/admin/tools/mix-check` to run the MiX token inspection and view token expiry analysis in the website UI.
+
+### API Changes
+- Added `POST /api/v1/tracking-providers/{provider_id}/mix-token-analysis`.
+- The endpoint requires `merchant_id` and uses the stored activated tracking-provider integration for that merchant.
+- The response now includes `credential_source`, `raw_response`, raw and masked token values, decoded access/refresh token objects, `timing`, and `summary`.
+- The endpoint returns a validation error when the provider is not backed by the MiX integration service or when the merchant has not activated that provider.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- MiX authentication analysis now captures the full token payload returned by `POST {identity_url}/connect/token` instead of only extracting `access_token`.
+- MiX token inspection now reports decoded JWT claims when possible and explicitly shows `issued_at`, `expires_at`, `expires_in_seconds`, `seconds_until_expiry`, and `is_expired`.
+- `/admin/tools/mix-check` now lets admins inspect the saved MiX integration token response for the currently selected merchant without using Postman or logs.
+- `/admin/tools/mix-check` now also renders the complete analysis response object in the UI alongside the token-specific sections.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Refactored the MiX bearer-token retrieval flow so existing import/location/vehicle calls continue using the same login request through the new inspection-aware auth method.
+- Added focused unit coverage for JWT decoding, opaque token handling, and bearer-token compatibility, plus feature coverage for the new MiX inspection endpoint.
+
+### Verification
+- Updated files:
+  - `app/Services/Mixtelematics/MixIntegrateService.php`
+  - `app/Services/MerchantIntegrationService.php`
+  - `app/Http/Controllers/Api/V1/MerchantIntegrationController.php`
+  - `app/Http/Requests/InspectTrackingProviderMixTokenRequest.php`
+  - `routes/api.php`
+  - `tests/Unit/MixIntegrateServiceTest.php`
+  - `tests/Feature/TrackingProviderOptionsTest.php`
+  - `website/src/lib/types.ts`
+  - `website/src/lib/api/tracking-providers.ts`
+  - `website/src/components/integrations/mix-token-checker.tsx`
+  - `website/src/app/admin/tools/mix-check/page.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Services/Mixtelematics/MixIntegrateService.php`
+  - `php -l app/Services/MerchantIntegrationService.php`
+  - `php -l app/Http/Controllers/Api/V1/MerchantIntegrationController.php`
+  - `php -l app/Http/Requests/InspectTrackingProviderMixTokenRequest.php`
+  - `php -l routes/api.php`
+  - `php -l tests/Unit/MixIntegrateServiceTest.php`
+  - `php -l tests/Feature/TrackingProviderOptionsTest.php`
+  - `php artisan test tests/Unit/MixIntegrateServiceTest.php`
+  - `php artisan test tests/Feature/TrackingProviderOptionsTest.php`
+  - `npm run lint -- src/lib/api/tracking-providers.ts src/lib/types.ts src/components/integrations/mix-token-checker.tsx src/app/admin/tools/mix-check/page.tsx`
+
 ## 2026-04-08 | Version: unreleased
 
 ### Summary

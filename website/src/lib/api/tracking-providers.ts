@@ -2,6 +2,7 @@ import { apiFetch, isApiErrorResponse } from "@/lib/api/client"
 import type {
   ApiEnvelope,
   ApiListResponse,
+  MixTokenAnalysis,
   TrackingProvider,
   TrackingProviderVehiclePreview,
 } from "@/lib/types"
@@ -155,6 +156,29 @@ export async function getTrackingProviderImportsStatuses(
     {
       token,
       params: { merchant_id: merchantId },
+    }
+  )
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
+}
+
+export async function inspectTrackingProviderMixToken(
+  providerId: string,
+  merchantId: string,
+  token?: string | null
+) {
+  const response = await apiFetch<ApiEnvelope<MixTokenAnalysis>>(
+    `/api/v1/tracking-providers/${providerId}/mix-token-analysis`,
+    {
+      method: "POST",
+      body: {
+        merchant_id: merchantId,
+      },
+      token,
     }
   )
 

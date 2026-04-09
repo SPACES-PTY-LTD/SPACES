@@ -447,6 +447,119 @@ class TrackingProviderOptionsTest extends TestCase
         ]);
     }
 
+    public function test_user_can_inspect_mix_token_for_activated_provider(): void
+    {
+        [$user, $merchant] = $this->createUserAndMerchant();
+
+        $provider = TrackingProvider::create([
+            'name' => 'Powerfleet',
+            'status' => 'active',
+        ]);
+
+        MerchantIntegration::create([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'provider_id' => $provider->id,
+            'integration_data' => [
+                'client_id' => 'client',
+                'client_secret' => 'secret',
+                'username' => 'mix-user',
+                'password' => 'mix-password',
+            ],
+            'integration_options_data' => [],
+        ]);
+
+        app()->instance(MixIntegrateService::class, new class extends MixIntegrateService {
+            public function inspectTokenResponse(array $integrationData = []): array
+            {
+                return [
+                    'raw_response' => [
+                        'access_token' => 'raw-access-token',
+                        'refresh_token' => 'raw-refresh-token',
+                        'token_type' => 'Bearer',
+                        'expires_in' => 3600,
+                    ],
+                    'access_token' => 'raw-access-token',
+                    'refresh_token' => 'raw-refresh-token',
+                    'token_type' => 'Bearer',
+                    'expires_in' => 3600,
+                    'scope' => 'offline_access MiX.Integrate',
+                    'access_token_masked' => 'raw-acce...oken',
+                    'refresh_token_masked' => 'raw-refr...oken',
+                    'access_token_decoded' => [
+                        'decodable' => true,
+                        'format' => 'jwt',
+                        'claims' => ['sub' => 'mix-user'],
+                    ],
+                    'refresh_token_decoded' => [
+                        'decodable' => false,
+                        'format' => 'opaque',
+                    ],
+                    'timing' => [
+                        'issued_at' => '2026-04-09T10:00:00+00:00',
+                        'expires_at' => '2026-04-09T11:00:00+00:00',
+                        'expires_in_seconds' => 3600,
+                        'seconds_until_expiry' => 3600,
+                        'is_expired' => false,
+                    ],
+                    'summary' => 'token_type=Bearer; scope=offline_access MiX.Integrate; Expires in 1h 0m 0s at 2026-04-09T11:00:00+00:00.',
+                ];
+            }
+        });
+
+        $response = $this->apiFor($user)->postJson("/api/v1/tracking-providers/{$provider->uuid}/mix-token-analysis", [
+            'merchant_id' => $merchant->uuid,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.provider_id', $provider->uuid)
+            ->assertJsonPath('data.merchant_id', $merchant->uuid)
+            ->assertJsonPath('data.credential_source', 'stored_integration')
+            ->assertJsonPath('data.access_token', 'raw-access-token')
+            ->assertJsonPath('data.access_token_decoded.claims.sub', 'mix-user')
+            ->assertJsonPath('data.timing.seconds_until_expiry', 3600);
+    }
+
+    public function test_mix_token_inspection_rejects_non_mix_provider(): void
+    {
+        [$user, $merchant] = $this->createUserAndMerchant();
+
+        $provider = TrackingProvider::create([
+            'name' => 'Fleetboard',
+            'status' => 'active',
+        ]);
+
+        MerchantIntegration::create([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'provider_id' => $provider->id,
+            'integration_data' => ['username' => 'value'],
+            'integration_options_data' => [],
+        ]);
+
+        $this->apiFor($user)->postJson("/api/v1/tracking-providers/{$provider->uuid}/mix-token-analysis", [
+            'merchant_id' => $merchant->uuid,
+        ])->assertStatus(422)
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR');
+    }
+
+    public function test_mix_token_inspection_requires_activated_provider_integration(): void
+    {
+        [$user, $merchant] = $this->createUserAndMerchant();
+
+        $provider = TrackingProvider::create([
+            'name' => 'Powerfleet',
+            'status' => 'active',
+        ]);
+
+        $this->apiFor($user)->postJson("/api/v1/tracking-providers/{$provider->uuid}/mix-token-analysis", [
+            'merchant_id' => $merchant->uuid,
+        ])->assertStatus(422)
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR');
+    }
+
     private function createActivatedVehicleImportProvider(): array
     {
         [$user, $merchant] = $this->createUserAndMerchant();
