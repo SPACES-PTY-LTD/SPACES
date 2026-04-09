@@ -20,44 +20,6 @@ Add new entries at the top (newest first).
 
 ---
 
-## 2026-04-09 | Version: unreleased
-
-### Summary
-- Improved the admin route waiting times analytics page by switching it from client-side multi-page shipment aggregation to a dedicated backend report.
-- Added a date range control and defaulted first load to the last month to avoid scanning the full shipment history on every visit.
-
-### API Changes
-- Added `GET /api/v1/reports/route-waiting-times` for aggregated route waiting metrics by pickup and dropoff route.
-- The new endpoint accepts `merchant_id`, `date_range`, `start_date`, and `end_date`.
-
-### Database Changes
-- None.
-
-### Behavior Changes
-- `/admin/logistics/analytics/route-waiting-times` now loads substantially less data on first render by defaulting to the last month instead of reading up to ten pages of shipment report rows.
-- The route waiting times page now has date range controls, including custom date selection.
-- Drill-down links from route rows to `/admin/logistics/shipments/reports/shipments_report` now carry the selected date window.
-
-### Breaking Changes
-- None.
-
-### Internal Changes
-- Added a dedicated backend aggregation path that chunks shipment records and computes route wait metrics server-side instead of in the Next.js page.
-- Added a request validator and frontend API client types for the new route waiting times report endpoint.
-
-### Verification
-- Updated files:
-  - `app/Http/Controllers/Api/V1/ReportController.php`
-  - `app/Http/Requests/RouteWaitingTimesReportRequest.php`
-  - `routes/api.php`
-  - `website/src/app/admin/logistics/analytics/route-waiting-times/page.tsx`
-  - `website/src/components/reports/route-waiting-times-controls.tsx`
-  - `website/src/lib/api/reports.ts`
-  - `docs/release-notes.md`
-- Verification run:
-  - `php -l app/Http/Controllers/Api/V1/ReportController.php && php -l app/Http/Requests/RouteWaitingTimesReportRequest.php && php -l routes/api.php`
-  - `npm run lint -- src/app/admin/logistics/analytics/route-waiting-times/page.tsx src/components/reports/route-waiting-times-controls.tsx src/lib/api/reports.ts`
-
 ## 2026-04-08 | Version: unreleased
 
 ### Summary

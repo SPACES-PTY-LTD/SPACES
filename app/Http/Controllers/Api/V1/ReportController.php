@@ -9,7 +9,6 @@ use App\Http\Requests\DocumentComplianceReportRequest;
 use App\Http\Requests\FleetStatusReportRequest;
 use App\Http\Requests\MappedBookingsReportRequest;
 use App\Http\Requests\MissingDocumentsReportRequest;
-use App\Http\Requests\RouteWaitingTimesReportRequest;
 use App\Http\Requests\ShipmentsByLocationReportRequest;
 use App\Http\Resources\LocationResource;
 use App\Http\Resources\MappedBookingReportResource;
@@ -34,7 +33,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator as PaginationLengthAwarePaginator;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -853,170 +851,6 @@ class ReportController extends Controller
         }
     }
 
-    public function routeWaitingTimes(RouteWaitingTimesReportRequest $request)
-    {
-        try {
-            $environment = $request->attributes->get('merchant_environment');
-            $user = $request->user();
-            $validated = $request->validated();
-            $dateRange = $validated['date_range'] ?? '1month';
-
-            $merchantId = null;
-            if (!empty($validated['merchant_id'])) {
-                $merchantId = Merchant::query()
-                    ->where('uuid', $validated['merchant_id'])
-                    ->value('id');
-            }
-
-            [$start, $end] = $this->resolveDateRange($request, $environment, $user);
-            if (!$start || !$end) {
-                return ApiResponse::success([], [
-                    'total_routes' => 0,
-                    'total_shipments' => 0,
-                    'date_range' => $dateRange,
-                ]);
-            }
-
-            $aggregates = [];
-            $totalShipments = 0;
-
-            $query = $this->applyShipmentScope(
-                Shipment::query()
-                    ->select([
-                        'shipments.id',
-                        'shipments.uuid',
-                        'shipments.created_at',
-                        'shipments.pickup_location_id',
-                        'shipments.dropoff_location_id',
-                    ])
-                    ->with([
-                        'pickupLocation:id,uuid,name,code,company',
-                        'dropoffLocation:id,uuid,name,code,company',
-                    ]),
-                $environment,
-                $user
-            )
-                ->when($merchantId, fn (Builder $builder) => $builder->where('shipments.merchant_id', $merchantId))
-                ->whereBetween('shipments.created_at', [$start->copy()->startOfDay(), $end->copy()->endOfDay()])
-                ->where(function (Builder $builder) {
-                    $builder
-                        ->whereNotNull('shipments.pickup_location_id')
-                        ->orWhereNotNull('shipments.dropoff_location_id');
-                })
-                ->orderBy('shipments.id');
-
-            $query->chunkById(500, function (Collection $shipments) use (&$aggregates, &$totalShipments) {
-                $stageActivityMap = $this->buildShipmentStageActivityMapForCollection($shipments);
-                $visitMap = $this->buildShipmentLocationVisitMapForCollection($shipments);
-
-                foreach ($shipments as $shipment) {
-                    $pickupLocation = $shipment->pickupLocation;
-                    $dropoffLocation = $shipment->dropoffLocation;
-
-                    if (!$pickupLocation && !$dropoffLocation) {
-                        continue;
-                    }
-
-                    $fromLocationKey = $pickupLocation?->uuid ?? ($pickupLocation?->name ?: 'unknown-from');
-                    $toLocationKey = $dropoffLocation?->uuid ?? ($dropoffLocation?->name ?: 'unknown-to');
-                    $routeKey = $fromLocationKey . '::' . $toLocationKey;
-
-                    $fromVisit = $stageActivityMap[$shipment->id . ':' . VehicleActivity::EVENT_SHIPMENT_COLLECTION]
-                        ?? ($visitMap[$shipment->id . ':' . $shipment->pickup_location_id] ?? null);
-                    $toVisit = $stageActivityMap[$shipment->id . ':' . VehicleActivity::EVENT_SHIPMENT_DELIVERY]
-                        ?? ($visitMap[$shipment->id . ':' . $shipment->dropoff_location_id] ?? null);
-
-                    $pickupWait = $this->diffInMinutesOrNull($fromVisit['time_in'] ?? null, $fromVisit['time_out'] ?? null);
-                    $dropoffWait = $this->diffInMinutesOrNull($toVisit['time_in'] ?? null, $toVisit['time_out'] ?? null);
-                    $transit = $this->diffInMinutesOrNull($fromVisit['time_out'] ?? null, $toVisit['time_in'] ?? null);
-                    $latestAt = collect([
-                        $toVisit['time_out'] ?? null,
-                        $toVisit['time_in'] ?? null,
-                        $fromVisit['time_out'] ?? null,
-                        $fromVisit['time_in'] ?? null,
-                        optional($shipment->created_at)?->toIso8601String(),
-                    ])->filter()->max();
-
-                    if (!array_key_exists($routeKey, $aggregates)) {
-                        $aggregates[$routeKey] = [
-                            'route_key' => $routeKey,
-                            'route_label' => $this->formatRouteLocationLabel($pickupLocation)
-                                . ' -> '
-                                . $this->formatRouteLocationLabel($dropoffLocation),
-                            'from_location_id' => $pickupLocation?->uuid,
-                            'to_location_id' => $dropoffLocation?->uuid,
-                            'shipment_count' => 0,
-                            'pickup_wait_total' => 0.0,
-                            'pickup_wait_count' => 0,
-                            'dropoff_wait_total' => 0.0,
-                            'dropoff_wait_count' => 0,
-                            'transit_total' => 0.0,
-                            'transit_count' => 0,
-                            'latest_activity_at' => null,
-                        ];
-                    }
-
-                    $aggregates[$routeKey]['shipment_count'] += 1;
-                    $totalShipments += 1;
-
-                    if ($pickupWait !== null) {
-                        $aggregates[$routeKey]['pickup_wait_total'] += $pickupWait;
-                        $aggregates[$routeKey]['pickup_wait_count'] += 1;
-                    }
-
-                    if ($dropoffWait !== null) {
-                        $aggregates[$routeKey]['dropoff_wait_total'] += $dropoffWait;
-                        $aggregates[$routeKey]['dropoff_wait_count'] += 1;
-                    }
-
-                    if ($transit !== null) {
-                        $aggregates[$routeKey]['transit_total'] += $transit;
-                        $aggregates[$routeKey]['transit_count'] += 1;
-                    }
-
-                    if (
-                        !$aggregates[$routeKey]['latest_activity_at']
-                        || strtotime((string) $latestAt) > strtotime((string) $aggregates[$routeKey]['latest_activity_at'])
-                    ) {
-                        $aggregates[$routeKey]['latest_activity_at'] = $latestAt;
-                    }
-                }
-            }, 'shipments.id');
-
-            $rows = collect($aggregates)
-                ->map(function (array $row) {
-                    return [
-                        'route_key' => $row['route_key'],
-                        'route_label' => $row['route_label'],
-                        'shipment_count' => (int) $row['shipment_count'],
-                        'avg_pickup_wait_minutes' => $this->averageMinutes($row['pickup_wait_total'], $row['pickup_wait_count']),
-                        'avg_dropoff_wait_minutes' => $this->averageMinutes($row['dropoff_wait_total'], $row['dropoff_wait_count']),
-                        'avg_transit_minutes' => $this->averageMinutes($row['transit_total'], $row['transit_count']),
-                        'latest_activity_at' => $row['latest_activity_at'],
-                        'from_location_id' => $row['from_location_id'],
-                        'to_location_id' => $row['to_location_id'],
-                    ];
-                })
-                ->sortByDesc(function (array $row) {
-                    return ($row['avg_pickup_wait_minutes'] ?? 0) + ($row['avg_dropoff_wait_minutes'] ?? 0);
-                })
-                ->values();
-
-            return ApiResponse::success($rows, [
-                'total_routes' => $rows->count(),
-                'total_shipments' => $totalShipments,
-                'date_range' => $dateRange,
-            ]);
-        } catch (Throwable $e) {
-            Log::error('Reports route_waiting_times failed', [
-                'request_id' => ApiResponse::requestId(),
-                'error' => $e->getMessage(),
-            ]);
-
-            return $this->apiError($e, 'REPORTS_FAILED', 'Unable to generate report.');
-        }
-    }
-
     public function mappedBookings(MappedBookingsReportRequest $request)
     {
         try {
@@ -1564,17 +1398,7 @@ class ReportController extends Controller
 
     private function buildShipmentLocationVisitMap(LengthAwarePaginator $shipments, Request $request): array
     {
-        return $this->buildShipmentLocationVisitMapForCollection($shipments->getCollection(), $request);
-    }
-
-    private function buildShipmentStageActivityMap(LengthAwarePaginator $shipments, Request $request): array
-    {
-        return $this->buildShipmentStageActivityMapForCollection($shipments->getCollection(), $request);
-    }
-
-    private function buildShipmentLocationVisitMapForCollection(Collection $shipments, ?Request $request = null): array
-    {
-        $shipmentIds = $shipments->pluck('id')->filter()->values();
+        $shipmentIds = $shipments->getCollection()->pluck('id')->filter()->values();
         if ($shipmentIds->isEmpty()) {
             return [];
         }
@@ -1592,16 +1416,14 @@ class ReportController extends Controller
             ->joinSub($latestVisitSub, 'latest_location_visit', function ($join) {
                 $join->on('latest_location_visit.latest_visit_id', '=', 'vehicle_activity.id');
             })
-            ->when($request !== null, function ($query) {
-                $query->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment']);
-            })
+            ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment'])
             ->get();
 
         $map = [];
         foreach ($visits as $visit) {
             $key = $visit->shipment_id . ':' . $visit->location_id;
             $map[$key] = [
-                'activity' => $request ? (new VehicleActivityResource($visit))->toArray($request) : null,
+                'activity' => (new VehicleActivityResource($visit))->toArray($request),
                 'time_in' => $visit->entered_at ? Carbon::parse($visit->entered_at)->toIso8601String() : null,
                 'time_out' => $visit->exited_at ? Carbon::parse($visit->exited_at)->toIso8601String() : null,
             ];
@@ -1610,9 +1432,9 @@ class ReportController extends Controller
         return $map;
     }
 
-    private function buildShipmentStageActivityMapForCollection(Collection $shipments, ?Request $request = null): array
+    private function buildShipmentStageActivityMap(LengthAwarePaginator $shipments, Request $request): array
     {
-        $shipmentIds = $shipments->pluck('id')->filter()->values();
+        $shipmentIds = $shipments->getCollection()->pluck('id')->filter()->values();
         if ($shipmentIds->isEmpty()) {
             return [];
         }
@@ -1632,55 +1454,20 @@ class ReportController extends Controller
             ->joinSub($latestStageSub, 'latest_shipment_stage_activity', function ($join) {
                 $join->on('latest_shipment_stage_activity.latest_activity_id', '=', 'vehicle_activity.id');
             })
-            ->when($request !== null, function ($query) {
-                $query->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment']);
-            })
+            ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment'])
             ->get();
 
         $map = [];
         foreach ($activities as $activity) {
             $key = $activity->shipment_id . ':' . $activity->event_type;
             $map[$key] = [
-                'activity' => $request ? (new VehicleActivityResource($activity))->toArray($request) : null,
+                'activity' => (new VehicleActivityResource($activity))->toArray($request),
                 'time_in' => $activity->entered_at ? Carbon::parse($activity->entered_at)->toIso8601String() : null,
                 'time_out' => $activity->exited_at ? Carbon::parse($activity->exited_at)->toIso8601String() : null,
             ];
         }
 
         return $map;
-    }
-
-    private function diffInMinutesOrNull(?string $start, ?string $end): ?float
-    {
-        if (!$start || !$end) {
-            return null;
-        }
-
-        $startAt = Carbon::parse($start);
-        $endAt = Carbon::parse($end);
-        if ($endAt->lessThan($startAt)) {
-            return null;
-        }
-
-        return $startAt->diffInSeconds($endAt) / 60;
-    }
-
-    private function averageMinutes(float $total, int $count): ?float
-    {
-        if ($count <= 0) {
-            return null;
-        }
-
-        return $total / $count;
-    }
-
-    private function formatRouteLocationLabel($location): string
-    {
-        if (!$location) {
-            return 'Unknown';
-        }
-
-        return $location->name ?: ($location->code ?: ($location->uuid ?: 'Unknown'));
     }
 
     private function formatDeliveredVolume(Shipment $shipment): ?string
