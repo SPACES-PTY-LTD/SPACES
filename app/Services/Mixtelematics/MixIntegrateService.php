@@ -219,8 +219,6 @@ class MixIntegrateService
             throw new \RuntimeException('MiX organisation_id is required to import drivers.');
         }
 
-        
-
         $client = Http::baseUrl($baseUrl)
             ->acceptJson()
             ->withToken($token)
@@ -308,11 +306,15 @@ class MixIntegrateService
         array $integrationOptionsData = []
     ): ?array {
         if ($driverIntegrationId === '') {
+            Log::warning('Driver integration ID is empty, cannot import driver.');
             return null;
         }
 
-        foreach ($this->import_drivers($integrationData, $integrationOptionsData) as $driver) {
+        $drivers = $this->import_drivers($integrationData, $integrationOptionsData);
+        
+        foreach ($drivers as $driver) {
             if (!is_array($driver)) {
+                Log::warning('Invalid driver data format, expected array.', ['driver' => $driver]);
                 continue;
             }
 
