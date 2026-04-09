@@ -1,22 +1,15 @@
-import { PageHeader } from "@/components/layout/page-header"
 import { DataTable } from "@/components/common/data-table"
+import { PageHeader } from "@/components/layout/page-header"
+import { RouteWaitingTimesControls } from "@/components/reports/route-waiting-times-controls"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  getRouteWaitingTimesReport,
+  type RouteWaitingTimesReportParams,
+  type RouteWaitingTimesReportRow,
+} from "@/lib/api/reports"
 import { isApiErrorResponse } from "@/lib/api/client"
-import { getShipmentsFullReport, type ShipmentFullReportRow } from "@/lib/api/reports"
 import { requireAuth } from "@/lib/auth"
 import { AdminLinks, withAdminQuery } from "@/lib/routes/admin"
-
-type RouteWaitingRow = {
-  routeKey: string
-  routeLabel: string
-  shipmentCount: number
-  avgPickupWaitMinutes: number | null
-  avgDropoffWaitMinutes: number | null
-  avgTransitMinutes: number | null
-  latestActivityAt: string | null
-  fromLocationId?: string
-  toLocationId?: string
-}
 
 type SortBy =
   | "combined_wait"
@@ -26,6 +19,25 @@ type SortBy =
   | "avg_dropoff_wait"
   | "avg_transit"
   | "latest_activity"
+
+type PageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
+}
+
+const DATE_RANGES = [
+  "today",
+  "yesterday",
+  "thisweek",
+  "1week",
+  "2weeks",
+  "30days",
+  "1month",
+  "3months",
+  "6months",
+  "1year",
+  "alltime",
+  "custom",
+] as const satisfies readonly NonNullable<RouteWaitingTimesReportParams["date_range"]>[]
 
 function getSingleValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : (value ?? "")
@@ -41,11 +53,24 @@ function normalizeSortBy(value: string): SortBy {
     "avg_transit",
     "latest_activity",
   ])
+
   return allowed.has(value as SortBy) ? (value as SortBy) : "combined_wait"
 }
 
 function normalizeSortDir(value: string): "asc" | "desc" {
   return value === "asc" ? "asc" : "desc"
+}
+
+function normalizeDateRange(
+  value?: string
+): NonNullable<RouteWaitingTimesReportParams["date_range"]> {
+  return value && DATE_RANGES.includes(value as (typeof DATE_RANGES)[number])
+    ? (value as (typeof DATE_RANGES)[number])
+    : "1month"
+}
+
+function normalizeDateParam(value?: string) {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined
 }
 
 function parseDate(value?: string | null): Date | null {
@@ -54,12 +79,68 @@ function parseDate(value?: string | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-function minutesBetween(start?: string | null, end?: string | null): number | null {
-  const startDate = parseDate(start)
-  const endDate = parseDate(end)
-  if (!startDate || !endDate) return null
-  const diff = (endDate.getTime() - startDate.getTime()) / 60000
-  return diff >= 0 ? diff : null
+function formatDate(value: Date) {
+  const year = value.getFullYear()
+  const month = `${value.getMonth() + 1}`.padStart(2, "0")
+  const day = `${value.getDate()}`.padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function resolveCreatedRange(
+  dateRange: NonNullable<RouteWaitingTimesReportParams["date_range"]>,
+  startDate?: string,
+  endDate?: string
+) {
+  if (dateRange === "custom") {
+    return {
+      created_from: startDate,
+      created_to: endDate,
+    }
+  }
+
+  const today = new Date()
+  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const start = new Date(end)
+
+  switch (dateRange) {
+    case "today":
+      break
+    case "yesterday":
+      start.setDate(start.getDate() - 1)
+      end.setDate(end.getDate() - 1)
+      break
+    case "thisweek":
+      start.setDate(start.getDate() - start.getDay())
+      break
+    case "1week":
+      start.setDate(start.getDate() - 6)
+      break
+    case "2weeks":
+      start.setDate(start.getDate() - 13)
+      break
+    case "30days":
+      start.setDate(start.getDate() - 29)
+      break
+    case "1month":
+      start.setMonth(start.getMonth() - 1)
+      break
+    case "3months":
+      start.setMonth(start.getMonth() - 3)
+      break
+    case "6months":
+      start.setMonth(start.getMonth() - 6)
+      break
+    case "1year":
+      start.setFullYear(start.getFullYear() - 1)
+      break
+    case "alltime":
+      return { created_from: undefined, created_to: undefined }
+  }
+
+  return {
+    created_from: formatDate(start),
+    created_to: formatDate(end),
+  }
 }
 
 function formatMinutes(value: number | null): string {
@@ -84,154 +165,45 @@ function average(total: number, count: number): number | null {
   return total / count
 }
 
-function locationLabel(location?: { name?: string | null; code?: string | null; location_id?: string } | null): string {
-  return location?.name ?? location?.code ?? location?.location_id ?? "Unknown"
-}
-
-async function fetchShipmentRows(token: string, merchantId?: string): Promise<ShipmentFullReportRow[]> {
-  const rows: ShipmentFullReportRow[] = []
-  const maxPages = 10
-
-  for (let page = 1; page <= maxPages; page += 1) {
-    const response = await getShipmentsFullReport(
-      {
-        merchant_id: merchantId,
-        page,
-        per_page: 200,
-        sort_by: "date_created",
-        sort_direction: "desc",
-      },
-      token
-    )
-
-    if (isApiErrorResponse(response)) {
-      break
-    }
-
-    rows.push(...(response.data ?? []))
-
-    const currentPage = Number(response.meta?.current_page ?? page)
-    const lastPage = Number(response.meta?.last_page ?? page)
-    if (currentPage >= lastPage) {
-      break
-    }
-  }
-
-  return rows
-}
-
-function buildRouteWaitingRows(rows: ShipmentFullReportRow[]): RouteWaitingRow[] {
-  const grouped = new Map<string, {
-    routeLabel: string
-    shipmentCount: number
-    pickupWaitTotal: number
-    pickupWaitCount: number
-    dropoffWaitTotal: number
-    dropoffWaitCount: number
-    transitTotal: number
-    transitCount: number
-    latestActivityAt: string | null
-    fromLocationId?: string
-    toLocationId?: string
-  }>()
-
-  for (const row of rows) {
-    if (!row.from_location && !row.to_location) continue
-
-    const fromId = row.from_location?.location_id
-    const toId = row.to_location?.location_id
-    const key = `${fromId ?? row.from_location?.name ?? "unknown-from"}::${toId ?? row.to_location?.name ?? "unknown-to"}`
-    const pickupWait = minutesBetween(row.from_time_in, row.from_time_out)
-    const dropoffWait = minutesBetween(row.to_time_in, row.to_time_out)
-    const transit = minutesBetween(row.from_time_out, row.to_time_in)
-    const latestAt = row.to_time_out ?? row.to_time_in ?? row.from_time_out ?? row.from_time_in ?? row.date_created ?? null
-
-    const current = grouped.get(key) ?? {
-      routeLabel: `${locationLabel(row.from_location)} -> ${locationLabel(row.to_location)}`,
-      shipmentCount: 0,
-      pickupWaitTotal: 0,
-      pickupWaitCount: 0,
-      dropoffWaitTotal: 0,
-      dropoffWaitCount: 0,
-      transitTotal: 0,
-      transitCount: 0,
-      latestActivityAt: null,
-      fromLocationId: fromId,
-      toLocationId: toId,
-    }
-
-    current.shipmentCount += 1
-    if (pickupWait !== null) {
-      current.pickupWaitTotal += pickupWait
-      current.pickupWaitCount += 1
-    }
-    if (dropoffWait !== null) {
-      current.dropoffWaitTotal += dropoffWait
-      current.dropoffWaitCount += 1
-    }
-    if (transit !== null) {
-      current.transitTotal += transit
-      current.transitCount += 1
-    }
-    if (!current.latestActivityAt || (parseDate(latestAt)?.getTime() ?? 0) > (parseDate(current.latestActivityAt)?.getTime() ?? 0)) {
-      current.latestActivityAt = latestAt
-    }
-
-    grouped.set(key, current)
-  }
-
-  return Array.from(grouped.entries())
-    .map(([routeKey, value]) => ({
-      routeKey,
-      routeLabel: value.routeLabel,
-      shipmentCount: value.shipmentCount,
-      avgPickupWaitMinutes: average(value.pickupWaitTotal, value.pickupWaitCount),
-      avgDropoffWaitMinutes: average(value.dropoffWaitTotal, value.dropoffWaitCount),
-      avgTransitMinutes: average(value.transitTotal, value.transitCount),
-      latestActivityAt: value.latestActivityAt,
-      fromLocationId: value.fromLocationId,
-      toLocationId: value.toLocationId,
-    }))
-}
-
 function sortRouteWaitingRows(
-  rows: RouteWaitingRow[],
+  rows: RouteWaitingTimesReportRow[],
   sortBy: SortBy,
   sortDir: "asc" | "desc"
-): RouteWaitingRow[] {
+): RouteWaitingTimesReportRow[] {
   const direction = sortDir === "asc" ? 1 : -1
-  const sorted = [...rows].sort((a, b) => {
+
+  return [...rows].sort((a, b) => {
     let aValue: number | string = ""
     let bValue: number | string = ""
 
     switch (sortBy) {
       case "combined_wait":
-        aValue = (a.avgPickupWaitMinutes ?? 0) + (a.avgDropoffWaitMinutes ?? 0)
-        bValue = (b.avgPickupWaitMinutes ?? 0) + (b.avgDropoffWaitMinutes ?? 0)
+        aValue = (a.avg_pickup_wait_minutes ?? 0) + (a.avg_dropoff_wait_minutes ?? 0)
+        bValue = (b.avg_pickup_wait_minutes ?? 0) + (b.avg_dropoff_wait_minutes ?? 0)
         break
       case "route":
-        aValue = a.routeLabel
-        bValue = b.routeLabel
+        aValue = a.route_label
+        bValue = b.route_label
         break
       case "shipments":
-        aValue = a.shipmentCount
-        bValue = b.shipmentCount
+        aValue = a.shipment_count
+        bValue = b.shipment_count
         break
       case "avg_pickup_wait":
-        aValue = a.avgPickupWaitMinutes ?? -1
-        bValue = b.avgPickupWaitMinutes ?? -1
+        aValue = a.avg_pickup_wait_minutes ?? -1
+        bValue = b.avg_pickup_wait_minutes ?? -1
         break
       case "avg_dropoff_wait":
-        aValue = a.avgDropoffWaitMinutes ?? -1
-        bValue = b.avgDropoffWaitMinutes ?? -1
+        aValue = a.avg_dropoff_wait_minutes ?? -1
+        bValue = b.avg_dropoff_wait_minutes ?? -1
         break
       case "avg_transit":
-        aValue = a.avgTransitMinutes ?? -1
-        bValue = b.avgTransitMinutes ?? -1
+        aValue = a.avg_transit_minutes ?? -1
+        bValue = b.avg_transit_minutes ?? -1
         break
       case "latest_activity":
-        aValue = parseDate(a.latestActivityAt)?.getTime() ?? 0
-        bValue = parseDate(b.latestActivityAt)?.getTime() ?? 0
+        aValue = parseDate(a.latest_activity_at)?.getTime() ?? 0
+        bValue = parseDate(b.latest_activity_at)?.getTime() ?? 0
         break
     }
 
@@ -241,41 +213,61 @@ function sortRouteWaitingRows(
 
     return ((aValue as number) - (bValue as number)) * direction
   })
-
-  return sorted
 }
 
-export default async function RouteWaitingTimesPage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>
-}) {
+export default async function RouteWaitingTimesPage({ searchParams }: PageProps) {
   const params = (await searchParams) ?? {}
   const sortBy = normalizeSortBy(getSingleValue(params.sort_by))
   const sortDir = normalizeSortDir(getSingleValue(params.sort_dir))
+  const dateRange = normalizeDateRange(getSingleValue(params.date_range))
+  const startDate = normalizeDateParam(getSingleValue(params.start_date))
+  const endDate = normalizeDateParam(getSingleValue(params.end_date))
+  const customRangeIncomplete = dateRange === "custom" && (!startDate || !endDate)
+
   const session = await requireAuth()
   const merchantId = session.selected_merchant?.merchant_id ?? undefined
-  const shipmentRows = await fetchShipmentRows(session.accessToken, merchantId)
-  const routeRows = sortRouteWaitingRows(buildRouteWaitingRows(shipmentRows), sortBy, sortDir)
+
+  const response = customRangeIncomplete
+    ? null
+    : await getRouteWaitingTimesReport(
+        {
+          merchant_id: merchantId,
+          date_range: dateRange,
+          start_date: startDate,
+          end_date: endDate,
+        },
+        session.accessToken
+      )
+
+  const routeRows =
+    response && !isApiErrorResponse(response)
+      ? sortRouteWaitingRows(response.data ?? [], sortBy, sortDir)
+      : []
+
+  const createdRange = resolveCreatedRange(dateRange, startDate, endDate)
   const tableRows = routeRows.map((row) => ({
     ...row,
     routeHref: withAdminQuery(AdminLinks.reportsShipments, {
-      from_location_id: row.fromLocationId,
-      to_location_id: row.toLocationId,
+      from_location_id: row.from_location_id,
+      to_location_id: row.to_location_id,
+      created_from: createdRange.created_from,
+      created_to: createdRange.created_to,
     }),
-    avgPickupWaitDisplay: formatMinutes(row.avgPickupWaitMinutes),
-    avgDropoffWaitDisplay: formatMinutes(row.avgDropoffWaitMinutes),
-    avgTransitDisplay: formatMinutes(row.avgTransitMinutes),
-    latestActivityDisplay: formatDateTime(row.latestActivityAt),
+    routeLabel: row.route_label,
+    shipmentCount: row.shipment_count,
+    avgPickupWaitDisplay: formatMinutes(row.avg_pickup_wait_minutes),
+    avgDropoffWaitDisplay: formatMinutes(row.avg_dropoff_wait_minutes),
+    avgTransitDisplay: formatMinutes(row.avg_transit_minutes),
+    latestActivityDisplay: formatDateTime(row.latest_activity_at),
   }))
 
   const avgPickup = average(
-    routeRows.reduce((sum, row) => sum + (row.avgPickupWaitMinutes ?? 0), 0),
-    routeRows.filter((row) => row.avgPickupWaitMinutes !== null).length
+    routeRows.reduce((sum, row) => sum + (row.avg_pickup_wait_minutes ?? 0), 0),
+    routeRows.filter((row) => row.avg_pickup_wait_minutes !== null).length
   )
   const avgDropoff = average(
-    routeRows.reduce((sum, row) => sum + (row.avgDropoffWaitMinutes ?? 0), 0),
-    routeRows.filter((row) => row.avgDropoffWaitMinutes !== null).length
+    routeRows.reduce((sum, row) => sum + (row.avg_dropoff_wait_minutes ?? 0), 0),
+    routeRows.filter((row) => row.avg_dropoff_wait_minutes !== null).length
   )
 
   return (
@@ -283,7 +275,22 @@ export default async function RouteWaitingTimesPage({
       <PageHeader
         title="Route Waiting Times"
         description="Average waiting and transit time per route based on shipment stage timestamps."
+        actions={
+          <RouteWaitingTimesControls
+            dateRange={dateRange}
+            startDate={startDate}
+            endDate={endDate}
+          />
+        }
       />
+
+      {customRangeIncomplete ? (
+        <Card>
+          <CardContent className="py-6 text-sm text-muted-foreground">
+            Select both a start date and end date to load a custom shipment range.
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>

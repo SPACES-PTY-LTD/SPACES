@@ -129,6 +129,7 @@ Route::prefix('v1')->group(function () {
         Route::get('reports/missing-documents', [ReportController::class, 'missingDocuments']);
         Route::get('reports/document-expiry', [ReportController::class, 'documentExpiry']);
         Route::get('reports/document-coverage', [ReportController::class, 'documentCoverage']);
+        Route::get('reports/route-waiting-times', [ReportController::class, 'routeWaitingTimes']);
         Route::get('reports/shipments-by-location', [ReportController::class, 'shipmentsByLocation']);
         Route::get('reports/shipments_full_report', [ReportController::class, 'shipmentsFullReport']);
 

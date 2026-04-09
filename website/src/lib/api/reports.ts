@@ -114,6 +114,48 @@ export type ShipmentsFullReportResponse = {
   error?: unknown
 }
 
+export type RouteWaitingTimesReportParams = {
+  merchant_id?: string
+  date_range?:
+    | "today"
+    | "yesterday"
+    | "thisweek"
+    | "1week"
+    | "2weeks"
+    | "30days"
+    | "1month"
+    | "3months"
+    | "6months"
+    | "1year"
+    | "alltime"
+    | "custom"
+  start_date?: string
+  end_date?: string
+}
+
+export type RouteWaitingTimesReportRow = {
+  route_key: string
+  route_label: string
+  shipment_count: number
+  avg_pickup_wait_minutes: number | null
+  avg_dropoff_wait_minutes: number | null
+  avg_transit_minutes: number | null
+  latest_activity_at: string | null
+  from_location_id?: string
+  to_location_id?: string
+}
+
+export type RouteWaitingTimesReportResponse = {
+  success: boolean
+  data: RouteWaitingTimesReportRow[]
+  meta?: {
+    total_routes?: number
+    total_shipments?: number
+    date_range?: string
+  }
+  error?: unknown
+}
+
 export type MissingDocumentsReportParams = {
   merchant_id?: string
   entity_type?: "shipment" | "driver" | "vehicle"
@@ -373,6 +415,16 @@ export async function getShipmentsByLocationReport(
   token?: string | null
 ) {
   return apiFetch<ShipmentsByLocationReportResponse>("/api/v1/reports/shipments-by-location", {
+    token,
+    params,
+  })
+}
+
+export async function getRouteWaitingTimesReport(
+  params?: RouteWaitingTimesReportParams,
+  token?: string | null
+) {
+  return apiFetch<RouteWaitingTimesReportResponse>("/api/v1/reports/route-waiting-times", {
     token,
     params,
   })
