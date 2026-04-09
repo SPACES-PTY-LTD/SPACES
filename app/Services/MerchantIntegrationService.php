@@ -591,33 +591,42 @@ class MerchantIntegrationService
                 continue;
             }
 
-            $integrationId = $item['integration_id'] ?? null;
-            if (!$integrationId) {
+            $integrationId = $this->normalizeImportedLocationIdentifier($item['integration_id'] ?? null);
+            $locationCode = $this->normalizeImportedLocationIdentifier($item['code'] ?? null);
+
+            if (!$integrationId && !$locationCode) {
                 continue;
             }
 
-            $location = Location::query()
+            $locationQuery = Location::query()
                 ->where('account_id', $integration->account_id)
                 ->where(function ($query) use ($merchant) {
                     $query->where('merchant_id', $merchant->id)
                         ->orWhereNull('merchant_id');
-                })
-                ->where('intergration_id', (string) $integrationId)
-                ->first();
+                });
+
+            if ($integrationId) {
+                $locationQuery->where('intergration_id', $integrationId);
+            } else {
+                $locationQuery->where('code', $locationCode);
+            }
+
+            $location = $locationQuery->first();
 
             if (!$location) {
                 $location = new Location();
                 $location->account_id = $integration->account_id;
                 $location->merchant_id = $merchant->id;
-                $location->intergration_id = (string) $integrationId;
+                $location->intergration_id = $integrationId;
             }
 
-            $fallbackLabel = 'Imported Location '.(string) $integrationId;
+            $fallbackIdentifier = $integrationId ?? $locationCode;
+            $fallbackLabel = 'Imported Location '.(string) $fallbackIdentifier;
 
             $location->merchant_id = $merchant->id;
             $location->location_type_id = $item['location_type_id'] ?? $location->location_type_id;
             $location->name = $item['name'] ?? $location->name ?? $fallbackLabel;
-            $location->code = $item['code'] ?? $location->code ?? null;
+            $location->code = $locationCode ?? $location->code ?? null;
             $location->company = $item['company'] ?? $location->company;
             $location->full_address = $item['full_address'] ?? $location->full_address;
             $location->address_line_1 = $item['address_line_1'] ?? $location->address_line_1;
@@ -674,6 +683,17 @@ class MerchantIntegrationService
             'imported_count' => $importedCount,
             'locations' => $imported,
         ];
+    }
+
+    private function normalizeImportedLocationIdentifier(mixed $value): ?string
+    {
+        if (!is_string($value) && !is_numeric($value)) {
+            return null;
+        }
+
+        $normalized = trim((string) $value);
+
+        return $normalized !== '' ? $normalized : null;
     }
 
     private function applyPolygonBounds(Location $location, mixed $polygonBounds): void

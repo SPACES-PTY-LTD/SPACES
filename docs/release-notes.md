@@ -23,6 +23,72 @@ Add new entries at the top (newest first).
 ## 2026-04-09 | Version: unreleased
 
 ### Summary
+- Updated location CSV import so `is_loading_location=true` maps imported rows to the first collection-point location type for the merchant.
+
+### API Changes
+- No public API contract changes.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- CSV location imports now treat a truthy `is_loading_location` column as a collection-location hint when no explicit `location_type_id` is supplied.
+- For those rows, the importer now assigns the first merchant `location_types` record where `collection_point = true`.
+- Rows with `is_loading_location=false` or without the column keep the existing fallback to the merchant waypoint type when no explicit `location_type_id` is present.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- `LocationService::mapImportRow()` now parses `is_loading_location` from CSV input.
+- `LocationService::resolveImportedLocationTypeId()` now accepts the loading-location signal and resolves the first collection-point type before falling back to waypoint.
+- Added focused CSV import coverage for both loading-location and non-loading fallback behavior.
+
+### Verification
+- Updated files:
+  - `app/Services/LocationService.php`
+  - `tests/Feature/LocationCsvImportTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Services/LocationService.php`
+  - `php -l tests/Feature/LocationCsvImportTest.php`
+  - `php artisan test tests/Feature/LocationCsvImportTest.php`
+
+## 2026-04-09 | Version: unreleased
+
+### Summary
+- Updated tracking-provider location import dedupe so it falls back to provider `code` when `integration_id` is missing.
+
+### API Changes
+- No public API contract changes.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Location imports no longer skip provider records that are missing `integration_id` when a provider location `code` is available.
+- During location import, the app now reuses and updates an existing merchant location by `code` when no `integration_id` was provided, preventing duplicate imports for code-based providers.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- `MerchantIntegrationService::importProviderLocations()` now normalizes provider location identifiers and uses `code` as the fallback import identity when `integration_id` is absent.
+- Added feature coverage for code-based location dedupe during provider imports.
+
+### Verification
+- Updated files:
+  - `app/Services/MerchantIntegrationService.php`
+  - `tests/Feature/TrackingProviderOptionsTest.php`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Services/MerchantIntegrationService.php`
+  - `php -l tests/Feature/TrackingProviderOptionsTest.php`
+  - `php artisan test tests/Feature/TrackingProviderOptionsTest.php`
+
+## 2026-04-09 | Version: unreleased
+
+### Summary
 - Added Redis-backed MiX access-token reuse for runtime provider requests so the app reuses a valid MiX token until it nears expiry instead of logging in on every call.
 - Kept `/admin/tools/mix-check` as a fresh-login diagnostic tool and surfaced the auth mode in the UI.
 

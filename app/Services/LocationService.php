@@ -450,7 +450,8 @@ class LocationService
                     'longitude' => $mapped['data']['longitude'] ?? null,
                     'location_type_id' => $this->resolveImportedLocationTypeId(
                         $merchant,
-                        $mapped['data']['location_type_id'] ?? null
+                        $mapped['data']['location_type_id'] ?? null,
+                        $mapped['data']['is_loading_location'] ?? null
                     ),
                 ];
 
@@ -676,6 +677,7 @@ class LocationService
                 'longitude' => $longitude,
                 'polygon_bounds' => $polygonResult['points'],
                 'location_type_id' => $locationTypeUuid !== '' ? $locationTypeUuid : null,
+                'is_loading_location' => $this->parseNullableBoolean($normalized['is_loading_location'] ?? null),
             ],
         ];
     }
@@ -711,10 +713,26 @@ class LocationService
         return $this->firstOrCreateLocationTypeBySlug($merchant, $defaultSlug)->id;
     }
 
-    private function resolveImportedLocationTypeId(Merchant $merchant, ?string $locationTypeUuid): int
+    private function resolveImportedLocationTypeId(
+        Merchant $merchant,
+        ?string $locationTypeUuid,
+        ?bool $isLoadingLocation = null
+    ): int
     {
         if (is_string($locationTypeUuid) && trim($locationTypeUuid) !== '') {
             return $this->resolveLocationTypeId($merchant, trim($locationTypeUuid));
+        }
+
+        if ($isLoadingLocation === true) {
+            $collectionTypeId = LocationType::query()
+                ->where('merchant_id', $merchant->id)
+                ->where('collection_point', true)
+                ->orderBy('id')
+                ->value('id');
+
+            if ($collectionTypeId) {
+                return (int) $collectionTypeId;
+            }
         }
 
         return $this->firstOrCreateLocationTypeBySlug($merchant, 'waypoint')->id;
@@ -822,6 +840,21 @@ class LocationService
         }
 
         return is_numeric($value) ? (float) $value : null;
+    }
+
+    private function parseNullableBoolean(?string $value): ?bool
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        $normalized = strtolower(trim($value));
+
+        return match ($normalized) {
+            '1', 'true', 'yes', 'y' => true,
+            '0', 'false', 'no', 'n' => false,
+            default => null,
+        };
     }
 
     private function polygonToWkt(array $points): string

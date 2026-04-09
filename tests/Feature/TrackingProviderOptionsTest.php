@@ -447,6 +447,49 @@ class TrackingProviderOptionsTest extends TestCase
         ]);
     }
 
+    public function test_location_import_uses_location_code_when_integration_id_is_missing(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedImportProviderWithCapabilities([
+            'has_locations_importing' => true,
+        ]);
+
+        $existingLocation = Location::create([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Existing Yard',
+            'code' => 'YARD-02',
+            'address_line_1' => '2 Dock Road',
+            'city' => 'Old Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+            'intergration_id' => null,
+        ]);
+
+        $this->mockProviderService('import_locations', [[
+            'name' => 'Updated Yard',
+            'code' => 'YARD-02',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+        ]]);
+
+        $result = app(MerchantIntegrationService::class)->importProviderLocations(
+            $user,
+            $provider->uuid,
+            $merchant->uuid,
+            null
+        );
+
+        $existingLocation->refresh();
+
+        $this->assertSame(1, $result['imported_count']);
+        $this->assertSame('Updated Yard', $existingLocation->name);
+        $this->assertSame('Cape Town', $existingLocation->city);
+        $this->assertSame('YARD-02', $existingLocation->code);
+        $this->assertNull($existingLocation->intergration_id);
+        $this->assertSame(1, Location::query()->where('account_id', $merchant->account_id)->count());
+    }
+
     public function test_user_can_inspect_mix_token_for_activated_provider(): void
     {
         [$user, $merchant] = $this->createUserAndMerchant();
