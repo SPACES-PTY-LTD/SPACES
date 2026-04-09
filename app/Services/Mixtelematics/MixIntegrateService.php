@@ -4,12 +4,16 @@ namespace App\Services\Mixtelematics;
 
 use App\Models\LocationType;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class MixIntegrateService
 {
+    private const TOKEN_CACHE_BUFFER_SECONDS = 60;
+
     public function getVehiclePositions(array $assetIds, array $integrationData = []): array
     {
         if (empty($assetIds)) {
@@ -657,7 +661,9 @@ class MixIntegrateService
 
     private function getBearerToken(array $integrationData = []): string
     {
-        $analysis = $this->inspectTokenResponse($integrationData);
+        $analysis = $this->inspectTokenResponse($integrationData, [
+            'use_cache' => true,
+        ]);
         $token = $analysis['access_token'] ?? null;
 
         if (!$token) {
@@ -667,7 +673,30 @@ class MixIntegrateService
         return $token;
     }
 
-    public function inspectTokenResponse(array $integrationData = []): array
+    public function inspectTokenResponse(array $integrationData = [], array $options = []): array
+    {
+        $useCache = (bool) ($options['use_cache'] ?? false);
+
+        if ($useCache) {
+            $cachedAnalysis = $this->getCachedTokenAnalysis($integrationData);
+            if ($cachedAnalysis !== null) {
+                $cachedAnalysis['auth_mode'] = 'redis_cache';
+
+                return $cachedAnalysis;
+            }
+        }
+
+        $analysis = $this->fetchFreshTokenResponse($integrationData);
+        $analysis['auth_mode'] = 'fresh_login';
+
+        if ($useCache) {
+            $this->storeCachedTokenAnalysis($integrationData, $analysis);
+        }
+
+        return $analysis;
+    }
+
+    private function fetchFreshTokenResponse(array $integrationData = []): array
     {
         $clientId = $integrationData['client_id'] ?? config('services.mix.client_id');
         $clientSecret = $integrationData['client_secret'] ?? config('services.mix.client_secret');
@@ -722,6 +751,116 @@ class MixIntegrateService
             'timing' => $timing,
             'summary' => $this->buildTokenSummary($timing, $data),
         ];
+    }
+
+    private function getCachedTokenAnalysis(array $integrationData = []): ?array
+    {
+        $cacheKey = $this->resolveTokenCacheKey($integrationData);
+        if ($cacheKey === null) {
+            return null;
+        }
+
+        try {
+            $cached = $this->cacheStore()->get($cacheKey);
+        } catch (\Throwable $e) {
+            Log::warning('Mix Integrate token cache read failed.', [
+                'cache_key' => $cacheKey,
+                'integration_uuid' => $integrationData['integration_uuid'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        if (!is_array($cached)) {
+            return null;
+        }
+
+        $expiresAt = $this->normalizeTimestampClaim($cached['expires_at'] ?? null);
+        if (!$expiresAt) {
+            return null;
+        }
+
+        $now = CarbonImmutable::now('UTC');
+        if ($expiresAt->subSeconds(self::TOKEN_CACHE_BUFFER_SECONDS)->lessThanOrEqualTo($now)) {
+            return null;
+        }
+
+        $rawResponse = $cached['raw_response'] ?? null;
+        $expiresIn = is_numeric($cached['expires_in'] ?? null) ? (int) $cached['expires_in'] : null;
+        $decodedAccessToken = $this->decodeToken($cached['access_token'] ?? null, $expiresIn);
+        $timing = $this->buildTokenTiming($decodedAccessToken, $expiresIn);
+
+        $analysis = [
+            'raw_response' => is_array($rawResponse) ? $rawResponse : null,
+            'access_token' => is_string($cached['access_token'] ?? null) ? $cached['access_token'] : null,
+            'refresh_token' => is_string($cached['refresh_token'] ?? null) ? $cached['refresh_token'] : null,
+            'token_type' => is_string($cached['token_type'] ?? null) ? $cached['token_type'] : null,
+            'expires_in' => $expiresIn,
+            'scope' => is_string($cached['scope'] ?? null) ? $cached['scope'] : null,
+            'access_token_masked' => $this->maskToken($cached['access_token'] ?? null),
+            'refresh_token_masked' => $this->maskToken($cached['refresh_token'] ?? null),
+            'access_token_decoded' => $decodedAccessToken,
+            'refresh_token_decoded' => $this->decodeToken($cached['refresh_token'] ?? null),
+            'timing' => $timing,
+            'summary' => $this->buildTokenSummary($timing, is_array($rawResponse) ? $rawResponse : []),
+        ];
+
+        return $analysis;
+    }
+
+    private function storeCachedTokenAnalysis(array $integrationData, array $analysis): void
+    {
+        $cacheKey = $this->resolveTokenCacheKey($integrationData);
+        if ($cacheKey === null) {
+            return;
+        }
+
+        $expiresAt = $this->normalizeTimestampClaim($analysis['timing']['expires_at'] ?? null);
+        if (!$expiresAt) {
+            return;
+        }
+
+        $ttlSeconds = (int) CarbonImmutable::now('UTC')->diffInSeconds($expiresAt, false);
+        if ($ttlSeconds <= 0) {
+            return;
+        }
+
+        $payload = [
+            'access_token' => $analysis['access_token'] ?? null,
+            'refresh_token' => $analysis['refresh_token'] ?? null,
+            'token_type' => $analysis['token_type'] ?? null,
+            'expires_in' => $analysis['expires_in'] ?? null,
+            'scope' => $analysis['scope'] ?? null,
+            'expires_at' => $analysis['timing']['expires_at'] ?? null,
+            'raw_response' => $analysis['raw_response'] ?? null,
+        ];
+
+        try {
+            $this->cacheStore()->put($cacheKey, $payload, now()->addSeconds($ttlSeconds));
+        } catch (\Throwable $e) {
+            Log::warning('Mix Integrate token cache write failed.', [
+                'cache_key' => $cacheKey,
+                'integration_uuid' => $integrationData['integration_uuid'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function resolveTokenCacheKey(array $integrationData): ?string
+    {
+        $integrationUuid = $integrationData['integration_uuid'] ?? null;
+
+        if (!is_string($integrationUuid) || trim($integrationUuid) === '') {
+            return null;
+        }
+
+        return 'mix:token:' . trim($integrationUuid);
+    }
+
+    protected function cacheStore(): CacheRepository
+    {
+        return Cache::store('redis');
     }
 
     private function decodeToken(?string $token, ?int $expiresIn = null): array

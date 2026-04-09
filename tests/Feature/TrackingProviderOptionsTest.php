@@ -471,7 +471,7 @@ class TrackingProviderOptionsTest extends TestCase
         ]);
 
         app()->instance(MixIntegrateService::class, new class extends MixIntegrateService {
-            public function inspectTokenResponse(array $integrationData = []): array
+            public function inspectTokenResponse(array $integrationData = [], array $options = []): array
             {
                 return [
                     'raw_response' => [
@@ -503,6 +503,7 @@ class TrackingProviderOptionsTest extends TestCase
                         'seconds_until_expiry' => 3600,
                         'is_expired' => false,
                     ],
+                    'auth_mode' => 'fresh_login',
                     'summary' => 'token_type=Bearer; scope=offline_access MiX.Integrate; Expires in 1h 0m 0s at 2026-04-09T11:00:00+00:00.',
                 ];
             }
@@ -516,6 +517,7 @@ class TrackingProviderOptionsTest extends TestCase
             ->assertJsonPath('data.provider_id', $provider->uuid)
             ->assertJsonPath('data.merchant_id', $merchant->uuid)
             ->assertJsonPath('data.credential_source', 'stored_integration')
+            ->assertJsonPath('data.auth_mode', 'fresh_login')
             ->assertJsonPath('data.access_token', 'raw-access-token')
             ->assertJsonPath('data.access_token_decoded.claims.sub', 'mix-user')
             ->assertJsonPath('data.timing.seconds_until_expiry', 3600);

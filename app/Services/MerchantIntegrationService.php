@@ -973,6 +973,7 @@ class MerchantIntegrationService
         $payload['account_id'] = $integration->account_id;
         $payload['merchant_id'] = $merchant->id;
         $payload['merchant_uuid'] = $merchant->uuid;
+        $payload['integration_uuid'] = $integration->uuid;
 
         return $payload;
     }

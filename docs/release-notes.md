@@ -23,6 +23,50 @@ Add new entries at the top (newest first).
 ## 2026-04-09 | Version: unreleased
 
 ### Summary
+- Added Redis-backed MiX access-token reuse for runtime provider requests so the app reuses a valid MiX token until it nears expiry instead of logging in on every call.
+- Kept `/admin/tools/mix-check` as a fresh-login diagnostic tool and surfaced the auth mode in the UI.
+
+### API Changes
+- No public runtime endpoint changed shape for provider imports or MiX-backed requests.
+- `POST /api/v1/tracking-providers/{provider_id}/mix-token-analysis` now includes `auth_mode`, which is currently `fresh_login` for the diagnostic flow.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- MiX runtime auth now checks Redis for a cached token scoped to the merchant integration and only fetches a new token when the cached one is missing or within the 60-second safety buffer before expiry.
+- MiX runtime requests now fall back to a fresh login if Redis read/write operations fail, so tracking/import flows continue working during cache issues.
+- `/admin/tools/mix-check` now explicitly shows whether the displayed token data came from a fresh login or another auth mode.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- `MerchantIntegrationService` now includes `integration_uuid` in the MiX provider integration payload so cache keys are isolated per activated merchant integration.
+- `MixIntegrateService` now separates cache-aware runtime token retrieval from the fresh-login inspection path and stores compact token bundles in `Cache::store('redis')`.
+- Added focused unit coverage for Redis cache hits, expiry-buffer refresh, Redis read fallback, Redis write fallback, and forced fresh inspection.
+
+### Verification
+- Updated files:
+  - `app/Services/Mixtelematics/MixIntegrateService.php`
+  - `app/Services/MerchantIntegrationService.php`
+  - `tests/Unit/MixIntegrateServiceTest.php`
+  - `tests/Feature/TrackingProviderOptionsTest.php`
+  - `website/src/lib/types.ts`
+  - `website/src/components/integrations/mix-token-checker.tsx`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Services/Mixtelematics/MixIntegrateService.php`
+  - `php -l app/Services/MerchantIntegrationService.php`
+  - `php -l tests/Unit/MixIntegrateServiceTest.php`
+  - `php -l tests/Feature/TrackingProviderOptionsTest.php`
+  - `php artisan test tests/Unit/MixIntegrateServiceTest.php`
+  - `php artisan test tests/Feature/TrackingProviderOptionsTest.php`
+  - `npm run lint -- src/lib/types.ts src/components/integrations/mix-token-checker.tsx`
+
+## 2026-04-09 | Version: unreleased
+
+### Summary
 - Added a MiX token inspection endpoint that authenticates with the merchant’s saved MiX integration credentials and returns the full MiX auth payload plus decoded token details.
 - Added an admin tool page at `/admin/tools/mix-check` to run the MiX token inspection and view token expiry analysis in the website UI.
 

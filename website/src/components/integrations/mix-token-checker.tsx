@@ -194,6 +194,10 @@ export function MixTokenChecker({
                 <div className="mt-2 text-sm font-medium">{selectedProvider?.name ?? result.provider_id}</div>
               </div>
               <div className="rounded-lg border p-4">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Auth mode</div>
+                <div className="mt-2 text-sm font-medium">{result.auth_mode ?? "Unknown"}</div>
+              </div>
+              <div className="rounded-lg border p-4">
                 <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Token status</div>
                 <div className="mt-2">
                   <Badge variant={timing?.is_expired ? "destructive" : expiresSoon ? "secondary" : "default"}>
@@ -204,12 +208,6 @@ export function MixTokenChecker({
               <div className="rounded-lg border p-4">
                 <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Expires at</div>
                 <div className="mt-2 text-sm font-medium">{timing?.expires_at ?? "Unknown"}</div>
-              </div>
-              <div className="rounded-lg border p-4">
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Seconds until expiry</div>
-                <div className="mt-2 text-sm font-medium">
-                  {typeof timing?.seconds_until_expiry === "number" ? timing.seconds_until_expiry : "Unknown"}
-                </div>
               </div>
             </CardContent>
           </Card>

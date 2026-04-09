@@ -703,6 +703,7 @@ export interface MixTokenAnalysis {
   provider_id: UUID
   merchant_id: UUID
   credential_source: string
+  auth_mode?: string | null
   raw_response: Record<string, unknown> | null
   access_token: string | null
   refresh_token: string | null
