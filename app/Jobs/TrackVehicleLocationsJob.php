@@ -533,6 +533,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 'provider_name' => $provider->name,
                 'driver_integration_id' => $driverIntegrationId,
                 'fetch_method' => $fetchMethod,
+                'payload' => $payload,
             ]);
 
             return null;
