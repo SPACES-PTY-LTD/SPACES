@@ -48,7 +48,7 @@ const EMPTY_REPORT: MappedBookingsReport = {
 
 function getStatusConfig(status?: string | null) {
   if (!status) {
-    return { color: "#64748b", label: "Unknown" }
+    return { color: "#000000", label: "Unknown" }
   }
 
   return STATUS_CONFIG[status] ?? {

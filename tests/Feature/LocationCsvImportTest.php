@@ -125,6 +125,13 @@ CSV;
             ->firstOrFail();
 
         $this->assertSame(['Depot', 'Priority'], $location->tags()->pluck('name')->all());
+        foreach ($location->tags as $tag) {
+            $this->assertDatabaseHas('taggables', [
+                'tag_id' => $tag->id,
+                'taggable_type' => Location::class,
+                'taggable_id' => $location->id,
+            ]);
+        }
     }
 
     public function test_location_csv_import_clears_tags_when_tags_column_is_blank(): void

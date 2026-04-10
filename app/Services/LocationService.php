@@ -428,70 +428,74 @@ class LocationService
             }
 
             try {
-                $payload = [
-                    'account_id' => $merchant->account_id,
-                    'merchant_id' => $merchant->id,
-                    'environment_id' => $environment?->id,
-                    'company' => $mapped['data']['company'] ?? null,
-                    'code' => $mapped['data']['code'],
-                    'first_name' => $mapped['data']['first_name'] ?? null,
-                    'last_name' => $mapped['data']['last_name'] ?? null,
-                    'phone' => $mapped['data']['phone'] ?? null,
-                    'email' => $mapped['data']['email'] ?? null,
-                    'town' => $mapped['data']['town'] ?? null,
-                    'name' => $mapped['data']['name'] ?? $mapped['data']['company'] ?? null,
-                    'address_line_1' => $mapped['data']['address_line_1'],
-                    'address_line_2' => $mapped['data']['address_line_2'] ?? null,
-                    'city' => $mapped['data']['city'],
-                    'province' => $mapped['data']['province'],
-                    'post_code' => $mapped['data']['post_code'],
-                    'country' => $mapped['data']['country'] ?? null,
-                    'latitude' => $mapped['data']['latitude'] ?? null,
-                    'longitude' => $mapped['data']['longitude'] ?? null,
-                    'location_type_id' => $this->resolveImportedLocationTypeId(
-                        $merchant,
-                        $mapped['data']['location_type_id'] ?? null,
-                        $mapped['data']['is_loading_location'] ?? null
-                    ),
-                ];
+                $isUpdate = DB::transaction(function () use ($merchant, $environment, $mapped, $user): bool {
+                    $payload = [
+                        'account_id' => $merchant->account_id,
+                        'merchant_id' => $merchant->id,
+                        'environment_id' => $environment?->id,
+                        'company' => $mapped['data']['company'] ?? null,
+                        'code' => $mapped['data']['code'],
+                        'first_name' => $mapped['data']['first_name'] ?? null,
+                        'last_name' => $mapped['data']['last_name'] ?? null,
+                        'phone' => $mapped['data']['phone'] ?? null,
+                        'email' => $mapped['data']['email'] ?? null,
+                        'town' => $mapped['data']['town'] ?? null,
+                        'name' => $mapped['data']['name'] ?? $mapped['data']['company'] ?? null,
+                        'address_line_1' => $mapped['data']['address_line_1'],
+                        'address_line_2' => $mapped['data']['address_line_2'] ?? null,
+                        'city' => $mapped['data']['city'],
+                        'province' => $mapped['data']['province'],
+                        'post_code' => $mapped['data']['post_code'],
+                        'country' => $mapped['data']['country'] ?? null,
+                        'latitude' => $mapped['data']['latitude'] ?? null,
+                        'longitude' => $mapped['data']['longitude'] ?? null,
+                        'location_type_id' => $this->resolveImportedLocationTypeId(
+                            $merchant,
+                            $mapped['data']['location_type_id'] ?? null,
+                            $mapped['data']['is_loading_location'] ?? null
+                        ),
+                    ];
 
-                $query = Location::withTrashed()
-                    ->where('account_id', $merchant->account_id)
-                    ->where('merchant_id', $merchant->id)
-                    ->where('code', $payload['code']);
+                    $query = Location::withTrashed()
+                        ->where('account_id', $merchant->account_id)
+                        ->where('merchant_id', $merchant->id)
+                        ->where('code', $payload['code']);
 
-                if ($environment) {
-                    $query->where('environment_id', $environment->id);
-                } else {
-                    $query->whereNull('environment_id');
-                }
-
-                $location = $query->first();
-                $isUpdate = $location !== null;
-
-                if (!$location) {
-                    $location = new Location();
-                }
-
-                $location->fill($payload);
-
-                if (array_key_exists('polygon_bounds', $mapped['data'])) {
-                    if ($mapped['data']['polygon_bounds'] === null) {
-                        $location->polygon_bounds = null;
+                    if ($environment) {
+                        $query->where('environment_id', $environment->id);
                     } else {
-                        $location->polygon_bounds = $this->polygonToDatabaseValue($mapped['data']['polygon_bounds']);
+                        $query->whereNull('environment_id');
                     }
-                }
 
-                $location->save();
+                    $location = $query->first();
+                    $isUpdate = $location !== null;
 
-                if ($location->trashed()) {
-                    $location->restore();
-                }
+                    if (!$location) {
+                        $location = new Location();
+                    }
 
-                if (array_key_exists('tags', $mapped['data'])) {
-                    $this->tagService->syncTags($user, $location, $mapped['data']['tags']);
-                }
+                    $location->fill($payload);
+
+                    if (array_key_exists('polygon_bounds', $mapped['data'])) {
+                        if ($mapped['data']['polygon_bounds'] === null) {
+                            $location->polygon_bounds = null;
+                        } else {
+                            $location->polygon_bounds = $this->polygonToDatabaseValue($mapped['data']['polygon_bounds']);
+                        }
+                    }
+
+                    $location->save();
+
+                    if ($location->trashed()) {
+                        $location->restore();
+                    }
+
+                    if (array_key_exists('tags', $mapped['data'])) {
+                        $this->tagService->syncTags($user, $location, $mapped['data']['tags']);
+                    }
+
+                    return $isUpdate;
+                });
 
                 if ($isUpdate) {
                     $updated++;

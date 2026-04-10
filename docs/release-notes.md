@@ -23,6 +23,33 @@ Add new entries at the top (newest first).
 ## 2026-04-10 | Version: unreleased
 
 ### Summary
+- Fixed location CSV imports so tag creation and location attachment are committed atomically per imported row.
+
+### API Changes
+- `POST /api/v1/locations/import` behavior is unchanged, but failed tag attachment can no longer leave newly created tags without the imported location update.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Re-importing a location CSV with a `tags` column now reliably attaches existing merchant tags to the imported location.
+- If a row fails during tag synchronization, the row's location and tag writes are rolled back together instead of leaving a tag record unattached.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Wrapped each location CSV row persistence and tag synchronization step in a database transaction.
+- Added explicit regression coverage for `taggables` pivot rows created by location CSV tag imports.
+
+### Verification
+- `php -l app/Services/LocationService.php`
+- `php -l tests/Feature/LocationCsvImportTest.php`
+- `php artisan test tests/Feature/LocationCsvImportTest.php`
+
+## 2026-04-10 | Version: unreleased
+
+### Summary
 - Added tag assignment support to location CSV imports and updated the downloadable sample file with a `tags` column.
 
 ### API Changes
