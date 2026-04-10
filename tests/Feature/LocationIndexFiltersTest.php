@@ -97,4 +97,75 @@ class LocationIndexFiltersTest extends TestCase
             ->assertJsonPath('data.0.location_id', $matchingLocation->uuid)
             ->assertJsonPath('data.0.type.location_type_id', $pickupType->uuid);
     }
+
+    public function test_it_filters_locations_by_geofence_status(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $account = Account::create(['owner_user_id' => $user->id]);
+        $user->account_id = $account->id;
+        $user->save();
+
+        $merchant = Merchant::factory()->create([
+            'owner_user_id' => $user->id,
+            'account_id' => $account->id,
+        ]);
+        $merchant->users()->attach($user->id, ['role' => 'owner']);
+
+        $withGeofence = Location::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Geofenced Depot',
+            'code' => 'GEOFENCE-1',
+            'address_line_1' => '1 Boundary Road',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+            'polygon_bounds' => 'POLYGON((18.000000 -33.000000,18.001000 -33.000000,18.001000 -33.001000,18.000000 -33.001000,18.000000 -33.000000))',
+        ]);
+
+        $withoutGeofence = Location::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Unmapped Depot',
+            'code' => 'NO-GEOFENCE-1',
+            'address_line_1' => '2 Boundary Road',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+            'polygon_bounds' => null,
+        ]);
+
+        $token = $user->createToken('test-suite')->plainTextToken;
+
+        $allResponse = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/v1/locations?' . http_build_query([
+                'merchant_id' => $merchant->uuid,
+                'geofence_status' => 'all',
+                'sort_by' => 'name',
+                'sort_dir' => 'asc',
+            ]));
+
+        $allResponse->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $withResponse = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/v1/locations?' . http_build_query([
+                'merchant_id' => $merchant->uuid,
+                'geofence_status' => 'with',
+            ]));
+
+        $withResponse->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.location_id', $withGeofence->uuid);
+
+        $withoutResponse = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->getJson('/api/v1/locations?' . http_build_query([
+                'merchant_id' => $merchant->uuid,
+                'geofence_status' => 'without',
+            ]));
+
+        $withoutResponse->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.location_id', $withoutGeofence->uuid);
+    }
 }

@@ -7,6 +7,13 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   PlacesSuggestions,
   type PlaceSelection,
 } from "@/components/locations/places-suggestions"
@@ -26,6 +33,7 @@ type PaginationMeta = {
 
 type LocationDraft = {
   name: string
+  company: string
   fullAddress: string
   addressLine1: string
   addressLine2: string
@@ -38,6 +46,8 @@ type LocationDraft = {
   longitude: number | null
   googlePlaceId: string
 }
+
+type GeofenceFilter = "all" | "with" | "without"
 
 type MarkerEntry = {
   locationId: string
@@ -165,6 +175,7 @@ function getCurrentPolygonPath(polygon: google.maps.Polygon | null) {
 function createDraft(location: Location | null): LocationDraft {
   return {
     name: location?.name ?? "",
+    company: location?.company ?? "",
     fullAddress: location ? getLocationAddress(location) : "",
     addressLine1: location?.address_line_1 ?? "",
     addressLine2: location?.address_line_2 ?? "",
@@ -276,6 +287,9 @@ export function LocationsGeofencePageContent({
   )
   const [searchTerm, setSearchTerm] = React.useState("")
   const [activeSearch, setActiveSearch] = React.useState<string | undefined>()
+  const [geofenceFilter, setGeofenceFilter] = React.useState<GeofenceFilter>("all")
+  const [activeGeofenceFilter, setActiveGeofenceFilter] =
+    React.useState<GeofenceFilter>("all")
   const [loadingError, setLoadingError] = React.useState<string | null>(
     initialError ?? null
   )
@@ -297,7 +311,7 @@ export function LocationsGeofencePageContent({
   }, [])
 
   const runLocationQuery = React.useCallback(
-    async (search?: string) => {
+    async (search: string | undefined, filter: GeofenceFilter) => {
       setSearching(true)
       setLoadingError(null)
       const response = await listLocations(accessToken, {
@@ -305,6 +319,7 @@ export function LocationsGeofencePageContent({
         page: 1,
         per_page: initialPerPage,
         search,
+        geofence_status: filter === "all" ? undefined : filter,
         sort_by: "name",
         sort_dir: "asc",
       })
@@ -316,6 +331,7 @@ export function LocationsGeofencePageContent({
       }
 
       setActiveSearch(search)
+      setActiveGeofenceFilter(filter)
       setLocations(response.data)
       setMeta(normalizeMeta(response.meta))
       setSelectedLocationId(null)
@@ -334,6 +350,8 @@ export function LocationsGeofencePageContent({
       page: meta.current_page + 1,
       per_page: meta.per_page,
       search: activeSearch,
+      geofence_status:
+        activeGeofenceFilter === "all" ? undefined : activeGeofenceFilter,
       sort_by: "name",
       sort_dir: "asc",
     })
@@ -347,51 +365,107 @@ export function LocationsGeofencePageContent({
     setLocations((previous) => mergeLocations(previous, response.data))
     setMeta((previousMeta) => normalizeMeta(response.meta) ?? previousMeta)
     setLoadingMore(false)
-  }, [accessToken, activeSearch, hasMore, loadingMore, merchantId, meta])
+  }, [
+    accessToken,
+    activeGeofenceFilter,
+    activeSearch,
+    hasMore,
+    loadingMore,
+    merchantId,
+    meta,
+  ])
 
   React.useEffect(() => {
     const normalizedSearch = searchTerm.trim() || undefined
-    if (normalizedSearch === activeSearch) return
+    if (
+      normalizedSearch === activeSearch &&
+      geofenceFilter === activeGeofenceFilter
+    ) {
+      return
+    }
 
     const timeoutId = window.setTimeout(() => {
-      void runLocationQuery(normalizedSearch)
+      void runLocationQuery(normalizedSearch, geofenceFilter)
     }, 350)
 
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [activeSearch, runLocationQuery, searchTerm])
+  }, [
+    activeGeofenceFilter,
+    activeSearch,
+    geofenceFilter,
+    runLocationQuery,
+    searchTerm,
+  ])
 
   const handleLocationSaved = React.useCallback((location: Location) => {
-    setLocations((previous) =>
-      previous.map((item) =>
-        item.location_id === location.location_id ? { ...item, ...location } : item
+    setLocations((previous) => {
+      const updatedLocation = previous.find(
+        (item) => item.location_id === location.location_id
       )
-    )
-  }, [])
+      const nextLocation = updatedLocation
+        ? { ...updatedLocation, ...location }
+        : location
+      const hasGeofence = Boolean(toPolygonPath(nextLocation.polygon_bounds))
+      const matchesFilter =
+        activeGeofenceFilter === "all" ||
+        (activeGeofenceFilter === "with" && hasGeofence) ||
+        (activeGeofenceFilter === "without" && !hasGeofence)
+
+      if (!matchesFilter) {
+        return previous.filter((item) => item.location_id !== location.location_id)
+      }
+
+      if (!updatedLocation) {
+        return [nextLocation, ...previous]
+      }
+
+      return previous.map((item) =>
+        item.location_id === location.location_id ? nextLocation : item
+      )
+    })
+  }, [activeGeofenceFilter])
 
   return (
     <div className="flex min-h-[calc(100vh-11rem)] overflow-hidden rounded-md border bg-background">
       <aside className="flex w-full max-w-sm flex-col border-r bg-background">
         <div className="border-b p-3">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search locations"
-              className="pl-9"
+          <div className="space-y-2">
+            <Select
+              value={geofenceFilter}
+              onValueChange={(value) => setGeofenceFilter(value as GeofenceFilter)}
               disabled={searching}
-            />
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Filter geofences" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All locations</SelectItem>
+                <SelectItem value="with">With geofences</SelectItem>
+                <SelectItem value="without">Have no geofences</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search locations"
+                className="pl-9"
+                disabled={searching}
+              />
+            </div>
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto max-h-[calc(100vh-12rem)]">
+        <div className="min-h-0 flex-1 overflow-y-auto max-h-[calc(100vh-14rem)]">
           {loadingError && locations.length === 0 ? (
             <div className="p-4 text-sm text-destructive">{loadingError}</div>
           ) : null}
 
           {locations.map((location) => {
             const selected = location.location_id === selectedLocationId
+            const hasGeofence = Boolean(toPolygonPath(location.polygon_bounds))
             return (
               <button
                 type="button"
@@ -414,6 +488,11 @@ export function LocationsGeofencePageContent({
                   <span className="mt-1 inline-flex max-w-full rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                     <span className="truncate">{getLocationTypeLabel(location)}</span>
                   </span>
+                  {!hasGeofence ? (
+                    <span className="mt-1 inline-flex max-w-full rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                      No geofence
+                    </span>
+                  ) : null}
                   <span className="line-clamp-2 text-xs text-muted-foreground">
                     {getLocationAddress(location) || "No address captured"}
                   </span>
@@ -731,6 +810,7 @@ function LocationsGeofenceMap({
     const polygonPath = getCurrentPolygonPath(selectedPolygonRef.current)
     const payload: Partial<LocationPayload> = {
       name: draft.name.trim(),
+      company: draft.company.trim() || null,
       full_address: draft.fullAddress || null,
       address_line_1: draft.addressLine1 || null,
       address_line_2: draft.addressLine2 || null,
@@ -765,6 +845,7 @@ function LocationsGeofenceMap({
       ...selectedLocation,
       ...responseLocation,
       name: draft.name.trim(),
+      company: draft.company.trim() || undefined,
       full_address: draft.fullAddress || null,
       address_line_1: draft.addressLine1 || undefined,
       address_line_2: draft.addressLine2 || null,
@@ -829,6 +910,21 @@ function LocationsGeofenceMap({
                   setDraft((previous) => ({
                     ...previous,
                     name: event.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                Company name
+              </label>
+              <Input
+                value={draft.company}
+                onChange={(event) =>
+                  setDraft((previous) => ({
+                    ...previous,
+                    company: event.target.value,
                   }))
                 }
               />

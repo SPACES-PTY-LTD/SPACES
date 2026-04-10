@@ -23,6 +23,74 @@ Add new entries at the top (newest first).
 ## 2026-04-10 | Version: unreleased
 
 ### Summary
+- Added a bottom toolbar to shared data tables with result counts, rows-per-page controls, and pagination in one footer.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Data tables now show a bottom-left results count, including the visible range and total when server pagination metadata is available.
+- Rows-per-page selection now lives in the bottom toolbar and updates the `per_page` URL query parameter while resetting to the first page.
+- Pagination now uses compact first, previous, next, and last navigation buttons instead of numbered page links.
+- Top filter bars no longer render duplicate `per_page` filters.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/components/common/data-table.tsx`
+
+## 2026-04-10 | Version: unreleased
+
+### Summary
+- Added geofence-status filtering to the locations geofence page while keeping the default view on all locations.
+
+### API Changes
+- `GET /api/v1/locations` now accepts an optional `geofence_status` query parameter with `all`, `with`, or `without`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/locations/geofence` now defaults to showing all locations and includes a dropdown for all locations, locations with geofences, and locations with no geofences.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Http/Requests/ListLocationsRequest.php`
+- `php -l app/Services/LocationService.php`
+- `php -l tests/Feature/LocationIndexFiltersTest.php`
+- `php artisan test tests/Feature/LocationIndexFiltersTest.php`
+- `npm run lint -- src/components/locations/locations-geofence-page-content.tsx src/lib/api/locations.ts`
+
+## 2026-04-10 | Version: unreleased
+
+### Summary
+- Added company-name editing to the locations geofence editor and flagged locations without valid geofence polygons in the side list.
+
+### API Changes
+- No public API contract changes; the existing location update payload now includes `company` when saved from the geofence editor.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/locations/geofence` now lets admins edit the selected location's company name alongside its name, address, and geofence.
+- Locations whose `polygon_bounds` do not form a valid geofence now display a `No geofence` label in the aside.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/components/locations/locations-geofence-page-content.tsx`
+
+## 2026-04-10 | Version: unreleased
+
+### Summary
 - Fixed location CSV imports so tag creation and location attachment are committed atomically per imported row.
 
 ### API Changes

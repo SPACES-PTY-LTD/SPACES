@@ -116,6 +116,12 @@ class LocationService
             $query->where('locations.city', $filters['city']);
         }
 
+        if (($filters['geofence_status'] ?? 'all') === 'with') {
+            $query->whereNotNull('locations.polygon_bounds');
+        } elseif (($filters['geofence_status'] ?? 'all') === 'without') {
+            $query->whereNull('locations.polygon_bounds');
+        }
+
         if (!empty($filters['search'])) {
             $searchTerm = '%' . str_replace(' ', '%', trim((string) $filters['search'])) . '%';
             $query->where(function ($builder) use ($searchTerm) {

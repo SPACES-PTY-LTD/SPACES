@@ -45,6 +45,7 @@ export async function listLocations(
     search?: string
     location_type_id?: string
     tag_id?: string
+    geofence_status?: "all" | "with" | "without"
     sort_by?: string
     sort_dir?: "asc" | "desc"
   }

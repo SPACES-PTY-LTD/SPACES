@@ -20,15 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import {
   Table,
   TableBody,
   TableCell,
@@ -42,7 +33,20 @@ import { UpdateInvoiceNumberDialog } from "@/components/shipments/update-invoice
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { format, parseISO } from "date-fns"
-import { ArrowDown, ArrowUp, ArrowUpDown, Filter, ImageIcon, MoreHorizontal, Pencil, Search } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Filter,
+  ImageIcon,
+  MoreHorizontal,
+  Pencil,
+  Search,
+} from "lucide-react"
 import { Button } from "../ui/button"
 
 export type Column<T> = {
@@ -238,6 +242,13 @@ export function DataTable<T extends Record<string, unknown>>({
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const visibleFilters = React.useMemo(
+    () =>
+      (filters ?? []).filter(
+        (filter) => filter.url_param_name !== "per_page"
+      ),
+    [filters]
+  )
   const columnsByKey = React.useMemo(() => {
     const map = new Map<string, Column<T>>()
     columns.forEach((column) => {
@@ -369,7 +380,7 @@ export function DataTable<T extends Record<string, unknown>>({
   )
 
   React.useEffect(() => {
-    const hasActiveUrlFilter = (filters ?? []).some((filter) => {
+    const hasActiveUrlFilter = visibleFilters.some((filter) => {
       if (!filter.url_param_name) {
         return false
       }
@@ -381,7 +392,7 @@ export function DataTable<T extends Record<string, unknown>>({
     if (hasActiveUrlFilter) {
       setShowFilters(true)
     }
-  }, [filters, searchParams])
+  }, [searchParams, visibleFilters])
 
   const filtered = React.useMemo(() => {
     let result = [...data]
@@ -398,8 +409,8 @@ export function DataTable<T extends Record<string, unknown>>({
       )
     }
 
-    if (filters?.length) {
-      filters.forEach((filter) => {
+    if (visibleFilters.length) {
+      visibleFilters.forEach((filter) => {
         if (filter.url_param_name) {
           return
         }
@@ -423,10 +434,13 @@ export function DataTable<T extends Record<string, unknown>>({
     }
 
     return result
-  }, [data, query, searchKeys, filters, getFilterValue, getDisplayValue, columnsByKey])
+  }, [data, query, searchKeys, visibleFilters, getFilterValue, getDisplayValue, columnsByKey])
 
+  const rows = filtered
   const parsedLastPage = Number(meta?.last_page)
   const parsedCurrentPage = Number(meta?.current_page)
+  const parsedPerPage = Number(meta?.per_page)
+  const parsedTotal = Number(meta?.total)
   const lastPage =
     Number.isFinite(parsedLastPage) && parsedLastPage > 0
       ? Math.floor(parsedLastPage)
@@ -436,53 +450,31 @@ export function DataTable<T extends Record<string, unknown>>({
       ? Math.floor(parsedCurrentPage)
       : 1
   const currentPage = Math.min(Math.max(unclampedCurrentPage, 1), lastPage)
-  const hasMetaPagination = Boolean(meta && lastPage > 1)
-  const paginationItems = React.useMemo(() => {
-    if (lastPage <= 0) return []
-
-    const siblingCount = 2
-    const edgeWindowSize = 6
-    if (lastPage <= edgeWindowSize + 2) {
-      return Array.from({ length: lastPage }, (_, index) => index + 1)
-    }
-
-    let start = Math.max(1, currentPage - siblingCount)
-    let end = Math.min(lastPage, currentPage + siblingCount)
-
-    if (currentPage <= siblingCount + 1) {
-      start = 1
-      end = Math.min(lastPage, edgeWindowSize)
-    } else if (currentPage >= lastPage - siblingCount) {
-      start = Math.max(1, lastPage - (edgeWindowSize - 1))
-      end = lastPage
-    }
-
-    const pages = new Set<number>([1, lastPage])
-    for (let page = start; page <= end; page += 1) {
-      pages.add(page)
-    }
-
-    const sortedPages = [...pages].sort((a, b) => a - b)
-    const items: Array<number | string> = []
-
-    sortedPages.forEach((page, index) => {
-      if (index > 0) {
-        const previousPage = sortedPages[index - 1]
-        const gap = page - previousPage
-
-        if (gap === 2) {
-          items.push(previousPage + 1)
-        } else if (gap > 2) {
-          items.push(`ellipsis-${previousPage}-${page}`)
-        }
-      }
-
-      items.push(page)
-    })
-
-    return items
-  }, [currentPage, lastPage])
-  const rows = filtered
+  const hasMeta = Boolean(meta)
+  const currentPageSize =
+    Number.isFinite(parsedPerPage) && parsedPerPage > 0
+      ? Math.floor(parsedPerPage)
+      : Math.max(rows.length, 1)
+  const totalRows =
+    Number.isFinite(parsedTotal) && parsedTotal >= 0
+      ? Math.floor(parsedTotal)
+      : rows.length
+  const rangeStart =
+    hasMeta && totalRows > 0 && rows.length > 0
+      ? Math.min(totalRows, (currentPage - 1) * currentPageSize + 1)
+      : 0
+  const rangeEnd =
+    hasMeta && totalRows > 0 && rows.length > 0
+      ? Math.min(totalRows, rangeStart + rows.length - 1)
+      : 0
+  const resultCountLabel = hasMeta
+    ? `Showing ${rangeStart}-${rangeEnd} of ${totalRows} results`
+    : `Showing ${rows.length} ${rows.length === 1 ? "result" : "results"}`
+  const pageSizeOptions = React.useMemo(() => {
+    return Array.from(new Set([10, 20, 50, 100, currentPageSize])).sort(
+      (a, b) => a - b
+    )
+  }, [currentPageSize])
   const currentSortBy = searchParams.get(sortByParam) ?? ""
   const rawSortDir = (searchParams.get(sortDirParam) ?? "").toLowerCase()
   const currentSortDir: "asc" | "desc" | "" =
@@ -500,6 +492,17 @@ export function DataTable<T extends Record<string, unknown>>({
       } else {
         params.set("page", String(targetPage))
       }
+      const queryString = params.toString()
+      return queryString ? `${pathname}?${queryString}` : pathname
+    },
+    [pathname, searchParams]
+  )
+
+  const buildPerPageHref = React.useCallback(
+    (pageSize: number) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("per_page", String(pageSize))
+      params.delete("page")
       const queryString = params.toString()
       return queryString ? `${pathname}?${queryString}` : pathname
     },
@@ -607,6 +610,56 @@ export function DataTable<T extends Record<string, unknown>>({
     [pathname, searchParams, sortByParam, sortDirParam]
   )
 
+  const renderPaginationButton = React.useCallback(
+    ({
+      href,
+      disabled,
+      label,
+      className,
+      children,
+    }: {
+      href: string
+      disabled: boolean
+      label: string
+      className?: string
+      children: React.ReactNode
+    }) => {
+      const content = (
+        <>
+          <span className="sr-only">{label}</span>
+          {children}
+        </>
+      )
+
+      if (disabled) {
+        return (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className={className}
+            disabled
+          >
+            {content}
+          </Button>
+        )
+      }
+
+      return (
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          className={className}
+          asChild
+        >
+          <Link href={href}>{content}</Link>
+        </Button>
+      )
+    },
+    []
+  )
+
   return (
     <>
       
@@ -664,7 +717,7 @@ export function DataTable<T extends Record<string, unknown>>({
         {show_filters && (
           <div className="border-b px-3 py-2">
             <div className="flex flex-wrap gap-2 items-center space-x-2">
-              {filters?.map((filter) => {
+              {visibleFilters.map((filter) => {
                 if (filter.type === "date") {
                   return (
                     <DatePicker
@@ -880,43 +933,69 @@ export function DataTable<T extends Record<string, unknown>>({
             </Table>
 
         </div>
-      </div>
-      {hasMetaPagination ? (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href={currentPage > 1 ? buildPageHref(currentPage - 1) : "#"}
-                aria-disabled={currentPage <= 1}
-                className={cn(currentPage <= 1 && "pointer-events-none opacity-50")}
-              />
-            </PaginationItem>
-            {paginationItems.map((item) =>
-              typeof item === "number" ? (
-                <PaginationItem key={item}>
-                  <PaginationLink
-                    href={buildPageHref(item)}
-                    isActive={currentPage === item}
+        <div className="flex flex-col gap-3 border-t px-3 py-3 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+          <div>{resultCountLabel}</div>
+          {hasMeta ? (
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-foreground">Rows per page</span>
+                <Select
+                  value={String(currentPageSize)}
+                  onValueChange={(value) => {
+                    router.push(buildPerPageHref(Number(value)))
+                  }}
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="h-8 w-20"
+                    aria-label="Rows per page"
                   >
-                    {item}
-                  </PaginationLink>
-                </PaginationItem>
-              ) : (
-                <PaginationItem key={item}>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              )
-            )}
-            <PaginationItem>
-              <PaginationNext
-                href={currentPage < lastPage ? buildPageHref(currentPage + 1) : "#"}
-                aria-disabled={currentPage >= lastPage}
-                className={cn(currentPage >= lastPage && "pointer-events-none opacity-50")}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      ) : null}
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent side="top">
+                    {pageSizeOptions.map((pageSize) => (
+                      <SelectItem key={pageSize} value={String(pageSize)}>
+                        {pageSize}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="whitespace-nowrap font-medium text-foreground">
+                Page {currentPage} of {lastPage}
+              </div>
+              <div className="flex items-center gap-2">
+                {renderPaginationButton({
+                  href: buildPageHref(1),
+                  disabled: currentPage <= 1,
+                  label: "Go to first page",
+                  className: "hidden lg:inline-flex",
+                  children: <ChevronsLeft className="h-4 w-4" />,
+                })}
+                {renderPaginationButton({
+                  href: buildPageHref(currentPage - 1),
+                  disabled: currentPage <= 1,
+                  label: "Go to previous page",
+                  children: <ChevronLeft className="h-4 w-4" />,
+                })}
+                {renderPaginationButton({
+                  href: buildPageHref(currentPage + 1),
+                  disabled: currentPage >= lastPage,
+                  label: "Go to next page",
+                  children: <ChevronRight className="h-4 w-4" />,
+                })}
+                {renderPaginationButton({
+                  href: buildPageHref(lastPage),
+                  disabled: currentPage >= lastPage,
+                  label: "Go to last page",
+                  className: "hidden lg:inline-flex",
+                  children: <ChevronsRight className="h-4 w-4" />,
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
     </>
   )
 }

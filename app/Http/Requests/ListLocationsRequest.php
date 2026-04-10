@@ -19,6 +19,7 @@ class ListLocationsRequest extends BaseRequest
             'code' => ['nullable', 'string', 'max:100'],
             'city' => ['nullable', 'string', 'max:255'],
             'search' => ['nullable', 'string', 'max:255'],
+            'geofence_status' => ['nullable', 'string', 'in:all,with,without'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
             'sort_by' => ['nullable', 'string', 'in:created_at,name,code,company,city,type'],
             'sort_dir' => ['nullable', 'string', 'in:asc,desc'],
