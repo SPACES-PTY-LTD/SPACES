@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\Location;
 use App\Models\LocationType;
 use App\Models\Merchant;
+use App\Models\Tag;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -92,6 +93,116 @@ CSV;
             'code' => 'LOAD-002',
             'location_type_id' => $waypointType->id,
         ]);
+    }
+
+    public function test_location_csv_import_creates_reuses_and_deduplicates_tags(): void
+    {
+        [$user, $merchant] = $this->createUserMerchant();
+
+        Tag::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Priority',
+            'slug' => 'priority',
+        ]);
+
+        $csv = implode("\n", [
+            'code,address_line_1,city,province,post_code,tags',
+            'TAG-001,1 Dock Road,Cape Town,Western Cape,8001,"Depot, Priority, depot"',
+        ]);
+
+        $response = $this->withAuthToken($user)->post('/api/v1/locations/import', [
+            'merchant_id' => $merchant->uuid,
+            'file' => UploadedFile::fake()->createWithContent('locations.csv', $csv),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.failed', 0);
+
+        $location = Location::query()
+            ->where('merchant_id', $merchant->id)
+            ->where('code', 'TAG-001')
+            ->firstOrFail();
+
+        $this->assertSame(['Depot', 'Priority'], $location->tags()->pluck('name')->all());
+    }
+
+    public function test_location_csv_import_clears_tags_when_tags_column_is_blank(): void
+    {
+        [$user, $merchant] = $this->createUserMerchant();
+
+        $location = Location::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'code' => 'TAG-002',
+            'name' => 'Tagged Location',
+            'address_line_1' => '2 Dock Road',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+        ]);
+        $tag = Tag::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Depot',
+            'slug' => 'depot',
+        ]);
+        $location->tags()->sync([$tag->id]);
+
+        $csv = implode("\n", [
+            'code,address_line_1,city,province,post_code,tags',
+            'TAG-002,2 Dock Road,Cape Town,Western Cape,8001,',
+        ]);
+
+        $response = $this->withAuthToken($user)->post('/api/v1/locations/import', [
+            'merchant_id' => $merchant->uuid,
+            'file' => UploadedFile::fake()->createWithContent('locations.csv', $csv),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.failed', 0)
+            ->assertJsonPath('data.updated', 1);
+
+        $this->assertSame([], $location->fresh()->tags()->pluck('name')->all());
+    }
+
+    public function test_location_csv_import_leaves_existing_tags_when_tags_column_is_missing(): void
+    {
+        [$user, $merchant] = $this->createUserMerchant();
+
+        $location = Location::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'code' => 'TAG-003',
+            'name' => 'Tagged Location',
+            'address_line_1' => '3 Dock Road',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+        ]);
+        $tag = Tag::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Depot',
+            'slug' => 'depot',
+        ]);
+        $location->tags()->sync([$tag->id]);
+
+        $csv = implode("\n", [
+            'code,address_line_1,city,province,post_code',
+            'TAG-003,3 Dock Road,Cape Town,Western Cape,8001',
+        ]);
+
+        $response = $this->withAuthToken($user)->post('/api/v1/locations/import', [
+            'merchant_id' => $merchant->uuid,
+            'file' => UploadedFile::fake()->createWithContent('locations.csv', $csv),
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.failed', 0)
+            ->assertJsonPath('data.updated', 1);
+
+        $this->assertSame(['Depot'], $location->fresh()->tags()->pluck('name')->all());
     }
 
     private function createUserMerchant(): array

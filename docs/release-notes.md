@@ -23,6 +23,38 @@ Add new entries at the top (newest first).
 ## 2026-04-10 | Version: unreleased
 
 ### Summary
+- Added tag assignment support to location CSV imports and updated the downloadable sample file with a `tags` column.
+
+### API Changes
+- `POST /api/v1/locations/import` now accepts an optional CSV `tags` column with comma-separated tag titles.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Location CSV imports now create missing merchant tags and sync them to imported locations when the `tags` column is present.
+- A blank `tags` cell clears existing tags for that imported location, while omitting the column leaves existing tags unchanged.
+
+### Breaking Changes
+- None.
+
+### Internal Changes
+- Reused the existing shared tag synchronization service for CSV imports so tag normalization and deduplication match the manual tag update flow.
+
+### Verification
+- Updated files:
+  - `app/Services/LocationService.php`
+  - `tests/Feature/LocationCsvImportTest.php`
+  - `website/public/samples/locations-import-sample.csv`
+  - `docs/release-notes.md`
+- Verification run:
+  - `php -l app/Services/LocationService.php`
+  - `php -l tests/Feature/LocationCsvImportTest.php`
+  - `php artisan test tests/Feature/LocationCsvImportTest.php`
+
+## 2026-04-10 | Version: unreleased
+
+### Summary
 - Added a dedicated integration ID filter to the tracking-provider driver import dialog.
 
 ### API Changes

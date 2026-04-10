@@ -489,6 +489,10 @@ class LocationService
                     $location->restore();
                 }
 
+                if (array_key_exists('tags', $mapped['data'])) {
+                    $this->tagService->syncTags($user, $location, $mapped['data']['tags']);
+                }
+
                 if ($isUpdate) {
                     $updated++;
                 } else {
@@ -614,6 +618,17 @@ class LocationService
         }
 
         $errors = [];
+        $hasTagsColumn = array_key_exists('tags', $normalized);
+        $tags = [];
+        if ($hasTagsColumn) {
+            $tags = $this->parseImportTags($normalized['tags']);
+            foreach ($tags as $tag) {
+                if (Str::slug($tag) === '') {
+                    $errors[] = 'tags must contain at least one letter or number.';
+                    break;
+                }
+            }
+        }
 
         $latitude = $this->parseNullableFloat($normalized['latitude'] ?? null);
         if (($normalized['latitude'] ?? '') !== '' && $latitude === null) {
@@ -678,8 +693,33 @@ class LocationService
                 'polygon_bounds' => $polygonResult['points'],
                 'location_type_id' => $locationTypeUuid !== '' ? $locationTypeUuid : null,
                 'is_loading_location' => $this->parseNullableBoolean($normalized['is_loading_location'] ?? null),
-            ],
+            ] + ($hasTagsColumn ? ['tags' => $tags] : []),
         ];
+    }
+
+    private function parseImportTags(string $value): array
+    {
+        if (trim($value) === '') {
+            return [];
+        }
+
+        $tags = [];
+        foreach (explode(',', $value) as $tag) {
+            $tag = trim($tag);
+            if ($tag === '') {
+                continue;
+            }
+
+            $slug = Str::slug($tag);
+            if ($slug === '') {
+                $tags[] = $tag;
+                continue;
+            }
+
+            $tags[$slug] ??= $tag;
+        }
+
+        return array_values($tags);
     }
 
     private function resolveLocationTypeId(Merchant $merchant, string $locationTypeUuid): int

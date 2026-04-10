@@ -729,7 +729,7 @@ class MixIntegrateService
         ]);
 
         if ($response->failed()) {
-            Log::warning('Mix Integrate token request failed.', [
+            Log::warning('Mix Integrate token request failed during refresh token.', [
                 'status' => $response->status(),
                 'body' => $response->body(),
                 'identity_url' => $identityUrl,
