@@ -113,7 +113,7 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
         data={rows}
         meta={tableMeta}
         loading_error={loading_error}
-        searchKeys={["plate_number", "vin_number", "make", "model", "type.name", "last_known_location", "tags"]}
+        searchKeys={["plate_number", "vin_number", "intergration_id", "make", "model", "type.name", "last_known_location", "tags"]}
         filters={[
           {
             key: "tag",
@@ -129,6 +129,7 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
         columns={[
           { key: "plate_number", label: "Plate", link: "href" },
           { key: "vin_number", label: "VIN", link: "href" },
+          { key: "intergration_id", label: "Integration ID", link: "href" },
           { key: "type.name", label: "Type", link: "href" },
           { key: "make", label: "Make", link: "href" },
           { key: "model", label: "Model", link: "href" },
