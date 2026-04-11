@@ -529,6 +529,7 @@ export interface Vehicle {
   ref_code?: string | null
   last_location_address?: VehicleLocation | null
   location_updated_at?: string | null
+  is_on_a_run?: boolean
   intergration_id?: string | null
   is_active?: boolean
   maintenance_mode_at?: string | null

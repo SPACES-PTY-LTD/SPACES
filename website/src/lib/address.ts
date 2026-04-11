@@ -1,6 +1,8 @@
-import type { Location } from "@/lib/types"
+import type { Location, VehicleLocation } from "@/lib/types"
 
-export function formatAddress(location?: Location | null) {
+type AddressLike = Location | VehicleLocation
+
+export function formatAddress(location?: AddressLike | null) {
   if (!location) return ""
 
   const parts = [
@@ -19,7 +21,7 @@ export function formatAddress(location?: Location | null) {
   return location.full_address ?? ""
 }
 
-export function getLocationLabel(location?: Location | null) {
+export function getLocationLabel(location?: AddressLike | null) {
   if (!location) return "-"
   return  (formatAddress(location) || "-")
 }

@@ -27,6 +27,7 @@ class VehicleResource extends JsonResource
             'year' => $this->year,
             'last_location_address' => $this->last_location_address,
             'location_updated_at' => optional($this->location_updated_at)?->toIso8601String(),
+            'is_on_a_run' => ((int) ($this->active_runs_count ?? 0)) > 0,
             'last_driver_id' => $lastDriver?->uuid,
             'driver_logged_at' => optional($this->driver_logged_at)?->toIso8601String(),
             'last_driver' => $lastDriver ? [

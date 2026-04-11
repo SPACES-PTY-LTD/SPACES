@@ -20,6 +20,55 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-04-11 | Version: unreleased
+
+### Summary
+- Added VIN, last known location, last location update time, and active-run visibility to the admin vehicles list.
+
+### API Changes
+- `GET /api/v1/vehicles`
+- `GET /api/v1/vehicles/{vehicle_uuid}`
+- Vehicle resources now include `is_on_a_run` as a computed boolean based on active run assignment.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/vehicles` now shows each vehicle's VIN, formatted last known location, last location update timestamp, and whether the vehicle is currently on an active run.
+- Vehicle search on the listing now also matches VIN and the formatted last known location text.
+
+### Internal Changes
+- Reworked the new vehicle list run-status column to use serialized row data instead of passing a render callback from the server page into the client data table.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Services/VehicleService.php`
+- `php -l app/Http/Resources/VehicleResource.php`
+- `npm run lint -- src/app/admin/logistics/vehicles/page.tsx src/lib/address.ts src/lib/types.ts`
+
+## 2026-04-10 | Version: unreleased
+
+### Summary
+- Added optional row selection and bulk-action support to the shared data table.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Shared data tables can now opt into row checkboxes, visible-row selection, all-filtered-results selection, and footer bulk actions.
+- Bulk actions can be passed as simple action definitions or rendered with a custom selected-rows component.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/components/common/data-table.tsx`
+
 ## 2026-04-10 | Version: unreleased
 
 ### Summary

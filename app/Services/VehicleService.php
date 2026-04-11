@@ -39,6 +39,7 @@ class VehicleService
         $sortDirection = in_array($sortDirection, ['asc', 'desc'], true) ? $sortDirection : 'desc';
 
         $query = $this->buildScopedVehicleQuery($user, $filters)
+            ->withCount(['activeRuns as active_runs_count'])
             ->with(['merchant', 'vehicleType', 'lastDriver.user', 'tags'])
             ->orderBy($sortColumn, $sortDirection)
             ->orderBy('vehicles.id');
@@ -101,6 +102,7 @@ class VehicleService
     public function getVehicle(User $user, string $vehicleUuid, array $filters = []): Vehicle
     {
         $query = $this->buildScopedVehicleQuery($user, $filters)
+            ->withCount(['activeRuns as active_runs_count'])
             ->with(['merchant', 'vehicleType', 'lastDriver.user', 'tags'])
             ->where('uuid', $vehicleUuid);
 
@@ -154,7 +156,8 @@ class VehicleService
             ])
         );
 
-        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags']);
+        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags'])
+            ->loadCount(['activeRuns as active_runs_count']);
     }
 
     public function updateMaintenanceMode(User $user, string $vehicleUuid, array $data): Vehicle
@@ -174,7 +177,8 @@ class VehicleService
 
         $vehicle->save();
 
-        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags']);
+        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags'])
+            ->loadCount(['activeRuns as active_runs_count']);
     }
 
     public function buildFleetStatusSummary(User $user, array $filters = []): array
@@ -274,7 +278,8 @@ class VehicleService
             );
         }
 
-        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags']);
+        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags'])
+            ->loadCount(['activeRuns as active_runs_count']);
     }
 
     public function syncTags(User $user, string $vehicleUuid, array $tagNames): Vehicle
@@ -300,7 +305,8 @@ class VehicleService
             );
         }
 
-        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags']);
+        return $vehicle->load(['merchant', 'vehicleType', 'lastDriver.user', 'tags'])
+            ->loadCount(['activeRuns as active_runs_count']);
     }
 
     public function deleteVehicle(User $user, string $vehicleUuid): void

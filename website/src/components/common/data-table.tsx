@@ -77,6 +77,33 @@ export type RowAction<T> = {
   variant?: "default" | "destructive"
 }
 
+export type DataTableSelectionMode = "visible" | "all_filtered"
+
+export type DataTableSelectionState<T> = {
+  mode: DataTableSelectionMode
+  selectedIds: string[]
+  selectedRows: T[]
+  selectedCount: number
+  totalCount: number
+  currentPageCount: number
+  queryParams: URLSearchParams
+  clearSelection: () => void
+}
+
+export type DataTableBulkAction<T> = {
+  label: string
+  variant?: "default" | "destructive"
+  disabled?: (selection: DataTableSelectionState<T>) => boolean
+  onSelect: (selection: DataTableSelectionState<T>) => void
+}
+
+export type DataTableSelection<T> = {
+  idKey: keyof T | string
+  label?: string
+  bulkActions?: DataTableBulkAction<T>[]
+  renderBulkActions?: (selection: DataTableSelectionState<T>) => React.ReactNode
+}
+
 export type DataTableView = {
   label: string
   href?: string
@@ -202,6 +229,7 @@ export function DataTable<T extends Record<string, unknown>>({
   filters,
   views,
   rowActions,
+  selection,
   emptyMessage = "No matching records found.",
   loading_error,
   meta,
@@ -218,6 +246,7 @@ export function DataTable<T extends Record<string, unknown>>({
   filters?: Filter<T>[]
   views?: DataTableView[]
   rowActions?: RowAction<T>[]
+  selection?: DataTableSelection<T>
   pageSize?: number
   emptyMessage?: string
   loading_error?: string | null,
@@ -239,9 +268,15 @@ export function DataTable<T extends Record<string, unknown>>({
   const [filterValues, setFilterValues] = React.useState<Record<string, string>>(
     {}
   )
+  const [selectedIdSet, setSelectedIdSet] = React.useState<Set<string>>(
+    () => new Set()
+  )
+  const [selectionMode, setSelectionMode] =
+    React.useState<DataTableSelectionMode>("visible")
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const searchParamSignature = searchParams.toString()
   const visibleFilters = React.useMemo(
     () =>
       (filters ?? []).filter(
@@ -267,6 +302,20 @@ export function DataTable<T extends Record<string, unknown>>({
     },
     [columnsByKey]
   )
+
+  const getRowSelectionId = React.useCallback(
+    (row: T) => {
+      if (!selection) return ""
+      const value = getValue(row, selection.idKey)
+      return value === null || value === undefined ? "" : String(value)
+    },
+    [selection]
+  )
+
+  const clearSelection = React.useCallback(() => {
+    setSelectedIdSet(new Set())
+    setSelectionMode("visible")
+  }, [])
 
   const getDisplayValue = React.useCallback(
     (row: T, column: Column<T>) => {
@@ -470,6 +519,57 @@ export function DataTable<T extends Record<string, unknown>>({
   const resultCountLabel = hasMeta
     ? `Showing ${rangeStart}-${rangeEnd} of ${totalRows} results`
     : `Showing ${rows.length} ${rows.length === 1 ? "result" : "results"}`
+  const rowSelectionIds = React.useMemo(
+    () =>
+      selection
+        ? rows.map((row) => getRowSelectionId(row)).filter((id) => id.length > 0)
+        : [],
+    [getRowSelectionId, rows, selection]
+  )
+  const rowSelectionIdSignature = rowSelectionIds.join("\u001f")
+  const allVisibleSelected =
+    rowSelectionIds.length > 0 &&
+    rowSelectionIds.every((rowId) => selectedIdSet.has(rowId))
+  const someVisibleSelected =
+    rowSelectionIds.length > 0 &&
+    rowSelectionIds.some((rowId) => selectedIdSet.has(rowId))
+  const selectedRows = React.useMemo(
+    () =>
+      selection
+        ? rows.filter((row) => selectedIdSet.has(getRowSelectionId(row)))
+        : [],
+    [getRowSelectionId, rows, selectedIdSet, selection]
+  )
+  const selectedIds = React.useMemo(
+    () => Array.from(selectedIdSet),
+    [selectedIdSet]
+  )
+  const selectedCount =
+    selectionMode === "all_filtered" ? totalRows : selectedIds.length
+  const canSelectAllFiltered =
+    Boolean(selection && hasMeta && allVisibleSelected && totalRows > rows.length)
+  const selectionState = React.useMemo<DataTableSelectionState<T>>(
+    () => ({
+      mode: selectionMode,
+      selectedIds,
+      selectedRows,
+      selectedCount,
+      totalCount: totalRows,
+      currentPageCount: rows.length,
+      queryParams: new URLSearchParams(searchParamSignature),
+      clearSelection,
+    }),
+    [
+      clearSelection,
+      rows.length,
+      searchParamSignature,
+      selectedCount,
+      selectedIds,
+      selectedRows,
+      selectionMode,
+      totalRows,
+    ]
+  )
   const pageSizeOptions = React.useMemo(() => {
     return Array.from(new Set([10, 20, 50, 100, currentPageSize])).sort(
       (a, b) => a - b
@@ -483,6 +583,33 @@ export function DataTable<T extends Record<string, unknown>>({
     if (!sortableColumns?.length) return null
     return new Set(sortableColumns.map((column) => String(column)))
   }, [sortableColumns])
+  const tableColumnCount =
+    columns.length + (rowActions?.length ? 1 : 0) + (selection ? 1 : 0)
+
+  React.useEffect(() => {
+    clearSelection()
+  }, [clearSelection, query, rowSelectionIdSignature, searchParamSignature])
+
+  React.useEffect(() => {
+    if (!selection) return
+
+    setSelectedIdSet((previous) => {
+      const visibleIdSet = new Set(rowSelectionIds)
+      const next = new Set(
+        Array.from(previous).filter((rowId) => visibleIdSet.has(rowId))
+      )
+
+      if (next.size === previous.size) {
+        return previous
+      }
+
+      if (next.size === 0) {
+        setSelectionMode("visible")
+      }
+
+      return next
+    })
+  }, [rowSelectionIds, selection])
 
   const buildPageHref = React.useCallback(
     (targetPage: number) => {
@@ -660,6 +787,37 @@ export function DataTable<T extends Record<string, unknown>>({
     []
   )
 
+  const toggleVisibleRows = React.useCallback(
+    (checked: boolean) => {
+      setSelectedIdSet((previous) => {
+        const next = new Set(previous)
+        rowSelectionIds.forEach((rowId) => {
+          if (checked) {
+            next.add(rowId)
+          } else {
+            next.delete(rowId)
+          }
+        })
+        return next
+      })
+      setSelectionMode("visible")
+    },
+    [rowSelectionIds]
+  )
+
+  const toggleRowSelection = React.useCallback((rowId: string, checked: boolean) => {
+    setSelectedIdSet((previous) => {
+      const next = new Set(previous)
+      if (checked) {
+        next.add(rowId)
+      } else {
+        next.delete(rowId)
+      }
+      return next
+    })
+    setSelectionMode("visible")
+  }, [])
+
   return (
     <>
       
@@ -788,6 +946,24 @@ export function DataTable<T extends Record<string, unknown>>({
             <Table className={cn(width ? `table-fixed` : "table-auto")} style={width ? { minWidth:width } : undefined}>
               <TableHeader className="bg-muted/30">
                 <TableRow>
+                  {selection ? (
+                    <TableHead className="w-12">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        ref={(node) => {
+                          if (node) {
+                            node.indeterminate =
+                              !allVisibleSelected && someVisibleSelected
+                          }
+                        }}
+                        onChange={(event) =>
+                          toggleVisibleRows(event.target.checked)
+                        }
+                        aria-label={`Select all ${selection.label ?? "rows"} on this page`}
+                      />
+                    </TableHead>
+                  ) : null}
                   {columns.map((column) => (
                     <TableHead
                       key={String(column.key)}
@@ -833,7 +1009,7 @@ export function DataTable<T extends Record<string, unknown>>({
               <TableBody>
                 {loading_error ? (
                   <TableRow>
-                    <TableCell colSpan={columns.length + 1} className="py-10">
+                    <TableCell colSpan={tableColumnCount} className="py-10">
                       <div className="text-center text-sm text-destructive">
                         {loading_error}
                       </div>
@@ -841,19 +1017,41 @@ export function DataTable<T extends Record<string, unknown>>({
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={columns.length + 1} className="py-10">
+                    <TableCell colSpan={tableColumnCount} className="py-10">
                       <div className="text-center text-sm text-muted-foreground">
                         {emptyMessage}
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rows.map((row, rowIndex) => (
-                    <TableRow key={rowIndex}>
-                      {columns.map((column) => (
-                        <TableCell
-                          key={String(column.key)}
-                        >
+                  rows.map((row, rowIndex) => {
+                    const rowSelectionId = getRowSelectionId(row)
+                    return (
+                      <TableRow key={rowSelectionId || rowIndex}>
+                        {selection ? (
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              checked={
+                                rowSelectionId
+                                  ? selectedIdSet.has(rowSelectionId)
+                                  : false
+                              }
+                              disabled={!rowSelectionId}
+                              onChange={(event) =>
+                                toggleRowSelection(
+                                  rowSelectionId,
+                                  event.target.checked
+                                )
+                              }
+                              aria-label={`Select ${selection.label ?? "row"}`}
+                            />
+                          </TableCell>
+                        ) : null}
+                        {columns.map((column) => (
+                          <TableCell
+                            key={String(column.key)}
+                          >
                           {column.type === "status" ? (
                             <StatusBadge
                               status={String(getCellValue(row, column.key) ?? "")}
@@ -927,73 +1125,130 @@ export function DataTable<T extends Record<string, unknown>>({
                         </TableCell>
                       ) : null}
                     </TableRow>
-                  ))
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
 
         </div>
-        <div className="flex flex-col gap-3 border-t px-3 py-3 text-sm text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
-          <div>{resultCountLabel}</div>
-          {hasMeta ? (
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">Rows per page</span>
-                <Select
-                  value={String(currentPageSize)}
-                  onValueChange={(value) => {
-                    router.push(buildPerPageHref(Number(value)))
-                  }}
-                >
-                  <SelectTrigger
-                    size="sm"
-                    className="h-8 w-20"
-                    aria-label="Rows per page"
+        <div className="space-y-3 border-t px-3 py-3 text-sm text-muted-foreground">
+          {selection && selectedCount > 0 ? (
+            <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-foreground">
+                  {selectedCount} selected
+                </span>
+                {canSelectAllFiltered ? (
+                  <Select
+                    value={selectionMode}
+                    onValueChange={(value) =>
+                      setSelectionMode(value as DataTableSelectionMode)
+                    }
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent side="top">
-                    {pageSizeOptions.map((pageSize) => (
-                      <SelectItem key={pageSize} value={String(pageSize)}>
-                        {pageSize}
+                    <SelectTrigger
+                      size="sm"
+                      className="h-8 w-[180px]"
+                      aria-label="Selection scope"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="visible">Visible rows</SelectItem>
+                      <SelectItem value="all_filtered">
+                        All filtered results
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    </SelectContent>
+                  </Select>
+                ) : null}
               </div>
-              <div className="whitespace-nowrap font-medium text-foreground">
-                Page {currentPage} of {lastPage}
-              </div>
-              <div className="flex items-center gap-2">
-                {renderPaginationButton({
-                  href: buildPageHref(1),
-                  disabled: currentPage <= 1,
-                  label: "Go to first page",
-                  className: "hidden lg:inline-flex",
-                  children: <ChevronsLeft className="h-4 w-4" />,
-                })}
-                {renderPaginationButton({
-                  href: buildPageHref(currentPage - 1),
-                  disabled: currentPage <= 1,
-                  label: "Go to previous page",
-                  children: <ChevronLeft className="h-4 w-4" />,
-                })}
-                {renderPaginationButton({
-                  href: buildPageHref(currentPage + 1),
-                  disabled: currentPage >= lastPage,
-                  label: "Go to next page",
-                  children: <ChevronRight className="h-4 w-4" />,
-                })}
-                {renderPaginationButton({
-                  href: buildPageHref(lastPage),
-                  disabled: currentPage >= lastPage,
-                  label: "Go to last page",
-                  className: "hidden lg:inline-flex",
-                  children: <ChevronsRight className="h-4 w-4" />,
-                })}
+              <div className="flex flex-wrap items-center gap-2">
+                {selection.bulkActions?.map((action) => (
+                  <Button
+                    key={action.label}
+                    type="button"
+                    variant={action.variant ?? "outline"}
+                    size="sm"
+                    disabled={action.disabled?.(selectionState) ?? false}
+                    onClick={() => action.onSelect(selectionState)}
+                  >
+                    {action.label}
+                  </Button>
+                ))}
+                {selection.renderBulkActions?.(selectionState)}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={clearSelection}
+                >
+                  Clear selection
+                </Button>
               </div>
             </div>
           ) : null}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>{resultCountLabel}</div>
+            {hasMeta ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">Rows per page</span>
+                  <Select
+                    value={String(currentPageSize)}
+                    onValueChange={(value) => {
+                      router.push(buildPerPageHref(Number(value)))
+                    }}
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      className="h-8 w-20"
+                      aria-label="Rows per page"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                      {pageSizeOptions.map((pageSize) => (
+                        <SelectItem key={pageSize} value={String(pageSize)}>
+                          {pageSize}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="whitespace-nowrap font-medium text-foreground">
+                  Page {currentPage} of {lastPage}
+                </div>
+                <div className="flex items-center gap-2">
+                  {renderPaginationButton({
+                    href: buildPageHref(1),
+                    disabled: currentPage <= 1,
+                    label: "Go to first page",
+                    className: "hidden lg:inline-flex",
+                    children: <ChevronsLeft className="h-4 w-4" />,
+                  })}
+                  {renderPaginationButton({
+                    href: buildPageHref(currentPage - 1),
+                    disabled: currentPage <= 1,
+                    label: "Go to previous page",
+                    children: <ChevronLeft className="h-4 w-4" />,
+                  })}
+                  {renderPaginationButton({
+                    href: buildPageHref(currentPage + 1),
+                    disabled: currentPage >= lastPage,
+                    label: "Go to next page",
+                    children: <ChevronRight className="h-4 w-4" />,
+                  })}
+                  {renderPaginationButton({
+                    href: buildPageHref(lastPage),
+                    disabled: currentPage >= lastPage,
+                    label: "Go to last page",
+                    className: "hidden lg:inline-flex",
+                    children: <ChevronsRight className="h-4 w-4" />,
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </>

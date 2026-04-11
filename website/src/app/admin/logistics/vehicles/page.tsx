@@ -6,6 +6,7 @@ import { VehicleDialog } from "@/components/vehicles/vehicle-dialog"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listTags } from "@/lib/api/tags"
 import { listVehicles } from "@/lib/api/vehicles"
+import { getLocationLabel } from "@/lib/address"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { normalizeTableMeta } from "@/lib/table"
 
@@ -76,6 +77,8 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
         return {
           ...vehicle,
           href: vehicleRef ? AdminRoute.vehicleDetails(vehicleRef) : "",
+          last_known_location: getLocationLabel(vehicle.last_location_address),
+          is_on_a_run_label: vehicle.is_on_a_run ? "active" : "inactive",
           status_label:
             vehicle.status ??
             (vehicle.is_active === true
@@ -110,7 +113,7 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
         data={rows}
         meta={tableMeta}
         loading_error={loading_error}
-        searchKeys={["plate_number", "make", "model", "type.name", "tags"]}
+        searchKeys={["plate_number", "vin_number", "make", "model", "type.name", "last_known_location", "tags"]}
         filters={[
           {
             key: "tag",
@@ -125,9 +128,13 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
         ]}
         columns={[
           { key: "plate_number", label: "Plate", link: "href" },
+          { key: "vin_number", label: "VIN", link: "href" },
           { key: "type.name", label: "Type", link: "href" },
           { key: "make", label: "Make", link: "href" },
           { key: "model", label: "Model", link: "href" },
+          { key: "last_known_location", label: "Last known location", link: "href" },
+          { key: "location_updated_at", label: "Last updated location at", type: "date_time", link: "href" },
+          { key: "is_on_a_run_label", label: "Is on a run?", type: "status" },
           { key: "tags", label: "Tags", type: "tags" },
           { key: "status_label", label: "Status", type: "status", link: "href" },
         ]}
