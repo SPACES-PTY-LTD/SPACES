@@ -23,6 +23,29 @@ Add new entries at the top (newest first).
 ## 2026-04-16 | Version: unreleased
 
 ### Summary
+- Fixed production build type errors in the new bulk location and bulk vehicle type update flows.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Bulk location-type and vehicle-type updates now use explicit settled-result error extraction, preserving the existing UI behavior while satisfying production type checks.
+
+### Internal Changes
+- Added a shared-style settled promise error helper inside the locations and vehicles bulk action components to safely narrow API error responses before reading their messages.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run build`
+
+## 2026-04-16 | Version: unreleased
+
+### Summary
 - Added bulk vehicle-type updates to the admin vehicles table using row multi-select and a modal picker.
 
 ### API Changes

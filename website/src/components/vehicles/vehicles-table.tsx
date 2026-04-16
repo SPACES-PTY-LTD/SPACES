@@ -67,6 +67,23 @@ function parseQueryParam(searchParams: URLSearchParams, key: string) {
   return value && value.trim().length > 0 ? value : undefined
 }
 
+function getSettledErrorMessage<T>(
+  results: PromiseSettledResult<T>[],
+  fallback: string
+) {
+  for (const result of results) {
+    if (result.status === "rejected") {
+      return result.reason instanceof Error ? result.reason.message : fallback
+    }
+
+    if (isApiErrorResponse(result.value)) {
+      return result.value.message || fallback
+    }
+  }
+
+  return null
+}
+
 async function resolveSelectedVehicleIds({
   selection,
   accessToken,
@@ -181,19 +198,13 @@ function BulkUpdateVehicleTypeAction({
         )
       )
 
-      const failed = results.filter((result) => {
-        if (result.status === "rejected") return true
-        return isApiErrorResponse(result.value)
-      })
+      const failureMessage = getSettledErrorMessage(
+        results,
+        "Failed to update some vehicles."
+      )
 
-      if (failed.length > 0) {
-        const firstFailure = failed[0]
-        const message =
-          firstFailure.status === "rejected"
-            ? firstFailure.reason instanceof Error
-              ? firstFailure.reason.message
-              : "Failed to update some vehicles."
-            : firstFailure.value.message || "Failed to update some vehicles."
+      if (failureMessage) {
+        const message = failureMessage
         toast.error(message)
         setSubmitting(false)
         return
