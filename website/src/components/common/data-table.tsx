@@ -1013,6 +1013,7 @@ export function DataTable<T extends Record<string, unknown>>({
                               !allVisibleSelected && someVisibleSelected
                           }
                         }}
+                        
                         onChange={(event) =>
                           toggleVisibleRows(event.target.checked)
                         }
