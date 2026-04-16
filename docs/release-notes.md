@@ -23,6 +23,27 @@ Add new entries at the top (newest first).
 ## 2026-04-16 | Version: unreleased
 
 ### Summary
+- Added bulk vehicle-type updates to the admin vehicles table using row multi-select and a modal picker.
+
+### API Changes
+- No public API contract changes.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/vehicles` now supports selecting multiple rows and applying a new vehicle type from a dialog populated with available vehicle types.
+- Bulk vehicle-type updates work for either visible selected rows or all filtered results selected from the shared table footer.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/app/admin/logistics/vehicles/page.tsx src/components/vehicles/vehicles-table.tsx`
+
+## 2026-04-16 | Version: unreleased
+
+### Summary
 - Highlighted selected rows in the shared admin data table.
 
 ### API Changes

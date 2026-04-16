@@ -1,10 +1,11 @@
 import { AdminRoute } from "@/lib/routes/admin"
-import { DataTable } from "@/components/common/data-table"
 import { PageHeader } from "@/components/layout/page-header"
 import { ImportVehiclesDialog } from "@/components/vehicles/import-vehicles-dialog"
 import { VehicleDialog } from "@/components/vehicles/vehicle-dialog"
+import { VehiclesTable } from "@/components/vehicles/vehicles-table"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listTags } from "@/lib/api/tags"
+import { listVehicleTypes } from "@/lib/api/vehicle-types"
 import { listVehicles } from "@/lib/api/vehicles"
 import { getLocationLabel } from "@/lib/address"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
@@ -43,6 +44,11 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
   const merchantId = getScopedMerchantId(session)
   const defaultImportMerchantId = merchantId ?? session.selected_merchant?.merchant_id ?? null
   const canLoad = session.user.role === "super_admin" || Boolean(merchantId)
+  const vehicleTypesResponse = await listVehicleTypes(session.accessToken, { per_page: 200 })
+  const vehicleTypes =
+    !isApiErrorResponse(vehicleTypesResponse)
+      ? vehicleTypesResponse.data
+      : []
   const tagsResponse = merchantId
     ? await listTags(session.accessToken, { merchant_id: merchantId, per_page: 100 })
     : null
@@ -76,6 +82,7 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
 
         return {
           ...vehicle,
+          selection_id: vehicleRef ?? "",
           href: vehicleRef ? AdminRoute.vehicleDetails(vehicleRef) : "",
           last_known_location: getLocationLabel(vehicle.last_location_address),
           is_on_a_run_label: vehicle.is_on_a_run ? "active" : "inactive",
@@ -109,11 +116,13 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
           </div>
         }
       />
-      <DataTable
-        data={rows}
+      <VehiclesTable
+        accessToken={session.accessToken}
+        merchantId={merchantId ?? null}
+        rows={rows}
         meta={tableMeta}
-        loading_error={loading_error}
-        searchKeys={["plate_number", "vin_number", "intergration_id", "make", "model", "type.name", "last_known_location", "tags"]}
+        loadingError={loading_error}
+        vehicleTypes={vehicleTypes}
         filters={[
           {
             key: "tag",
@@ -126,27 +135,6 @@ export default async function VehiclesPage({ searchParams }: VehiclesPageProps) 
             })),
           },
         ]}
-        columns={[
-          { key: "plate_number", label: "Plate", link: "href" },
-          { key: "vin_number", label: "VIN", link: "href" },
-          { key: "intergration_id", label: "Integration ID", link: "href" },
-          { key: "type.name", label: "Type", link: "href" },
-          { key: "make", label: "Make", link: "href" },
-          { key: "model", label: "Model", link: "href" },
-          { key: "last_known_location", label: "Last known location", link: "href" },
-          { key: "location_updated_at", label: "Last updated location at", type: "date_time", link: "href" },
-          { key: "is_on_a_run_label", label: "Is on a run?", type: "status" },
-          { key: "tags", label: "Tags", type: "tags" },
-          { key: "status_label", label: "Status", type: "status", link: "href" },
-        ]}
-        rowActions={[
-          { label: "View", hrefKey: "href" },
-          { label: "Edit" },
-          { label: "Delete", variant: "destructive" },
-        ]}
-        enableSorting
-        sortableColumns={["plate_number", "type.name", "make", "model", "status_label"]}
-        sortKeyMap={{ "type.name": "type", status_label: "is_active" }}
       />
     </div>
   )
