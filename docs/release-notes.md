@@ -20,6 +20,69 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-04-16 | Version: unreleased
+
+### Summary
+- Highlighted selected rows in the shared admin data table.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Shared tables that use row selection now apply the selected-row background state immediately after a row checkbox is checked.
+- Sticky row action cells now keep the same selected background so the highlight remains continuous across the full row.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/components/common/data-table.tsx`
+
+## 2026-04-14 | Version: unreleased
+
+### Summary
+- Added bulk location-type updates to the admin locations table using row multi-select and a modal picker.
+
+### API Changes
+- No public API contract changes.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/locations` now supports selecting multiple rows and applying a new location type from a dialog populated with all available merchant location types.
+- Bulk updates work for either visible selected rows or all filtered results selected from the shared table footer.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/app/admin/logistics/locations/page.tsx src/components/locations/locations-table.tsx`
+
+## 2026-04-14 | Version: unreleased
+
+### Summary
+- Added total pickup and dropoff time columns to the admin shipments report.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/shipments/reports/shipments_report` now shows `From Total Time` and `To Total Time` based on the elapsed time between each location's check-in and check-out timestamps.
+- Duration values render in a compact hours/minutes format and fall back to `-` when either timestamp is missing or invalid.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/app/admin/logistics/shipments/reports/shipments_report/page.tsx`
+
 ## 2026-04-11 | Version: unreleased
 
 ### Summary

@@ -941,13 +941,69 @@ export function DataTable<T extends Record<string, unknown>>({
             </div>
           </div>
         )}
+
+        {selection && selectedCount > 0 ? (
+          <div className="flex flex-col gap-2 border-b bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-foreground text-sm">
+                {selectedCount} selected
+              </span>
+              {canSelectAllFiltered ? (
+                <Select
+                  value={selectionMode}
+                  onValueChange={(value) =>
+                    setSelectionMode(value as DataTableSelectionMode)
+                  }
+                >
+                  <SelectTrigger
+                    size="sm"
+                    className="h-8 w-[180px]"
+                    aria-label="Selection scope"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="visible">Visible rows</SelectItem>
+                    <SelectItem value="all_filtered">
+                      All filtered results
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {selection.bulkActions?.map((action) => (
+                <Button
+                  key={action.label}
+                  type="button"
+                  variant={action.variant ?? "outline"}
+                  size="sm"
+                  disabled={action.disabled?.(selectionState) ?? false}
+                  onClick={() => action.onSelect(selectionState)}
+                >
+                  {action.label}
+                </Button>
+              ))}
+              {selection.renderBulkActions?.(selectionState)}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={clearSelection}
+              >
+                Clear selection
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        
         <div className="overflow-x">
 
             <Table className={cn(width ? `table-fixed` : "table-auto")} style={width ? { minWidth:width } : undefined}>
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   {selection ? (
-                    <TableHead className="w-12">
+                    <TableHead className="w-4">
                       <input
                         type="checkbox"
                         checked={allVisibleSelected}
@@ -1026,17 +1082,19 @@ export function DataTable<T extends Record<string, unknown>>({
                 ) : (
                   rows.map((row, rowIndex) => {
                     const rowSelectionId = getRowSelectionId(row)
+                    const isSelected = rowSelectionId
+                      ? selectedIdSet.has(rowSelectionId)
+                      : false
                     return (
-                      <TableRow key={rowSelectionId || rowIndex}>
+                      <TableRow
+                        key={rowSelectionId || rowIndex}
+                        data-state={isSelected ? "selected" : undefined}
+                      >
                         {selection ? (
                           <TableCell>
                             <input
                               type="checkbox"
-                              checked={
-                                rowSelectionId
-                                  ? selectedIdSet.has(rowSelectionId)
-                                  : false
-                              }
+                              checked={isSelected}
                               disabled={!rowSelectionId}
                               onChange={(event) =>
                                 toggleRowSelection(
@@ -1091,7 +1149,12 @@ export function DataTable<T extends Record<string, unknown>>({
                         </TableCell>
                       ))}
                       {rowActions?.length ? (
-                        <TableCell className="sticky right-0 bg-background text-right">
+                        <TableCell
+                          className={cn(
+                            "sticky right-0 text-right",
+                            isSelected ? "bg-muted" : "bg-background"
+                          )}
+                        >
                           <DropdownMenu>
                             <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background shadow-xs">
                               <MoreHorizontal className="h-4 w-4" />
@@ -1133,60 +1196,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
         </div>
         <div className="space-y-3 border-t px-3 py-3 text-sm text-muted-foreground">
-          {selection && selectedCount > 0 ? (
-            <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-foreground">
-                  {selectedCount} selected
-                </span>
-                {canSelectAllFiltered ? (
-                  <Select
-                    value={selectionMode}
-                    onValueChange={(value) =>
-                      setSelectionMode(value as DataTableSelectionMode)
-                    }
-                  >
-                    <SelectTrigger
-                      size="sm"
-                      className="h-8 w-[180px]"
-                      aria-label="Selection scope"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="visible">Visible rows</SelectItem>
-                      <SelectItem value="all_filtered">
-                        All filtered results
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {selection.bulkActions?.map((action) => (
-                  <Button
-                    key={action.label}
-                    type="button"
-                    variant={action.variant ?? "outline"}
-                    size="sm"
-                    disabled={action.disabled?.(selectionState) ?? false}
-                    onClick={() => action.onSelect(selectionState)}
-                  >
-                    {action.label}
-                  </Button>
-                ))}
-                {selection.renderBulkActions?.(selectionState)}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={clearSelection}
-                >
-                  Clear selection
-                </Button>
-              </div>
-            </div>
-          ) : null}
+          
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>{resultCountLabel}</div>
             {hasMeta ? (

@@ -1,8 +1,8 @@
 import { AdminRoute } from "@/lib/routes/admin"
-import { DataTable } from "@/components/common/data-table"
 import { PageHeader } from "@/components/layout/page-header"
 import { ImportLocationsDialog } from "@/components/locations/import-locations-dialog"
 import { LocationDialog } from "@/components/locations/location-dialog"
+import { LocationsTable } from "@/components/locations/locations-table"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listLocations } from "@/lib/api/locations"
 import { listLocationTypes } from "@/lib/api/location-types"
@@ -122,10 +122,13 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
           </div>
         }
       />
-      <DataTable
-        data={rows}
+      <LocationsTable
+        accessToken={session.accessToken}
+        merchantId={merchantId ?? null}
+        rows={rows}
         meta={tableMeta}
-        loading_error={loading_error}
+        loadingError={loading_error}
+        locationTypes={locationTypes}
         filters={[
           {
             key: "search",
@@ -169,22 +172,6 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
             ],
           },
         ]}
-        columns={[
-          { key: "name", label: "Name", link: "href" },
-          { key: "code", label: "Code", link: "href" },
-          { key: "company", label: "Company", link: "href" },
-          { key: "type", label: "Type" , link: "href" },
-          { key: "tags", label: "Tags", type: "tags" },
-          { key: "city", label: "City", link: "href" },
-          
-        ]}
-        rowActions={[
-          { label: "View", hrefKey: "href" },
-          { label: "Edit" },
-          { label: "Delete", variant: "destructive" },
-        ]}
-        enableSorting
-        sortableColumns={["name", "code", "company", "type", "city"]}
       />
     </div>
   )

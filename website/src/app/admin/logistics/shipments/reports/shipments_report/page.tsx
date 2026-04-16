@@ -78,6 +78,32 @@ function formatLocation(location?: Location | null) {
   return value
 }
 
+function parseDate(value?: string | null): Date | null {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function minutesBetween(start?: string | null, end?: string | null): number | null {
+  const startDate = parseDate(start)
+  const endDate = parseDate(end)
+  if (!startDate || !endDate) return null
+
+  const diff = (endDate.getTime() - startDate.getTime()) / 60000
+  return diff >= 0 ? diff : null
+}
+
+function formatDuration(value: number | null) {
+  if (value === null) return "-"
+
+  const hours = Math.floor(value / 60)
+  const minutes = Math.round(value % 60)
+
+  if (hours === 0) return `${minutes} min`
+  if (minutes === 0) return `${hours} hr`
+  return `${hours} hr ${minutes} min`
+}
+
 export default async function ShipmentsReportPage({ searchParams }: ShipmentsReportPageProps) {
   const params = (await searchParams) ?? {}
   const dateCreated = getSingleValue(params.date_created)
@@ -144,6 +170,8 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
     ...item,
     from_location_display: formatLocation(item.from_location),
     to_location_display: formatLocation(item.to_location),
+    from_total_time: formatDuration(minutesBetween(item.from_time_in, item.from_time_out)),
+    to_total_time: formatDuration(minutesBetween(item.to_time_in, item.to_time_out)),
     shipment_href: item.shipment_id ? AdminRoute.shipmentDetails(item.shipment_id) : "",
     vehicle_href: item.vehicle_id ? AdminRoute.vehicleDetails(item.vehicle_id) : "",
     driver_href: item.driver_id ? AdminRoute.driverDetails(item.driver_id) : "",
@@ -172,7 +200,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         data={rows}
         meta={tableMeta}
         loading_error={loadingError}
-        width="3300px"
+        width="3600px"
         filters={[
           {
             key: "date_created",
@@ -327,8 +355,10 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           { key: "to_location_display", label: "To Location", link: "to_location_href", className: " w-[350px]" },
           { key: "from_time_in", label: "From Time In", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "from_time_to", label: "From Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm" },
+          { key: "from_total_time", label: "From Total Time", className: "w-[140px]" },
           { key: "to_time_in", label: "To Time In", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "to_time_out", label: "To Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm" },
+          { key: "to_total_time", label: "To Total Time", className: "w-[140px]" },
           { key: "shipment_status", label: "Shipment Status", type: "status" },
           { key: "delivered_volume", label: "Delivered Volume" },
         ]}
