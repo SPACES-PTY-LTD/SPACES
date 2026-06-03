@@ -9,6 +9,7 @@ use App\Http\Requests\ImportTrackingProviderDriversRequest;
 use App\Http\Requests\ImportTrackingProviderLocationsRequest;
 use App\Http\Requests\ImportTrackingProviderVehiclesRequest;
 use App\Http\Requests\InspectTrackingProviderMixTokenRequest;
+use App\Http\Requests\ListPowerfleetOrganisationRequest;
 use App\Http\Requests\ListTrackingProviderDriversRequest;
 use App\Http\Requests\ListTrackingProviderVehiclesRequest;
 use App\Http\Requests\UpdateTrackingProviderOptionsDataRequest;
@@ -239,6 +240,79 @@ class MerchantIntegrationController extends Controller
             ]);
 
             return $this->apiError($e, 'TRACKING_PROVIDER_MIX_TOKEN_ANALYSIS_FAILED', $e->getMessage());
+        }
+    }
+
+    public function listPowerfleetOrganisations(
+        ListPowerfleetOrganisationRequest $request,
+        string $provider_id,
+        MerchantIntegrationService $service
+    ) {
+        try {
+            $organisations = $service->listPowerfleetOrganisations(
+                $request->user(),
+                $provider_id,
+                $request->validated()['merchant_id']
+            );
+
+            return ApiResponse::success($organisations);
+        } catch (Throwable $e) {
+            Log::error('List Powerfleet organisations failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->apiError($e, 'TRACKING_PROVIDER_POWERFLEET_ORGANISATIONS_FAILED', $e->getMessage());
+        }
+    }
+
+    public function listPowerfleetSubgroups(
+        ListPowerfleetOrganisationRequest $request,
+        string $provider_id,
+        string $group_id,
+        MerchantIntegrationService $service
+    ) {
+        try {
+            $subgroups = $service->listPowerfleetSubgroups(
+                $request->user(),
+                $provider_id,
+                $request->validated()['merchant_id'],
+                $group_id
+            );
+
+            return ApiResponse::success($subgroups);
+        } catch (Throwable $e) {
+            Log::error('List Powerfleet subgroups failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->apiError($e, 'TRACKING_PROVIDER_POWERFLEET_SUBGROUPS_FAILED', $e->getMessage());
+        }
+    }
+
+    public function showPowerfleetOrganisationDetails(
+        ListPowerfleetOrganisationRequest $request,
+        string $provider_id,
+        string $group_id,
+        MerchantIntegrationService $service
+    ) {
+        try {
+            $details = $service->getPowerfleetOrganisationDetails(
+                $request->user(),
+                $provider_id,
+                $request->validated()['merchant_id'],
+                $group_id
+            );
+
+            return ApiResponse::success($details);
+        } catch (Throwable $e) {
+            Log::error('Show Powerfleet organisation details failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->apiError($e, 'TRACKING_PROVIDER_POWERFLEET_ORGANISATION_DETAILS_FAILED', $e->getMessage());
         }
     }
 }

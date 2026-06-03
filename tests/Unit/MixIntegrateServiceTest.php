@@ -393,6 +393,81 @@ class MixIntegrateServiceTest extends TestCase
         $service->inspectTokenResponse();
     }
 
+    public function test_get_powerfleet_organisations_fetches_available_groups(): void
+    {
+        $this->configureMixHttp();
+
+        Http::fake([
+            'https://identity.example.test/connect/token' => Http::response([
+                'access_token' => $this->buildJwt([
+                    'sub' => 'mix-user',
+                    'iat' => 1775728800,
+                    'exp' => 1775732400,
+                ]),
+                'token_type' => 'Bearer',
+                'expires_in' => 3600,
+            ]),
+            'https://api.example.test/api/organisationgroups' => Http::response([
+                [
+                    'GroupId' => -293601279,
+                    'Name' => 'Main Organisation',
+                    'Type' => 'OrganisationGroup',
+                    'DisplayTimeZone' => 'Africa/Johannesburg',
+                ],
+            ]),
+        ]);
+
+        $service = new MixIntegrateService();
+        $groups = $service->getPowerfleetOrganisations();
+
+        $this->assertSame(-293601279, $groups[0]['GroupId']);
+        $this->assertSame('Main Organisation', $groups[0]['Name']);
+        Http::assertSentCount(2);
+    }
+
+    public function test_get_powerfleet_subgroups_and_details_use_selected_group_id(): void
+    {
+        $this->configureMixHttp();
+
+        Http::fake([
+            'https://identity.example.test/connect/token' => Http::response([
+                'access_token' => $this->buildJwt([
+                    'sub' => 'mix-user',
+                    'iat' => 1775728800,
+                    'exp' => 1775732400,
+                ]),
+                'token_type' => 'Bearer',
+                'expires_in' => 3600,
+            ]),
+            'https://api.example.test/api/organisationgroups/subgroups/-293601279' => Http::response([
+                'GroupId' => -293601279,
+                'Name' => 'Main Organisation',
+                'Type' => 'OrganisationGroup',
+                'SubGroups' => [
+                    [
+                        'GroupId' => 123456,
+                        'Name' => 'Depot A',
+                        'Type' => 'DefaultSite',
+                    ],
+                ],
+            ]),
+            'https://api.example.test/api/organisationgroups/details/-293601279' => Http::response([
+                'GroupId' => -293601279,
+                'Name' => 'Main Organisation',
+                'GroupType' => 'OrganisationGroup',
+            ]),
+        ]);
+
+        $service = new MixIntegrateService();
+        $subgroups = $service->getPowerfleetSubGroups('-293601279');
+        $details = $service->getPowerfleetOrganisationDetails('-293601279');
+
+        $this->assertSame(123456, $subgroups['SubGroups'][0]['GroupId']);
+        $this->assertSame('OrganisationGroup', $details['GroupType']);
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.example.test/api/organisationgroups/subgroups/-293601279');
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.example.test/api/organisationgroups/details/-293601279');
+    }
+
     private function buildJwt(array $payload): string
     {
         $header = ['alg' => 'HS256', 'typ' => 'JWT'];
@@ -420,5 +495,17 @@ class MixIntegrateServiceTest extends TestCase
                 return $this->store;
             }
         };
+    }
+
+    private function configureMixHttp(): void
+    {
+        config([
+            'services.mix.identity_url' => 'https://identity.example.test',
+            'services.mix.rest_base_url' => 'https://api.example.test',
+            'services.mix.client_id' => 'client-id',
+            'services.mix.client_secret' => 'client-secret',
+            'services.mix.username' => 'username',
+            'services.mix.password' => 'password',
+        ]);
     }
 }

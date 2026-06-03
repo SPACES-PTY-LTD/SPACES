@@ -90,6 +90,31 @@ class MixIntegrateService
         return $this->list_importable_vehicles($integrationData, $integrationOptionsData);
     }
 
+    public function getPowerfleetOrganisations(array $integrationData = []): array
+    {
+        return $this->fetchPowerfleetGroupPath('/api/organisationgroups', $integrationData, 'organisations');
+    }
+
+    public function getPowerfleetSubGroups(string|int $groupId, array $integrationData = []): array
+    {
+        $groupId = trim((string) $groupId);
+        if ($groupId === '') {
+            throw new \RuntimeException('Powerfleet group_id is required to fetch subgroups.');
+        }
+
+        return $this->fetchPowerfleetGroupPath('/api/organisationgroups/subgroups/' . $groupId, $integrationData, 'subgroups');
+    }
+
+    public function getPowerfleetOrganisationDetails(string|int $groupId, array $integrationData = []): array
+    {
+        $groupId = trim((string) $groupId);
+        if ($groupId === '') {
+            throw new \RuntimeException('Powerfleet group_id is required to fetch organisation details.');
+        }
+
+        return $this->fetchPowerfleetGroupPath('/api/organisationgroups/details/' . $groupId, $integrationData, 'organisation details');
+    }
+
     public function list_importable_vehicles(array $integrationData = [], array $integrationOptionsData = []): array
     {
         $token = $this->getBearerToken($integrationData);
@@ -493,6 +518,38 @@ class MixIntegrateService
         }
 
         return $locations;
+    }
+
+    private function fetchPowerfleetGroupPath(string $path, array $integrationData, string $label): array
+    {
+        $token = $this->getBearerToken($integrationData);
+        $baseUrl = $integrationData['rest_base_url'] ?? config('services.mix.rest_base_url');
+
+        $response = Http::baseUrl($baseUrl)
+            ->acceptJson()
+            ->withToken($token)
+            ->timeout(30)
+            ->get($path);
+
+        if ($response->status() === 204) {
+            return [];
+        }
+
+        if ($response->failed()) {
+            Log::warning('Mix Integrate organisation group request failed.', [
+                'baseUrl' => $baseUrl,
+                'path' => $path,
+                'label' => $label,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            $response->throw();
+        }
+
+        $raw = $response->json();
+
+        return is_array($raw) ? $raw : [];
     }
 
     private function generateUniqueLocationTypeSlug(int $merchantId, string $title): string

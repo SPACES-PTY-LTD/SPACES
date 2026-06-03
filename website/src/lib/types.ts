@@ -719,6 +719,25 @@ export interface MixTokenAnalysis {
   summary: string
 }
 
+export interface PowerfleetGroup {
+  group_id: string
+  name: string
+  type?: string | null
+  display_time_zone?: string | null
+  has_loaded_subgroups?: boolean
+  subgroups?: PowerfleetGroup[]
+  raw?: Record<string, unknown>
+}
+
+export interface PowerfleetGroupDetails {
+  group_id: string
+  name: string
+  group_type?: string | null
+  display_time_zone?: string | null
+  subgroups?: PowerfleetGroup[]
+  raw?: Record<string, unknown>
+}
+
 export interface TrackingProviderVehiclePreview {
   provider_vehicle_id: string
   plate_number?: string | null

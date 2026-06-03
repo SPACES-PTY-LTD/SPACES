@@ -15,12 +15,14 @@ import {
   Waypoints,
   Compass,
   FileUser,
+  KeyRound,
   CogIcon,
   Home,
   ChartArea,
   ChartNoAxesColumn,
   Trash2,
   FileText,
+  Network,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import type { Role } from "@/lib/types"
@@ -244,6 +246,23 @@ export const adminNavGroups: NavGroup[] = [
     id: "admin_tools",
     title: "Admin Tools",
     items: [
+      {
+        title: "Tools",
+        href: AdminLinks.tools,
+        icon: Plug,
+        subItems: [
+          {
+            title: "Powerfleet Authentication Check",
+            href: AdminLinks.powerfleetAuthenticationCheck,
+            icon: KeyRound,
+          },
+          {
+            title: "Available Powerfleet Organizations",
+            href: AdminLinks.powerfleetOrganizations,
+            icon: Network,
+          },
+        ],
+      },
       {
         title: "Users",
         href: AdminLinks.users,

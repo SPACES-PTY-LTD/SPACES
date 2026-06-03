@@ -3,6 +3,8 @@ import type {
   ApiEnvelope,
   ApiListResponse,
   MixTokenAnalysis,
+  PowerfleetGroup,
+  PowerfleetGroupDetails,
   TrackingProviderDriverPreview,
   TrackingProvider,
   TrackingProviderVehiclePreview,
@@ -196,6 +198,68 @@ export async function inspectTrackingProviderMixToken(
         merchant_id: merchantId,
       },
       token,
+    }
+  )
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
+}
+
+export async function listPowerfleetOrganisations(
+  providerId: string,
+  merchantId: string,
+  token?: string | null
+) {
+  const response = await apiFetch<ApiEnvelope<PowerfleetGroup[]>>(
+    `/api/v1/tracking-providers/${providerId}/powerfleet/organisations`,
+    {
+      token,
+      params: { merchant_id: merchantId },
+    }
+  )
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
+}
+
+export async function listPowerfleetSubgroups(
+  providerId: string,
+  merchantId: string,
+  groupId: string,
+  token?: string | null
+) {
+  const response = await apiFetch<ApiEnvelope<PowerfleetGroup[]>>(
+    `/api/v1/tracking-providers/${providerId}/powerfleet/organisations/${encodeURIComponent(groupId)}/subgroups`,
+    {
+      token,
+      params: { merchant_id: merchantId },
+    }
+  )
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
+}
+
+export async function getPowerfleetOrganisationDetails(
+  providerId: string,
+  merchantId: string,
+  groupId: string,
+  token?: string | null
+) {
+  const response = await apiFetch<ApiEnvelope<PowerfleetGroupDetails>>(
+    `/api/v1/tracking-providers/${providerId}/powerfleet/organisations/${encodeURIComponent(groupId)}/details`,
+    {
+      token,
+      params: { merchant_id: merchantId },
     }
   )
 

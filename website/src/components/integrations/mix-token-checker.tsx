@@ -30,7 +30,7 @@ function JsonBlock({ value }: { value: unknown }) {
   )
 }
 
-export function MixTokenChecker({
+export function PowerfleetAuthenticationChecker({
   accessToken,
   merchantId,
   merchantName,
@@ -105,8 +105,8 @@ export function MixTokenChecker({
 
     if (isApiErrorResponse(response)) {
       setResult(null)
-      setErrorMessage(response.message || "Failed to inspect MiX token.")
-      toast.error(response.message || "Failed to inspect MiX token.")
+      setErrorMessage(response.message || "Failed to inspect Powerfleet authentication.")
+      toast.error(response.message || "Failed to inspect Powerfleet authentication.")
       setRunningCheck(false)
       return
     }
@@ -125,9 +125,9 @@ export function MixTokenChecker({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Run MiX token check</CardTitle>
+          <CardTitle>Run Powerfleet authentication check</CardTitle>
           <CardDescription>
-            Uses the saved MiX tracking-provider credentials for the selected merchant and shows the raw auth payload plus decoded token details.
+            Uses the saved Powerfleet tracking-provider credentials for the selected merchant and shows the raw auth payload plus decoded token details.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -158,7 +158,7 @@ export function MixTokenChecker({
 
           {!merchantId ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              A merchant must be selected before this tool can use stored MiX credentials.
+              A merchant must be selected before this tool can use stored Powerfleet credentials.
             </div>
           ) : null}
 
@@ -169,7 +169,7 @@ export function MixTokenChecker({
           ) : null}
 
           <Button onClick={runCheck} disabled={!merchantId || !providerId || runningCheck || loadingProviders}>
-            {runningCheck ? "Running check..." : "Run Mix Check"}
+            {runningCheck ? "Running check..." : "Run Authentication Check"}
           </Button>
         </CardContent>
       </Card>
@@ -178,7 +178,7 @@ export function MixTokenChecker({
         <Card>
           <CardHeader>
             <CardTitle>Results</CardTitle>
-            <CardDescription>Run the check to inspect the MiX token response.</CardDescription>
+            <CardDescription>Run the check to inspect the Powerfleet authentication response.</CardDescription>
           </CardHeader>
         </Card>
       ) : (
@@ -215,7 +215,7 @@ export function MixTokenChecker({
           <Card>
             <CardHeader>
               <CardTitle>Raw tokens</CardTitle>
-              <CardDescription>Full token values returned by MiX.</CardDescription>
+              <CardDescription>Full token values returned by Powerfleet.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -232,7 +232,7 @@ export function MixTokenChecker({
           <Card>
             <CardHeader>
               <CardTitle>Decoded access token</CardTitle>
-              <CardDescription>JWT header, claims, and derived timestamps for the MiX access token.</CardDescription>
+              <CardDescription>JWT header, claims, and derived timestamps for the Powerfleet access token.</CardDescription>
             </CardHeader>
             <CardContent>
               <JsonBlock value={result.access_token_decoded} />
@@ -242,7 +242,7 @@ export function MixTokenChecker({
           <Card>
             <CardHeader>
               <CardTitle>Decoded refresh token</CardTitle>
-              <CardDescription>JWT header and claims for the MiX refresh token when decodable.</CardDescription>
+              <CardDescription>JWT header and claims for the Powerfleet refresh token when decodable.</CardDescription>
             </CardHeader>
             <CardContent>
               <JsonBlock value={result.refresh_token_decoded} />
@@ -251,8 +251,8 @@ export function MixTokenChecker({
 
           <Card>
             <CardHeader>
-              <CardTitle>Raw MiX response</CardTitle>
-              <CardDescription>The exact auth payload returned by the MiX identity endpoint.</CardDescription>
+              <CardTitle>Raw Powerfleet response</CardTitle>
+              <CardDescription>The exact auth payload returned by the Powerfleet identity endpoint.</CardDescription>
             </CardHeader>
             <CardContent>
               <JsonBlock value={result.raw_response} />
@@ -273,3 +273,5 @@ export function MixTokenChecker({
     </div>
   )
 }
+
+export const MixTokenChecker = PowerfleetAuthenticationChecker

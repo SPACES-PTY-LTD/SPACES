@@ -20,6 +20,38 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-06-03 | Version: unreleased
+
+### Summary
+- Added the admin tools index, renamed the MiX token checker to Powerfleet Authentication Check, and added a Powerfleet organization explorer.
+
+### API Changes
+- Added merchant-scoped Powerfleet organization endpoints:
+  - `GET /api/v1/tracking-providers/{provider_id}/powerfleet/organisations`
+  - `GET /api/v1/tracking-providers/{provider_id}/powerfleet/organisations/{group_id}/subgroups`
+  - `GET /api/v1/tracking-providers/{provider_id}/powerfleet/organisations/{group_id}/details`
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/tools` now lists the available admin tools.
+- `/admin/tools/powerfleet-authentication-check` replaces the old visible MiX check page.
+- `/admin/tools/mix-check` redirects to the renamed Powerfleet authentication check.
+- `/admin/tools/powerfleet-organizations` lets users browse available Powerfleet organizations, expand subgroups, and inspect group details for the selected merchant.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Http/Requests/ListPowerfleetOrganisationRequest.php`
+- `php -l app/Http/Controllers/Api/V1/MerchantIntegrationController.php`
+- `php -l app/Services/MerchantIntegrationService.php`
+- `php -l app/Services/Mixtelematics/MixIntegrateService.php`
+- `php artisan test tests/Unit/MixIntegrateServiceTest.php tests/Feature/PowerfleetOrganisationToolsTest.php`
+- `npm run lint -- src/lib/api/tracking-providers.ts src/lib/types.ts src/lib/navigation.ts src/lib/routes/admin.ts src/components/integrations/mix-token-checker.tsx src/components/integrations/powerfleet-organizations-explorer.tsx src/app/admin/tools/page.tsx src/app/admin/tools/mix-check/page.tsx src/app/admin/tools/powerfleet-authentication-check/page.tsx src/app/admin/tools/powerfleet-organizations/page.tsx`
+- `npm run build`
+
 ## 2026-04-16 | Version: unreleased
 
 ### Summary

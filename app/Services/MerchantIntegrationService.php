@@ -354,6 +354,55 @@ class MerchantIntegrationService
         ]);
     }
 
+    public function listPowerfleetOrganisations(User $user, string $providerUuid, string $merchantUuid): array
+    {
+        [$merchant, $provider, $integration, $providerService] = $this->resolvePowerfleetGroupContext(
+            $user,
+            $providerUuid,
+            $merchantUuid
+        );
+
+        $payload = $providerService->getPowerfleetOrganisations(
+            $this->buildProviderIntegrationData($integration, $merchant)
+        );
+
+        return $this->normalizePowerfleetGroupList($payload);
+    }
+
+    public function listPowerfleetSubgroups(User $user, string $providerUuid, string $merchantUuid, string $groupId): array
+    {
+        [$merchant, $provider, $integration, $providerService] = $this->resolvePowerfleetGroupContext(
+            $user,
+            $providerUuid,
+            $merchantUuid
+        );
+
+        $payload = $providerService->getPowerfleetSubGroups(
+            $groupId,
+            $this->buildProviderIntegrationData($integration, $merchant)
+        );
+
+        $subgroups = $payload['SubGroups'] ?? $payload['subGroups'] ?? $payload['subgroups'] ?? $payload['data'] ?? $payload;
+
+        return $this->normalizePowerfleetGroupList($subgroups);
+    }
+
+    public function getPowerfleetOrganisationDetails(User $user, string $providerUuid, string $merchantUuid, string $groupId): array
+    {
+        [$merchant, $provider, $integration, $providerService] = $this->resolvePowerfleetGroupContext(
+            $user,
+            $providerUuid,
+            $merchantUuid
+        );
+
+        $payload = $providerService->getPowerfleetOrganisationDetails(
+            $groupId,
+            $this->buildProviderIntegrationData($integration, $merchant)
+        );
+
+        return $this->normalizePowerfleetGroupDetails($payload);
+    }
+
     public function completeImportByMerchantId(int $merchantId, string $type, ?int $count = null, ?string $error = null): void
     {
         if (!in_array($type, self::IMPORT_TYPES, true)) {
@@ -1018,6 +1067,130 @@ class MerchantIntegrationService
         }
 
         return $merchant;
+    }
+
+    private function resolvePowerfleetGroupContext(User $user, string $providerUuid, string $merchantUuid): array
+    {
+        $merchant = $this->resolveAuthorizedMerchant($user, $merchantUuid);
+        $provider = TrackingProvider::where('uuid', $providerUuid)->firstOrFail();
+        $providerService = $this->resolveProviderService($provider);
+
+        if ($provider->status !== 'active') {
+            throw ValidationException::withMessages([
+                'provider_id' => 'Tracking provider is disabled.',
+            ]);
+        }
+
+        if (!$providerService instanceof MixIntegrateService) {
+            throw ValidationException::withMessages([
+                'provider_id' => 'Selected tracking provider does not use the Powerfleet integration service.',
+            ]);
+        }
+
+        foreach (['getPowerfleetOrganisations', 'getPowerfleetSubGroups', 'getPowerfleetOrganisationDetails'] as $method) {
+            if (!method_exists($providerService, $method)) {
+                throw ValidationException::withMessages([
+                    'provider_id' => 'Selected tracking provider does not support Powerfleet organisation tools.',
+                ]);
+            }
+        }
+
+        $integration = MerchantIntegration::query()
+            ->where('merchant_id', $merchant->id)
+            ->where('provider_id', $provider->id)
+            ->first();
+
+        if (!$integration) {
+            throw ValidationException::withMessages([
+                'provider_id' => 'Tracking provider is not activated for this merchant.',
+            ]);
+        }
+
+        return [$merchant, $provider, $integration, $providerService];
+    }
+
+    private function normalizePowerfleetGroupList(mixed $payload): array
+    {
+        if (!is_array($payload)) {
+            return [];
+        }
+
+        $list = $payload['items'] ?? $payload['data'] ?? $payload['groups'] ?? $payload['Groups'] ?? $payload;
+        if (!is_array($list)) {
+            return [];
+        }
+
+        if (!array_is_list($list)) {
+            $list = [$list];
+        }
+
+        $groups = [];
+        foreach ($list as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $group = $this->normalizePowerfleetGroup($item);
+            if ($group !== null) {
+                $groups[] = $group;
+            }
+        }
+
+        usort($groups, static fn (array $left, array $right): int => strcasecmp($left['name'], $right['name']));
+
+        return $groups;
+    }
+
+    private function normalizePowerfleetGroup(array $item): ?array
+    {
+        $groupId = $item['group_id']
+            ?? $item['GroupId']
+            ?? $item['groupId']
+            ?? $item['OrganisationId']
+            ?? $item['organisationId']
+            ?? null;
+
+        if ($groupId === null || $groupId === '') {
+            return null;
+        }
+
+        $subgroups = $item['subgroups'] ?? $item['SubGroups'] ?? $item['subGroups'] ?? null;
+
+        return [
+            'group_id' => (string) $groupId,
+            'name' => (string) ($item['name'] ?? $item['Name'] ?? 'Unnamed group'),
+            'type' => $item['type'] ?? $item['Type'] ?? $item['group_type'] ?? $item['GroupType'] ?? null,
+            'display_time_zone' => $item['display_time_zone'] ?? $item['DisplayTimeZone'] ?? $item['displayTimeZone'] ?? null,
+            'has_loaded_subgroups' => is_array($subgroups),
+            'subgroups' => is_array($subgroups) ? $this->normalizePowerfleetGroupList($subgroups) : [],
+            'raw' => $item,
+        ];
+    }
+
+    private function normalizePowerfleetGroupDetails(mixed $payload): array
+    {
+        if (!is_array($payload)) {
+            return [
+                'group_id' => '',
+                'name' => 'Unknown group',
+                'group_type' => null,
+                'display_time_zone' => null,
+                'subgroups' => [],
+                'raw' => [],
+            ];
+        }
+
+        $group = $this->normalizePowerfleetGroup($payload);
+        $subgroups = $payload['subgroups'] ?? $payload['SubGroups'] ?? $payload['subGroups'] ?? [];
+
+        return [
+            'group_id' => $group['group_id'] ?? (string) ($payload['GroupId'] ?? $payload['groupId'] ?? ''),
+            'name' => $group['name'] ?? (string) ($payload['Name'] ?? $payload['name'] ?? 'Unknown group'),
+            'group_type' => $payload['group_type'] ?? $payload['GroupType'] ?? $payload['type'] ?? $payload['Type'] ?? null,
+            'display_time_zone' => $payload['display_time_zone'] ?? $payload['DisplayTimeZone'] ?? $payload['displayTimeZone'] ?? null,
+            'subgroups' => is_array($subgroups) ? $this->normalizePowerfleetGroupList($subgroups) : [],
+            'raw' => $payload,
+        ];
     }
 
     private function ensureProviderSupportsImport(
