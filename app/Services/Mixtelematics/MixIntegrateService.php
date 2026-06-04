@@ -504,6 +504,7 @@ class MixIntegrateService
                     ?? $item['SiteCode']
                     ?? null,
                 'polygon_bounds' => $shapeWkt,
+                'has_geofence' => $this->mixLocationHasGeofence($item),
                 'company' => $item['company'] ?? $item['Company'] ?? null,
                 'full_address' => $item['Address'] ?? $item['address'] ?? null,
                 'latitude' => is_numeric($latitude) ? (float) $latitude : null,

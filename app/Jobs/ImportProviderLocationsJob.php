@@ -22,7 +22,8 @@ class ImportProviderLocationsJob implements ShouldQueue
         public int $merchantId,
         public string $merchantUuid,
         public string $providerUuid,
-        public ?bool $onlyWithGeofences = null
+        public ?bool $onlyWithGeofences = null,
+        public array $locations = []
     ) {
         $this->onQueue('imports');
     }
@@ -38,6 +39,7 @@ class ImportProviderLocationsJob implements ShouldQueue
             'merchant_uuid' => $this->merchantUuid,
             'provider_uuid' => $this->providerUuid,
             'only_with_geofences' => $this->onlyWithGeofences,
+            'selected_location_count' => count($this->locations),
         ];
 
         Log::info('Provider locations import job started.', $context);
@@ -58,7 +60,8 @@ class ImportProviderLocationsJob implements ShouldQueue
                 $user,
                 $this->providerUuid,
                 $this->merchantUuid,
-                $this->onlyWithGeofences
+                $this->onlyWithGeofences,
+                $this->locations
             );
 
             $service->completeImportByMerchantId(

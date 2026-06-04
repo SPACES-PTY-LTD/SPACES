@@ -11,9 +11,11 @@ use App\Http\Requests\ImportTrackingProviderVehiclesRequest;
 use App\Http\Requests\InspectTrackingProviderMixTokenRequest;
 use App\Http\Requests\ListPowerfleetOrganisationRequest;
 use App\Http\Requests\ListTrackingProviderDriversRequest;
+use App\Http\Requests\ListTrackingProviderLocationsRequest;
 use App\Http\Requests\ListTrackingProviderVehiclesRequest;
 use App\Http\Requests\UpdateTrackingProviderOptionsDataRequest;
 use App\Http\Resources\TrackingProviderDriverResource;
+use App\Http\Resources\TrackingProviderLocationResource;
 use App\Http\Resources\TrackingProviderResource;
 use App\Http\Resources\TrackingProviderVehicleResource;
 use App\Services\MerchantIntegrationService;
@@ -147,6 +149,26 @@ class MerchantIntegrationController extends Controller
         }
     }
 
+    public function listTrackingProviderLocations(
+        ListTrackingProviderLocationsRequest $request,
+        string $provider_id,
+        MerchantIntegrationService $service
+    ) {
+        try {
+            $locations = $service->listProviderLocations(
+                $request->user(),
+                $provider_id,
+                $request->validated()['merchant_id']
+            );
+
+            return ApiResponse::success(TrackingProviderLocationResource::collection(collect($locations)));
+        } catch (Throwable $e) {
+            Log::error('List tracking provider locations failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
+            return $this->apiError($e, 'TRACKING_PROVIDER_LIST_LOCATIONS_FAILED', $e->getMessage());
+        }
+    }
+
     public function importTrackingProviderDrivers(
         ImportTrackingProviderDriversRequest $request,
         string $provider_id,
@@ -184,7 +206,8 @@ class MerchantIntegrationController extends Controller
                 $request->user(),
                 $provider_id,
                 $validated['merchant_id'],
-                $validated['only_with_geofences'] ?? null
+                $validated['only_with_geofences'] ?? null,
+                $validated['locations'] ?? []
             );
 
             return ApiResponse::success([

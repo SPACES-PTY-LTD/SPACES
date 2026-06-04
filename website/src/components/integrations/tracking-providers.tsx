@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Select,
@@ -26,6 +25,7 @@ import {
   activateTrackingProvider,
   getTrackingProviderImportsStatuses,
   listTrackingProviderDrivers,
+  listTrackingProviderLocations,
   listTrackingProviderVehicles,
   importTrackingProviderVehicles,
   importTrackingProviderDrivers,
@@ -35,9 +35,11 @@ import {
 import { listVehicleTypes } from "@/lib/api/vehicle-types"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { TrackingProviderDriverImportTable } from "@/components/integrations/tracking-provider-driver-import-table"
+import { TrackingProviderLocationImportTable } from "@/components/integrations/tracking-provider-location-import-table"
 import { TrackingProviderVehicleImportTable } from "@/components/integrations/tracking-provider-vehicle-import-table"
 import type {
   TrackingProviderDriverPreview,
+  TrackingProviderLocationPreview,
   TrackingProvider,
   TrackingProviderFormField,
   TrackingProviderVehiclePreview,
@@ -117,16 +119,13 @@ export function TrackingProviders({
   const [importEntity, setImportEntity] = React.useState<"vehicles" | "drivers" | "locations">(
     "vehicles"
   )
-  const [importOptions, setImportOptions] = React.useState<{
-    only_with_geofences: boolean
-  }>({
-    only_with_geofences: false,
-  })
   const [importStats, setImportStats] = React.useState<TrackingProviderImportStats | null>(null)
   const [importErrorMessage, setImportErrorMessage] = React.useState<string>("")
   const [providerDrivers, setProviderDrivers] = React.useState<TrackingProviderDriverPreview[]>([])
+  const [providerLocations, setProviderLocations] = React.useState<TrackingProviderLocationPreview[]>([])
   const [providerVehicles, setProviderVehicles] = React.useState<TrackingProviderVehiclePreview[]>([])
   const [selectedDriverIds, setSelectedDriverIds] = React.useState<string[]>([])
+  const [selectedLocationIds, setSelectedLocationIds] = React.useState<string[]>([])
   const [selectedVehicleIds, setSelectedVehicleIds] = React.useState<string[]>([])
   const [selectedVehicleTypeIds, setSelectedVehicleTypeIds] = React.useState<Record<string, string>>({})
   const [vehicleTypes, setVehicleTypes] = React.useState<VehicleType[]>([])
@@ -229,18 +228,17 @@ export function TrackingProviders({
     setImportingProviderId(provider.provider_id)
     setImportingProviderName(provider.name)
     setImportDialogOpen(true)
-    setImportStatus(entity === "locations" ? "options" : "loading")
+    setImportStatus("loading")
     setImportStats(null)
     setImportErrorMessage("")
     setProviderDrivers([])
+    setProviderLocations([])
     setProviderVehicles([])
     setSelectedDriverIds([])
+    setSelectedLocationIds([])
     setSelectedVehicleIds([])
     setSelectedVehicleTypeIds({})
     clearImportPolling()
-    setImportOptions({
-      only_with_geofences: false,
-    })
 
     if (entity === "drivers") {
       const response = await listTrackingProviderDrivers(provider.provider_id, merchantId, accessToken)
@@ -264,6 +262,19 @@ export function TrackingProviders({
       }
 
       setProviderVehicles(response)
+      setImportStatus("options")
+      return
+    }
+
+    if (entity === "locations") {
+      const response = await listTrackingProviderLocations(provider.provider_id, merchantId, accessToken)
+      if (isApiErrorResponse(response)) {
+        setImportStatus("error")
+        setImportErrorMessage(response.message || "Failed to load provider locations.")
+        return
+      }
+
+      setProviderLocations(response)
       setImportStatus("options")
       return
     }
@@ -329,6 +340,11 @@ export function TrackingProviders({
       return
     }
 
+    if (importEntity === "locations" && selectedLocationIds.length === 0) {
+      toast.error("Select at least one location to import.")
+      return
+    }
+
     if (
       importEntity === "vehicles" &&
       selectedVehicleIds.some((vehicleId) => !selectedVehicleTypeIds[vehicleId])
@@ -361,7 +377,11 @@ export function TrackingProviders({
           : await importTrackingProviderLocations(
               importingProviderId,
               merchantId,
-              { only_with_geofences: importOptions.only_with_geofences },
+              {
+                locations: selectedLocationIds.map((locationId) => ({
+                  provider_location_id: locationId,
+                })),
+              },
               accessToken
             )
 
@@ -653,7 +673,11 @@ export function TrackingProviders({
         }}
       >
         <DialogContent
-          className={importEntity === "vehicles" || importEntity === "drivers" ? "sm:max-w-5xl" : undefined}
+          className={
+            importEntity === "vehicles" || importEntity === "drivers" || importEntity === "locations"
+              ? "sm:max-w-5xl"
+              : undefined
+          }
           onEscapeKeyDown={(event) => {
             if (importStatus === "processing") event.preventDefault()
           }}
@@ -682,22 +706,18 @@ export function TrackingProviders({
             {importStatus === "options" ? (
               <div className="space-y-4">
                 {importEntity === "locations" ? (
-                  <div className="rounded-md border border-border/70 p-3">
-                    <div className="mb-2 text-sm font-medium">Import options</div>
+                  <div className="space-y-3 rounded-md border border-border/70 p-3">
                     <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm">Only import locations with geofences</div>
-                        <div className="text-xs text-muted-foreground">
-                          If enabled, only locations that have geofences will be imported.
-                        </div>
+                      <div className="text-sm font-medium">Select locations to import</div>
+                      <div className="text-lg font-bold text-muted-foreground">
+                        {selectedLocationIds.length} selected
                       </div>
-                      <Switch
-                        checked={importOptions.only_with_geofences}
-                        onCheckedChange={(checked) =>
-                          setImportOptions((prev) => ({ ...prev, only_with_geofences: checked }))
-                        }
-                      />
                     </div>
+                    <TrackingProviderLocationImportTable
+                      locations={providerLocations}
+                      selectedIds={selectedLocationIds}
+                      onSelectionChange={setSelectedLocationIds}
+                    />
                   </div>
                 ) : null}
 
@@ -793,10 +813,11 @@ export function TrackingProviders({
                     (importEntity === "vehicles" &&
                       (selectedVehicleIds.length === 0 ||
                         selectedVehicleIds.some((vehicleId) => !selectedVehicleTypeIds[vehicleId]))) ||
-                    (importEntity === "drivers" && selectedDriverIds.length === 0)
+                    (importEntity === "drivers" && selectedDriverIds.length === 0) ||
+                    (importEntity === "locations" && selectedLocationIds.length === 0)
                   }
                 >
-                  {importEntity === "vehicles" || importEntity === "drivers" ? "Import Selected" : "Continue"}
+                  Import Selected
                 </Button>
               </>
             ) : (

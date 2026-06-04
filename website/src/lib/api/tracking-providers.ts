@@ -6,6 +6,7 @@ import type {
   PowerfleetGroup,
   PowerfleetGroupDetails,
   TrackingProviderDriverPreview,
+  TrackingProviderLocationPreview,
   TrackingProvider,
   TrackingProviderVehiclePreview,
 } from "@/lib/types"
@@ -126,6 +127,26 @@ export async function listTrackingProviderDrivers(
   return response.data
 }
 
+export async function listTrackingProviderLocations(
+  providerId: string,
+  merchantId: string,
+  token?: string | null
+) {
+  const response = await apiFetch<ApiEnvelope<TrackingProviderLocationPreview[]>>(
+    `/api/v1/tracking-providers/${providerId}/locations`,
+    {
+      token,
+      params: { merchant_id: merchantId },
+    }
+  )
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
+}
+
 export async function importTrackingProviderDrivers(
   providerId: string,
   merchantId: string,
@@ -150,6 +171,7 @@ export async function importTrackingProviderLocations(
   merchantId: string,
   options?: {
     only_with_geofences?: boolean
+    locations?: Array<{ provider_location_id: string }>
   },
   token?: string | null
 ) {
@@ -160,6 +182,7 @@ export async function importTrackingProviderLocations(
       body: {
         merchant_id: merchantId,
         ...(options?.only_with_geofences ? { only_with_geofences: true } : {}),
+        ...(options?.locations?.length ? { locations: options.locations } : {}),
       },
       token,
     }

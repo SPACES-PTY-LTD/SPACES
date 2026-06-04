@@ -756,6 +756,20 @@ export interface TrackingProviderDriverPreview {
   notes?: string | null
 }
 
+export interface TrackingProviderLocationPreview {
+  provider_location_id: string
+  name?: string | null
+  code?: string | null
+  company?: string | null
+  full_address?: string | null
+  city?: string | null
+  province?: string | null
+  country?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  has_geofence?: boolean
+}
+
 export interface Driver {
   driver_id: UUID
   uuid?: UUID

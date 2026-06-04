@@ -20,6 +20,38 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-06-04 | Version: unreleased
+
+### Summary
+- Added selective tracking-provider location imports with a preview table, filters, selected count, and filtered select-all behavior.
+
+### API Changes
+- Added `GET /api/v1/tracking-providers/{provider_id}/locations` to preview importable provider locations for a selected merchant.
+- Extended `POST /api/v1/tracking-providers/{provider_id}/import_locations` to accept selected `locations` payload rows.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Admin users can choose exactly which provider locations to import from the integrations page.
+- Location imports now import only selected provider locations when a selected location payload is provided.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Http/Requests/ImportTrackingProviderLocationsRequest.php`
+- `php -l app/Http/Requests/ListTrackingProviderLocationsRequest.php`
+- `php -l app/Http/Resources/TrackingProviderLocationResource.php`
+- `php -l app/Http/Controllers/Api/V1/MerchantIntegrationController.php`
+- `php -l app/Services/MerchantIntegrationService.php`
+- `php -l app/Services/Mixtelematics/MixIntegrateService.php`
+- `php -l app/Jobs/ImportProviderLocationsJob.php`
+- `php -l tests/Feature/TrackingProviderImportLocationsTest.php`
+- `php artisan test tests/Feature/TrackingProviderImportLocationsTest.php`
+- `php artisan test tests/Feature/TrackingProviderOptionsTest.php`
+- `npm run lint -- src/components/integrations/tracking-providers.tsx src/components/integrations/tracking-provider-location-import-table.tsx src/lib/api/tracking-providers.ts src/lib/types.ts`
+
 ## 2026-06-03 | Version: unreleased
 
 ### Summary

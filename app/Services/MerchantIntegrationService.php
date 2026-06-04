@@ -272,10 +272,18 @@ class MerchantIntegrationService
         User $user,
         string $providerUuid,
         string $merchantUuid,
-        ?bool $onlyWithGeofences = null
+        ?bool $onlyWithGeofences = null,
+        array $locations = []
     ): array {
         $merchant = $this->resolveAuthorizedMerchant($user, $merchantUuid);
         $this->ensureProviderSupportsImport($merchant, $providerUuid, 'import_locations', 'locations');
+        $normalizedLocations = $this->normalizeSelectedProviderLocations($locations);
+
+        if (!empty($locations) && empty($normalizedLocations)) {
+            throw ValidationException::withMessages([
+                'locations' => 'Please select at least one location to import.',
+            ]);
+        }
 
         $start = $this->startImportInProgress($merchant->id, 'locations');
         if (!$start['started']) {
@@ -291,19 +299,22 @@ class MerchantIntegrationService
             'merchant_id' => $merchant->id,
             'provider_uuid' => $providerUuid,
             'only_with_geofences' => $onlyWithGeofences,
+            'selected_location_count' => count($normalizedLocations),
         ]);
         ImportProviderLocationsJob::dispatch(
             $user->id,
             $merchant->id,
             $merchant->uuid,
             $providerUuid,
-            $onlyWithGeofences
+            $onlyWithGeofences,
+            $normalizedLocations
         );
         Log::info('After dispatching ImportProviderLocationsJob', [
             'user_id' => $user->id,
             'merchant_id' => $merchant->id,
             'provider_uuid' => $providerUuid,
             'only_with_geofences' => $onlyWithGeofences,
+            'selected_location_count' => count($normalizedLocations),
         ]);
 
         return [
@@ -311,6 +322,40 @@ class MerchantIntegrationService
             'already_in_progress' => false,
             'stats' => $start['stats'],
         ];
+    }
+
+    public function listProviderLocations(User $user, string $providerUuid, string $merchantUuid): array
+    {
+        [$merchant, $provider, $integration, $providerService] = $this->resolveLocationImportContext(
+            $user,
+            $providerUuid,
+            $merchantUuid
+        );
+
+        $payload = $this->fetchProviderLocationPayload($provider, $integration, $merchant, $providerService);
+        $locations = [];
+
+        foreach ($payload as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $normalized = $this->normalizeProviderLocationPreviewItem($item);
+            if ($normalized === null) {
+                continue;
+            }
+
+            $locations[] = $normalized;
+        }
+
+        usort($locations, function (array $left, array $right): int {
+            $leftLabel = trim(($left['name'] ?? '').' '.($left['code'] ?? '').' '.($left['provider_location_id'] ?? ''));
+            $rightLabel = trim(($right['name'] ?? '').' '.($right['code'] ?? '').' '.($right['provider_location_id'] ?? ''));
+
+            return strcasecmp($leftLabel, $rightLabel);
+        });
+
+        return $locations;
     }
 
     public function getImportStatuses(User $user, string $merchantUuid): array
@@ -649,57 +694,51 @@ class MerchantIntegrationService
         User $user,
         string $providerUuid,
         string $merchantUuid,
-        ?bool $onlyWithGeofences = null
+        ?bool $onlyWithGeofences = null,
+        array $locations = []
     ): array
     {
-        $merchant = Merchant::where('uuid', $merchantUuid)->first();
-        if (!$merchant) {
-            throw ValidationException::withMessages([
-                'merchant_id' => 'Merchant not found.',
-            ]);
-        }
-
-        $belongsToUser = $user->merchants()->where('merchants.id', $merchant->id)->exists()
-            || $user->ownedMerchants()->where('id', $merchant->id)->exists();
-
-        if (!$belongsToUser) {
-            throw ValidationException::withMessages([
-                'merchant_id' => 'You are not authorized for this merchant.',
-            ]);
-        }
-
-        $provider = TrackingProvider::where('uuid', $providerUuid)->firstOrFail();
-
-        $integration = MerchantIntegration::query()
-            ->where('merchant_id', $merchant->id)
-            ->where('provider_id', $provider->id)
-            ->first();
-
-        if (!$integration) {
-            throw ValidationException::withMessages([
-                'provider_id' => 'Tracking provider is not activated for this merchant.',
-            ]);
-        }
-
-        $providerService = $this->resolveProviderService($provider);
-        if (!$providerService || !method_exists($providerService, 'import_locations')) {
-            throw ValidationException::withMessages([
-                'provider_id' => 'This provider does not support importing of locations.',
-            ]);
-        }
-
+        [$merchant, $provider, $integration, $providerService] = $this->resolveLocationImportContext(
+            $user,
+            $providerUuid,
+            $merchantUuid
+        );
         $integrationOptions = $integration->integration_options_data ?? [];
         if ($onlyWithGeofences !== null) {
             $integrationOptions['only_with_geofences'] = $onlyWithGeofences;
         }
 
-        $payload = $providerService->import_locations(
-            $this->buildProviderIntegrationData($integration, $merchant),
+        $payload = $this->fetchProviderLocationPayload(
+            $provider,
+            $integration,
+            $merchant,
+            $providerService,
             $integrationOptions
         );
+        $normalizedLocations = $this->normalizeSelectedProviderLocations($locations);
+        if (!empty($locations) && empty($normalizedLocations)) {
+            throw ValidationException::withMessages([
+                'locations' => 'Please select at least one location to import.',
+            ]);
+        }
+        $selectedLocationLookup = array_fill_keys(
+            array_map(static fn (array $location): string => $location['provider_location_id'], $normalizedLocations),
+            true
+        );
 
-        if (!is_array($payload)) {
-            $payload = [];
+        if (!empty($selectedLocationLookup)) {
+            $payload = array_values(array_filter($payload, function ($item) use ($selectedLocationLookup) {
+                if (!is_array($item)) {
+                    return false;
+                }
+
+                $previewLocation = $this->normalizeProviderLocationPreviewItem($item);
+                if ($previewLocation === null) {
+                    return false;
+                }
+
+                return isset($selectedLocationLookup[$previewLocation['provider_location_id']]);
+            }));
         }
 
         $imported = [];
@@ -747,7 +786,10 @@ class MerchantIntegrationService
             $location->code = $locationCode ?? $location->code ?? null;
             $location->company = $item['company'] ?? $location->company;
             $location->full_address = $item['full_address'] ?? $location->full_address;
-            $location->address_line_1 = $item['address_line_1'] ?? $location->address_line_1;
+            $location->address_line_1 = $item['address_line_1']
+                ?? $location->address_line_1
+                ?? $item['full_address']
+                ?? $fallbackLabel;
             $location->address_line_2 = $item['address_line_2'] ?? $location->address_line_2;
             $location->town = $item['town'] ?? $location->town;
             $location->city = $item['city'] ?? $location->city ?? null;
@@ -757,7 +799,7 @@ class MerchantIntegrationService
             $location->phone = $item['phone'] ?? $location->phone;
             $location->email = $item['email'] ?? $location->email;
             $location->province = $item['province'] ?? $location->province ?? null;
-            $location->post_code = $item['post_code'] ?? $location->post_code ?? null;
+            $location->post_code = $item['post_code'] ?? $location->post_code ?? '';
             $location->google_place_id = $item['google_place_id'] ?? $location->google_place_id;
             $location->imported_at = $importedAt;
             $location->metadata = $this->mergeMetadata($location->metadata, [
@@ -794,6 +836,7 @@ class MerchantIntegrationService
                 'provider' => Str::slug($provider->name),
                 'imported_count' => $importedCount,
                 'only_with_geofences' => $integrationOptions['only_with_geofences'] ?? null,
+                'selected_locations' => $normalizedLocations,
             ]
         );
 
@@ -916,6 +959,35 @@ class MerchantIntegrationService
         return [$merchant, $provider, $integration, $providerService];
     }
 
+    private function resolveLocationImportContext(
+        User $user,
+        string $providerUuid,
+        string $merchantUuid
+    ): array {
+        $merchant = $this->resolveAuthorizedMerchant($user, $merchantUuid);
+        $provider = TrackingProvider::where('uuid', $providerUuid)->firstOrFail();
+
+        $integration = MerchantIntegration::query()
+            ->where('merchant_id', $merchant->id)
+            ->where('provider_id', $provider->id)
+            ->first();
+
+        if (!$integration) {
+            throw ValidationException::withMessages([
+                'provider_id' => 'Tracking provider is not activated for this merchant.',
+            ]);
+        }
+
+        $providerService = $this->resolveProviderService($provider);
+        if (!$providerService || !method_exists($providerService, 'import_locations')) {
+            throw ValidationException::withMessages([
+                'provider_id' => 'This provider does not support importing of locations.',
+            ]);
+        }
+
+        return [$merchant, $provider, $integration, $providerService];
+    }
+
     private function fetchProviderVehiclePayload(
         TrackingProvider $provider,
         MerchantIntegration $integration,
@@ -956,6 +1028,27 @@ class MerchantIntegrationService
         return $payload;
     }
 
+    private function fetchProviderLocationPayload(
+        TrackingProvider $provider,
+        MerchantIntegration $integration,
+        Merchant $merchant,
+        object $providerService,
+        ?array $integrationOptionsOverride = null
+    ): array {
+        $integrationData = $this->buildProviderIntegrationData($integration, $merchant);
+        $integrationOptions = $integrationOptionsOverride ?? ($integration->integration_options_data ?? []);
+
+        $payload = method_exists($providerService, 'list_importable_locations')
+            ? $providerService->list_importable_locations($integrationData, $integrationOptions)
+            : $providerService->import_locations($integrationData, $integrationOptions);
+
+        if (!is_array($payload)) {
+            return [];
+        }
+
+        return $payload;
+    }
+
     private function normalizeProviderVehiclePreviewItem(array $item): ?array
     {
         $integrationId = $item['integration_id'] ?? null;
@@ -987,6 +1080,34 @@ class MerchantIntegrationService
             'employee_number' => $item['employee_number'] ?? null,
             'is_active' => $item['is_active'] ?? null,
             'notes' => $item['notes'] ?? null,
+        ];
+    }
+
+    private function normalizeProviderLocationPreviewItem(array $item): ?array
+    {
+        $integrationId = $this->normalizeImportedLocationIdentifier($item['integration_id'] ?? null);
+        if ($integrationId === null) {
+            return null;
+        }
+
+        $polygonBounds = $item['polygon_bounds'] ?? null;
+        $hasGeofence = $item['has_geofence'] ?? null;
+        if (!is_bool($hasGeofence)) {
+            $hasGeofence = is_string($polygonBounds) && trim($polygonBounds) !== '';
+        }
+
+        return [
+            'provider_location_id' => $integrationId,
+            'name' => $item['name'] ?? null,
+            'code' => $item['code'] ?? null,
+            'company' => $item['company'] ?? null,
+            'full_address' => $item['full_address'] ?? $item['address_line_1'] ?? null,
+            'city' => $item['city'] ?? $item['town'] ?? null,
+            'province' => $item['province'] ?? null,
+            'country' => $item['country'] ?? null,
+            'latitude' => is_numeric($item['latitude'] ?? null) ? (float) $item['latitude'] : null,
+            'longitude' => is_numeric($item['longitude'] ?? null) ? (float) $item['longitude'] : null,
+            'has_geofence' => $hasGeofence,
         ];
     }
 
@@ -1042,6 +1163,28 @@ class MerchantIntegrationService
 
             $normalized[$providerDriverId] = [
                 'provider_driver_id' => $providerDriverId,
+            ];
+        }
+
+        return array_values($normalized);
+    }
+
+    private function normalizeSelectedProviderLocations(array $locations): array
+    {
+        $normalized = [];
+
+        foreach ($locations as $location) {
+            if (!is_array($location)) {
+                continue;
+            }
+
+            $providerLocationId = trim((string) ($location['provider_location_id'] ?? ''));
+            if ($providerLocationId === '') {
+                continue;
+            }
+
+            $normalized[$providerLocationId] = [
+                'provider_location_id' => $providerLocationId,
             ];
         }
 
