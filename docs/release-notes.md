@@ -23,6 +23,26 @@ Add new entries at the top (newest first).
 ## 2026-06-03 | Version: unreleased
 
 ### Summary
+- Added comma-separated vehicle search support to the tracking provider vehicle import table.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The vehicle import search field now treats comma-separated values like `504HJSGP,502HJSGP` as separate vehicle search terms and shows vehicles matching any listed term.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/components/integrations/tracking-provider-vehicle-import-table.tsx`
+
+## 2026-06-03 | Version: unreleased
+
+### Summary
 - Added the admin tools index, renamed the MiX token checker to Powerfleet Authentication Check, and added a Powerfleet organization explorer.
 
 ### API Changes

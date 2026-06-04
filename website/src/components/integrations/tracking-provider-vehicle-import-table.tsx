@@ -40,6 +40,13 @@ function matchesFilter(value: string | null | undefined, filter: string) {
   return (value ?? "").toLowerCase().includes(filter.trim().toLowerCase())
 }
 
+function parseSearchTerms(search: string) {
+  return search
+    .split(",")
+    .map((term) => term.trim().toLowerCase())
+    .filter((term) => term.length > 0)
+}
+
 export function TrackingProviderVehicleImportTable({
   vehicles,
   selectedIds,
@@ -58,6 +65,8 @@ export function TrackingProviderVehicleImportTable({
   const [filters, setFilters] = React.useState<VehicleFilters>(EMPTY_FILTERS)
 
   const filteredVehicles = React.useMemo(() => {
+    const searchTerms = parseSearchTerms(filters.search)
+
     return vehicles.filter((vehicle) => {
       const searchable = [
         vehicle.plate_number ?? "",
@@ -68,7 +77,7 @@ export function TrackingProviderVehicleImportTable({
         .join(" ")
         .toLowerCase()
 
-      if (filters.search.trim() && !searchable.includes(filters.search.trim().toLowerCase())) {
+      if (searchTerms.length > 0 && !searchTerms.some((term) => searchable.includes(term))) {
         return false
       }
 
@@ -124,7 +133,7 @@ export function TrackingProviderVehicleImportTable({
         <Input
           value={filters.search}
           onChange={updateFilter("search")}
-          placeholder="Search vehicles"
+          placeholder="Search vehicles, comma separated"
         />
         <div className="text-sm text-muted-foreground md:text-right">
           Showing {filteredVehicles.length} of {vehicles.length} vehicles

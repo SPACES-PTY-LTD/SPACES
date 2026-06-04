@@ -250,16 +250,19 @@ export const adminNavGroups: NavGroup[] = [
         title: "Tools",
         href: AdminLinks.tools,
         icon: Plug,
+        roles: ["super_admin"],
         subItems: [
           {
             title: "Powerfleet Authentication Check",
             href: AdminLinks.powerfleetAuthenticationCheck,
             icon: KeyRound,
+            roles: ["super_admin"],
           },
           {
             title: "Available Powerfleet Organizations",
             href: AdminLinks.powerfleetOrganizations,
             icon: Network,
+            roles: ["super_admin"],
           },
         ],
       },
