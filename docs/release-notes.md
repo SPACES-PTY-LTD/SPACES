@@ -20,6 +20,30 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-06-05 | Version: unreleased
+
+### Summary
+- Fixed MiX/Powerfleet vehicle location sync so `401` responses retry twice before surfacing a tracking-job failure.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Latest-position sync now retries up to twice with freshly requested MiX tokens when position requests receive `401 Unauthorized`.
+- MiX token acquisition now retries failed token requests up to twice before throwing.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Services/Mixtelematics/MixIntegrateService.php`
+- `php -l tests/Unit/MixIntegrateServiceTest.php`
+- `php artisan test tests/Unit/MixIntegrateServiceTest.php`
+- `php artisan test tests/Feature/TrackVehicleLocationsJobTest.php`
+
 ## 2026-06-04 | Version: unreleased
 
 ### Summary

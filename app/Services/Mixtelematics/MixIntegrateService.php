@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 
 class MixIntegrateService
 {
+    private const AUTH_RETRY_LIMIT = 2;
     private const TOKEN_CACHE_BUFFER_SECONDS = 60;
 
     public function getVehiclePositions(array $assetIds, array $integrationData = []): array
@@ -28,25 +29,21 @@ class MixIntegrateService
 
         $token = $this->getBearerToken($integrationData);
         $baseUrl = $integrationData['rest_base_url'] ?? config('services.mix.rest_base_url');
+        [$response, $payload] = $this->requestLatestPositions($baseUrl, $token, $assetIds);
 
-        $client = Http::baseUrl($baseUrl)
-            ->asJson()
-            ->acceptJson()
-            ->withToken($token)
-            ->timeout(20);
+        for ($retry = 1; $response->status() === 401 && $retry <= self::AUTH_RETRY_LIMIT; $retry++) {
+            Log::warning('Mix Integrate latest positions request returned 401, retrying with a fresh token.', [
+                'baseUrl' => $baseUrl,
+                'assetIds' => $assetIds,
+                'payload' => $payload,
+                'status' => $response->status(),
+                'retry' => $retry,
+                'retry_limit' => self::AUTH_RETRY_LIMIT,
+                'body' => $response->body(),
+            ]);
 
-        $requestPath = '/api/positions/assets/latest/1';
-        $payload = $assetIds;
-
-        $response = $client->post($requestPath, $payload);
-
-        // Some environments bind this endpoint to { "AssetIds": [...] }.
-        if (
-            $response->status() === 400
-            && str_contains($response->body(), 'AssetIds list not supplied')
-        ) {
-            $payload = ['AssetIds' => $assetIds];
-            $response = $client->post($requestPath, $payload);
+            $token = $this->getBearerToken($integrationData, false);
+            [$response, $payload] = $this->requestLatestPositions($baseUrl, $token, $assetIds);
         }
 
         if ($response->failed()) {
@@ -83,6 +80,31 @@ class MixIntegrateService
 
             return $this->mapPosition($item);
         }, $list)));
+    }
+
+    private function requestLatestPositions(string $baseUrl, string $token, array $assetIds): array
+    {
+        $client = Http::baseUrl($baseUrl)
+            ->asJson()
+            ->acceptJson()
+            ->withToken($token)
+            ->timeout(20);
+
+        $requestPath = '/api/positions/assets/latest/1';
+        $payload = $assetIds;
+
+        $response = $client->post($requestPath, $payload);
+
+        // Some environments bind this endpoint to { "AssetIds": [...] }.
+        if (
+            $response->status() === 400
+            && str_contains($response->body(), 'AssetIds list not supplied')
+        ) {
+            $payload = ['AssetIds' => $assetIds];
+            $response = $client->post($requestPath, $payload);
+        }
+
+        return [$response, $payload];
     }
 
     public function import_vehicles(array $integrationData = [], array $integrationOptionsData = []): array
@@ -727,10 +749,10 @@ class MixIntegrateService
         return substr($raw, 0, $half) . '_' . substr($raw, $half);
     }
 
-    private function getBearerToken(array $integrationData = []): string
+    private function getBearerToken(array $integrationData = [], bool $useCache = true): string
     {
         $analysis = $this->inspectTokenResponse($integrationData, [
-            'use_cache' => true,
+            'use_cache' => $useCache,
         ]);
         $token = $analysis['access_token'] ?? null;
 
@@ -833,19 +855,22 @@ class MixIntegrateService
     {
         $response = null;
 
-        for ($attempt = 1; $attempt <= 2; $attempt++) {
+        $maxAttempts = self::AUTH_RETRY_LIMIT + 1;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             $response = $this->performTokenRequest($identityUrl, $payload);
 
             if (!$response->failed()) {
                 return $response;
             }
 
-            if ($attempt < 2) {
+            if ($attempt < $maxAttempts) {
                 Log::warning('Mix Integrate token request failed, retrying.', [
                     'identity_url' => $identityUrl,
                     'status' => $response->status(),
                     'attempt' => $attempt,
                     'next_attempt' => $attempt + 1,
+                    'retry_limit' => self::AUTH_RETRY_LIMIT,
                     'body' => $response->body(),
                 ]);
             }
@@ -855,7 +880,7 @@ class MixIntegrateService
             'identity_url' => $identityUrl,
             'status' => $response?->status(),
             'body' => $response?->body(),
-            'attempts' => 2,
+            'attempts' => $maxAttempts,
         ]);
 
         $response?->throw();

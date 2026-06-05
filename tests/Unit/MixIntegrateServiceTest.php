@@ -170,6 +170,80 @@ class MixIntegrateServiceTest extends TestCase
         CarbonImmutable::setTestNow();
     }
 
+    public function test_get_vehicle_positions_retries_twice_with_fresh_tokens_after_401_responses(): void
+    {
+        CarbonImmutable::setTestNow('2026-04-09T10:00:00Z');
+        $this->configureMixHttp();
+
+        $cachedToken = $this->buildJwt([
+            'sub' => 'mix-user',
+            'iat' => 1775725200,
+            'exp' => 1775732400,
+        ]);
+        $freshToken = $this->buildJwt([
+            'sub' => 'mix-user',
+            'iat' => 1775728800,
+            'exp' => 1775732400,
+        ]);
+        $secondFreshToken = $this->buildJwt([
+            'sub' => 'mix-user',
+            'iat' => 1775730000,
+            'exp' => 1775733600,
+        ]);
+
+        $store = Mockery::mock(CacheRepository::class);
+        $store->shouldNotReceive('put');
+        $store->shouldReceive('get')
+            ->once()
+            ->with('mix:token:integration-123')
+            ->andReturn([
+                'access_token' => $cachedToken,
+                'refresh_token' => 'cached-refresh-token',
+                'token_type' => 'Bearer',
+                'expires_in' => 3600,
+                'scope' => 'offline_access MiX.Integrate',
+                'expires_at' => '2026-04-09T11:00:00+00:00',
+                'raw_response' => [
+                    'access_token' => $cachedToken,
+                    'token_type' => 'Bearer',
+                ],
+            ]);
+
+        Http::fake([
+            'https://identity.example.test/connect/token' => Http::sequence()
+                ->push([
+                    'access_token' => $freshToken,
+                    'token_type' => 'Bearer',
+                    'expires_in' => 3600,
+                ], 200)
+                ->push([
+                    'access_token' => $secondFreshToken,
+                    'token_type' => 'Bearer',
+                    'expires_in' => 3600,
+                ], 200),
+            'https://api.example.test/api/positions/assets/latest/1' => Http::sequence()
+                ->push(['error' => 'unauthorized'], 401)
+                ->push(['error' => 'unauthorized'], 401)
+                ->push([[
+                    'AssetId' => 123456,
+                    'Timestamp' => '2026-04-09T10:05:00Z',
+                    'Latitude' => -33.92,
+                    'Longitude' => 18.42,
+                ]], 200),
+        ]);
+
+        $service = $this->serviceWithCacheStore($store);
+        $positions = $service->getVehiclePositions(['123_456'], [
+            'integration_uuid' => 'integration-123',
+        ]);
+
+        $this->assertCount(1, $positions);
+        $this->assertSame('123_456', $positions[0]['vehicle_integration_id']);
+        $this->assertSame(-33.92, $positions[0]['latitude']);
+        Http::assertSentCount(5);
+        CarbonImmutable::setTestNow();
+    }
+
     public function test_get_bearer_token_refreshes_when_cached_token_is_within_expiry_buffer(): void
     {
         CarbonImmutable::setTestNow('2026-04-09T10:00:00Z');
@@ -371,7 +445,39 @@ class MixIntegrateServiceTest extends TestCase
         Http::assertSentCount(2);
     }
 
-    public function test_inspect_token_response_throws_after_second_failed_token_request(): void
+    public function test_inspect_token_response_retries_401_token_request_twice_before_succeeding(): void
+    {
+        config([
+            'services.mix.identity_url' => 'https://identity.example.test',
+            'services.mix.client_id' => 'client-id',
+            'services.mix.client_secret' => 'client-secret',
+            'services.mix.username' => 'username',
+            'services.mix.password' => 'password',
+        ]);
+
+        Http::fake([
+            'https://identity.example.test/connect/token' => Http::sequence()
+                ->push(['error' => 'unauthorized'], 401)
+                ->push(['error' => 'unauthorized'], 401)
+                ->push([
+                    'access_token' => $this->buildJwt([
+                        'sub' => 'mix-user',
+                        'iat' => 1775728800,
+                        'exp' => 1775732400,
+                    ]),
+                    'token_type' => 'Bearer',
+                    'expires_in' => 3600,
+                ], 200),
+        ]);
+
+        $service = $this->serviceWithCacheStore(Mockery::mock(CacheRepository::class));
+        $analysis = $service->inspectTokenResponse();
+
+        $this->assertIsString($analysis['access_token']);
+        Http::assertSentCount(3);
+    }
+
+    public function test_inspect_token_response_throws_after_third_failed_token_request(): void
     {
         config([
             'services.mix.identity_url' => 'https://identity.example.test',
@@ -384,6 +490,7 @@ class MixIntegrateServiceTest extends TestCase
         Http::fake([
             'https://identity.example.test/connect/token' => Http::sequence()
                 ->push(['error' => 'temporary'], 500)
+                ->push(['error' => 'still failing'], 500)
                 ->push(['error' => 'still failing'], 500),
         ]);
 
