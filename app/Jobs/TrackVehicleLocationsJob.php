@@ -193,28 +193,28 @@ class TrackVehicleLocationsJob implements ShouldQueue
             );
             throw $exception;
         } finally {
-            // $activityLogService->log(
-            //     action: $result,
-            //     entityType: 'merchant_integration',
-            //     entity: $integration,
-            //     accountId: $integration?->account_id,
-            //     merchantId: $integration?->merchant_id,
-            //     title: $result === 'completed'
-            //         ? 'Vehicle location tracking job completed'
-            //         : 'Vehicle location tracking job failed',
-            //     metadata: [
-            //         'merchant_integration_id' => $this->merchantIntegrationId,
-            //         'provider_id' => $provider?->id,
-            //         'vehicle_ids_requested' => $this->vehicleIds,
-            //         'vehicle_count_requested' => count($this->vehicleIds),
-            //         'vehicles_with_positions' => $matchedPositions,
-            //         'vehicles_updated' => $updatedVehicles,
-            //         'vehicles_checked_for_geofence' => $vehiclesChecked,
-            //         'vehicles_inside_geofence' => $vehiclesInsideGeofence,
-            //         'result' => $result,
-            //         'reason' => $exitReason,
-            //     ]
-            // );
+            $activityLogService->log(
+                action: $result,
+                entityType: 'merchant_integration',
+                entity: $integration,
+                accountId: $integration?->account_id,
+                merchantId: $integration?->merchant_id,
+                title: $result === 'completed'
+                    ? 'Vehicle location tracking job completed'
+                    : 'Vehicle location tracking job failed',
+                metadata: [
+                    'merchant_integration_id' => $this->merchantIntegrationId,
+                    'provider_id' => $provider?->id,
+                    'vehicle_ids_requested' => $this->vehicleIds,
+                    'vehicle_count_requested' => count($this->vehicleIds),
+                    'vehicles_with_positions' => $matchedPositions,
+                    'vehicles_updated' => $updatedVehicles,
+                    'vehicles_checked_for_geofence' => $vehiclesChecked,
+                    'vehicles_inside_geofence' => $vehiclesInsideGeofence,
+                    'result' => $result,
+                    'reason' => $exitReason,
+                ]
+            );
         }
     }
 
