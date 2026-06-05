@@ -89,7 +89,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 return;
             }
 
-            $positions = $service->getVehiclePositions($assetIds, $integration->integration_data ?? []);
+            $positions = $service->getVehiclePositions($assetIds, $this->buildProviderIntegrationData($integration));
             $positionsByAsset = $this->normalizePositions($positions, $assetIds);
 
             foreach ($vehicles as $vehicle) {
@@ -610,6 +610,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
         $payload['account_id'] = $integration->account_id;
         $payload['merchant_id'] = $integration->merchant_id;
         $payload['merchant_uuid'] = $integration->merchant?->uuid;
+        $payload['integration_uuid'] = $integration->uuid;
 
         return $payload;
     }

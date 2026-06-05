@@ -23,6 +23,28 @@ Add new entries at the top (newest first).
 ## 2026-06-05 | Version: unreleased
 
 ### Summary
+- Fixed vehicle location polling so MiX/Powerfleet token caching is used during scheduled sync jobs.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Vehicle location tracking now passes the merchant integration UUID into provider calls, allowing the existing MiX Redis token cache to reuse access tokens per integration.
+- Scheduled location polling should make fewer MiX authentication requests and reduce repeated fresh-token requests during normal sync runs.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Jobs/TrackVehicleLocationsJob.php`
+- `php artisan test tests/Feature/TrackVehicleLocationsJobTest.php`
+
+## 2026-06-05 | Version: unreleased
+
+### Summary
 - Added a total drivers KPI to the admin dashboard.
 
 ### API Changes
