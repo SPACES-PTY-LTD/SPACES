@@ -37,6 +37,12 @@ type RefreshTokenResponse = {
   }
 }
 
+const DEFAULT_ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000
+
+function resolveAccessTokenExpiresAt(expiresIn?: number | null): number {
+  return Date.now() + (expiresIn ?? DEFAULT_ACCESS_TOKEN_TTL_MS / 1000) * 1000
+}
+
 function buildUrl(path: string, params?: ApiRequestOptions["params"]) {
   const url = new URL(path, API_BASE_URL)
   if (params) {
@@ -250,7 +256,6 @@ async function performBrowserTokenRefresh(
     null
 
   if (!refreshToken) {
-    await logoutStoredSession()
     return null
   }
 
@@ -266,27 +271,29 @@ async function performBrowserTokenRefresh(
       }),
     })
   } catch {
-    await logoutStoredSession()
     return null
   }
 
   if (!response.ok) {
-    await logoutStoredSession()
+    if (response.status === 400 || response.status === 401) {
+      await logoutStoredSession()
+    }
     return null
   }
 
   const payload = (await response.json()) as RefreshTokenResponse
   const nextAccessToken = payload.data?.token ?? null
   const nextRefreshToken = payload.data?.refresh_token ?? refreshToken
+  const nextAccessTokenExpiresAt = resolveAccessTokenExpiresAt(payload.data?.expires_in)
 
   if (!nextAccessToken) {
-    await logoutStoredSession()
     return null
   }
 
   await updateStoredSession({
     accessToken: nextAccessToken,
     refreshToken: nextRefreshToken,
+    accessTokenExpiresAt: nextAccessTokenExpiresAt,
     authError: undefined,
   })
 

@@ -24,8 +24,9 @@ function AuthSessionBridge() {
     syncAuthTokens({
       accessToken: session?.accessToken,
       refreshToken: session?.refreshToken,
+      accessTokenExpiresAt: session?.accessTokenExpiresAt,
     })
-  }, [session?.accessToken, session?.refreshToken])
+  }, [session?.accessToken, session?.refreshToken, session?.accessTokenExpiresAt])
 
   React.useEffect(() => {
     if (status !== "authenticated") return

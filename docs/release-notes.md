@@ -23,6 +23,29 @@ Add new entries at the top (newest first).
 ## 2026-06-04 | Version: unreleased
 
 ### Summary
+- Fixed website admin session refresh after an expired API token returns 401.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Browser API calls now retry once with a refreshed access token without immediately logging the user out when the refresh token is still available.
+- Refreshed access token expiry is persisted back into the NextAuth session so the newly refreshed token is not treated as already expired.
+- Missing refresh-token cache state or transient refresh request failures no longer force an immediate client logout; invalid refresh tokens still log the user out.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/lib/api/client.ts src/lib/nextauth.ts src/lib/auth-session-manager.ts src/components/providers.tsx src/types/next-auth.d.ts`
+- `npm run build`
+
+## 2026-06-04 | Version: unreleased
+
+### Summary
 - Added selective tracking-provider location imports with a preview table, filters, selected count, and filtered select-all behavior.
 
 ### API Changes

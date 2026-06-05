@@ -15,6 +15,10 @@ type AuthPayload = LoginResponse & {
   expires_in?: number
 }
 
+function resolveAccessTokenExpiresAt(expiresIn?: number | null): number {
+  return Date.now() + (expiresIn ?? DEFAULT_ACCESS_TOKEN_TTL_MS / 1000) * 1000
+}
+
 async function refreshAccessToken(token: JWT): Promise<JWT> {
   if (!token.refreshToken) {
     return {
@@ -55,8 +59,7 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
       ...token,
       accessToken: auth.token,
       refreshToken: auth.refresh_token ?? token.refreshToken,
-      accessTokenExpiresAt:
-        Date.now() + (auth.expires_in ?? DEFAULT_ACCESS_TOKEN_TTL_MS / 1000) * 1000,
+      accessTokenExpiresAt: resolveAccessTokenExpiresAt(auth.expires_in),
       authError: undefined,
     }
   } catch {
@@ -124,8 +127,7 @@ export const authOptions: NextAuthOptions = {
           role: data.user.role,
           accessToken: data.token,
           refreshToken: data.refresh_token,
-          accessTokenExpiresAt:
-            Date.now() + (data.expires_in ?? DEFAULT_ACCESS_TOKEN_TTL_MS / 1000) * 1000,
+          accessTokenExpiresAt: resolveAccessTokenExpiresAt(data.expires_in),
         }
       },
     }),
@@ -150,6 +152,9 @@ export const authOptions: NextAuthOptions = {
         }
         if ("refreshToken" in session) {
           token.refreshToken = session.refreshToken
+        }
+        if ("accessTokenExpiresAt" in session) {
+          token.accessTokenExpiresAt = session.accessTokenExpiresAt
         }
         if ("authError" in session) {
           token.authError = session.authError
@@ -252,6 +257,7 @@ export const authOptions: NextAuthOptions = {
       session.user.role = token.role as "super_admin" | "user"
       session.accessToken = token.accessToken as string
       session.refreshToken = token.refreshToken as string
+      session.accessTokenExpiresAt = token.accessTokenExpiresAt as number | undefined
       session.merchants = (token.merchants as Merchant[]) ?? []
       session.selected_merchant = token.selected_merchant as Merchant | undefined
       session.authError = token.authError as string | undefined

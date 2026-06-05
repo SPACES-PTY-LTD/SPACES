@@ -4,6 +4,7 @@ declare module "next-auth" {
   interface Session {
     accessToken?: string
     refreshToken?: string
+    accessTokenExpiresAt?: number
     authError?: string
     merchants?: Merchant[]
     selected_merchant?: Merchant
