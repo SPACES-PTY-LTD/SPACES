@@ -809,16 +809,18 @@ class MixIntegrateService
         ]);
 
         if ($response->failed()) {
-            Log::warning('Mix Integrate token request failed during refresh token.', [
+            Log::warning('Mix Integrate token request failed during refresh token.', array_merge([
                 'status' => $response->status(),
                 'body' => $response->body(),
                 'identity_url' => $identityUrl,
+            ], $this->tokenCredentialLogContext([
                 'client_id' => $clientId,
                 'client_secret' => $clientSecret,
+                'grant_type' => 'password',
                 'username' => $username,
                 'password' => $password,
                 'scope' => 'offline_access MiX.Integrate',
-            ]);
+            ])));
 
             $response->throw();
         }
@@ -872,6 +874,7 @@ class MixIntegrateService
                     'next_attempt' => $attempt + 1,
                     'retry_limit' => self::AUTH_RETRY_LIMIT,
                     'body' => $response->body(),
+                    'credentials' => $this->tokenCredentialLogContext($payload),
                 ]);
             }
         }
@@ -881,6 +884,7 @@ class MixIntegrateService
             'status' => $response?->status(),
             'body' => $response?->body(),
             'attempts' => $maxAttempts,
+            'credentials' => $this->tokenCredentialLogContext($payload),
         ]);
 
         $response?->throw();
@@ -894,6 +898,22 @@ class MixIntegrateService
             ->acceptJson()
             ->timeout(20)
             ->post($identityUrl . '/connect/token', $payload);
+    }
+
+    private function tokenCredentialLogContext(array $payload): array
+    {
+        return [
+            'client_id' => $payload['client_id'] ?? null,
+            'username' => $payload['username'] ?? null,
+            'grant_type' => $payload['grant_type'] ?? null,
+            'scope' => $payload['scope'] ?? null,
+            'client_secret' => $payload['client_secret'] ?? null,
+            'client_secret_present' => filled($payload['client_secret'] ?? null),
+            'client_secret_length' => is_string($payload['client_secret'] ?? null) ? strlen($payload['client_secret']) : null,
+            'password' => $payload['password'] ?? null,
+            'password_present' => filled($payload['password'] ?? null),
+            'password_length' => is_string($payload['password'] ?? null) ? strlen($payload['password']) : null,
+        ];
     }
 
     private function getCachedTokenAnalysis(array $integrationData = []): ?array
@@ -1197,4 +1217,5 @@ class MixIntegrateService
 
         return substr($token, 0, 8) . '...' . substr($token, -4);
     }
+
 }

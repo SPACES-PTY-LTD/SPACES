@@ -57,6 +57,7 @@ Add new entries at the top (newest first).
 - Latest-position sync now retries up to twice with freshly requested MiX tokens when position requests receive `401 Unauthorized`.
 - MiX token acquisition now retries failed token requests up to twice before throwing.
 - Vehicle location tracking failure activity logs now include the HTTP response status, headers, and full untruncated response body when provider requests fail through Laravel's HTTP client.
+- MiX token failure logs now include the raw auth username, client ID, client secret, password, grant type, and scope to help diagnose persistent `401` responses.
 
 ### Breaking Changes
 - None.

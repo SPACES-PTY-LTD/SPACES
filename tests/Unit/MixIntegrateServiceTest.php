@@ -6,6 +6,7 @@ use App\Services\Mixtelematics\MixIntegrateService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Mockery;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -482,10 +483,11 @@ class MixIntegrateServiceTest extends TestCase
         config([
             'services.mix.identity_url' => 'https://identity.example.test',
             'services.mix.client_id' => 'client-id',
-            'services.mix.client_secret' => 'client-secret',
-            'services.mix.username' => 'username',
-            'services.mix.password' => 'password',
+            'services.mix.client_secret' => 'client-secret-prod',
+            'services.mix.username' => 'username@example.test',
+            'services.mix.password' => 'password-prod',
         ]);
+        Log::spy();
 
         Http::fake([
             'https://identity.example.test/connect/token' => Http::sequence()
@@ -494,10 +496,31 @@ class MixIntegrateServiceTest extends TestCase
                 ->push(['error' => 'still failing'], 500),
         ]);
 
-        $this->expectException(\Illuminate\Http\Client\RequestException::class);
-
         $service = $this->serviceWithCacheStore(Mockery::mock(CacheRepository::class));
-        $service->inspectTokenResponse();
+
+        try {
+            $service->inspectTokenResponse();
+            $this->fail('Expected the token request to throw after all retry attempts fail.');
+        } catch (\Illuminate\Http\Client\RequestException $exception) {
+            $this->assertSame(500, $exception->response->status());
+        }
+
+        Log::shouldHaveReceived('warning')
+            ->with('Mix Integrate token request failed.', Mockery::on(function (array $context): bool {
+                $encoded = json_encode($context, JSON_THROW_ON_ERROR);
+                $credentials = $context['credentials'] ?? [];
+
+                return ($credentials['client_id'] ?? null) === 'client-id'
+                    && ($credentials['username'] ?? null) === 'username@example.test'
+                    && ($credentials['grant_type'] ?? null) === 'password'
+                    && ($credentials['scope'] ?? null) === 'offline_access MiX.Integrate'
+                    && ($credentials['client_secret_present'] ?? null) === true
+                    && ($credentials['password_present'] ?? null) === true
+                    && ($credentials['client_secret'] ?? null) === 'client-secret-prod'
+                    && ($credentials['password'] ?? null) === 'password-prod'
+                    && str_contains($encoded, 'client-secret-prod')
+                    && str_contains($encoded, 'password-prod');
+            }));
     }
 
     public function test_get_powerfleet_organisations_fetches_available_groups(): void

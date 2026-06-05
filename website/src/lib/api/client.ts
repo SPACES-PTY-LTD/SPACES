@@ -275,6 +275,13 @@ async function performBrowserTokenRefresh(
   }
 
   if (!response.ok) {
+    //Log the info the response body if the refresh request failed, to help debugging issues related to token refresh
+    console.error("Failed to refresh access token", {
+      status: response.status,
+      statusText: response.statusText,
+      responseBody: await response.text().catch(() => "<Failed to read response body>"),
+    })
+
     if (response.status === 400 || response.status === 401) {
       await logoutStoredSession()
     }
