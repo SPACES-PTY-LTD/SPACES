@@ -65,11 +65,11 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 return;
             }
             
-            Log::info('Starting vehicle location tracking job.', [
-                'merchant_integration_id' => $integration->id,
-                'provider_id' => $provider->id,
-                'vehicle_ids' => $this->vehicleIds,
-            ]);
+            // Log::info('Starting vehicle location tracking job.', [
+            //     'merchant_integration_id' => $integration->id,
+            //     'provider_id' => $provider->id,
+            //     'vehicle_ids' => $this->vehicleIds,
+            // ]);
             
 
             $vehicles = Vehicle::query()
@@ -158,12 +158,12 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 }
             }
 
-            Log::info('Vehicle geofence check summary.', [
-                'merchant_integration_id' => $integration->id,
-                'provider_id' => $provider->id,
-                'vehicles_checked' => $vehiclesChecked,
-                'vehicles_inside_geofence' => $vehiclesInsideGeofence,
-            ]);
+            // Log::info('Vehicle geofence check summary.', [
+            //     'merchant_integration_id' => $integration->id,
+            //     'provider_id' => $provider->id,
+            //     'vehicles_checked' => $vehiclesChecked,
+            //     'vehicles_inside_geofence' => $vehiclesInsideGeofence,
+            // ]);
         } catch (\Throwable $exception) {
             $result = 'failed';
             $exitReason = 'exception';

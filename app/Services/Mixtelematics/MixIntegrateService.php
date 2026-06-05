@@ -771,12 +771,6 @@ class MixIntegrateService
             $cachedAnalysis = $this->getCachedTokenAnalysis($integrationData);
             if ($cachedAnalysis !== null) {
                 $cachedAnalysis['auth_mode'] = 'redis_cache';
-                Log::info('Using cached MiX Integrate token analysis.', [
-                    'integration_uuid' => $integrationData['integration_uuid'] ?? null,
-                    'expires_in' => $cachedAnalysis['expires_in'] ?? null,
-                    'expires_at' => $cachedAnalysis['timing']['expires_at'] ?? null,
-                    'now' => CarbonImmutable::now('UTC')->toDateTimeString(),
-                ]);
                 return $cachedAnalysis;
             }
         }

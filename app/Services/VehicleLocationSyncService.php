@@ -33,9 +33,9 @@ class VehicleLocationSyncService
 
         $summary['integrations_scanned'] = $integrations->count();
 
-        Log::info('Vehicle location sync started.', [
-            'integrations_scanned' => $summary['integrations_scanned'],
-        ]);
+        // Log::info('Vehicle location sync started.', [
+        //     'integrations_scanned' => $summary['integrations_scanned'],
+        // ]);
 
         foreach ($integrations as $integration) {
             if (!$integration->merchant_id) {
@@ -102,15 +102,15 @@ class VehicleLocationSyncService
                 $summary['integrations_dispatched']++;
             }
 
-            Log::info('Vehicle location sync integration processed.', [
-                'merchant_integration_id' => $integration->id,
-                'merchant_id' => $integration->merchant_id,
-                'provider_id' => $provider->id,
-                'provider_name' => $provider->name,
-                'supports_bulk_vehicle_requests' => (bool) $provider->supports_bulk_vehicle_requests,
-                'jobs_dispatched' => $integrationJobs,
-                'vehicles_queued' => $integrationVehicles,
-            ]);
+            // Log::info('Vehicle location sync integration processed.', [
+            //     'merchant_integration_id' => $integration->id,
+            //     'merchant_id' => $integration->merchant_id,
+            //     'provider_id' => $provider->id,
+            //     'provider_name' => $provider->name,
+            //     'supports_bulk_vehicle_requests' => (bool) $provider->supports_bulk_vehicle_requests,
+            //     'jobs_dispatched' => $integrationJobs,
+            //     'vehicles_queued' => $integrationVehicles,
+            // ]);
         }
 
         Log::info('Vehicle location sync completed.', $summary);
