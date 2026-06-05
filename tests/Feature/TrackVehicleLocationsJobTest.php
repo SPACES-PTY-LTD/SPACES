@@ -16,6 +16,8 @@ use App\Services\AutoRunLifecycleService;
 use App\Services\DriverService;
 use App\Services\DriverVehicleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -230,6 +232,48 @@ class TrackVehicleLocationsJobTest extends TestCase
         $this->assertSame($driver->id, $vehicle->last_driver_id);
     }
 
+    public function test_it_logs_full_http_response_body_when_tracking_provider_request_fails(): void
+    {
+        FakeHttpFailureProviderService::reset();
+        FakeHttpFailureProviderService::$status = 401;
+        FakeHttpFailureProviderService::$body = '<html><body>'
+            . str_repeat('Unauthorized provider response details. ', 20)
+            . '</body></html>';
+        Http::fake([
+            'https://provider.example.test/latest-positions' => Http::response(
+                FakeHttpFailureProviderService::$body,
+                FakeHttpFailureProviderService::$status,
+                ['X-Provider-Request-Id' => 'provider-request-123']
+            ),
+        ]);
+
+        [$merchant, $integration, $vehicle] = $this->createTrackingContext(
+            providerName: 'Fake HTTP Failure Provider',
+            serviceClass: FakeHttpFailureProviderService::class,
+        );
+
+        try {
+            $this->runTrackingJob($integration, $vehicle);
+            $this->fail('Expected the tracking job to rethrow the provider HTTP exception.');
+        } catch (RequestException $exception) {
+            $this->assertSame(401, $exception->response->status());
+        }
+
+        $activity = ActivityLog::query()
+            ->where('action', 'vehicle_location_tracking_failed')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($activity);
+        $this->assertSame($merchant->id, $activity->merchant_id);
+        $this->assertSame(401, $activity->metadata['exception_response_status'] ?? null);
+        $this->assertSame(FakeHttpFailureProviderService::$body, $activity->metadata['exception_response_body'] ?? null);
+        $this->assertSame(
+            ['provider-request-123'],
+            $activity->metadata['exception_response_headers']['X-Provider-Request-Id'] ?? null
+        );
+    }
+
     private function createTrackingContext(
         string $providerName,
         string $serviceClass,
@@ -356,5 +400,24 @@ class FakeDriverBulkFallbackProviderService
     public function import_drivers(array $integrationData = [], array $integrationOptionsData = []): array
     {
         return self::$bulkDrivers;
+    }
+}
+
+class FakeHttpFailureProviderService
+{
+    public static int $status = 401;
+    public static string $body = '';
+
+    public static function reset(): void
+    {
+        self::$status = 401;
+        self::$body = '';
+    }
+
+    public function getVehiclePositions(array $assetIds, array $integrationData = []): array
+    {
+        \Illuminate\Support\Facades\Http::get('https://provider.example.test/latest-positions')->throw();
+
+        return [];
     }
 }

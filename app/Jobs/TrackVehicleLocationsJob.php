@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Arr;
@@ -166,6 +167,21 @@ class TrackVehicleLocationsJob implements ShouldQueue
         } catch (\Throwable $exception) {
             $result = 'failed';
             $exitReason = 'exception';
+            $metadata = [
+                'merchant_integration_id' => $this->merchantIntegrationId,
+                'provider_id' => $provider?->id,
+                'vehicle_ids_requested' => $this->vehicleIds,
+                'vehicle_count_requested' => count($this->vehicleIds),
+                'vehicles_with_positions' => $matchedPositions,
+                'vehicles_updated' => $updatedVehicles,
+                'vehicles_checked_for_geofence' => $vehiclesChecked,
+                'vehicles_inside_geofence' => $vehiclesInsideGeofence,
+                'result' => $result,
+                'reason' => $exitReason,
+                'exception_message' => $exception->getMessage(),
+                'exception_trace' => $exception->getTraceAsString(),
+            ];
+
             $activityLogService->log(
                 action: 'vehicle_location_tracking_failed',
                 entityType: 'merchant_integration',
@@ -173,20 +189,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 accountId: $integration?->account_id,
                 merchantId: $integration?->merchant_id,
                 title: 'Vehicle location tracking job failed due to exception',
-                metadata: [
-                    'merchant_integration_id' => $this->merchantIntegrationId,
-                    'provider_id' => $provider?->id,
-                    'vehicle_ids_requested' => $this->vehicleIds,
-                    'vehicle_count_requested' => count($this->vehicleIds),
-                    'vehicles_with_positions' => $matchedPositions,
-                    'vehicles_updated' => $updatedVehicles,
-                    'vehicles_checked_for_geofence' => $vehiclesChecked,
-                    'vehicles_inside_geofence' => $vehiclesInsideGeofence,
-                    'result' => $result,
-                    'reason' => $exitReason,
-                    'exception_message' => $exception->getMessage(),
-                    'exception_trace' => $exception->getTraceAsString(),
-                ]
+                metadata: array_merge($metadata, $this->httpExceptionMetadata($exception))
             );
             throw $exception;
         } finally {
@@ -236,6 +239,19 @@ class TrackVehicleLocationsJob implements ShouldQueue
         }
 
         return app($serviceClass);
+    }
+
+    private function httpExceptionMetadata(\Throwable $exception): array
+    {
+        if (!$exception instanceof RequestException) {
+            return [];
+        }
+
+        return [
+            'exception_response_status' => $exception->response->status(),
+            'exception_response_headers' => $exception->response->headers(),
+            'exception_response_body' => $exception->response->body(),
+        ];
     }
 
     private function normalizePositions($positions, array $assetIds): array

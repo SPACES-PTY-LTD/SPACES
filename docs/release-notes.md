@@ -23,6 +23,28 @@ Add new entries at the top (newest first).
 ## 2026-06-05 | Version: unreleased
 
 ### Summary
+- Added a locations count KPI to the admin dashboard.
+
+### API Changes
+- Extended `GET /api/v1/reports/dashboard_stats` to include `locations_count`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin` now shows a `Locations` KPI card linked to `/admin/logistics/locations`.
+- Dashboard location counts respect the selected merchant and existing report access scope.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Http/Controllers/Api/V1/ReportController.php`
+- `npm run lint -- src/app/admin/page.tsx src/lib/api/reports.ts`
+
+## 2026-06-05 | Version: unreleased
+
+### Summary
 - Fixed MiX/Powerfleet vehicle location sync so `401` responses retry twice before surfacing a tracking-job failure.
 
 ### API Changes
@@ -34,12 +56,15 @@ Add new entries at the top (newest first).
 ### Behavior Changes
 - Latest-position sync now retries up to twice with freshly requested MiX tokens when position requests receive `401 Unauthorized`.
 - MiX token acquisition now retries failed token requests up to twice before throwing.
+- Vehicle location tracking failure activity logs now include the HTTP response status, headers, and full untruncated response body when provider requests fail through Laravel's HTTP client.
 
 ### Breaking Changes
 - None.
 
 ### Verification
+- `php -l app/Jobs/TrackVehicleLocationsJob.php`
 - `php -l app/Services/Mixtelematics/MixIntegrateService.php`
+- `php -l tests/Feature/TrackVehicleLocationsJobTest.php`
 - `php -l tests/Unit/MixIntegrateServiceTest.php`
 - `php artisan test tests/Unit/MixIntegrateServiceTest.php`
 - `php artisan test tests/Feature/TrackVehicleLocationsJobTest.php`

@@ -17,6 +17,7 @@ use App\Models\Booking;
 use App\Models\Driver;
 use App\Models\EntityFile;
 use App\Models\FileType;
+use App\Models\Location;
 use App\Models\Merchant;
 use App\Models\Quote;
 use App\Models\RunShipment;
@@ -384,6 +385,9 @@ class ReportController extends Controller
             $vehiclesCount = $this->applyVehicleScope(Vehicle::query(), $environment, $user)
                 ->when($merchantId, fn (Builder $query) => $query->where('merchant_id', $merchantId))
                 ->count();
+            $locationsCount = $this->applyLocationScope(Location::query(), $environment, $user)
+                ->when($merchantId, fn (Builder $query) => $query->where('merchant_id', $merchantId))
+                ->count();
             $totalMembers = $this->applyUserScope(User::query(), $environment, $user)
                 ->when($merchantId, function (Builder $query) use ($merchantId) {
                     $query->whereHas('merchants', function (Builder $builder) use ($merchantId) {
@@ -400,6 +404,7 @@ class ReportController extends Controller
                 'active_merchants' => (int) $activeMerchants,
                 'active_quotes' => (int) $activeQuotes,
                 'vehicles_count' => (int) $vehiclesCount,
+                'locations_count' => (int) $locationsCount,
                 'total_members' => (int) $totalMembers,
             ]);
         } catch (Throwable $e) {
@@ -1349,6 +1354,28 @@ class ReportController extends Controller
     }
 
     private function applyVehicleScope(Builder $query, $environment, ?User $user): Builder
+    {
+        if ($environment) {
+            return $query->where('merchant_id', $environment->merchant_id);
+        }
+
+        if ($user && $user->role !== 'super_admin') {
+            if (!empty($user->account_id)) {
+                return $query->where('account_id', $user->account_id);
+            }
+
+            $merchantIds = $user->merchants()->pluck('merchants.id');
+            if ($merchantIds->isEmpty()) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            return $query->whereIn('merchant_id', $merchantIds);
+        }
+
+        return $query;
+    }
+
+    private function applyLocationScope(Builder $query, $environment, ?User $user): Builder
     {
         if ($environment) {
             return $query->where('merchant_id', $environment->merchant_id);
