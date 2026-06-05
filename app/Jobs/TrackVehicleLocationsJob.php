@@ -314,25 +314,20 @@ class TrackVehicleLocationsJob implements ShouldQueue
             ?? $position['FormattedAddress']
             ?? Arr::get($position, 'position.address');
 
+        $coordinates = array_filter([
+            'latitude' => $this->extractLatitude($position),
+            'longitude' => $this->extractLongitude($position),
+        ], static fn ($value) => $value !== null);
+
         if (is_array($address)) {
-            return $address;
+            return array_merge($address, $coordinates);
         }
 
         if (is_string($address) && $address !== '') {
-            return ['address_line_1' => $address];
+            return array_merge(['address_line_1' => $address], $coordinates);
         }
 
-        $lat = $position['latitude'] ?? Arr::get($position, 'position.latitude');
-        $lng = $position['longitude'] ?? Arr::get($position, 'position.longitude');
-
-        if ($lat !== null || $lng !== null) {
-            return array_filter([
-                'latitude' => is_numeric($lat) ? (float) $lat : $lat,
-                'longitude' => is_numeric($lng) ? (float) $lng : $lng,
-            ], static fn ($value) => $value !== null);
-        }
-
-        return null;
+        return $coordinates ?: null;
     }
 
     private function extractOdometer(array $position): ?int

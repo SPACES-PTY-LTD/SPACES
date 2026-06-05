@@ -34,6 +34,7 @@ class TrackVehicleLocationsJobTest extends TestCase
             'timestamp' => '2026-04-02T10:00:00Z',
             'latitude' => -33.9200,
             'longitude' => 18.4200,
+            'formatted_address' => '1 Test Street, Cape Town',
             'speed_kilometres_per_hour' => 40,
         ]];
         FakeDriverSingleProviderService::$singleDriver = [
@@ -65,6 +66,9 @@ class TrackVehicleLocationsJobTest extends TestCase
 
         $vehicle->refresh();
         $this->assertSame($driver->id, $vehicle->last_driver_id);
+        $this->assertSame('1 Test Street, Cape Town', $vehicle->last_location_address['address_line_1'] ?? null);
+        $this->assertSame(-33.9200, $vehicle->last_location_address['latitude'] ?? null);
+        $this->assertSame(18.4200, $vehicle->last_location_address['longitude'] ?? null);
 
         $activity = ActivityLog::query()
             ->where('action', 'tracking_driver_imported')

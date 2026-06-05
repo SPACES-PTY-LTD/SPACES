@@ -23,6 +23,29 @@ Add new entries at the top (newest first).
 ## 2026-06-05 | Version: unreleased
 
 ### Summary
+- Fixed tracked vehicle last-location payloads so latitude and longitude are retained with formatted addresses.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Vehicle location sync now stores provider coordinates inside `last_location_address` even when the provider also sends a formatted address.
+- Vehicle detail and map views can use the latest tracked coordinates without falling back to metadata.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Jobs/TrackVehicleLocationsJob.php`
+- `php -l tests/Feature/TrackVehicleLocationsJobTest.php`
+- `php artisan test tests/Feature/TrackVehicleLocationsJobTest.php`
+
+## 2026-06-05 | Version: unreleased
+
+### Summary
 - Fixed vehicle location polling so MiX/Powerfleet token caching is used during scheduled sync jobs.
 
 ### API Changes
