@@ -1,0 +1,19 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/drivers"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Driver One",
+      "email": "driver1@example.com",
+      "password": "password123",
+      "telephone": "+27123456789",
+      "carrier_id": "{{carrier_id}}",
+      "vehicle_type_id": "{{vehicle_type_id}}",
+      "is_active": true
+    }
+order: 3000

@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/webhooks/subscriptions"
+method: POST
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+body:
+  type: text
+  content: |-
+    {
+      "url": "https://example.com/webhook",
+      "event": "shipment.updated"
+    }
+order: 1000

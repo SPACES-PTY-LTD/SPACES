@@ -1,0 +1,7 @@
+$kind: http-request
+name: DELETE /api/v1/admin/vehicle-types/{{vehicle_type_uuid}}
+url: "{{base_url}}/api/v1/admin/vehicle-types/{{vehicle_type_uuid}}"
+method: DELETE
+headers:
+  Authorization: Bearer {{token}}
+order: 23000

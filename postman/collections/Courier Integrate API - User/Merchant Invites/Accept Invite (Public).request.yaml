@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/merchant-invites/accept"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "invite_token": "your-invite-token",
+      "password": "password123",
+      "password_confirmation": "password123"
+    }
+order: 1000

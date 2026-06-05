@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/import_drivers"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "merchant_id": "{{merchant_id}}"
+    }
+order: 4000

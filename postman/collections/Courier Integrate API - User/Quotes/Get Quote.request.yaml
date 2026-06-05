@@ -1,0 +1,7 @@
+$kind: http-request
+description: Returns `selected_option` when the quote status is `booked`.
+url: "{{base_url}}/api/v1/quotes/{{quote_id}}"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+order: 3000

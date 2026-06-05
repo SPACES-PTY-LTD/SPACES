@@ -1,0 +1,21 @@
+$kind: collection
+variables:
+  base_url: http://localhost
+  token: ""
+  merchant_id: ""
+  shipment_id: ""
+  quote_id: ""
+  quote_option_id: ""
+  booking_id: ""
+  user_id: ""
+  invite_id: ""
+  subscription_id: ""
+  carrier_secret_dummy: change-me
+  merchant_uuid: ""
+  environment_id: ""
+auth:
+  - id: 4e6d926e-d081-4aea-8abd-470e98371f44
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{bearer_token}}"

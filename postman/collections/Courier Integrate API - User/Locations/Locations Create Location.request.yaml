@@ -1,0 +1,44 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/locations"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "merchant_id": "{{merchant_id}}",
+      "environment_id": "{{environment_id}}",
+      "name": "Warehouse A",
+      "code": "WH-A",
+      "company": "Acme",
+      "address_line_1": "123 Main St",
+      "address_line_2": "Suite 4",
+      "town": "Downtown",
+      "city": "Cape Town",
+      "country": "ZA",
+      "first_name": "John",
+      "last_name": "Doe",
+      "phone": "+27 11 000 0000",
+      "province": "Western Cape",
+      "post_code": "8001",
+      "latitude": -33.9249,
+      "longitude": 18.4241,
+      "google_place_id": "ChIJd0N5w0ZJzR0R1bNfGdHn7Gk",
+      "polygon_bounds": [
+        [
+          -26.2041,
+          28.0473
+        ],
+        [
+          -26.2045,
+          28.048
+        ],
+        [
+          -26.205,
+          28.0478
+        ]
+      ]
+    }
+order: 3000

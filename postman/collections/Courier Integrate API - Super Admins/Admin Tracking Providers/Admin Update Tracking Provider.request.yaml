@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Demo Provider Updated",
+      "status": "disabled"
+    }
+order: 6000

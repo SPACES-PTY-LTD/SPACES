@@ -1,0 +1,18 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/shipments/{{shipment_id}}/book"
+method: POST
+headers:
+  - key: Content-Type
+    value: application/json
+  - key: Authorization
+    value: Bearer {{token}}
+  - key: Idempotency-Key
+    value: idem-1
+    disabled: true
+body:
+  type: text
+  content: |-
+    {
+      "quote_option_id": "{{quote_option_id}}"
+    }
+order: 1000

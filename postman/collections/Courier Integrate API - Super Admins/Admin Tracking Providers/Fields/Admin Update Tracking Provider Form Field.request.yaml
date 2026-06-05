@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/integration-form-fields/{{field_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "label": "API Key Updated",
+      "is_required": false
+    }
+order: 4000

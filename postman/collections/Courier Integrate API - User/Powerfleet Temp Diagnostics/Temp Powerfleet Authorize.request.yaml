@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/temp/powerfleet/authorize"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "merchant_id": "{{merchant_id}}",
+        "provider_id": "{{provider_id}}",
+        "use_cache": false
+    }
+order: 1000

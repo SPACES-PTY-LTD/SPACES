@@ -1,0 +1,13 @@
+$kind: collection
+variables:
+  base_url: http://localhost
+  token: ""
+  vehicle_type_id: ""
+  driver_id: ""
+  merchant_id: ""
+auth:
+  - id: b88ddf74-a534-4661-bbec-c6e9f536b6f4
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{bearer_token}}"

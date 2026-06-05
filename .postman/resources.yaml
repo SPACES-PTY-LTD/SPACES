@@ -1,9 +1,15 @@
 # Use this workspace to collaborate
 workspace:
-  id: 41d47684-a73c-4e91-881a-3a5516beb7b8
+  id: b21624ae-37a6-40c6-ada1-ffd2e0fd6b86
 
-# All resources in the `postman/` folder are automatically registered in Local View.
-# Point to additional files outside the `postman/` folder to register them individually. Example:
-#localResources:
-#  collections:
-#    - ../tests/E2E Test Collection/
+localResources:
+  specs:
+    - ../openapi.yaml
+
+# Each entry here maps a local resource to one or more corresponding objects in Postman Cloud
+
+cloudResources:
+  collections:
+    ../postman/collections/Courier Integrate API - Drivers: 9cfcac6e-72a1-459b-9162-d5ea46a00a61
+    ../postman/collections/Courier Integrate API - Super Admins: 566ff152-b21c-44bc-82f5-3f75e5f233a7
+    ../postman/collections/Courier Integrate API - User: 724db142-d437-4c25-8c68-b5c106e4f280

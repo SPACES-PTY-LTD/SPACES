@@ -1,0 +1,8 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/reports/created_over_time?date_range=1month"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+queryParams:
+  date_range: 1month
+order: 1000

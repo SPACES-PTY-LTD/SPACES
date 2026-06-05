@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/driver/bookings/{{booking_id}}/cancel"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "reason_code": "other",
+      "reason": "Vehicle breakdown",
+      "note": "Unable to complete pickup"
+    }
+order: 7000

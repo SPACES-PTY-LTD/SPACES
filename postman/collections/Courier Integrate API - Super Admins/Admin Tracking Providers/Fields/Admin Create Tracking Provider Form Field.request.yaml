@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/integration-form-fields"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "label": "API Key",
+      "name": "api_key",
+      "type": "text",
+      "is_required": true,
+      "order_id": 1
+    }
+order: 3000

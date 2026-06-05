@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/admin/bookings/{{booking_id}}/assign-driver"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "driver_id": "{{driver_id}}",
+      "notes": "Morning shift"
+    }
+order: 6000

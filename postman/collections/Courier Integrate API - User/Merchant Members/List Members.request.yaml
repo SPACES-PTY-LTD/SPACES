@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/merchants/{{merchant_id}}/members"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+order: 2000

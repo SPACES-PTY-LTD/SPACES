@@ -1,0 +1,26 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/vehicles"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+body:
+  type: json
+  content: |-
+    {
+      "vehicle_type_id": "{{vehicle_type_id}}",
+      "make": "Yamaha",
+      "model": "MT-07",
+      "color": "Black",
+      "plate_number": "ABC-123",
+      "vin_number": "VIN123456789",
+      "engine_number": "ENG987654",
+      "ref_code": "REF-001",
+      "odometer": 125000,
+      "year": 2022,
+      "last_location_address": "1 Main Rd, Cape Town",
+      "location_updated_at": "2026-02-12T10:00:00Z",
+      "intergration_id": "INT-123",
+      "photo_key": "vehicles/mt-07.jpg",
+      "is_active": true
+    }
+order: 3000

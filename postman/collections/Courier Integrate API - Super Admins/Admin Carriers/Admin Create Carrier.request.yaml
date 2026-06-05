@@ -1,0 +1,16 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/carriers"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "code": "internal",
+      "name": "Internal Carrier",
+      "type": "internal",
+      "enabled": true
+    }
+order: 3000

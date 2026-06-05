@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/merchants/{{merchant_id}}/environments"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |
+    {
+      "name": "Production",
+      "color": "#1F2937"
+    }
+order: 2000

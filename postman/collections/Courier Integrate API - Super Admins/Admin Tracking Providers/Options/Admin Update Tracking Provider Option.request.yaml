@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/options/{{option_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "label": "Provider Timezone"
+    }
+order: 4000

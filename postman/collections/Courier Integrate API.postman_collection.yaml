@@ -1609,6 +1609,87 @@ item:
         - locations
         - "{{location_id}}"
     response: []
+- name: Powerfleet Temp Diagnostics
+  id: 67f4b1ee-6f53-4c89-a01f-c0627cae1a44
+  item:
+  - name: Temp Powerfleet Authorize
+    id: 887dbd68-2639-4641-a73d-dc1f81501126
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "merchant_id": "{{merchant_id}}",
+            "provider_id": "{{provider_id}}",
+            "use_cache": false
+          }
+      url:
+        raw: "{{base_url}}/api/temp/powerfleet/authorize"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - temp
+        - powerfleet
+        - authorize
+    response: []
+  - name: Temp Powerfleet Get Locations
+    id: ca4b5fda-1683-48aa-94a6-af8278b725d2
+    request:
+      method: POST
+      header:
+      - key: Content-Type
+        value: application/json
+      body:
+        mode: raw
+        raw: |-
+          {
+            "vehicle_ids": [
+              636,
+              637,
+              638,
+              639,
+              640,
+              641,
+              642,
+              643,
+              644,
+              645,
+              646,
+              647,
+              648,
+              649,
+              650,
+              651,
+              652,
+              653,
+              654,
+              655,
+              656,
+              657,
+              658,
+              659,
+              660,
+              661,
+              662
+            ],
+            "use_cache": false,
+            "retry_on_unauthorized": true
+          }
+      url:
+        raw: "{{base_url}}/api/temp/powerfleet/get-locations"
+        host:
+        - "{{base_url}}"
+        path:
+        - api
+        - temp
+        - powerfleet
+        - get-locations
+    response: []
 - name: Tracking Providers
   id: 8e87960f-2bbf-4a16-a677-2203bfa05d1d
   item:

@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/bookings/{{booking_id}}"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+order: 3000

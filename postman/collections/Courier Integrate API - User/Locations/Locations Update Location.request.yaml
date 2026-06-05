@@ -1,0 +1,28 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/locations/{{location_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Warehouse A Updated",
+      "phone": "+27 11 000 0001",
+      "polygon_bounds": [
+        [
+          -26.2041,
+          28.0473
+        ],
+        [
+          -26.2045,
+          28.048
+        ],
+        [
+          -26.205,
+          28.0478
+        ]
+      ]
+    }
+order: 4000

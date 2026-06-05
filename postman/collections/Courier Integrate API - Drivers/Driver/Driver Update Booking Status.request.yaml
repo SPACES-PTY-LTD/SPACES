@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/driver/bookings/{{booking_id}}/status"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "status": "picked_up",
+      "note": "Collected from sender"
+    }
+order: 3000

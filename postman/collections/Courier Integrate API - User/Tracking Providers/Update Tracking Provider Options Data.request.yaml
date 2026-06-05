@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}/options_data"
+method: PUT
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "merchant_id": "{{merchant_id}}",
+      "integration_options_data": {
+        "timezone": "UTC",
+        "use_last_known_position": true
+      }
+    }
+order: 2000

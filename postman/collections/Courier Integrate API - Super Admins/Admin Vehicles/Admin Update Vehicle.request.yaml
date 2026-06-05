@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/vehicles/{{vehicle_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+body:
+  type: json
+  content: |-
+    {
+      "color": "Blue",
+      "last_location_address": "2 Long St, Cape Town",
+      "location_updated_at": "2026-02-12T12:00:00Z"
+    }
+order: 4000

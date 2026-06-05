@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/tracking-providers/{{provider_id}}"
+method: DELETE
+headers:
+  Authorization: Bearer {{token}}
+order: 7000

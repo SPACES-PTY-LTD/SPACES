@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/vehicle-types"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "code": "motorcycle",
+      "name": "Motorcycle",
+      "enabled": true
+    }
+order: 3000

@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/merchants/{{merchant_id}}/members/{{user_id}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+body:
+  type: text
+  content: |-
+    {
+      "role": "admin"
+    }
+order: 3000

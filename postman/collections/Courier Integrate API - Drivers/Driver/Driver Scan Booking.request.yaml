@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/driver/bookings/{{booking_id}}/scan"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "event_code": "picked_up",
+      "event_description": "Package collected",
+      "payload": {"scanner": "driver_app"}
+    }
+order: 4000

@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/admin/tracking-providers"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Demo Provider",
+      "status": "active",
+      "logo_file_name": "logo.png",
+      "website": "https://example.com",
+      "documentation": "https://example.com/docs"
+    }
+order: 5000

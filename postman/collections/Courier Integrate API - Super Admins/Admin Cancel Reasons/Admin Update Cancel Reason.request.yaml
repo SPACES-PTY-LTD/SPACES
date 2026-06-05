@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/cancel-reasons/{{cancel_reason_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "title": "Other (Updated)"
+    }
+order: 4000

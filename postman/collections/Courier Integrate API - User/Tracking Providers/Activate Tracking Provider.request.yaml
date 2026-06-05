@@ -1,0 +1,17 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/tracking-providers/activate"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "provider_id": "{{provider_id}}",
+      "integration_data": {
+        "api_key": "example-key",
+        "enabled": true
+      }
+    }
+order: 1000

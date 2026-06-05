@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/admin/bookings/{{booking_id}}/unassign-driver"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+order: 7000

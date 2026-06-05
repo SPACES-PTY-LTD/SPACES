@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/webhooks/carriers/dummy"
+method: POST
+headers:
+  Content-Type: application/json
+  X-Carrier-Secret: "{{carrier_secret_dummy}}"
+body:
+  type: text
+  content: |-
+    {
+      "shipment_id": "{{shipment_id}}",
+      "event_code": "picked_up"
+    }
+order: 1000

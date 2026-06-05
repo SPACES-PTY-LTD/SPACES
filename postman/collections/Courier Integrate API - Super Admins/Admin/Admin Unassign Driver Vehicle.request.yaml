@@ -1,0 +1,8 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/drivers/{{driver_uuid}}/vehicles/{{vehicle_uuid}}"
+method: DELETE
+headers:
+  Accept: application/json
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+order: 9000

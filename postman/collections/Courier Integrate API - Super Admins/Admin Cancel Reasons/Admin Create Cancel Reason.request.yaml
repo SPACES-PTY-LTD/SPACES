@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/cancel-reasons"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "code": "other",
+      "title": "Other",
+      "enabled": true
+    }
+order: 3000

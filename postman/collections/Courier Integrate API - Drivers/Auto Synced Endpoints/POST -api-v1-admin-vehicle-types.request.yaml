@@ -1,0 +1,11 @@
+$kind: http-request
+name: POST /api/v1/admin/vehicle-types
+url: "{{base_url}}/api/v1/admin/vehicle-types"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 22000

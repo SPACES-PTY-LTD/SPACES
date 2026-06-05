@@ -1,0 +1,6 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/merchants/{{merchant_id}}/invites/{{invite_id}}/revoke"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+order: 4000

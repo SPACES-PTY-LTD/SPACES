@@ -1,0 +1,11 @@
+$kind: http-request
+name: POST /api/v1/admin/tracking-providers/{{provider_uuid}}/options
+url: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: "{}"
+order: 17000

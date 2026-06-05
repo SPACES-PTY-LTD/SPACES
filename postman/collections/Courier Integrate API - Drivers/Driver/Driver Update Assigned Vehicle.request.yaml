@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/driver/vehicles/{{vehicle_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "vehicle_id": "{{vehicle_id}}"
+    }
+order: 10000

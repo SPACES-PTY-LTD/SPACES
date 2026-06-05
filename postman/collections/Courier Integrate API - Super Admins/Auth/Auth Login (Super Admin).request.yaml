@@ -1,0 +1,39 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/auth/login"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "email": "super_admin@example.com",
+      "password": "password1234"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      // Parse the JSON response
+      const jsonData = pm.response.json();
+
+      // Extract token from common response locations
+      let token = null;
+
+      if (jsonData.data.token) {
+          token = jsonData.data.token;
+      }
+
+      // Save token to environment variable
+      if (token) {
+          pm.environment.set("bearer_token", token);
+          console.log("Token saved to environment variable 'bearer_token'");
+      }
+
+      // Test to verify token was received
+      pm.test("Token is present in response", function () {
+          pm.expect(token).to.not.be.null;
+          pm.expect(token).to.be.a('string');
+          pm.expect(token.length).to.be.greaterThan(0);
+      });
+    language: text/javascript
+order: 1000

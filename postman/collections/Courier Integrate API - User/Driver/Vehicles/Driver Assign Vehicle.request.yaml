@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/driver/vehicles"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "vehicle_id": "{{vehicle_id}}"
+    }
+order: 5000

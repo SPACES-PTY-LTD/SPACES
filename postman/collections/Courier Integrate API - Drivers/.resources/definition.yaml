@@ -1,0 +1,14 @@
+$kind: collection
+variables:
+  base_url: http://localhost
+  token: ""
+  bearer_token: ""
+  booking_id: ""
+  vehicle_id: ""
+  vehicle_type_id: ""
+auth:
+  - id: 092c9cbc-6b3c-4437-badc-749c04404733
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{bearer_token}}"

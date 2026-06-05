@@ -1,0 +1,14 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/carriers/{{carrier_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Internal Carrier (Updated)",
+      "enabled": true
+    }
+order: 4000

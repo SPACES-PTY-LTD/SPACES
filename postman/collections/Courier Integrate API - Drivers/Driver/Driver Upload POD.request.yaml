@@ -1,0 +1,15 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/driver/bookings/{{booking_id}}/pod"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "file_key": "{{booking_id}}.jpg",
+      "file_type": "image/jpeg",
+      "signed_by": "Jane Doe"
+    }
+order: 5000

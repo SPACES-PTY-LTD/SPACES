@@ -1,0 +1,7 @@
+$kind: http-request
+name: GET /api/v1/admin/tracking-providers/{{provider_uuid}}/options
+url: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_uuid}}/options"
+method: GET
+headers:
+  Authorization: Bearer {{token}}
+order: 16000

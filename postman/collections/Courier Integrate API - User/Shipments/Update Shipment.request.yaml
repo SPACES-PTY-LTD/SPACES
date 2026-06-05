@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/shipments/{{shipment_id}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+  Authorization: Bearer {{token}}
+body:
+  type: text
+  content: |-
+    {
+      "collection_date": "2026-02-15T09:00:00Z"
+    }
+order: 4000

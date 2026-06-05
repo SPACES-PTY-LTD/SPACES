@@ -1,0 +1,20 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/admin/tracking-providers/{{provider_id}}/options"
+method: POST
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "label": "Timezone",
+      "name": "timezone",
+      "type": "select",
+      "options": [
+        "Africa/Johannesburg",
+        "UTC"
+      ],
+      "order_id": 1
+    }
+order: 3000

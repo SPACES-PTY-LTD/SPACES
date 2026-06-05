@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/vehicle-types/{{vehicle_type_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Motorbike"
+    }
+order: 4000

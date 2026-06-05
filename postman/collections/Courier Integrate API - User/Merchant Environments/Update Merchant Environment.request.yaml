@@ -1,0 +1,13 @@
+$kind: http-request
+url: "{{base_url}}/api/v1/merchants/{{merchant_id}}/environments/{{environment_id}}"
+method: PATCH
+headers:
+  Authorization: Bearer {{token}}
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+      "name": "Production Updated"
+    }
+order: 4000
