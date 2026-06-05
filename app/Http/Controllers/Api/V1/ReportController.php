@@ -388,6 +388,9 @@ class ReportController extends Controller
             $locationsCount = $this->applyLocationScope(Location::query(), $environment, $user)
                 ->when($merchantId, fn (Builder $query) => $query->where('merchant_id', $merchantId))
                 ->count();
+            $driversCount = $this->applyDriverScope(Driver::query(), $environment, $user)
+                ->when($merchantId, fn (Builder $query) => $this->applyDriverMerchantScope($query, $merchantId))
+                ->count();
             $totalMembers = $this->applyUserScope(User::query(), $environment, $user)
                 ->when($merchantId, function (Builder $query) use ($merchantId) {
                     $query->whereHas('merchants', function (Builder $builder) use ($merchantId) {
@@ -405,6 +408,7 @@ class ReportController extends Controller
                 'active_quotes' => (int) $activeQuotes,
                 'vehicles_count' => (int) $vehiclesCount,
                 'locations_count' => (int) $locationsCount,
+                'drivers_count' => (int) $driversCount,
                 'total_members' => (int) $totalMembers,
             ]);
         } catch (Throwable $e) {
@@ -1395,6 +1399,49 @@ class ReportController extends Controller
         }
 
         return $query;
+    }
+
+    private function applyDriverScope(Builder $query, $environment, ?User $user): Builder
+    {
+        if ($environment) {
+            return $this->applyDriverMerchantScope($query, $environment->merchant_id);
+        }
+
+        if ($user && $user->role !== 'super_admin') {
+            if (!empty($user->account_id)) {
+                return $query->where('account_id', $user->account_id);
+            }
+
+            $merchantIds = $user->merchants()->pluck('merchants.id');
+            if ($merchantIds->isEmpty()) {
+                return $query->whereRaw('1 = 0');
+            }
+
+            return $query->where(function (Builder $builder) use ($merchantIds) {
+                $builder->whereIn('merchant_id', $merchantIds)
+                    ->orWhere(function (Builder $legacyBuilder) use ($merchantIds) {
+                        $legacyBuilder->whereNull('merchant_id')
+                            ->whereHas('carrier', function (Builder $carrierBuilder) use ($merchantIds) {
+                                $carrierBuilder->whereIn('merchant_id', $merchantIds);
+                            });
+                    });
+            });
+        }
+
+        return $query;
+    }
+
+    private function applyDriverMerchantScope(Builder $query, int $merchantId): Builder
+    {
+        return $query->where(function (Builder $builder) use ($merchantId) {
+            $builder->where('merchant_id', $merchantId)
+                ->orWhere(function (Builder $legacyBuilder) use ($merchantId) {
+                    $legacyBuilder->whereNull('merchant_id')
+                        ->whereHas('carrier', function (Builder $carrierBuilder) use ($merchantId) {
+                            $carrierBuilder->where('merchant_id', $merchantId);
+                        });
+                });
+        });
     }
 
     private function applyUserScope(Builder $query, $environment, ?User $user): Builder

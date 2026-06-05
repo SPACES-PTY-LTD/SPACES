@@ -130,6 +130,9 @@ export default async function LogisticsAnalyticsPage() {
         active_merchants: 0,
         active_quotes: 0,
         total_members: 0,
+        vehicles_count: 0,
+        locations_count: 0,
+        drivers_count: 0,
       })
     : {
         total_shipments: 0,
@@ -139,6 +142,9 @@ export default async function LogisticsAnalyticsPage() {
         active_merchants: 0,
         active_quotes: 0,
         total_members: 0,
+        vehicles_count: 0,
+        locations_count: 0,
+        drivers_count: 0,
       }
 
   const locationCount =

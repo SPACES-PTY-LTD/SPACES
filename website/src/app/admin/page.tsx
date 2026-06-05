@@ -30,6 +30,7 @@ export default async function AdminDashboardPage() {
     total_members: 0,
     vehicles_count: 0,
     locations_count: 0,
+    drivers_count: 0,
   }
 
   const response = await getDashboardStats(session.accessToken, {
@@ -91,6 +92,11 @@ export default async function AdminDashboardPage() {
       href: withAdminQuery(AdminLinks.vehicles, { status: "active" }),
     },
     {
+      label: "Total drivers",
+      value: formatter.format(stats.drivers_count),
+      href: AdminLinks.drivers,
+    },
+    {
       label: "Locations",
       value: formatter.format(stats.locations_count),
       href: AdminLinks.locations,
@@ -114,7 +120,7 @@ export default async function AdminDashboardPage() {
         description="Live performance across merchants, carriers, and shipments."
       />
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {kpis.map((kpi) => (
           <Link key={kpi.label} href={kpi.href} className="group">
             <Card className="gap-0 py-3 transition-shadow group-hover:shadow-md">

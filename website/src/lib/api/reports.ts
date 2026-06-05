@@ -18,6 +18,7 @@ export type DashboardStats = {
   total_members: number
   vehicles_count: number
   locations_count: number
+  drivers_count: number
 }
 
 export type FleetStatusReport = {

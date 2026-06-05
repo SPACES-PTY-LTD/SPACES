@@ -23,6 +23,28 @@ Add new entries at the top (newest first).
 ## 2026-06-05 | Version: unreleased
 
 ### Summary
+- Added a total drivers KPI to the admin dashboard.
+
+### API Changes
+- Extended `GET /api/v1/reports/dashboard_stats` to include `drivers_count`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin` now shows a `Total drivers` KPI card linked to `/admin/logistics/drivers`.
+- Dashboard driver counts respect the selected merchant, report access scope, and legacy carrier-linked drivers.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Http/Controllers/Api/V1/ReportController.php`
+- `npm run lint -- src/app/admin/page.tsx src/app/admin/logistics/analytics/page.tsx src/lib/api/reports.ts`
+
+## 2026-06-05 | Version: unreleased
+
+### Summary
 - Added a locations count KPI to the admin dashboard.
 
 ### API Changes
