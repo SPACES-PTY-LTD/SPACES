@@ -9,7 +9,10 @@ use App\Models\TrackingProvider;
 use App\Models\User;
 use App\Services\Mixtelematics\MixIntegrateService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Mockery;
 use Tests\TestCase;
 
 class PowerfleetOrganisationToolsTest extends TestCase
@@ -96,6 +99,44 @@ class PowerfleetOrganisationToolsTest extends TestCase
             ->getJson("/api/v1/tracking-providers/{$provider->uuid}/powerfleet/organisations?merchant_id={$merchant->uuid}")
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'VALIDATION_ERROR');
+    }
+
+    public function test_powerfleet_organisation_failures_show_empty_provider_message_response_body(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedPowerfleetProvider();
+        $body = '{"Message":{}}';
+
+        config([
+            'services.mix.identity_url' => 'https://identity.example.test',
+            'services.mix.rest_base_url' => 'https://api.example.test',
+            'services.mix.client_id' => 'client-id',
+            'services.mix.client_secret' => 'client-secret',
+            'services.mix.username' => 'username',
+            'services.mix.password' => 'password',
+        ]);
+
+        Http::fake([
+            'https://identity.example.test/connect/token' => Http::response([
+                'access_token' => 'access-token',
+                'token_type' => 'Bearer',
+                'expires_in' => 3600,
+            ]),
+            'https://api.example.test/api/organisationgroups' => Http::response($body, 500),
+        ]);
+        Log::spy();
+
+        $this->apiFor($user)
+            ->getJson("/api/v1/tracking-providers/{$provider->uuid}/powerfleet/organisations?merchant_id={$merchant->uuid}")
+            ->assertStatus(400)
+            ->assertJsonPath('error.code', 'TRACKING_PROVIDER_POWERFLEET_ORGANISATIONS_FAILED')
+            ->assertJsonPath('error.message', $body);
+
+        Log::shouldHaveReceived('error')
+            ->with('List Powerfleet organisations failed', Mockery::on(function (array $context) use ($body): bool {
+                return ($context['error'] ?? null) === $body
+                    && ($context['response_status'] ?? null) === 500
+                    && ($context['response_body'] ?? null) === $body;
+            }));
     }
 
     public function test_powerfleet_organisations_reject_disabled_provider(): void

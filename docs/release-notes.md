@@ -25,6 +25,7 @@ Add new entries at the top (newest first).
 ### Summary
 - Added exception details to the generic vehicle location tracking failure activity log.
 - Added a provider response-body fallback for empty tracking exception messages.
+- Added provider response-body logging for Powerfleet organisation lookup failures.
 
 ### API Changes
 - None.
@@ -36,13 +37,17 @@ Add new entries at the top (newest first).
 - Vehicle location tracking jobs now include `exception_message` on the final `failed` activity log entry when an exception aborts the job.
 - HTTP provider failures on that same entry also include response status, headers, and body metadata.
 - HTTP provider failures with empty provider `Message` payloads now show the raw response body in `exception_message`.
+- Powerfleet organisation, subgroup, and organisation detail failures now log and return the raw HTTP response body when the provider sends an empty `Message` payload.
 
 ### Breaking Changes
 - None.
 
 ### Verification
+- `php -l app/Http/Controllers/Api/V1/MerchantIntegrationController.php`
 - `php -l app/Jobs/TrackVehicleLocationsJob.php`
+- `php -l tests/Feature/PowerfleetOrganisationToolsTest.php`
 - `php -l tests/Feature/TrackVehicleLocationsJobTest.php`
+- `php artisan test tests/Feature/PowerfleetOrganisationToolsTest.php --filter=powerfleet_organisation_failures_show_empty_provider_message_response_body`
 - `php artisan test tests/Feature/TrackVehicleLocationsJobTest.php --filter=logs_full_http_response_body_when_tracking_provider_request_fails`
 - `php artisan test tests/Feature/TrackVehicleLocationsJobTest.php --filter=uses_response_body_as_exception_message_when_provider_message_is_empty`
 

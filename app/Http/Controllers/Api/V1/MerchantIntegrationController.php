@@ -21,6 +21,7 @@ use App\Http\Resources\TrackingProviderVehicleResource;
 use App\Services\MerchantIntegrationService;
 use App\Services\TrackingProviderService;
 use App\Support\ApiResponse;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -280,12 +281,14 @@ class MerchantIntegrationController extends Controller
 
             return ApiResponse::success($organisations);
         } catch (Throwable $e) {
-            Log::error('List Powerfleet organisations failed', [
-                'request_id' => ApiResponse::requestId(),
-                'error' => $e->getMessage(),
-            ]);
+            $errorMessage = $this->externalHttpExceptionMessage($e);
 
-            return $this->apiError($e, 'TRACKING_PROVIDER_POWERFLEET_ORGANISATIONS_FAILED', $e->getMessage());
+            Log::error('List Powerfleet organisations failed', array_merge([
+                'request_id' => ApiResponse::requestId(),
+                'error' => $errorMessage,
+            ], $this->externalHttpExceptionContext($e)));
+
+            return $this->apiError($e, 'TRACKING_PROVIDER_POWERFLEET_ORGANISATIONS_FAILED', $errorMessage);
         }
     }
 
@@ -305,12 +308,14 @@ class MerchantIntegrationController extends Controller
 
             return ApiResponse::success($subgroups);
         } catch (Throwable $e) {
-            Log::error('List Powerfleet subgroups failed', [
-                'request_id' => ApiResponse::requestId(),
-                'error' => $e->getMessage(),
-            ]);
+            $errorMessage = $this->externalHttpExceptionMessage($e);
 
-            return $this->apiError($e, 'TRACKING_PROVIDER_POWERFLEET_SUBGROUPS_FAILED', $e->getMessage());
+            Log::error('List Powerfleet subgroups failed', array_merge([
+                'request_id' => ApiResponse::requestId(),
+                'error' => $errorMessage,
+            ], $this->externalHttpExceptionContext($e)));
+
+            return $this->apiError($e, 'TRACKING_PROVIDER_POWERFLEET_SUBGROUPS_FAILED', $errorMessage);
         }
     }
 
@@ -330,12 +335,56 @@ class MerchantIntegrationController extends Controller
 
             return ApiResponse::success($details);
         } catch (Throwable $e) {
-            Log::error('Show Powerfleet organisation details failed', [
-                'request_id' => ApiResponse::requestId(),
-                'error' => $e->getMessage(),
-            ]);
+            $errorMessage = $this->externalHttpExceptionMessage($e);
 
-            return $this->apiError($e, 'TRACKING_PROVIDER_POWERFLEET_ORGANISATION_DETAILS_FAILED', $e->getMessage());
+            Log::error('Show Powerfleet organisation details failed', array_merge([
+                'request_id' => ApiResponse::requestId(),
+                'error' => $errorMessage,
+            ], $this->externalHttpExceptionContext($e)));
+
+            return $this->apiError($e, 'TRACKING_PROVIDER_POWERFLEET_ORGANISATION_DETAILS_FAILED', $errorMessage);
         }
+    }
+
+    private function externalHttpExceptionMessage(Throwable $exception): string
+    {
+        $message = trim($exception->getMessage());
+
+        if ($exception instanceof RequestException) {
+            $body = trim($exception->response->body());
+
+            if ($body !== '' && ($message === '' || $this->hasEmptyProviderMessage($body))) {
+                return $body;
+            }
+        }
+
+        return $message !== '' ? $message : $exception::class;
+    }
+
+    private function externalHttpExceptionContext(Throwable $exception): array
+    {
+        if (!$exception instanceof RequestException) {
+            return [];
+        }
+
+        return [
+            'response_status' => $exception->response->status(),
+            'response_body' => $exception->response->body(),
+        ];
+    }
+
+    private function hasEmptyProviderMessage(string $body): bool
+    {
+        $decoded = json_decode($body, true);
+
+        if (!is_array($decoded) || !array_key_exists('Message', $decoded)) {
+            return false;
+        }
+
+        $message = $decoded['Message'];
+
+        return $message === null
+            || $message === ''
+            || $message === [];
     }
 }
