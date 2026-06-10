@@ -292,6 +292,48 @@ class TrackVehicleLocationsJobTest extends TestCase
         $this->assertSame(FakeHttpFailureProviderService::$body, $failedActivity->metadata['exception_response_body'] ?? null);
     }
 
+    public function test_it_uses_response_body_as_exception_message_when_provider_message_is_empty(): void
+    {
+        FakeHttpFailureProviderService::reset();
+        FakeHttpFailureProviderService::$status = 500;
+        FakeHttpFailureProviderService::$body = '{"Message":{}}';
+        Http::fake([
+            'https://provider.example.test/latest-positions' => Http::response(
+                FakeHttpFailureProviderService::$body,
+                FakeHttpFailureProviderService::$status
+            ),
+        ]);
+
+        [$merchant, $integration, $vehicle] = $this->createTrackingContext(
+            providerName: 'Fake HTTP Failure Provider',
+            serviceClass: FakeHttpFailureProviderService::class,
+        );
+
+        try {
+            $this->runTrackingJob($integration, $vehicle);
+            $this->fail('Expected the tracking job to rethrow the provider HTTP exception.');
+        } catch (RequestException $exception) {
+            $this->assertSame(500, $exception->response->status());
+        }
+
+        $activity = ActivityLog::query()
+            ->where('action', 'vehicle_location_tracking_failed')
+            ->latest('id')
+            ->first();
+
+        $failedActivity = ActivityLog::query()
+            ->where('action', 'failed')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($activity);
+        $this->assertNotNull($failedActivity);
+        $this->assertSame($merchant->id, $activity->merchant_id);
+        $this->assertSame(FakeHttpFailureProviderService::$body, $activity->metadata['exception_message'] ?? null);
+        $this->assertSame(FakeHttpFailureProviderService::$body, $failedActivity->metadata['exception_message'] ?? null);
+        $this->assertSame(FakeHttpFailureProviderService::$body, $failedActivity->metadata['exception_response_body'] ?? null);
+    }
+
     private function createTrackingContext(
         string $providerName,
         string $serviceClass,

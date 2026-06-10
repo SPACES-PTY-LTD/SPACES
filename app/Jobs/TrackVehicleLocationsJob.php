@@ -168,6 +168,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
         } catch (\Throwable $exception) {
             $result = 'failed';
             $exitReason = 'exception';
+            $exceptionMessage = $this->exceptionMessageForMetadata($exception);
             $metadata = [
                 'merchant_integration_id' => $this->merchantIntegrationId,
                 'provider_id' => $provider?->id,
@@ -179,11 +180,11 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 'vehicles_inside_geofence' => $vehiclesInsideGeofence,
                 'result' => $result,
                 'reason' => $exitReason,
-                'exception_message' => $exception->getMessage(),
+                'exception_message' => $exceptionMessage,
                 'exception_trace' => $exception->getTraceAsString(),
             ];
             $failureMetadata = array_merge([
-                'exception_message' => $exception->getMessage(),
+                'exception_message' => $exceptionMessage,
             ], $this->httpExceptionMetadata($exception));
 
             $activityLogService->log(
@@ -224,6 +225,40 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 );
             }
         }
+    }
+
+    private function exceptionMessageForMetadata(\Throwable $exception): string
+    {
+        $message = trim($exception->getMessage());
+
+        if ($exception instanceof RequestException) {
+            $body = trim($exception->response->body());
+
+            if ($body !== '' && ($message === '' || $this->hasEmptyProviderMessage($body))) {
+                return $body;
+            }
+
+            if ($message === '') {
+                return $body;
+            }
+        }
+
+        return $message !== '' ? $message : $exception::class;
+    }
+
+    private function hasEmptyProviderMessage(string $body): bool
+    {
+        $decoded = json_decode($body, true);
+
+        if (!is_array($decoded) || !array_key_exists('Message', $decoded)) {
+            return false;
+        }
+
+        $message = $decoded['Message'];
+
+        return $message === null
+            || $message === ''
+            || $message === [];
     }
 
     private function resolveProviderService(TrackingProvider $provider): ?object

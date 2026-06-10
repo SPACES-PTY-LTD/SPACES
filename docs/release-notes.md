@@ -24,6 +24,7 @@ Add new entries at the top (newest first).
 
 ### Summary
 - Added exception details to the generic vehicle location tracking failure activity log.
+- Added a provider response-body fallback for empty tracking exception messages.
 
 ### API Changes
 - None.
@@ -34,6 +35,7 @@ Add new entries at the top (newest first).
 ### Behavior Changes
 - Vehicle location tracking jobs now include `exception_message` on the final `failed` activity log entry when an exception aborts the job.
 - HTTP provider failures on that same entry also include response status, headers, and body metadata.
+- HTTP provider failures with empty provider `Message` payloads now show the raw response body in `exception_message`.
 
 ### Breaking Changes
 - None.
@@ -42,6 +44,7 @@ Add new entries at the top (newest first).
 - `php -l app/Jobs/TrackVehicleLocationsJob.php`
 - `php -l tests/Feature/TrackVehicleLocationsJobTest.php`
 - `php artisan test tests/Feature/TrackVehicleLocationsJobTest.php --filter=logs_full_http_response_body_when_tracking_provider_request_fails`
+- `php artisan test tests/Feature/TrackVehicleLocationsJobTest.php --filter=uses_response_body_as_exception_message_when_provider_message_is_empty`
 
 ## 2026-06-05 | Version: unreleased
 
