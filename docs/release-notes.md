@@ -23,29 +23,6 @@ Add new entries at the top (newest first).
 ## 2026-06-10 | Version: unreleased
 
 ### Summary
-- Corrected the MiX/Powerfleet latest-position request payload shape.
-
-### API Changes
-- None.
-
-### Database Changes
-- None.
-
-### Behavior Changes
-- Vehicle location polling now sends latest-position requests as `{ "assetIds": [...] }`, matching the checked-in MiX request fixture.
-- The MiX latest-position request still retries with `{ "AssetIds": [...] }` when the provider reports that the asset ID list was not supplied.
-
-### Breaking Changes
-- None.
-
-### Verification
-- `php -l app/Services/Mixtelematics/MixIntegrateService.php`
-- `php -l tests/Unit/MixIntegrateServiceTest.php`
-- `php artisan test tests/Unit/MixIntegrateServiceTest.php --filter=get_vehicle_positions`
-
-## 2026-06-10 | Version: unreleased
-
-### Summary
 - Added exception details to the generic vehicle location tracking failure activity log.
 
 ### API Changes
