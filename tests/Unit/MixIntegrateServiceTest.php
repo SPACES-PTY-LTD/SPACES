@@ -241,8 +241,46 @@ class MixIntegrateServiceTest extends TestCase
         $this->assertCount(1, $positions);
         $this->assertSame('123_456', $positions[0]['vehicle_integration_id']);
         $this->assertSame(-33.92, $positions[0]['latitude']);
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.example.test/api/positions/assets/latest/1'
+            && $request->data() === ['assetIds' => [123456]]);
         Http::assertSentCount(5);
         CarbonImmutable::setTestNow();
+    }
+
+    public function test_get_vehicle_positions_falls_back_to_pascal_asset_ids_payload_when_required(): void
+    {
+        $this->configureMixHttp();
+
+        Http::fake([
+            'https://identity.example.test/connect/token' => Http::response([
+                'access_token' => $this->buildJwt([
+                    'sub' => 'mix-user',
+                    'iat' => 1775728800,
+                    'exp' => 1775732400,
+                ]),
+                'token_type' => 'Bearer',
+                'expires_in' => 3600,
+            ]),
+            'https://api.example.test/api/positions/assets/latest/1' => Http::sequence()
+                ->push(['Message' => 'AssetIds list not supplied'], 400)
+                ->push([[
+                    'AssetId' => 123456,
+                    'Timestamp' => '2026-04-09T10:05:00Z',
+                    'Latitude' => -33.92,
+                    'Longitude' => 18.42,
+                ]], 200),
+        ]);
+
+        $service = new MixIntegrateService();
+        $positions = $service->getVehiclePositions(['123_456']);
+
+        $this->assertCount(1, $positions);
+        $this->assertSame('123_456', $positions[0]['vehicle_integration_id']);
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.example.test/api/positions/assets/latest/1'
+            && $request->data() === ['assetIds' => [123456]]);
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.example.test/api/positions/assets/latest/1'
+            && $request->data() === ['AssetIds' => [123456]]);
+        Http::assertSentCount(3);
     }
 
     public function test_get_bearer_token_refreshes_when_cached_token_is_within_expiry_buffer(): void

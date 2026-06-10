@@ -91,20 +91,30 @@ class MixIntegrateService
             ->timeout(20);
 
         $requestPath = '/api/positions/assets/latest/1';
-        $payload = $assetIds;
+        $payload = ['assetIds' => $assetIds];
 
         $response = $client->post($requestPath, $payload);
 
         // Some environments bind this endpoint to { "AssetIds": [...] }.
-        if (
-            $response->status() === 400
-            && str_contains($response->body(), 'AssetIds list not supplied')
-        ) {
+        if ($this->isLatestPositionsPayloadContractFailure($response)) {
             $payload = ['AssetIds' => $assetIds];
             $response = $client->post($requestPath, $payload);
         }
 
         return [$response, $payload];
+    }
+
+    private function isLatestPositionsPayloadContractFailure($response): bool
+    {
+        if (!in_array($response->status(), [400, 422], true)) {
+            return false;
+        }
+
+        $body = $response->body();
+
+        return str_contains($body, 'AssetIds list not supplied')
+            || str_contains($body, 'assetIds')
+            || str_contains($body, 'AssetIds');
     }
 
     public function import_vehicles(array $integrationData = [], array $integrationOptionsData = []): array
