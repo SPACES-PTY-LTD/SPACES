@@ -276,6 +276,20 @@ class TrackVehicleLocationsJobTest extends TestCase
             ['provider-request-123'],
             $activity->metadata['exception_response_headers']['X-Provider-Request-Id'] ?? null
         );
+
+        $failedActivity = ActivityLog::query()
+            ->where('action', 'failed')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($failedActivity);
+        $this->assertSame($merchant->id, $failedActivity->merchant_id);
+        $this->assertStringContainsString(
+            'HTTP request returned status code 401',
+            $failedActivity->metadata['exception_message'] ?? ''
+        );
+        $this->assertSame(401, $failedActivity->metadata['exception_response_status'] ?? null);
+        $this->assertSame(FakeHttpFailureProviderService::$body, $failedActivity->metadata['exception_response_body'] ?? null);
     }
 
     private function createTrackingContext(

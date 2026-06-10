@@ -20,6 +20,29 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-06-10 | Version: unreleased
+
+### Summary
+- Added exception details to the generic vehicle location tracking failure activity log.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Vehicle location tracking jobs now include `exception_message` on the final `failed` activity log entry when an exception aborts the job.
+- HTTP provider failures on that same entry also include response status, headers, and body metadata.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Jobs/TrackVehicleLocationsJob.php`
+- `php -l tests/Feature/TrackVehicleLocationsJobTest.php`
+- `php artisan test tests/Feature/TrackVehicleLocationsJobTest.php --filter=logs_full_http_response_body_when_tracking_provider_request_fails`
+
 ## 2026-06-05 | Version: unreleased
 
 ### Summary

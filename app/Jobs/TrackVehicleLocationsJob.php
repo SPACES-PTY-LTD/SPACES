@@ -50,6 +50,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
         $updatedVehicles = 0;
         $vehiclesChecked = 0;
         $vehiclesInsideGeofence = 0;
+        $failureMetadata = [];
 
         try {
             $integration = MerchantIntegration::with(['provider', 'merchant'])->find($this->merchantIntegrationId);
@@ -181,6 +182,9 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 'exception_message' => $exception->getMessage(),
                 'exception_trace' => $exception->getTraceAsString(),
             ];
+            $failureMetadata = array_merge([
+                'exception_message' => $exception->getMessage(),
+            ], $this->httpExceptionMetadata($exception));
 
             $activityLogService->log(
                 action: 'vehicle_location_tracking_failed',
@@ -205,7 +209,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
                     title: $result === 'completed'
                         ? 'Vehicle location tracking job completed'
                         : 'Vehicle location tracking job failed',
-                    metadata: [
+                    metadata: array_merge([
                         'merchant_integration_id' => $this->merchantIntegrationId,
                         'provider_id' => $provider?->id,
                         'vehicle_ids_requested' => $this->vehicleIds,
@@ -216,7 +220,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
                         'vehicles_inside_geofence' => $vehiclesInsideGeofence,
                         'result' => $result,
                         'reason' => $exitReason,
-                    ]
+                    ], $failureMetadata)
                 );
             }
         }
