@@ -503,14 +503,14 @@ class MixIntegrateService
                 }
             }
 
-            if($shapeWkt){
-                Log::info('Location with geofence found.', [
-                    'locationId' => $locationId,
-                    'shapeWkt' => $shapeWkt,
-                    'latitude' => $latitude,
-                    'longitude' => $longitude,
-                ]);
-            }
+            // if($shapeWkt){
+            //     Log::info('Location with geofence found.', [
+            //         'locationId' => $locationId,
+            //         'shapeWkt' => $shapeWkt,
+            //         'latitude' => $latitude,
+            //         'longitude' => $longitude,
+            //     ]);
+            // }
 
             
             $locations[] = [
