@@ -2,6 +2,7 @@ import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import { DataTable } from "@/components/common/data-table"
 import { PageHeader } from "@/components/layout/page-header"
 import { isApiErrorResponse } from "@/lib/api/client"
+import { listLocationTypes } from "@/lib/api/location-types"
 import { listVehicleActivities } from "@/lib/api/vehicle-activities"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { normalizeTableMeta } from "@/lib/table"
@@ -50,6 +51,7 @@ export default async function VehicleActivitiesPage({ searchParams }: VehicleAct
   const merchantIdParam = getSingleValue(params.merchant_id)
   const vehicleId = getSingleValue(params.vehicle_id)
   const locationId = getSingleValue(params.location_id)
+  const locationTypeId = getSingleValue(params.location_type_id)
   const plateNumber = getSingleValue(params.plate_number)
   const eventType = getSingleValue(params.event_type)
   const from = getSingleValue(params.from)
@@ -64,6 +66,19 @@ export default async function VehicleActivitiesPage({ searchParams }: VehicleAct
     session.user.role === "super_admin"
       ? normalizeText(merchantIdParam)
       : scopedMerchantId
+  const locationTypesResponse = merchantId
+    ? await listLocationTypes(session.accessToken, { merchant_id: merchantId })
+    : null
+  const locationTypes =
+    locationTypesResponse && !isApiErrorResponse(locationTypesResponse)
+      ? locationTypesResponse.data ?? []
+      : []
+  const locationTypeFilterOptions = locationTypes
+    .filter((type) => Boolean(type.location_type_id))
+    .map((type) => ({
+      label: type.title || type.slug || type.location_type_id || "",
+      value: type.location_type_id || "",
+    }))
 
   const response = canLoad
     ? await listVehicleActivities(session.accessToken, {
@@ -72,6 +87,7 @@ export default async function VehicleActivitiesPage({ searchParams }: VehicleAct
         merchant_id: merchantId,
         vehicle_id: normalizeText(vehicleId),
         location_id: normalizeText(locationId),
+        location_type_id: normalizeText(locationTypeId),
         plate_number: normalizeText(plateNumber),
         event_type: normalizeText(eventType),
         from: normalizeText(from),
@@ -95,18 +111,18 @@ export default async function VehicleActivitiesPage({ searchParams }: VehicleAct
     ...item,
     activity_href: item.activity_id ? AdminRoute.vehicleActivityDetails(item.activity_id) : "",
     event_type_display: item.event_type ? formatEventType(item.event_type) : "-",
-    merchant_name_display: item.merchant?.name ?? item.merchant_id ?? "-",
     vehicle_display: item.vehicle?.plate_number ?? item.vehicle?.ref_code ?? item.vehicle_id ?? "-",
     driver_display: item.driver?.name ?? item.driver?.email ?? item.driver?.driver_id ?? "-",
-    location_display: item.location?.name ?? item.location?.code ?? item.location_id ?? "-",
+    location_display: item.location?.name ?? item.location?.code ?? item.location?.location_id ?? "-",
+    location_type_display:
+      item.location?.type?.title ?? item.location?.type?.slug ?? "-",
     shipment_display:
       item.shipment?.merchant_order_ref ?? item.shipment?.shipment_id ?? "-",
     coordinates_display: formatCoordinates(item.latitude, item.longitude),
     speed_display: formatSpeed(item.speed_kph, item.speed_limit_kph),
-    merchant_href: item.merchant_id ? AdminRoute.merchantDetails(item.merchant_id) : "",
     vehicle_href: item.vehicle?.vehicle_id ? AdminRoute.vehicleDetails(item.vehicle.vehicle_id) : "",
     driver_href: item.driver?.driver_id ? AdminRoute.driverDetails(item.driver.driver_id) : "",
-    location_href: item.location_id ? AdminRoute.locationDetails(item.location_id) : "",
+    location_href: item.location?.location_id ? AdminRoute.locationDetails(item.location.location_id) : "",
     shipment_href: item.shipment?.shipment_id
       ? AdminRoute.shipmentDetails(item.shipment.shipment_id)
       : "",
@@ -135,9 +151,7 @@ export default async function VehicleActivitiesPage({ searchParams }: VehicleAct
         meta={tableMeta}
         loading_error={loadingError}
         searchKeys={[
-          "activity_id",
           "event_type_display",
-          "merchant_name_display",
           "vehicle_display",
           "location_display",
           "run_id",
@@ -170,6 +184,18 @@ export default async function VehicleActivitiesPage({ searchParams }: VehicleAct
             value: locationId,
             url_param_name: "location_id",
             placeholder: "Location ID",
+          },
+          {
+            key: "location_type_id",
+            label: "Location type",
+            type: locationTypeFilterOptions.length > 0 ? "select" : "text",
+            value: locationTypeId,
+            url_param_name: "location_type_id",
+            placeholder:
+              locationTypeFilterOptions.length > 0
+                ? "Location type"
+                : "Location type ID",
+            options: locationTypeFilterOptions,
           },
           {
             key: "plate_number",
@@ -221,13 +247,12 @@ export default async function VehicleActivitiesPage({ searchParams }: VehicleAct
           },
         ]}
         columns={[
-          { key: "activity_id", label: "Activity ID", link: "activity_href" },
           { key: "occurred_at", label: "Occurred", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "activity_href" },
           { key: "event_type_display", label: "Event", link: "activity_href" },
-          { key: "merchant_name_display", label: "Merchant", link: "merchant_href" },
           { key: "vehicle_display", label: "Vehicle", link: "vehicle_href" },
           { key: "driver_display", label: "Driver", link: "driver_href" },
           { key: "location_display", label: "Location", link: "location_href" },
+          { key: "location_type_display", label: "Location type", link: "location_href" },
           { key: "shipment_display", label: "Shipment", link: "shipment_href" },
           { key: "coordinates_display", label: "Coordinates", link: "activity_href" },
           { key: "speed_display", label: "Speed / Limit", link: "activity_href" },

@@ -7,6 +7,7 @@ export type ListVehicleActivitiesParams = {
   merchant_id?: string
   vehicle_id?: string
   location_id?: string
+  location_type_id?: string
   plate_number?: string
   event_type?: string
   from?: string
@@ -27,6 +28,7 @@ export async function listVehicleActivities(
       merchant_id: params.merchant_id,
       vehicle_id: params.vehicle_id,
       location_id: params.location_id,
+      location_type_id: params.location_type_id,
       plate_number: params.plate_number,
       event_type: params.event_type,
       from: params.from,

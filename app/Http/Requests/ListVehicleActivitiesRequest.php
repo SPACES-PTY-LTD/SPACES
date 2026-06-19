@@ -18,6 +18,7 @@ class ListVehicleActivitiesRequest extends BaseRequest
             'vehicle_id' => ['nullable', 'uuid', 'exists:vehicles,uuid'],
             'plate_number' => ['nullable', 'string', 'max:255'],
             'location_id' => ['nullable', 'uuid', 'exists:locations,uuid'],
+            'location_type_id' => ['nullable', 'uuid', 'exists:location_types,uuid'],
             'shipment_id' => ['nullable', 'uuid', 'exists:shipments,uuid'],
             'event_type' => ['nullable', 'string', 'in:' . implode(',', [
                 VehicleActivity::EVENT_SPEEDING,

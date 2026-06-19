@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Location;
+use App\Models\LocationType;
 use App\Models\Merchant;
 use App\Models\Shipment;
 use App\Models\User;
@@ -19,7 +20,7 @@ class VehicleActivityService
     public function listActivities(User $user, array $filters): LengthAwarePaginator
     {
         $query = $this->scopedQuery($user)
-            ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment'])
+            ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment'])
             ->orderByDesc('occurred_at')
             ->orderByDesc('id');
 
@@ -42,6 +43,13 @@ class VehicleActivityService
         if (!empty($filters['location_id'])) {
             $locationId = Location::query()->where('uuid', $filters['location_id'])->value('id');
             $query->where('location_id', $locationId ?? 0);
+        }
+
+        if (!empty($filters['location_type_id'])) {
+            $locationTypeId = LocationType::query()->where('uuid', $filters['location_type_id'])->value('id');
+            $query->whereHas('location', function (Builder $builder) use ($locationTypeId) {
+                $builder->where('location_type_id', $locationTypeId ?? 0);
+            });
         }
 
         if (!empty($filters['shipment_id'])) {
@@ -123,7 +131,7 @@ class VehicleActivityService
     public function getActivity(User $user, string $activityUuid): VehicleActivity
     {
         $activity = $this->scopedQuery($user)
-            ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment'])
+            ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment'])
             ->where('uuid', $activityUuid)
             ->first();
 
