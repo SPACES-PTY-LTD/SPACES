@@ -23,17 +23,21 @@ Add new entries at the top (newest first).
 ## 2026-06-19 | Version: unreleased
 
 ### Summary
+- Added run-ended shipment stops when an in-progress run is completed manually.
 - Added location type visibility and filtering to the admin vehicle activities table.
 - Fixed vehicle activity location links to open the linked location record.
 - Removed the Activity ID and Merchant columns from the admin vehicle activities table.
 
 ### API Changes
+- Existing `GET /api/v1/shipments/{shipment_id}` and `GET /api/v1/runs/{run_id}` responses may now include a `run_ended` vehicle activity stop after manual run completion.
 - Extended `GET /api/v1/vehicle-activities` with an optional `location_type_id` query filter.
 
 ### Database Changes
 - None.
 
 ### Behavior Changes
+- Completing a run with a vehicle now records one `run_ended` vehicle activity per active run shipment so shipment timelines show the final run stop.
+- Completing a run without a vehicle still succeeds and skips run-ended activity creation because vehicle activity rows require a vehicle.
 - `/admin/logistics/vehicles/activities` now shows each activity location's type when available.
 - `/admin/logistics/vehicles/activities` no longer shows Activity ID or Merchant columns.
 - Admins can filter vehicle activities by location type; merchant-scoped views use location type dropdown options, while views without a selected merchant can filter by location type ID.
@@ -43,6 +47,9 @@ Add new entries at the top (newest first).
 - None.
 
 ### Verification
+- `php -l app/Services/RunService.php`
+- `php -l tests/Feature/RunApiTest.php`
+- `php artisan test tests/Feature/RunApiTest.php --filter=run`
 - `php -l app/Http/Requests/ListVehicleActivitiesRequest.php`
 - `php -l app/Services/VehicleActivityService.php`
 - `npm run lint -- src/app/admin/logistics/vehicles/activities/page.tsx src/lib/api/vehicle-activities.ts`

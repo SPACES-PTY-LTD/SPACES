@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Events\VehicleActivityCreated;
 use App\Models\Driver;
 use App\Models\DeliveryRoute;
+use App\Models\Location;
 use App\Models\Merchant;
 use App\Models\MerchantEnvironment;
 use App\Models\Run;
@@ -11,7 +13,9 @@ use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\VehicleActivity;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -374,7 +378,7 @@ class RunService
 
         return DB::transaction(function () use ($run) {
             $runShipments = $run->runShipments()
-                ->with('shipment')
+                ->with('shipment.dropoffLocation')
                 ->where('status', '!=', RunShipment::STATUS_REMOVED)
                 ->get();
 
@@ -398,8 +402,82 @@ class RunService
             $run->completed_at = now();
             $run->save();
 
+            $this->recordRunEndedVehicleActivities($run, $runShipments);
+
             return $this->loadRun($run->fresh());
         });
+    }
+
+    /**
+     * @param EloquentCollection<int, RunShipment> $runShipments
+     */
+    private function recordRunEndedVehicleActivities(Run $run, EloquentCollection $runShipments): void
+    {
+        if (!$run->vehicle_id) {
+            return;
+        }
+
+        $run->loadMissing('merchant');
+
+        $location = $this->resolveRunEndedLocation($run, $runShipments);
+        $occurredAt = $run->completed_at ?? now();
+
+        foreach ($runShipments as $runShipment) {
+            if (!$runShipment->shipment_id) {
+                continue;
+            }
+
+            $activity = VehicleActivity::create([
+                'account_id' => $run->account_id ?? $run->merchant?->account_id,
+                'merchant_id' => $run->merchant_id,
+                'vehicle_id' => $run->vehicle_id,
+                'location_id' => $location?->id,
+                'run_id' => $run->id,
+                'shipment_id' => $runShipment->shipment_id,
+                'event_type' => VehicleActivity::EVENT_RUN_ENDED,
+                'occurred_at' => $occurredAt,
+                'latitude' => $location?->latitude,
+                'longitude' => $location?->longitude,
+                'metadata' => [
+                    'reason' => 'manual_run_completion',
+                    'run_id' => $run->uuid,
+                    'shipment_id' => $runShipment->shipment?->uuid,
+                    'run_shipment_status' => $runShipment->status,
+                ],
+            ]);
+
+            $activity->loadMissing(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment']);
+            event(new VehicleActivityCreated($activity));
+        }
+    }
+
+    /**
+     * @param EloquentCollection<int, RunShipment> $runShipments
+     */
+    private function resolveRunEndedLocation(Run $run, EloquentCollection $runShipments): ?Location
+    {
+        if ($run->destination_location_id) {
+            return Location::query()->find($run->destination_location_id);
+        }
+
+        $latestRunLocationStop = VehicleActivity::query()
+            ->where('run_id', $run->id)
+            ->whereNotNull('location_id')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($latestRunLocationStop?->location_id) {
+            return Location::query()->find($latestRunLocationStop->location_id);
+        }
+
+        $finalRunShipment = $runShipments
+            ->filter(fn (RunShipment $runShipment) => $runShipment->shipment?->dropoff_location_id)
+            ->sortBy(fn (RunShipment $runShipment) => $runShipment->dropoff_stop_order ?? $runShipment->sequence ?? $runShipment->id)
+            ->last();
+        $dropoffLocationId = $finalRunShipment?->shipment?->dropoff_location_id;
+
+        return $dropoffLocationId ? Location::query()->find($dropoffLocationId) : null;
     }
 
     private function resolveMerchant(array $data, ?MerchantEnvironment $environment): Merchant
