@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Merchant;
 use App\Models\MerchantEnvironment;
+use App\Models\Location;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\VehicleType;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ShipmentService
 {
@@ -51,18 +53,22 @@ class ShipmentService
                 ];
             }
 
-            $pickupLocation = $this->locationService->storeFromAddress(
-                $data['pickup_address'],
-                $merchant,
-                $environment,
-                'pickup'
-            );
-            $dropoffLocation = $this->locationService->storeFromAddress(
-                $data['dropoff_address'],
-                $merchant,
-                $environment,
-                'dropoff'
-            );
+            $pickupLocation = !empty($data['pickup_location_id'])
+                ? $this->resolveMerchantLocation($merchant, $environment, $data['pickup_location_id'], 'pickup_location_id')
+                : $this->locationService->storeFromAddress(
+                    $data['pickup_address'],
+                    $merchant,
+                    $environment,
+                    'pickup'
+                );
+            $dropoffLocation = !empty($data['dropoff_location_id'])
+                ? $this->resolveMerchantLocation($merchant, $environment, $data['dropoff_location_id'], 'dropoff_location_id')
+                : $this->locationService->storeFromAddress(
+                    $data['dropoff_address'],
+                    $merchant,
+                    $environment,
+                    'dropoff'
+                );
 
             $shipment = Shipment::create([
                 'account_id' => $merchant->account_id,
@@ -346,7 +352,15 @@ class ShipmentService
                 $shipment->invoiced_at = $this->resolveInvoicedAtForUpdate($data, $beforeInvoiceNumber, $shipment->invoice_number, $shipment->invoiced_at);
             }
 
-            if (!empty($data['pickup_address'])) {
+            if (!empty($data['pickup_location_id'])) {
+                $pickupLocation = $this->resolveMerchantLocation(
+                    $shipment->merchant,
+                    $shipment->environment,
+                    $data['pickup_location_id'],
+                    'pickup_location_id'
+                );
+                $shipment->pickup_location_id = $pickupLocation->id;
+            } elseif (!empty($data['pickup_address'])) {
                 $pickupLocation = $this->locationService->storeFromAddress(
                     $data['pickup_address'],
                     $shipment->merchant,
@@ -356,7 +370,15 @@ class ShipmentService
                 $shipment->pickup_location_id = $pickupLocation->id;
             }
 
-            if (!empty($data['dropoff_address'])) {
+            if (!empty($data['dropoff_location_id'])) {
+                $dropoffLocation = $this->resolveMerchantLocation(
+                    $shipment->merchant,
+                    $shipment->environment,
+                    $data['dropoff_location_id'],
+                    'dropoff_location_id'
+                );
+                $shipment->dropoff_location_id = $dropoffLocation->id;
+            } elseif (!empty($data['dropoff_address'])) {
                 $dropoffLocation = $this->locationService->storeFromAddress(
                     $data['dropoff_address'],
                     $shipment->merchant,
@@ -374,6 +396,34 @@ class ShipmentService
 
             return $shipment;
         });
+    }
+
+    private function resolveMerchantLocation(
+        Merchant $merchant,
+        ?MerchantEnvironment $environment,
+        string $locationUuid,
+        string $field
+    ): Location {
+        $query = Location::query()
+            ->where('uuid', $locationUuid)
+            ->where('account_id', $merchant->account_id)
+            ->where('merchant_id', $merchant->id);
+
+        if ($environment) {
+            $query->where(function ($builder) use ($environment) {
+                $builder->whereNull('environment_id')
+                    ->orWhere('environment_id', $environment->id);
+            });
+        }
+
+        $location = $query->first();
+        if (!$location) {
+            throw ValidationException::withMessages([
+                $field => ['The selected location is not available for this merchant.'],
+            ]);
+        }
+
+        return $location;
     }
 
     public function updateDeliveryNoteNumber(Shipment $shipment, string $deliveryNoteNumber): Shipment

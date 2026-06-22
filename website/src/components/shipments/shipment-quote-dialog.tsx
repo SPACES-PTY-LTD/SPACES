@@ -4,22 +4,20 @@ import * as React from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  PlacesSuggestions,
-  type PlaceSelection,
-} from "@/components/locations/places-suggestions"
+import { LocationCombobox } from "@/components/locations/location-combobox"
 import { isApiErrorResponse } from "@/lib/api/client"
 import type { Location, ShipmentParcelInput } from "@/lib/types"
+import { Trash } from "lucide-react"
 
 const emptyParcel = (): ShipmentParcelInput => ({
   title: "",
@@ -78,12 +76,26 @@ export function ShipmentQuoteDialog({
   const [dropoffLocation, setDropoffLocation] = React.useState<Location | null>(
     null
   )
-  const [addressResetKey, setAddressResetKey] = React.useState(0)
   const [parcels, setParcels] = React.useState<ShipmentParcelInput[]>([
     emptyParcel(),
   ])
 
-  const resetForm = () => {
+  const toIsoDateTime = React.useCallback((value: string) => {
+    if (!value) return ""
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return ""
+    return parsed.toISOString()
+  }, [])
+
+  const toDateTimeLocal = React.useCallback((value: string) => {
+    if (!value) return ""
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return ""
+    const pad = (part: number) => String(part).padStart(2, "0")
+    return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
+  }, [])
+
+  const resetForm = React.useCallback(() => {
     setMerchantOrderRef(initialValues?.merchantOrderRef ?? "")
     setDeliveryNoteNumber(initialValues?.deliveryNoteNumber ?? "")
     setInvoiceInvoiceNumber(initialValues?.invoiceInvoiceNumber ?? "")
@@ -91,33 +103,14 @@ export function ShipmentQuoteDialog({
     setCollectionDate(initialValues?.collectionDate ? toDateTimeLocal(initialValues.collectionDate) : "")
     setPickupLocation(initialValues?.pickupLocation ?? null)
     setDropoffLocation(initialValues?.dropoffLocation ?? null)
-    setAddressResetKey((prev) => prev + 1)
     setParcels(initialValues?.parcels?.length ? initialValues.parcels : [emptyParcel()])
     setError(null)
-  }
+  }, [initialValues, toDateTimeLocal])
 
   React.useEffect(() => {
     if (!open) return
     resetForm()
-  }, [open])
-
-  const mapPlaceToLocation = React.useCallback(
-    (selection: PlaceSelection): Location => ({
-      location_id: "",
-      name: selection.name || selection.formattedAddress,
-      address_line_1: selection.addressLine1,
-      address_line_2: selection.addressLine2 || null,
-      town: selection.town || null,
-      city: selection.city || null,
-      country: selection.country || null,
-      province: selection.province || null,
-      post_code: selection.postCode || null,
-      latitude: selection.latitude ?? null,
-      longitude: selection.longitude ?? null,
-      google_place_id: selection.googlePlaceId || null,
-    }),
-    []
-  )
+  }, [open, resetForm])
 
   const updateParcel = (
     index: number,
@@ -151,21 +144,6 @@ export function ShipmentQuoteDialog({
     )
   }
 
-  const toIsoDateTime = React.useCallback((value: string) => {
-    if (!value) return ""
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return ""
-    return parsed.toISOString()
-  }, [])
-
-  const toDateTimeLocal = React.useCallback((value: string) => {
-    if (!value) return ""
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return ""
-    const pad = (part: number) => String(part).padStart(2, "0")
-    return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
-  }, [])
-
   const getMinDateTimeLocal = React.useCallback(() => {
     const now = new Date()
     const pad = (value: number) => String(value).padStart(2, "0")
@@ -184,7 +162,7 @@ export function ShipmentQuoteDialog({
       return
     }
     if (!pickupLocation || !dropoffLocation) {
-      setError("Add a pickup and dropoff address.")
+      setError("Select pickup and dropoff locations.")
       return
     }
     if (!collectionDate) {
@@ -244,18 +222,18 @@ export function ShipmentQuoteDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>
         {trigger ?? <Button disabled={!merchantId}>{triggerLabel}</Button>}
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+      </DrawerTrigger>
+      <DrawerContent side="right" className="lg:w-1/2">
+        <DrawerHeader className="pr-12">
+          <DrawerTitle>{title}</DrawerTitle>
           {description ? (
-            <DialogDescription>{description}</DialogDescription>
+            <DrawerDescription>{description}</DrawerDescription>
           ) : null}
-        </DialogHeader>
-        <div className="grid gap-4">
+        </DrawerHeader>
+        <div className="grid flex-1 gap-4 overflow-y-auto px-4 py-4">
           {includeOrderRef ? (
             <div className="grid gap-2">
               <Label>Merchant order reference</Label>
@@ -301,31 +279,31 @@ export function ShipmentQuoteDialog({
               onChange={(event) => setCollectionDate(event.target.value)}
             />
           </div>
-          <div className="grid gap-2">
-            <Label>Pickup address</Label>
-            <PlacesSuggestions
-              placeholder="Start typing pickup address"
-              resetKey={addressResetKey}
-              initialQuery={initialValues?.pickupLocation ? (initialValues.pickupLocation.full_address ?? initialValues.pickupLocation.address_line_1 ?? initialValues.pickupLocation.name ?? "") : ""}
-              onChange={(selection) =>
-                setPickupLocation(mapPlaceToLocation(selection))
-              }
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Dropoff address</Label>
-            <PlacesSuggestions
-              placeholder="Start typing dropoff address"
-              resetKey={addressResetKey}
-              initialQuery={initialValues?.dropoffLocation ? (initialValues.dropoffLocation.full_address ?? initialValues.dropoffLocation.address_line_1 ?? initialValues.dropoffLocation.name ?? "") : ""}
-              onChange={(selection) =>
-                setDropoffLocation(mapPlaceToLocation(selection))
-              }
-            />
+          <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>Pickup location</Label>
+              <LocationCombobox
+                merchantId={merchantId}
+                value={pickupLocation}
+                onChange={setPickupLocation}
+                placeholder="Select pickup location"
+                searchPlaceholder="Search pickup locations..."
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Dropoff location</Label>
+              <LocationCombobox
+                merchantId={merchantId}
+                value={dropoffLocation}
+                onChange={setDropoffLocation}
+                placeholder="Select dropoff location"
+                searchPlaceholder="Search dropoff locations..."
+              />
+            </div>
           </div>
           <div className="grid gap-3">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">Parcels</div>
+              <div className="text-md font-bold">Parcels</div>
               <Button type="button" variant="outline" size="sm" onClick={addParcel}>
                 Add parcel
               </Button>
@@ -341,10 +319,10 @@ export function ShipmentQuoteDialog({
                     onClick={() => removeParcel(index)}
                     disabled={parcels.length === 1}
                   >
-                    Remove
+                    <Trash className="size-4" />
                   </Button>
                 </div>
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   <div className="grid gap-2 md:col-span-2">
                     <Label>Title</Label>
                     <Input
@@ -409,7 +387,7 @@ export function ShipmentQuoteDialog({
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
         </div>
-        <DialogFooter>
+        <DrawerFooter>
           <Button
             type="button"
             variant="outline"
@@ -423,8 +401,8 @@ export function ShipmentQuoteDialog({
           <Button type="button" onClick={handleSubmit} disabled={loading}>
             {loading ? "Saving..." : (submitLabel ?? triggerLabel)}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }

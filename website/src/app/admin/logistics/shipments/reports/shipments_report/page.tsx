@@ -345,6 +345,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         columns={[
           { key: "date_created", label: "Date Created", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm", className: "w-[150px]" },
           { key: "collection_date", label: "Collection Date", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm" , className: "w-[150px]"},
+          { key: "shipment_status", label: "Shipment Status", type: "status" },
           { key: "shipment_number", label: "Shipment Number", link: "shipment_href" , className: "w-[250px]"},
           { key: "delivery_note_number", label: "Delivery Note", type: "delivery_note_number" },
           { key: "invoice_number", label: "Invoice Number", type: "invoice_number" },
@@ -359,7 +360,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           { key: "to_time_in", label: "To Time In", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "to_time_out", label: "To Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "to_total_time", label: "To Total Time", className: "w-[140px]" },
-          { key: "shipment_status", label: "Shipment Status", type: "status" },
+          
           { key: "delivered_volume", label: "Delivered Volume" },
         ]}
       />

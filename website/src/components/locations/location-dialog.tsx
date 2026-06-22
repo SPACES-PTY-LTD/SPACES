@@ -6,14 +6,14 @@ import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -82,7 +82,7 @@ export function LocationDialog({
   location?: Location
   merchantId?: string | null
   accessToken?: string
-  onSaved?: () => void
+  onSaved?: (location: Location) => void
   trigger?: React.ReactElement
 }) {
   const router = useRouter()
@@ -107,8 +107,8 @@ export function LocationDialog({
     phone: location?.phone ?? "",
     province: location?.province ?? "",
     postCode: location?.post_code ?? "",
-    latitude: String(location?.latitude) ?? "",
-    longitude: String(location?.longitude) ?? "",
+    latitude: String(location?.latitude ?? ""),
+    longitude: String(location?.longitude ?? ""),
     googlePlaceId: location?.google_place_id ?? "",
     polygonBounds: location?.polygon_bounds
       ? JSON.stringify(location.polygon_bounds)
@@ -260,6 +260,10 @@ export function LocationDialog({
           return
         }
         toast.success("Location updated.")
+        setOpen(false)
+        onSaved?.(result)
+        router.refresh()
+        return
       } else {
         const result = await createLocation(payload, accessToken)
         if (isApiErrorResponse(result)) {
@@ -267,11 +271,11 @@ export function LocationDialog({
           return
         }
         toast.success("Location created.")
+        setOpen(false)
+        onSaved?.(result)
+        router.refresh()
+        return
       }
-
-      setOpen(false)
-      onSaved?.()
-      router.refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save location.")
     } finally {
@@ -280,22 +284,22 @@ export function LocationDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>
         {trigger ?? (
           <Button variant={isEdit ? "outline" : "default"}>
             {isEdit ? "Edit location" : "New location"}
           </Button>
         )}
-      </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit location" : "Create location"}</DialogTitle>
-          <DialogDescription>
+      </DrawerTrigger>
+      <DrawerContent side="right" className="lg:w-1/2">
+        <DrawerHeader className="pr-12">
+          <DrawerTitle>{isEdit ? "Edit location" : "Create location"}</DrawerTitle>
+          <DrawerDescription>
             {isEdit ? "Update location details." : "Add a pickup or dropoff location."}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4">
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="grid flex-1 gap-4 overflow-y-auto px-4 py-4">
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">Location type</label>
             <Select
@@ -451,7 +455,7 @@ export function LocationDialog({
 
 
         </div>
-        <DialogFooter>
+        <DrawerFooter>
           <Button
             variant="outline"
             onClick={() => setOpen(false)}
@@ -462,8 +466,8 @@ export function LocationDialog({
           <Button onClick={handleSubmit} disabled={loading}>
             {loading ? "Saving..." : isEdit ? "Save changes" : "Create location"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Drawer>
   )
 }

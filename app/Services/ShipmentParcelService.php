@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Shipment;
 use App\Models\ShipmentParcel;
+use Illuminate\Support\Facades\Schema;
 
 class ShipmentParcelService
 {
@@ -64,6 +65,16 @@ class ShipmentParcelService
 
     private function buildParcelAttributes(Shipment $shipment, array $parcel): array
     {
+        if (!Schema::hasColumn('shipment_parcels', 'weight') && Schema::hasColumn('shipment_parcels', 'weight_kg')) {
+            if (array_key_exists('weight', $parcel) && !array_key_exists('weight_kg', $parcel)) {
+                $parcel['weight_kg'] = $parcel['weight'];
+                unset($parcel['weight']);
+            }
+        } elseif (array_key_exists('weight_kg', $parcel) && !array_key_exists('weight', $parcel)) {
+            $parcel['weight'] = $parcel['weight_kg'];
+            unset($parcel['weight_kg']);
+        }
+
         return $parcel + [
             'account_id' => $shipment->account_id,
             'parcel_code' => $this->parcelCodeService->generateUniqueCode(),

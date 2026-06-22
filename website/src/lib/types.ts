@@ -192,8 +192,8 @@ export interface Shipment {
   status: ShipmentStatus | string
   pickup_location?: Location
   dropoff_location?: Location
-  pickup_address?: Location
-  dropoff_address?: Location
+  pickup_address?: Partial<Location>
+  dropoff_address?: Partial<Location>
   pickup_instructions?: string | null
   dropoff_instructions?: string | null
   ready_at?: string | null
@@ -335,8 +335,10 @@ export type CreateShipmentPayload = {
   invoiced_at?: string
   collection_date?: string
   environment_id?: UUID | null
-  pickup_address: Partial<Location>
-  dropoff_address: Partial<Location>
+  pickup_location_id?: UUID
+  dropoff_location_id?: UUID
+  pickup_address?: Partial<Location>
+  dropoff_address?: Partial<Location>
   parcels: CreateShipmentParcelPayload[]
 }
 
@@ -344,11 +346,11 @@ export type CreateQuotePayload = {
   merchant_id: UUID
   merchant_order_ref?: string
   collection_date?: string
-  pickup_location: Location
-  dropoff_location: Location
+  pickup_location?: Location
+  dropoff_location?: Location
   pickup_address?: Location
   dropoff_address?: Location
-  parcels: ShipmentParcelInput[]
+  parcels: CreateShipmentParcelPayload[]
 }
 
 export interface Booking {

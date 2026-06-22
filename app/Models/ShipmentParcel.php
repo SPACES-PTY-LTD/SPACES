@@ -19,6 +19,7 @@ class ShipmentParcel extends Model
         'shipment_id',
         'parcel_code',
         'weight',
+        'weight_kg',
         'weight_measurement',
         'type',
         'length_cm',
@@ -32,6 +33,7 @@ class ShipmentParcel extends Model
 
     protected $casts = [
         'weight' => 'decimal:3',
+        'weight_kg' => 'decimal:3',
         'length_cm' => 'decimal:2',
         'width_cm' => 'decimal:2',
         'height_cm' => 'decimal:2',

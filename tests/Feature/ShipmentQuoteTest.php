@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\QuoteRequestJob;
 use App\Models\Account;
 use App\Models\Merchant;
 use App\Models\Location;
@@ -12,7 +11,6 @@ use App\Models\Vehicle;
 use App\Models\VehicleActivity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class ShipmentQuoteTest extends TestCase
@@ -22,34 +20,92 @@ class ShipmentQuoteTest extends TestCase
     public function test_shipment_create_and_list_pagination(): void
     {
         $user = User::factory()->create();
-        $merchant = Merchant::factory()->create(['owner_user_id' => $user->id]);
-        $merchant->users()->attach($user->id, ['role' => 'owner']);
+        $merchant = $this->createMerchantForUser($user);
 
-        $create = $this->actingAs($user)->postJson('/api/v1/shipments', [
+        $create = $this->withApiToken($user)->postJson('/api/v1/shipments', [
             'merchant_uuid' => $merchant->uuid,
             'merchant_order_ref' => 'ORDER-1',
             'delivery_note_number' => 'DN-100',
             'invoice_number' => 'INV-100',
-            'pickup_address' => ['name' => 'A'],
-            'dropoff_address' => ['name' => 'B'],
-            'parcels' => [[
-                'weight' => 1,
-                'weight_measurement' => 'kg',
-                'length_cm' => 10,
-                'width_cm' => 10,
-                'height_cm' => 10,
-            ]],
+            'pickup_address' => $this->addressPayload('A'),
+            'dropoff_address' => $this->addressPayload('B'),
+            'auto_assign' => false,
+            'parcels' => [$this->parcelPayload()],
         ]);
 
         $create->assertStatus(201)
             ->assertJsonPath('data.delivery_note_number', 'DN-100')
             ->assertJsonPath('data.invoice_number', 'INV-100');
 
-        $list = $this->actingAs($user)->getJson('/api/v1/shipments?per_page=1');
+        $list = $this->withApiToken($user)->getJson("/api/v1/shipments?merchant_id={$merchant->uuid}&per_page=1");
         $list->assertStatus(200)
             ->assertJsonPath('data.0.delivery_note_number', 'DN-100')
             ->assertJsonPath('data.0.invoice_number', 'INV-100');
         $this->assertEquals(1, $list->json('meta.per_page'));
+    }
+
+    public function test_shipment_create_can_use_existing_location_ids(): void
+    {
+        $user = User::factory()->create();
+        $account = Account::create(['owner_user_id' => $user->id]);
+        $user->forceFill(['account_id' => $account->id])->save();
+        $merchant = Merchant::factory()->create([
+            'owner_user_id' => $user->id,
+            'account_id' => $account->id,
+        ]);
+        $merchant->users()->attach($user->id, ['role' => 'owner']);
+        $pickup = $this->createLocation($merchant, 'Warehouse A');
+        $dropoff = $this->createLocation($merchant, 'Customer B');
+
+        $response = $this->withApiToken($user)->postJson('/api/v1/shipments', [
+            'merchant_uuid' => $merchant->uuid,
+            'merchant_order_ref' => 'ORDER-LOCATION-IDS',
+            'pickup_location_id' => $pickup->uuid,
+            'dropoff_location_id' => $dropoff->uuid,
+            'auto_assign' => false,
+            'parcels' => [$this->parcelPayload()],
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.pickup_location.location_id', $pickup->uuid)
+            ->assertJsonPath('data.dropoff_location.location_id', $dropoff->uuid);
+
+        $this->assertDatabaseCount('locations', 2);
+    }
+
+    public function test_shipment_update_can_switch_to_existing_location_ids(): void
+    {
+        $user = User::factory()->create();
+        $account = Account::create(['owner_user_id' => $user->id]);
+        $user->forceFill(['account_id' => $account->id])->save();
+        $merchant = Merchant::factory()->create([
+            'owner_user_id' => $user->id,
+            'account_id' => $account->id,
+        ]);
+        $merchant->users()->attach($user->id, ['role' => 'owner']);
+        $pickup = $this->createLocation($merchant, 'Warehouse C');
+        $dropoff = $this->createLocation($merchant, 'Customer D');
+
+        $create = $this->withApiToken($user)->postJson('/api/v1/shipments', [
+            'merchant_uuid' => $merchant->uuid,
+            'merchant_order_ref' => 'ORDER-UPDATE-LOCATION-IDS',
+            'pickup_address' => $this->addressPayload('Initial pickup'),
+            'dropoff_address' => $this->addressPayload('Initial dropoff'),
+            'auto_assign' => false,
+            'parcels' => [$this->parcelPayload()],
+        ]);
+
+        $create->assertStatus(201);
+
+        $shipmentId = $create->json('data.shipment_id');
+        $update = $this->withApiToken($user)->patchJson("/api/v1/shipments/{$shipmentId}", [
+            'pickup_location_id' => $pickup->uuid,
+            'dropoff_location_id' => $dropoff->uuid,
+        ]);
+
+        $update->assertOk()
+            ->assertJsonPath('data.pickup_location.location_id', $pickup->uuid)
+            ->assertJsonPath('data.dropoff_location.location_id', $dropoff->uuid);
     }
 
     public function test_shipment_update_sets_invoiced_at_to_now_when_invoice_number_changes_without_timestamp(): void
@@ -57,26 +113,20 @@ class ShipmentQuoteTest extends TestCase
         Carbon::setTestNow('2026-02-28 15:00:00');
 
         $user = User::factory()->create();
-        $merchant = Merchant::factory()->create(['owner_user_id' => $user->id]);
-        $merchant->users()->attach($user->id, ['role' => 'owner']);
+        $merchant = $this->createMerchantForUser($user);
 
-        $create = $this->actingAs($user)->postJson('/api/v1/shipments', [
+        $create = $this->withApiToken($user)->postJson('/api/v1/shipments', [
             'merchant_uuid' => $merchant->uuid,
             'merchant_order_ref' => 'ORDER-2',
-            'pickup_address' => ['name' => 'A'],
-            'dropoff_address' => ['name' => 'B'],
-            'parcels' => [[
-                'weight' => 1,
-                'weight_measurement' => 'kg',
-                'length_cm' => 10,
-                'width_cm' => 10,
-                'height_cm' => 10,
-            ]],
+            'pickup_address' => $this->addressPayload('A'),
+            'dropoff_address' => $this->addressPayload('B'),
+            'auto_assign' => false,
+            'parcels' => [$this->parcelPayload()],
         ])->assertStatus(201);
 
         $shipmentId = $create->json('data.shipment_id');
 
-        $update = $this->actingAs($user)->patchJson("/api/v1/shipments/{$shipmentId}", [
+        $update = $this->withApiToken($user)->patchJson("/api/v1/shipments/{$shipmentId}", [
             'invoice_number' => 'INV-200',
         ]);
 
@@ -84,7 +134,7 @@ class ShipmentQuoteTest extends TestCase
             ->assertJsonPath('data.invoice_number', 'INV-200')
             ->assertJsonPath('data.invoiced_at', '2026-02-28T15:00:00+00:00');
 
-        $show = $this->actingAs($user)->getJson("/api/v1/shipments/{$shipmentId}");
+        $show = $this->withApiToken($user)->getJson("/api/v1/shipments/{$shipmentId}");
         $show->assertOk()
             ->assertJsonPath('data.invoice_number', 'INV-200')
             ->assertJsonPath('data.invoiced_at', '2026-02-28T15:00:00+00:00');
@@ -104,18 +154,13 @@ class ShipmentQuoteTest extends TestCase
         ]);
         $merchant->users()->attach($user->id, ['role' => 'owner']);
 
-        $create = $this->actingAs($user)->postJson('/api/v1/shipments', [
+        $create = $this->withApiToken($user)->postJson('/api/v1/shipments', [
             'merchant_uuid' => $merchant->uuid,
             'merchant_order_ref' => 'ORDER-3',
-            'pickup_address' => ['name' => 'A'],
-            'dropoff_address' => ['name' => 'B'],
-            'parcels' => [[
-                'weight' => 1,
-                'weight_measurement' => 'kg',
-                'length_cm' => 10,
-                'width_cm' => 10,
-                'height_cm' => 10,
-            ]],
+            'pickup_address' => $this->addressPayload('A'),
+            'dropoff_address' => $this->addressPayload('B'),
+            'auto_assign' => false,
+            'parcels' => [$this->parcelPayload()],
         ])->assertStatus(201);
 
         $shipmentId = $create->json('data.shipment_id');
@@ -130,8 +175,10 @@ class ShipmentQuoteTest extends TestCase
             'account_id' => $account->id,
             'merchant_id' => $merchant->id,
             'name' => 'Stop A',
+            'address_line_1' => '1 Stop Street',
             'city' => 'Cape Town',
             'province' => 'Western Cape',
+            'post_code' => '8001',
         ]);
         $run = Run::create([
             'account_id' => $account->id,
@@ -160,7 +207,7 @@ class ShipmentQuoteTest extends TestCase
             'occurred_at' => '2026-02-28 09:00:00',
         ]);
 
-        $show = $this->actingAs($user)->getJson("/api/v1/shipments/{$shipmentId}");
+        $show = $this->withApiToken($user)->getJson("/api/v1/shipments/{$shipmentId}");
 
         $show->assertOk()
             ->assertJsonCount(2, 'data.stops')
@@ -171,39 +218,28 @@ class ShipmentQuoteTest extends TestCase
     public function test_shipment_list_can_filter_invoiced_shipments(): void
     {
         $user = User::factory()->create();
-        $merchant = Merchant::factory()->create(['owner_user_id' => $user->id]);
-        $merchant->users()->attach($user->id, ['role' => 'owner']);
+        $merchant = $this->createMerchantForUser($user);
 
-        $invoiced = $this->actingAs($user)->postJson('/api/v1/shipments', [
+        $invoiced = $this->withApiToken($user)->postJson('/api/v1/shipments', [
             'merchant_uuid' => $merchant->uuid,
             'merchant_order_ref' => 'ORDER-INV',
             'invoice_number' => 'INV-300',
-            'pickup_address' => ['name' => 'A'],
-            'dropoff_address' => ['name' => 'B'],
-            'parcels' => [[
-                'weight' => 1,
-                'weight_measurement' => 'kg',
-                'length_cm' => 10,
-                'width_cm' => 10,
-                'height_cm' => 10,
-            ]],
+            'pickup_address' => $this->addressPayload('A'),
+            'dropoff_address' => $this->addressPayload('B'),
+            'auto_assign' => false,
+            'parcels' => [$this->parcelPayload()],
         ])->assertStatus(201);
 
-        $uninvoiced = $this->actingAs($user)->postJson('/api/v1/shipments', [
+        $uninvoiced = $this->withApiToken($user)->postJson('/api/v1/shipments', [
             'merchant_uuid' => $merchant->uuid,
             'merchant_order_ref' => 'ORDER-NO-INV',
-            'pickup_address' => ['name' => 'C'],
-            'dropoff_address' => ['name' => 'D'],
-            'parcels' => [[
-                'weight' => 1,
-                'weight_measurement' => 'kg',
-                'length_cm' => 10,
-                'width_cm' => 10,
-                'height_cm' => 10,
-            ]],
+            'pickup_address' => $this->addressPayload('C'),
+            'dropoff_address' => $this->addressPayload('D'),
+            'auto_assign' => false,
+            'parcels' => [$this->parcelPayload()],
         ])->assertStatus(201);
 
-        $response = $this->actingAs($user)->getJson('/api/v1/shipments?invoiced=true');
+        $response = $this->withApiToken($user)->getJson("/api/v1/shipments?merchant_id={$merchant->uuid}&invoiced=true");
 
         $response->assertOk()
             ->assertJsonCount(1, 'data')
@@ -211,28 +247,76 @@ class ShipmentQuoteTest extends TestCase
             ->assertJsonMissing(['shipment_id' => $uninvoiced->json('data.shipment_id')]);
     }
 
-    public function test_quote_request_queues_job(): void
+    public function test_quote_request_creates_quote(): void
     {
-        Queue::fake();
-
         $user = User::factory()->create();
-        $merchant = Merchant::factory()->create(['owner_user_id' => $user->id]);
-        $merchant->users()->attach($user->id, ['role' => 'owner']);
+        $merchant = $this->createMerchantForUser($user);
 
-        $response = $this->actingAs($user)->postJson('/api/v1/quotes', [
+        $response = $this->withApiToken($user)->postJson('/api/v1/quotes', [
             'merchant_uuid' => $merchant->uuid,
-            'pickup_address' => ['name' => 'A'],
-            'dropoff_address' => ['name' => 'B'],
-            'parcels' => [[
-                'weight' => 1,
-                'weight_measurement' => 'kg',
-                'length_cm' => 10,
-                'width_cm' => 10,
-                'height_cm' => 10,
-            ]],
+            'pickup_address' => $this->addressPayload('A'),
+            'dropoff_address' => $this->addressPayload('B'),
+            'parcels' => [$this->parcelPayload()],
         ]);
 
-        $response->assertStatus(202);
-        Queue::assertPushed(QuoteRequestJob::class);
+        $response->assertStatus(201)
+            ->assertJsonPath('data.status', 'created')
+            ->assertJsonPath('data.merchant.merchant_id', $merchant->uuid);
+    }
+
+    private function createLocation(Merchant $merchant, string $name): Location
+    {
+        return Location::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'name' => $name,
+            'address_line_1' => "{$name} Street",
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+            'country' => 'South Africa',
+        ]);
+    }
+
+    private function createMerchantForUser(User $user): Merchant
+    {
+        $account = Account::create(['owner_user_id' => $user->id]);
+        $user->forceFill(['account_id' => $account->id])->save();
+        $merchant = Merchant::factory()->create([
+            'owner_user_id' => $user->id,
+            'account_id' => $account->id,
+        ]);
+        $merchant->users()->attach($user->id, ['role' => 'owner']);
+
+        return $merchant;
+    }
+
+    private function addressPayload(string $name): array
+    {
+        return [
+            'name' => $name,
+            'address_line_1' => "{$name} Street",
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+            'country' => 'South Africa',
+        ];
+    }
+
+    private function parcelPayload(): array
+    {
+        return [
+            'weight' => 1,
+            'weight_measurement' => 'kg',
+            'length_cm' => 10,
+            'width_cm' => 10,
+            'height_cm' => 10,
+            'contents_description' => 'Box',
+        ];
+    }
+
+    private function withApiToken(User $user): self
+    {
+        return $this->withHeader('Authorization', 'Bearer '.$user->createToken('test-suite')->plainTextToken);
     }
 }

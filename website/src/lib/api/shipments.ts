@@ -19,6 +19,16 @@ export type AssignShipmentVehiclePayload = {
   collection_date?: string
 }
 
+export type UpdateShipmentPayload = Omit<
+  Partial<Shipment>,
+  "pickup_address" | "dropoff_address"
+> & {
+  pickup_location_id?: string
+  dropoff_location_id?: string
+  pickup_address?: CreateShipmentPayload["pickup_address"]
+  dropoff_address?: CreateShipmentPayload["dropoff_address"]
+}
+
 export async function listShipments(
   token?: string | null,
   params?: {
@@ -85,7 +95,7 @@ export async function createShipment(
 
 export async function updateShipment(
   shipmentId: string,
-  payload: Partial<Shipment>,
+  payload: UpdateShipmentPayload,
   token?: string | null
 ) {
   return apiFetch<Shipment>(`/api/v1/shipments/${shipmentId}`, {

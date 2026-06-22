@@ -23,6 +23,57 @@ Add new entries at the top (newest first).
 ## 2026-06-22 | Version: unreleased
 
 ### Summary
+- Replaced shipment pickup/dropoff address entry with merchant-scoped system location comboboxes.
+- Added inline location creation from shipment location pickers and auto-selects the saved location.
+- Added shipment API support for selecting existing pickup/dropoff locations by UUID.
+- Fixed location combobox result lists so they scroll inside shipment dialogs.
+- Replaced the shipment quote/create/edit modal dialog with a bottom drawer.
+- Updated the shipment drawer to open from the right, using half-screen width on large displays and full-screen width on small displays.
+- Replaced the location create/edit modal dialog with the same responsive right-side drawer layout.
+- Added desktop spacing and rounded corners to right-side drawers while keeping mobile drawers full-screen.
+- Removed the border from right-side drawers for a flatter panel style.
+
+### API Changes
+- `POST /api/v1/shipments` now accepts optional `pickup_location_id` and `dropoff_location_id` fields instead of requiring address objects.
+- `PATCH /api/v1/shipments/{shipment_id}` now accepts optional `pickup_location_id` and `dropoff_location_id` fields.
+- Existing `pickup_address` and `dropoff_address` payloads remain supported.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Creating or editing shipments from the admin UI now searches existing merchant locations instead of Google Places addresses.
+- Adding a location from a shipment picker selects the new location immediately after save.
+- Shipment create/update now reuses selected location records rather than duplicating address-only locations.
+- Shipment and quote parcel creation now tolerates either `weight` or legacy `weight_kg` parcel columns.
+- Location combobox result lists now keep wheel/touch scrolling inside the popover instead of bubbling to the surrounding dialog.
+- Shipment quote/create/edit forms now open in a drawer with an internal scroll area and fixed footer actions.
+- Shipment quote/create/edit drawers now use a responsive right-side layout.
+- Location create/edit forms now open in a responsive right-side drawer.
+- Right-side drawers now have top, bottom, and right margins on non-mobile viewports.
+- Right-side drawers no longer render a panel border.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Http/Requests/StoreShipmentRequest.php`
+- `php -l app/Http/Requests/UpdateShipmentRequest.php`
+- `php -l app/Services/ShipmentService.php`
+- `php -l app/Services/ShipmentParcelService.php`
+- `php -l app/Services/QuoteService.php`
+- `php -l app/Models/ShipmentParcel.php`
+- `php -l tests/Feature/ShipmentQuoteTest.php`
+- `php artisan test tests/Feature/ShipmentQuoteTest.php`
+- `npm run lint -- src/components/locations/location-combobox.tsx src/components/locations/location-dialog.tsx src/components/shipments/shipment-quote-dialog.tsx src/app/admin/logistics/shipments/page.tsx src/app/admin/logistics/shipments/quotes/page.tsx src/components/shipments/shipment-detail-content.tsx src/components/dashboard/shipment-dialog-content.tsx src/lib/api/locations.ts src/lib/api/shipments.ts src/lib/types.ts`
+- `npm run lint -- src/components/locations/location-combobox.tsx`
+- `npm run lint -- src/components/ui/drawer.tsx src/components/shipments/shipment-quote-dialog.tsx`
+- `npm run lint -- src/components/locations/location-dialog.tsx`
+- `npm run lint -- src/components/ui/drawer.tsx`
+
+## 2026-06-22 | Version: unreleased
+
+### Summary
 - Reverted the manual run completion change from commit `3b1f4700a5e024c116dd27bc53680eeda2337234`.
 
 ### API Changes

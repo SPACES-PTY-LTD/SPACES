@@ -9,6 +9,7 @@ import { isApiErrorResponse } from "@/lib/api/client"
 import { createQuote, getShipmentQuotes } from "@/lib/api/quotes"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { normalizeTableMeta } from "@/lib/table"
+import type { Location } from "@/lib/types"
 import { revalidatePath } from "next/cache"
 
 type QuotesPageProps = {
@@ -33,6 +34,31 @@ function normalizeSortBy(value?: string) {
 
 function normalizeSortDir(value?: string) {
   return value === "asc" ? "asc" : "desc"
+}
+
+function toShipmentAddress(location: Location) {
+  return {
+    location_id: location.location_id ?? undefined,
+    location_type_id: location.location_type_id ?? undefined,
+    name: location.name ?? undefined,
+    code: location.code ?? undefined,
+    company: location.company ?? undefined,
+    full_address: location.full_address ?? undefined,
+    address_line_1: location.address_line_1 ?? undefined,
+    address_line_2: location.address_line_2 ?? undefined,
+    town: location.town ?? undefined,
+    city: location.city ?? undefined,
+    country: location.country ?? undefined,
+    first_name: location.first_name ?? undefined,
+    last_name: location.last_name ?? undefined,
+    phone: location.phone ?? undefined,
+    email: location.email ?? undefined,
+    province: location.province ?? undefined,
+    post_code: location.post_code ?? undefined,
+    latitude: location.latitude ?? undefined,
+    longitude: location.longitude ?? undefined,
+    google_place_id: location.google_place_id ?? undefined,
+  }
 }
 
 export default async function QuotesPage({ searchParams }: QuotesPageProps) {
@@ -87,9 +113,16 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
         merchant_id: values.merchantId,
         merchant_order_ref: values.merchantOrderRef,
         collection_date: values.collectionDate,
-        pickup_location: values.pickupLocation,
-        dropoff_location: values.dropoffLocation,
-        parcels: values.parcels,
+        pickup_address: toShipmentAddress(values.pickupLocation),
+        dropoff_address: toShipmentAddress(values.dropoffLocation),
+        parcels: values.parcels.map((parcel) => ({
+          weight: parcel.weight_kg,
+          weight_measurement: "kg",
+          length_cm: parcel.length_cm,
+          width_cm: parcel.width_cm,
+          height_cm: parcel.height_cm,
+          contents_description: parcel.title || undefined,
+        })),
       },
       session.accessToken
     )

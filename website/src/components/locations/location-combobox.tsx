@@ -1,97 +1,98 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, Plus } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Command,
   CommandEmpty,
-  CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { LocationDialog } from "@/components/locations/location-dialog"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listLocations } from "@/lib/api/locations"
+import { formatAddress } from "@/lib/address"
 import { cn } from "@/lib/utils"
+import type { Location } from "@/lib/types"
 
-type LocationOption = {
-  value: string
-  label: string
+function getLocationTitle(location?: Location | null) {
+  if (!location) return ""
+  return location.name || location.company || location.code || formatAddress(location)
 }
 
-function buildLocationLabel(location: {
-  location_id: string
-  name?: string
-  company?: string
-  code?: string
-  city?: string | null
-}) {
-  const title = (location.name!='' ? location.name: null) ?? location.company ?? location.code ?? location.location_id
-  const context = [location.code, location.city].filter(Boolean).join(" • ")
-  return context ? `${title} (${context})` : title
+function getLocationSubtitle(location?: Location | null) {
+  if (!location) return ""
+  const address = formatAddress(location)
+  const title = getLocationTitle(location)
+  return address && address !== title ? address : ""
 }
 
 export function LocationCombobox({
   value,
-  selectedLabel,
   onChange,
-  token,
   merchantId,
-  placeholder = "Search locations...",
-  disabled = false,
+  placeholder = "Select location",
+  searchPlaceholder = "Search locations...",
+  disabled,
 }: {
-  value?: string
-  selectedLabel?: string
-  onChange: (option: LocationOption) => void
-  token?: string | null
-  merchantId?: string
+  value?: Location | null
+  onChange: (location: Location) => void
+  merchantId?: string | null
   placeholder?: string
+  searchPlaceholder?: string
   disabled?: boolean
 }) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
+  const [locations, setLocations] = React.useState<Location[]>([])
   const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-  const [options, setOptions] = React.useState<LocationOption[]>([])
 
   React.useEffect(() => {
-    if (!open) return
+    if (!open || !merchantId) return
+
+    let cancelled = false
     const timeoutId = window.setTimeout(async () => {
-      const trimmed = query.trim()
-      if (trimmed.length < 2) {
-        setOptions([])
-        setError(null)
+      setLoading(true)
+      const response = await listLocations(undefined, {
+        merchant_id: merchantId,
+        search: query.trim() || undefined,
+        per_page: 25,
+      })
+      if (cancelled) return
+      if (isApiErrorResponse(response)) {
+        toast.error(response.message || "Failed to load locations.")
+        setLocations([])
+        setLoading(false)
         return
       }
-
-      setLoading(true)
-      const response = await listLocations(token, {
-        merchant_id: merchantId,
-        search: trimmed,
-        page: 1,
-        per_page: 20,
-      })
-
-      if (isApiErrorResponse(response)) {
-        setError(response.message)
-        setOptions([])
-      } else {
-        const nextOptions = (response.data ?? []).map((location) => ({
-          value: location.location_id,
-          label: buildLocationLabel(location),
-        }))
-        setOptions(nextOptions)
-        setError(null)
-      }
+      setLocations(response.data ?? [])
       setLoading(false)
-    }, 300)
+    }, query.trim() ? 250 : 0)
 
-    return () => window.clearTimeout(timeoutId)
-  }, [merchantId, open, query, token])
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeoutId)
+    }
+  }, [merchantId, open, query])
 
-  const displayLabel = selectedLabel || value || "Select location"
+  const options = React.useMemo(() => {
+    if (!value?.location_id) return locations
+    const hasSelected = locations.some(
+      (location) => location.location_id === value.location_id
+    )
+    return hasSelected ? locations : [value, ...locations]
+  }, [locations, value])
+
+  const selectedLabel = getLocationTitle(value)
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -101,48 +102,92 @@ export function LocationCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          disabled={disabled}
-          className="w-full justify-between"
+          disabled={disabled || !merchantId}
+          className="h-auto min-h-10 w-full justify-between whitespace-normal text-left font-normal"
         >
-          <span className={cn("truncate", !value && "text-muted-foreground")}>{displayLabel}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <span className={cn("line-clamp-2", !selectedLabel && "text-muted-foreground")}>
+            {selectedLabel || placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[420px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder={placeholder} value={query} onValueChange={setQuery} />
-          <CommandList>
-            {loading ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">
-                Searching locations...
-              </div>
-            ) : null}
-            {error ? (
-              <div className="px-3 py-2 text-xs text-destructive">{error}</div>
-            ) : null}
-            {!loading && !error ? (
-              <CommandEmpty>
-                {query.trim().length < 2
-                  ? "Type at least 2 characters to search."
-                  : "No locations found."}
-              </CommandEmpty>
-            ) : null}
-            <CommandGroup>
-              {options.map((option) => (
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+        onWheel={(event) => event.stopPropagation()}
+        onTouchMove={(event) => event.stopPropagation()}
+      >
+        <Command shouldFilter={false}>
+          <CommandInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder={searchPlaceholder}
+          />
+          <CommandList className="max-h-72 overflow-y-auto overscroll-contain">
+            <CommandEmpty>
+              {loading ? "Loading locations..." : "No locations found."}
+            </CommandEmpty>
+            {options.map((location) => {
+              if (!location.location_id) return null
+              const title = getLocationTitle(location)
+              const subtitle = getLocationSubtitle(location)
+              const selected = value?.location_id === location.location_id
+
+              return (
                 <CommandItem
-                  key={option.value}
-                  value={`${option.value} ${option.label}`}
+                  key={location.location_id}
+                  value={location.location_id}
                   onSelect={() => {
-                    onChange(option)
+                    onChange(location)
                     setOpen(false)
                   }}
+                  className="items-start"
                 >
-                  <span className="truncate">{option.label}</span>
-                  {value === option.value ? <Check className="ml-auto h-4 w-4 text-primary" /> : null}
+                  <Check
+                    className={cn(
+                      "mt-0.5 size-4 shrink-0",
+                      selected ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{title}</span>
+                    {subtitle ? (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {subtitle}
+                      </span>
+                    ) : null}
+                  </span>
                 </CommandItem>
-              ))}
-            </CommandGroup>
+              )
+            })}
           </CommandList>
+          <CommandSeparator />
+          <div className="p-1">
+            <LocationDialog
+              merchantId={merchantId}
+              onSaved={(location) => {
+                onChange(location)
+                setLocations((current) => [
+                  location,
+                  ...current.filter(
+                    (item) => item.location_id !== location.location_id
+                  ),
+                ])
+                setOpen(false)
+              }}
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full justify-start"
+                  disabled={!merchantId}
+                >
+                  <Plus className="size-4" />
+                  Add new location
+                </Button>
+              }
+            />
+          </div>
         </Command>
       </PopoverContent>
     </Popover>

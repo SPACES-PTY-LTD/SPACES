@@ -14,6 +14,7 @@ class UpdateShipmentRequest extends BaseRequest
     public function rules(): array
     {
         return [
+            'pickup_location_id' => ['sometimes', 'nullable', 'uuid', 'exists:locations,uuid'],
             'pickup_address' => ['sometimes', 'array'],
             'pickup_address.name' => ['nullable', 'string', 'max:255'],
             'pickup_address.code' => ['nullable', 'string', 'max:100'],
@@ -34,6 +35,7 @@ class UpdateShipmentRequest extends BaseRequest
             'pickup_address.location_type_id' => ['nullable', 'uuid', 'exists:location_types,uuid'],
             'pickup_address.location_type' => ['nullable', 'string', 'max:100'],
             'pickup_address.location_type_slug' => ['nullable', 'string', 'max:100'],
+            'dropoff_location_id' => ['sometimes', 'nullable', 'uuid', 'exists:locations,uuid'],
             'dropoff_address' => ['sometimes', 'array'],
             'dropoff_address.name' => ['nullable', 'string', 'max:255'],
             'dropoff_address.code' => ['nullable', 'string', 'max:100'],

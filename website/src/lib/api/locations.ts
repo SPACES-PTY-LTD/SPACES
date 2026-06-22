@@ -75,11 +75,15 @@ export async function createLocation(
   payload: LocationPayload,
   token?: string | null
 ) {
-  return apiFetch<Location>("/api/v1/locations", {
+  const response = await apiFetch<ApiEnvelope<Location>>("/api/v1/locations", {
     method: "POST",
     body: payload,
     token,
   })
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+  return response.data
 }
 
 export async function updateLocation(
@@ -87,11 +91,15 @@ export async function updateLocation(
   payload: Partial<LocationPayload>,
   token?: string | null
 ) {
-  return apiFetch<Location>(`/api/v1/locations/${locationId}`, {
+  const response = await apiFetch<ApiEnvelope<Location>>(`/api/v1/locations/${locationId}`, {
     method: "PATCH",
     body: payload,
     token,
   })
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+  return response.data
 }
 
 export async function deleteLocation(locationId: string, token?: string | null) {

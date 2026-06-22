@@ -14,6 +14,7 @@ use App\Support\MerchantAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class QuoteService
@@ -81,7 +82,7 @@ class QuoteService
                 ]);
 
                 foreach ($data['parcels'] as $parcel) {
-                    $shipment->parcels()->create($parcel + [
+                    $shipment->parcels()->create($this->normalizeParcelAttributes($parcel) + [
                         'account_id' => $merchant->account_id,
                     ]);
                 }
@@ -138,6 +139,21 @@ class QuoteService
     public function getQuoteByUuid(string $uuid): Quote
     {
         return Quote::with('options', 'shipment', 'merchant', 'booking.quoteOption')->where('uuid', $uuid)->firstOrFail();
+    }
+
+    private function normalizeParcelAttributes(array $parcel): array
+    {
+        if (!Schema::hasColumn('shipment_parcels', 'weight') && Schema::hasColumn('shipment_parcels', 'weight_kg')) {
+            if (array_key_exists('weight', $parcel) && !array_key_exists('weight_kg', $parcel)) {
+                $parcel['weight_kg'] = $parcel['weight'];
+                unset($parcel['weight']);
+            }
+        } elseif (array_key_exists('weight_kg', $parcel) && !array_key_exists('weight', $parcel)) {
+            $parcel['weight'] = $parcel['weight_kg'];
+            unset($parcel['weight_kg']);
+        }
+
+        return $parcel;
     }
 
     public function listQuotes(User $user, array $filters): LengthAwarePaginator

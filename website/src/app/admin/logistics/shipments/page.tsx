@@ -16,6 +16,7 @@ import { revalidatePath } from "next/cache"
 
 function toShipmentAddress(location: Location) {
   return {
+    location_id: location.location_id ?? undefined,
     location_type_id: location.location_type_id ?? undefined,
     name: location.name ?? undefined,
     code: location.code ?? undefined,
@@ -155,8 +156,14 @@ export default async function ShipmentsPage({
         delivery_note_number: values.deliveryNoteNumber ?? "",
         invoice_number: values.invoiceInvoiceNumber ?? "",
         collection_date: values.collectionDate,
-        pickup_address: toShipmentAddress(values.pickupLocation),
-        dropoff_address: toShipmentAddress(values.dropoffLocation),
+        pickup_location_id: values.pickupLocation.location_id,
+        dropoff_location_id: values.dropoffLocation.location_id,
+        pickup_address: values.pickupLocation.location_id
+          ? undefined
+          : toShipmentAddress(values.pickupLocation),
+        dropoff_address: values.dropoffLocation.location_id
+          ? undefined
+          : toShipmentAddress(values.dropoffLocation),
         parcels: values.parcels.map((parcel) => ({
           weight: parcel.weight_kg,
           weight_measurement: "kg",
@@ -194,6 +201,7 @@ export default async function ShipmentsPage({
         }
       />
       <DataTable
+        width="1600px"
         views={[
           {
             label: "All",
@@ -317,15 +325,20 @@ export default async function ShipmentsPage({
             ],
           },
         ]}
-        width={""}
         columns={[
           { key: "merchant_order_ref", label: "Reference", link: "href", className:"w-[200px]" },
-          { key: "delivery_note_number", label: "Delivery Note", type: "delivery_note_number" },
-          { key: "invoice_number", label: "Invoice Number", type: "invoice_number" },
+          {
+            key: "status",
+            label: "Status",
+            type: "status",
+            className: "w-[150px]"
+          },
+          { key: "delivery_note_number", label: "Delivery Note", type: "delivery_note_number", className: "w-[150px]" },
+          { key: "invoice_number", label: "Invoice Number", type: "invoice_number", className: "w-[150px]" },
           { key: "collection_date", label: "Collection Date", link: "href", type: "date_time", format: "YYYY-MM-DD", className:"w-[150px]" },
           { key: "created_at", label: "Created", type: "date_time", format: "YYYY-MM-DD", link: "href", className:"w-[150px]" },
-          { key: "truckRegistration", label: "Truck Reg Number", link: "href" },
-          { key: "driverName", label: "Driver", link: "driverHref" },
+          { key: "truckRegistration", label: "Truck Reg Number", link: "href", className: "w-[150px]" },
+          { key: "driverName", label: "Driver", link: "driverHref", className: "w-[150px]" },
           ...(isSuperAdmin
             ? [
                 {
@@ -339,18 +352,16 @@ export default async function ShipmentsPage({
             key: "pickup_location",
             label: "From",
             link: "href",
+            className: "w-[350px]"
           },
           {
             key: "dropoff_location",
             label: "To",
-            link: "href"
+            link: "href",
+            className: "w-[350px]"
           },
-          {
-            key: "status",
-            label: "Status",
-            type: "status",
-          },
-          { key: "parcels", label: "Parcels Count", type: "count_array" },
+          
+          { key: "parcels", label: "Parcels Count", type: "count_array", className: "w-[150px]" },
           
         ]}
       />
