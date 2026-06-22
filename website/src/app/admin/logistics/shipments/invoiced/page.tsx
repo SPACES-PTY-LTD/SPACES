@@ -7,6 +7,13 @@ import { formatAddress } from "@/lib/address"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { normalizeTableMeta } from "@/lib/table"
 
+function formatKm(value?: string | number | null) {
+  if (value === null || value === undefined || value === "") return "-"
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return "-"
+  return `${numeric.toLocaleString("en-US")} km`
+}
+
 export default async function InvoicedShipmentsPage({
   searchParams,
 }: {
@@ -57,6 +64,7 @@ export default async function InvoicedShipmentsPage({
         href: AdminRoute.shipmentDetails(shipment.shipment_id),
         invoice_number:
           shipment.invoice_number ?? shipment.invoice_invoice_number ?? "",
+        shipmentKm: formatKm(shipment.booking?.total_km_from_collection),
         dropoff_location: formatAddress(
           shipment.dropoff_location ?? shipment.dropoff_address
         ),
@@ -113,6 +121,7 @@ export default async function InvoicedShipmentsPage({
           { key: "invoice_number", label: "Invoice Number", link: "href" },
           { key: "invoiced_at", label: "Invoiced At", link: "href", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "collection_date", label: "Collection Date", link: "href", type: "date_time", format: "YYYY-MM-DD HH:mm" },
+          { key: "shipmentKm", label: "Shipment KM", link: "href" },
           ...(isSuperAdmin
             ? [
                 {

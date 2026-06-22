@@ -29,9 +29,12 @@ export default function ShipmentDetailScreen() {
   const [activeAction, setActiveAction] = useState<'cancel' | 'pod' | 'status' | null>(null);
   const [statusValue, setStatusValue] = useState('in_transit');
   const [statusNote, setStatusNote] = useState('');
+  const [pickupOdometer, setPickupOdometer] = useState('');
+  const [deliveryOdometer, setDeliveryOdometer] = useState('');
   const [podFileKey, setPodFileKey] = useState('');
   const [podFileType, setPodFileType] = useState('image/jpeg');
   const [podSignedBy, setPodSignedBy] = useState('');
+  const [podDeliveryOdometer, setPodDeliveryOdometer] = useState('');
   const [cancelReasonCode, setCancelReasonCode] = useState('');
   const [cancelReasonText, setCancelReasonText] = useState('');
   const [cancelNote, setCancelNote] = useState('');
@@ -135,6 +138,9 @@ export default function ShipmentDetailScreen() {
     const availableStatuses = getAvailableStatuses(currentStatus);
     setStatusValue((current) => (availableStatuses.includes(current) ? current : availableStatuses[0] ?? currentStatus));
     setPodSignedBy((current) => current || shipment?.dropoff_location?.name || '');
+    setPickupOdometer((current) => current || formatOdometerInput(shipment?.booking?.odometer_at_collection));
+    setDeliveryOdometer((current) => current || formatOdometerInput(shipment?.booking?.odometer_at_delivery));
+    setPodDeliveryOdometer((current) => current || formatOdometerInput(shipment?.booking?.odometer_at_delivery));
   }, [shipment]);
 
   async function runAction(action: (token: string) => Promise<DriverShipment>, successMessage: string) {
@@ -239,6 +245,16 @@ export default function ShipmentDetailScreen() {
     }
   }
 
+  const statusRequiresPickupOdometer = requiresPickupOdometer(statusValue);
+  const statusRequiresDeliveryOdometer = requiresDeliveryOdometer(statusValue);
+  const parsedPickupOdometer = parseOdometer(pickupOdometer);
+  const parsedDeliveryOdometer = parseOdometer(deliveryOdometer);
+  const parsedPodDeliveryOdometer = parseOdometer(podDeliveryOdometer);
+  const needsPickupOdometer =
+    statusRequiresPickupOdometer && shipment?.booking?.odometer_at_collection == null && parsedPickupOdometer === null;
+  const needsDeliveryOdometer =
+    statusRequiresDeliveryOdometer && shipment?.booking?.odometer_at_delivery == null && parsedDeliveryOdometer === null;
+
   return (
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ headerShown: false }} />
@@ -312,12 +328,36 @@ export default function ShipmentDetailScreen() {
                       placeholder="Optional status note"
                       multiline
                     />
+                    {statusRequiresPickupOdometer ? (
+                      <Input
+                        label="Pickup odometer"
+                        value={pickupOdometer}
+                        onChangeText={setPickupOdometer}
+                        placeholder="Current kilometres"
+                        keyboardType="number-pad"
+                      />
+                    ) : null}
+                    {statusRequiresDeliveryOdometer ? (
+                      <Input
+                        label="Delivery odometer"
+                        value={deliveryOdometer}
+                        onChangeText={setDeliveryOdometer}
+                        placeholder="Current kilometres"
+                        keyboardType="number-pad"
+                      />
+                    ) : null}
                     <SubmitButton
                       label={isMutating ? 'Saving...' : 'Save status'}
-                      disabled={isMutating}
+                      disabled={isMutating || needsPickupOdometer || needsDeliveryOdometer}
                       onPress={() =>
                         runAction(
-                          (token) => driverApi.updateShipmentStatus(token, shipment.shipment_id, { status: statusValue, note: statusNote || undefined }),
+                          (token) =>
+                            driverApi.updateShipmentStatus(token, shipment.shipment_id, {
+                              status: statusValue,
+                              note: statusNote || undefined,
+                              odometer_at_collection: parsedPickupOdometer ?? undefined,
+                              odometer_at_delivery: parsedDeliveryOdometer ?? undefined,
+                            }),
                           'Shipment status updated.',
                         )
                       }
@@ -347,6 +387,13 @@ export default function ShipmentDetailScreen() {
                       onChangeText={setPodSignedBy}
                       placeholder="Receiver name"
                     />
+                    <Input
+                      label="Delivery odometer"
+                      value={podDeliveryOdometer}
+                      onChangeText={setPodDeliveryOdometer}
+                      placeholder="Optional delivery kilometres"
+                      keyboardType="number-pad"
+                    />
                     <SubmitButton
                       label={isMutating ? 'Saving...' : 'Save POD'}
                       disabled={isMutating || !podFileKey.trim()}
@@ -357,6 +404,7 @@ export default function ShipmentDetailScreen() {
                               file_key: podFileKey.trim(),
                               file_type: podFileType.trim() || undefined,
                               signed_by: podSignedBy.trim() || undefined,
+                              odometer_at_delivery: parsedPodDeliveryOdometer ?? undefined,
                             }),
                           'Proof of delivery saved.',
                         )
@@ -486,7 +534,10 @@ export default function ShipmentDetailScreen() {
               <Text className="text-card-foreground text-lg font-semibold">Timeline</Text>
               <InfoRow label="Booked at" value={shipment.booking?.booked_at} />
               <InfoRow label="Collected at" value={shipment.booking?.collected_at} />
+              <InfoRow label="Pickup odometer" value={formatOdometerDisplay(shipment.booking?.odometer_at_collection)} />
               <InfoRow label="Delivered at" value={shipment.booking?.delivered_at} />
+              <InfoRow label="Delivery odometer" value={formatOdometerDisplay(shipment.booking?.odometer_at_delivery)} />
+              <InfoRow label="Shipment km" value={formatOdometerDisplay(shipment.booking?.total_km_from_collection)} />
               <InfoRow label="Returned at" value={shipment.booking?.returned_at} />
               <InfoRow label="Cancelled at" value={shipment.booking?.cancelled_at} />
             </View>
@@ -664,6 +715,7 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
 }
 
 function Input({
+  keyboardType,
   label,
   multiline = false,
   onChangeText,
@@ -671,6 +723,7 @@ function Input({
   value,
 }: {
   label: string;
+  keyboardType?: 'default' | 'number-pad' | 'numbers-and-punctuation';
   multiline?: boolean;
   onChangeText: (text: string) => void;
   placeholder: string;
@@ -683,6 +736,7 @@ function Input({
         value={value}
         onChangeText={onChangeText}
         multiline={multiline}
+        keyboardType={keyboardType ?? 'default'}
         textAlignVertical={multiline ? 'top' : 'center'}
         placeholder={placeholder}
         placeholderTextColor="#A8A29E"
@@ -762,6 +816,32 @@ function getAvailableStatuses(currentStatus: string) {
   }
 
   return STATUS_FLOW.slice(currentIndex);
+}
+
+function parseOdometer(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const numeric = Number.parseInt(trimmed, 10);
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
+}
+
+function formatOdometerInput(value?: number | null) {
+  return value === null || value === undefined ? '' : String(value);
+}
+
+function formatOdometerDisplay(value?: string | number | null) {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  return `${numeric.toLocaleString()} km`;
+}
+
+function requiresPickupOdometer(status: string) {
+  return STATUS_FLOW.indexOf(status) >= STATUS_FLOW.indexOf('picked_up');
+}
+
+function requiresDeliveryOdometer(status: string) {
+  return status === 'delivered';
 }
 
 function toggleAction(

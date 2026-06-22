@@ -390,6 +390,7 @@ class ShipmentController extends Controller
         return $shipment->load(
             'parcels',
             'merchant',
+            'booking',
             'pickupLocation',
             'dropoffLocation',
             'requestedVehicleType',

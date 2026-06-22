@@ -95,6 +95,7 @@ class ReportController extends Controller
                         'pickupLocation',
                         'dropoffLocation',
                         'parcels',
+                        'booking',
                         'runShipments' => function ($builder) {
                             $builder->where('status', '!=', RunShipment::STATUS_REMOVED)
                                 ->with(['run.driver.user', 'run.vehicle'])
@@ -227,6 +228,13 @@ class ReportController extends Controller
                     ? $runShipments->first()
                     : null;
                 $run = $runShipment?->run;
+                $booking = $shipment->booking;
+                $runOdometerDistance = $run?->odometer_start_km !== null && $run?->odometer_end_km !== null
+                    ? max(0, $run->odometer_end_km - $run->odometer_start_km)
+                    : null;
+                $runDurationSeconds = $run?->started_at && $run?->completed_at
+                    ? max(0, $run->completed_at->diffInSeconds($run->started_at))
+                    : null;
 
                 $fromVisit = $stageActivityMap[$shipment->id . ':' . VehicleActivity::EVENT_SHIPMENT_COLLECTION]
                     ?? ($visitMap[$shipment->id . ':' . $shipment->pickup_location_id] ?? null);
@@ -241,6 +249,13 @@ class ReportController extends Controller
                     'delivery_note_number' => $shipment->delivery_note_number,
                     'truck_plate_number' => $run?->vehicle?->plate_number,
                     'vehicle_id' => $run?->vehicle?->uuid,
+                    'run_id' => $run?->uuid,
+                    'run_started_at' => optional($run?->started_at)?->toIso8601String(),
+                    'run_completed_at' => optional($run?->completed_at)?->toIso8601String(),
+                    'run_duration_seconds' => $runDurationSeconds,
+                    'run_odometer_start_km' => $run?->odometer_start_km,
+                    'run_odometer_end_km' => $run?->odometer_end_km,
+                    'run_odometer_distance_km' => $runOdometerDistance,
                     'driver' => $run?->driver?->user?->name,
                     'driver_id' => $run?->driver?->uuid,
                     'shipment_type' => $shipment->service_type,
@@ -257,6 +272,9 @@ class ReportController extends Controller
                     'to_vehicle_activity' => $toVisit['activity'] ?? null,
                     'to_time_in' => $toVisit['time_in'] ?? null,
                     'to_time_out' => $toVisit['time_out'] ?? null,
+                    'odometer_at_collection' => $booking?->odometer_at_collection,
+                    'odometer_at_delivery' => $booking?->odometer_at_delivery,
+                    'total_km_from_collection' => $booking?->total_km_from_collection,
                     'shipment_status' => $shipment->status,
                     'delivered_volume' => $shipment->status === 'delivered'
                         ? $this->formatDeliveredVolume($shipment)

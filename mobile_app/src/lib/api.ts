@@ -597,7 +597,16 @@ export const driverApi = {
     const response = await request<DriverShipment>(`/driver/shipments/${shipmentId}`, { token });
     return normalizeShipment(response);
   },
-  async updateShipmentStatus(token: string, shipmentId: string, payload: { status: string; note?: string }) {
+  async updateShipmentStatus(
+    token: string,
+    shipmentId: string,
+    payload: {
+      status: string;
+      note?: string;
+      odometer_at_collection?: number;
+      odometer_at_delivery?: number;
+    },
+  ) {
     const response = await request<DriverShipment>(`/driver/shipments/${shipmentId}/status`, {
       body: payload,
       method: 'PATCH',
@@ -612,6 +621,7 @@ export const driverApi = {
     payload: {
       parcel_code: string;
       event_description?: string;
+      odometer_at_collection?: number;
       occurred_at?: string;
       payload?: Record<string, unknown>;
     },
@@ -634,6 +644,7 @@ export const driverApi = {
       file_key: string;
       file_type?: string;
       signed_by?: string;
+      odometer_at_delivery?: number;
       metadata?: Record<string, unknown>;
     },
   ) {

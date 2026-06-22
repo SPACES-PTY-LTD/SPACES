@@ -22,6 +22,7 @@ class RunService
     public function __construct(
         private readonly DriverVehicleService $driverVehicleService,
         private readonly InternalBookingLifecycleService $internalBookingLifecycleService,
+        private readonly VehicleOdometerService $vehicleOdometerService,
     ) {}
 
     public function listRuns(User $user, array $filters, ?MerchantEnvironment $environment = null): LengthAwarePaginator
@@ -336,7 +337,7 @@ class RunService
         return $this->loadRun($run->fresh());
     }
 
-    public function startRun(Run $run): Run
+    public function startRun(Run $run, ?int $odometerStartKm = null): Run
     {
         if (!in_array($run->status, [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED], true)) {
             throw new ConflictHttpException('Only draft or dispatched runs can be started.');
@@ -351,10 +352,15 @@ class RunService
             throw new UnprocessableEntityHttpException('Run must have at least one shipment before start.');
         }
 
-        DB::transaction(function () use ($run) {
+        DB::transaction(function () use ($run, $odometerStartKm) {
             $run->status = Run::STATUS_IN_PROGRESS;
             $run->started_at = now();
+            if ($odometerStartKm !== null) {
+                $run->odometer_start_km = $odometerStartKm;
+            }
             $run->save();
+
+            $this->vehicleOdometerService->syncHigherReading($run->vehicle, $odometerStartKm);
 
             $run->runShipments()
                 ->where('status', RunShipment::STATUS_PLANNED)
@@ -366,13 +372,17 @@ class RunService
         return $this->loadRun($run->fresh());
     }
 
-    public function completeRun(Run $run): Run
+    public function completeRun(Run $run, ?int $odometerEndKm = null): Run
     {
         if ($run->status !== Run::STATUS_IN_PROGRESS) {
             throw new ConflictHttpException('Only in-progress runs can be completed.');
         }
 
-        return DB::transaction(function () use ($run) {
+        if ($odometerEndKm !== null && $run->odometer_start_km !== null && $odometerEndKm < $run->odometer_start_km) {
+            throw new UnprocessableEntityHttpException('Run end odometer cannot be lower than the start odometer.');
+        }
+
+        return DB::transaction(function () use ($run, $odometerEndKm) {
             $runShipments = $run->runShipments()
                 ->with('shipment')
                 ->where('status', '!=', RunShipment::STATUS_REMOVED)
@@ -396,7 +406,12 @@ class RunService
 
             $run->status = Run::STATUS_COMPLETED;
             $run->completed_at = now();
+            if ($odometerEndKm !== null) {
+                $run->odometer_end_km = $odometerEndKm;
+            }
             $run->save();
+
+            $this->vehicleOdometerService->syncHigherReading($run->vehicle, $odometerEndKm);
 
             return $this->loadRun($run->fresh());
         });

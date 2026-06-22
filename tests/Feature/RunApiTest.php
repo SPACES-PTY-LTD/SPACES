@@ -113,6 +113,91 @@ class RunApiTest extends TestCase
             ->assertJsonPath('error.code', 'RUN_CONFLICT');
     }
 
+    public function test_run_start_and_complete_store_odometer_and_sync_vehicle(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        $driver = $this->createDriver($merchant);
+        $vehicle = $this->createVehicle($merchant);
+        $shipment = $this->createShipment($merchant, 'ORDER-RUN-ODO-1', 'booked');
+
+        $runId = $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson('/api/v1/runs', [
+                'merchant_id' => $merchant->uuid,
+                'driver_id' => $driver->uuid,
+                'vehicle_id' => $vehicle->uuid,
+            ])
+            ->assertStatus(201)
+            ->json('data.run_id');
+
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$runId}/shipments", [
+                'shipment_ids' => [$shipment->uuid],
+            ])
+            ->assertStatus(200);
+
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$runId}/start", [
+                'odometer_start_km' => 2000,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'in_progress')
+            ->assertJsonPath('data.odometer_start_km', 2000);
+
+        $shipment->update(['status' => 'delivered']);
+
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$runId}/complete", [
+                'odometer_end_km' => 2075,
+            ])
+            ->assertStatus(200)
+            ->assertJsonPath('data.status', 'completed')
+            ->assertJsonPath('data.odometer_end_km', 2075)
+            ->assertJsonPath('data.odometer_distance_km', 75);
+
+        $this->assertDatabaseHas('vehicles', [
+            'id' => $vehicle->id,
+            'odometer' => 2075,
+        ]);
+    }
+
+    public function test_run_complete_rejects_end_odometer_lower_than_start(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        $driver = $this->createDriver($merchant);
+        $vehicle = $this->createVehicle($merchant);
+        $shipment = $this->createShipment($merchant, 'ORDER-RUN-ODO-2', 'booked');
+
+        $runId = $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson('/api/v1/runs', [
+                'merchant_id' => $merchant->uuid,
+                'driver_id' => $driver->uuid,
+                'vehicle_id' => $vehicle->uuid,
+            ])
+            ->assertStatus(201)
+            ->json('data.run_id');
+
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$runId}/shipments", [
+                'shipment_ids' => [$shipment->uuid],
+            ])
+            ->assertStatus(200);
+
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$runId}/start", [
+                'odometer_start_km' => 2000,
+            ])
+            ->assertStatus(200);
+
+        $shipment->update(['status' => 'delivered']);
+
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$runId}/complete", [
+                'odometer_end_km' => 1999,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('error.code', 'VALIDATION');
+    }
+
     public function test_run_attach_rejects_terminal_and_cross_merchant_shipments(): void
     {
         [$user, $merchant, $token] = $this->createMerchantContext();

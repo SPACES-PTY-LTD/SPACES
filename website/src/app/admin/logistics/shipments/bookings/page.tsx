@@ -31,6 +31,13 @@ function normalizeSortDir(value?: string) {
   return value === "asc" ? "asc" : "desc"
 }
 
+function formatKm(value?: string | number | null) {
+  if (value === null || value === undefined || value === "") return "-"
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return "-"
+  return `${numeric.toLocaleString("en-US")} km`
+}
+
 export default async function BookingsPage({ searchParams }: BookingsPageProps) {
   const params = (await searchParams) ?? {}
   const rawPage = Array.isArray(params.page) ? params.page[0] : params.page
@@ -49,6 +56,7 @@ export default async function BookingsPage({ searchParams }: BookingsPageProps) 
     status: string
     driverNameDisplay: string
     scheduledAt?: string | null
+    shipmentKm: string
     href: string
     merchantHref: string
     merchant?: { name?: string }
@@ -78,6 +86,7 @@ export default async function BookingsPage({ searchParams }: BookingsPageProps) 
         status: booking.status,
         driverNameDisplay: booking.driver?.name || "Unassigned",
         scheduledAt: booking.booked_at ?? null,
+        shipmentKm: formatKm(booking.total_km_from_collection),
         merchant: (booking as { merchant?: { name?: string } }).merchant,
         href: AdminRoute.bookingDetails(booking.booking_id),
         merchantHref: booking.merchant_id
@@ -149,6 +158,7 @@ export default async function BookingsPage({ searchParams }: BookingsPageProps) 
           },
           { key: "driverNameDisplay", label: "Driver" },
           { key: "scheduledAt", label: "Scheduled" },
+          { key: "shipmentKm", label: "Shipment KM" },
         ]}
         rowActions={[
           { label: "View", hrefKey: "href" },

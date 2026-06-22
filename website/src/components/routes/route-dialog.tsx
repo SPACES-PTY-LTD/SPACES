@@ -18,11 +18,31 @@ import { Label } from "@/components/ui/label"
 import { LocationCombobox } from "@/components/locations/location-combobox"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { createRoute, updateRoute, type RouteStopPayload } from "@/lib/api/routes"
-import type { Route } from "@/lib/types"
+import type { Location, Route } from "@/lib/types"
 
 type StopState = {
   location_id: string
   location_label?: string
+}
+
+function getStopLocation(stop: StopState): Location | null {
+  const locationId = stop.location_id.trim()
+  if (!locationId) return null
+
+  return {
+    location_id: locationId,
+    name: stop.location_label || locationId,
+  }
+}
+
+function getStopLocationLabel(location: Location) {
+  return (
+    location.name ??
+    location.company ??
+    location.code ??
+    location.full_address ??
+    location.location_id
+  )
 }
 
 function parseOptionalNumber(value: string) {
@@ -271,18 +291,16 @@ export function RouteDialog({
                   <div key={`${index}-${stop.location_id}`} className="grid grid-cols-[80px_1fr_auto] gap-2">
                     <Input value={String(index + 1)} disabled />
                     <LocationCombobox
-                      value={stop.location_id}
-                      selectedLabel={stop.location_label}
-                      token={accessToken}
+                      value={getStopLocation(stop)}
                       merchantId={merchantValue || merchantId || undefined}
-                      onChange={(option) =>
+                      onChange={(location) =>
                         setStops((prev) =>
                           prev.map((item, itemIndex) =>
                             itemIndex === index
                               ? {
                                   ...item,
-                                  location_id: option.value,
-                                  location_label: option.label,
+                                  location_id: location.location_id,
+                                  location_label: getStopLocationLabel(location),
                                 }
                               : item
                           )

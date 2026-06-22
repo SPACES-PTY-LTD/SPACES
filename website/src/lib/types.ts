@@ -207,6 +207,13 @@ export interface Shipment {
   run_status?: string | null
   run_sequence?: number | null
   run_shipment_status?: string | null
+  booking?: {
+    booking_id?: UUID
+    status?: BookingStatus | string
+    odometer_at_collection?: number | null
+    odometer_at_delivery?: number | null
+    total_km_from_collection?: string | number | null
+  } | null
   driver?: {
     driver_id: UUID
     name: string
@@ -387,7 +394,15 @@ export interface Booking {
   } | null
   current_driver_id?: string | null
   booked_at?: string | null
+  collected_at?: string | null
+  delivered_at?: string | null
+  returned_at?: string | null
   cancelled_at?: string | null
+  odometer_at_request?: number | null
+  odometer_at_collection?: number | null
+  odometer_at_delivery?: number | null
+  odometer_at_return?: number | null
+  total_km_from_collection?: string | number | null
   cancellation_reason_code?: string | null
   cancellation_reason_note?: string | null
   cancel_reason?: string | null
@@ -413,6 +428,10 @@ export interface Run {
   planned_start_at?: string | null
   started_at?: string | null
   completed_at?: string | null
+  duration_seconds?: number | null
+  odometer_start_km?: number | null
+  odometer_end_km?: number | null
+  odometer_distance_km?: number | null
   service_area?: string | null
   notes?: string | null
   origin?: Location | null

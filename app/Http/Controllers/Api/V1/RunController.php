@@ -13,6 +13,7 @@ use App\Services\RunService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -151,13 +152,19 @@ class RunController extends Controller
             $run = $service->getRunForUser($request->user(), $run_uuid, $request->attributes->get('merchant_environment'));
             $this->authorize('update', $run);
 
-            $run = $service->startRun($run);
+            $validated = $request->validate([
+                'odometer_start_km' => ['nullable', 'integer', 'min:0'],
+            ]);
+
+            $run = $service->startRun($run, $validated['odometer_start_km'] ?? null);
 
             return ApiResponse::success(new RunResource($run));
         } catch (ConflictHttpException $e) {
             return ApiResponse::error('RUN_CONFLICT', $e->getMessage(), [], Response::HTTP_CONFLICT);
         } catch (UnprocessableEntityHttpException $e) {
             return ApiResponse::error('VALIDATION', $e->getMessage(), [], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (ValidationException $e) {
+            return ApiResponse::error('VALIDATION', 'The given data was invalid.', $e->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Throwable $e) {
             Log::error('Run start failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'RUN_START_FAILED', 'Unable to start run.');
@@ -170,13 +177,19 @@ class RunController extends Controller
             $run = $service->getRunForUser($request->user(), $run_uuid, $request->attributes->get('merchant_environment'));
             $this->authorize('update', $run);
 
-            $run = $service->completeRun($run);
+            $validated = $request->validate([
+                'odometer_end_km' => ['nullable', 'integer', 'min:0'],
+            ]);
+
+            $run = $service->completeRun($run, $validated['odometer_end_km'] ?? null);
 
             return ApiResponse::success(new RunResource($run));
         } catch (ConflictHttpException $e) {
             return ApiResponse::error('RUN_CONFLICT', $e->getMessage(), [], Response::HTTP_CONFLICT);
         } catch (UnprocessableEntityHttpException $e) {
             return ApiResponse::error('VALIDATION', $e->getMessage(), [], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (ValidationException $e) {
+            return ApiResponse::error('VALIDATION', 'The given data was invalid.', $e->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Throwable $e) {
             Log::error('Run completion failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'RUN_COMPLETE_FAILED', 'Unable to complete run.');

@@ -17,6 +17,12 @@ class RunResource extends JsonResource
         $terminalCount = $activeRunShipments->whereIn('status', [RunShipment::STATUS_DONE, RunShipment::STATUS_FAILED])->count();
         $vehicle = $this->vehicle;
         $latestLocationStop = $this->relationLoaded('latestLocationStop') ? $this->latestLocationStop : null;
+        $odometerDistance = $this->odometer_start_km !== null && $this->odometer_end_km !== null
+            ? max(0, $this->odometer_end_km - $this->odometer_start_km)
+            : null;
+        $durationSeconds = $this->started_at && $this->completed_at
+            ? max(0, $this->completed_at->diffInSeconds($this->started_at))
+            : null;
 
         return [
             'run_id' => $this->uuid,
@@ -30,6 +36,10 @@ class RunResource extends JsonResource
             'started_at' => $this->formatDateForMerchantTimezone($this->started_at, $request),
             'origin_departure_time' => $this->formatDateForMerchantTimezone($this->origin_departure_time, $request),
             'completed_at' => $this->formatDateForMerchantTimezone($this->completed_at, $request),
+            'duration_seconds' => $durationSeconds,
+            'odometer_start_km' => $this->odometer_start_km,
+            'odometer_end_km' => $this->odometer_end_km,
+            'odometer_distance_km' => $odometerDistance,
             'service_area' => $this->service_area,
             'notes' => $this->notes,
             'driver' => [

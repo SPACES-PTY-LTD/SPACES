@@ -38,6 +38,8 @@ class Run extends Model
         'started_at',
         'origin_departure_time',
         'completed_at',
+        'odometer_start_km',
+        'odometer_end_km',
         'service_area',
         'notes',
     ];
@@ -47,6 +49,8 @@ class Run extends Model
         'started_at' => 'datetime',
         'origin_departure_time' => 'datetime',
         'completed_at' => 'datetime',
+        'odometer_start_km' => 'integer',
+        'odometer_end_km' => 'integer',
         'auto_created' => 'boolean',
     ];
 

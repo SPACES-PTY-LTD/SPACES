@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { CameraView, type BarcodeScanningResult, useCameraPermissions } from 'expo-camera';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/component/ui/Text';
@@ -27,6 +27,7 @@ export default function ShipmentScanScreen() {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isFlashEnabled, setIsFlashEnabled] = useState(false);
+  const [pickupOdometer, setPickupOdometer] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
@@ -84,8 +85,20 @@ export default function ShipmentScanScreen() {
     setActionMessage(null);
 
     try {
+      const parsedPickupOdometer = parseOdometer(pickupOdometer);
+      const needsPickupOdometer =
+        remainingParcels <= 1 && shipment.booking?.odometer_at_collection == null && parsedPickupOdometer === null;
+
+      if (needsPickupOdometer) {
+        setErrorMessage('Enter the pickup odometer before scanning the final parcel.');
+        isSubmittingRef.current = false;
+        setIsScanning(false);
+        return;
+      }
+
       const response = await driverApi.scanShipment(session.token, shipment.shipment_id, {
         parcel_code: code,
+        odometer_at_collection: parsedPickupOdometer ?? undefined,
       });
 
       setShipment(response.data);
@@ -116,6 +129,7 @@ export default function ShipmentScanScreen() {
   const scannedParcels = (shipment?.parcels || []).filter((parcel) => parcel.is_picked_up_scanned);
   const totalParcels = shipment?.total_parcel_count ?? shipment?.parcels?.length ?? 0;
   const scannedCount = shipment?.scanned_parcel_count ?? scannedParcels.length;
+  const remainingParcels = Math.max(0, totalParcels - scannedCount);
   const showScannedParcelsButton = scannedCount > 0 && totalParcels > 1;
 
   return (
@@ -230,6 +244,20 @@ export default function ShipmentScanScreen() {
                 <Text className="text-destructive-foreground text-center text-sm font-medium">{errorMessage}</Text>
               </View>
             ) : null}
+
+            {remainingParcels <= 1 && !shipment.all_parcels_scanned ? (
+              <View className="bg-card mt-5 rounded-[22px] px-4 py-4">
+                <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Pickup odometer</Text>
+                <TextInput
+                  value={pickupOdometer}
+                  onChangeText={setPickupOdometer}
+                  keyboardType="number-pad"
+                  placeholder="Current kilometres"
+                  placeholderTextColor={isDarkMode ? '#71717A' : '#A8A29E'}
+                  className="bg-input text-input-foreground mt-3 rounded-[18px] px-4 py-4 text-base"
+                />
+              </View>
+            ) : null}
           </View>
 
           <View className="mt-auto flex-row items-center justify-center gap-10 pb-8 pt-10">
@@ -289,4 +317,11 @@ export default function ShipmentScanScreen() {
       </BottomSheetModal>
     </View>
   );
+}
+
+function parseOdometer(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const numeric = Number.parseInt(trimmed, 10);
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
 }

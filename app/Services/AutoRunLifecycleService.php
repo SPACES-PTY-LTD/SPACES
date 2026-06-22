@@ -29,6 +29,7 @@ class AutoRunLifecycleService
         private RouteService $routeService,
         private InternalBookingLifecycleService $internalBookingLifecycleService,
         private ShipmentParcelService $shipmentParcelService,
+        private VehicleOdometerService $vehicleOdometerService,
     )
     {
     }
@@ -126,6 +127,7 @@ class AutoRunLifecycleService
                         occurredAt: $occurredAt,
                         event: self::AUTOMATION_EVENT_EXIT,
                         driverIntegrationId: $driverIntegrationId,
+                        odometerKilometres: $odometerKilometres,
                     );
                 }
 
@@ -224,6 +226,7 @@ class AutoRunLifecycleService
                 occurredAt: $occurredAt,
                 event: self::AUTOMATION_EVENT_ENTRY,
                 driverIntegrationId: $driverIntegrationId,
+                odometerKilometres: $odometerKilometres,
             );
 
             return true;
@@ -236,11 +239,13 @@ class AutoRunLifecycleService
         Location $location,
         VehicleActivity $visit,
         CarbonInterface $occurredAt,
-        ?string $driverIntegrationId = null
+        ?string $driverIntegrationId = null,
+        ?float $odometerKilometres = null
     ): void {
         $activeRun = $this->findActiveRun($merchant, $vehicle);
         $activeRunHasShipments = $activeRun ? $this->runHasShipments($activeRun) : false;
         $shouldCompleteExistingRun = $activeRunHasShipments && $this->shouldCompleteRunAtCollectionPoint($activeRun, $location);
+        $odometer = $this->vehicleOdometerService->normalizeKilometres($odometerKilometres);
 
         if ($activeRun && $shouldCompleteExistingRun) {
             $autoRoute = null;
@@ -256,12 +261,19 @@ class AutoRunLifecycleService
                 }
             }
 
-            $activeRun->fill([
+            $activeRunUpdates = [
                 'status' => Run::STATUS_COMPLETED,
                 'destination_location_id' => $location->id,
                 'route_id' => $autoRoute?->id ?? $activeRun->route_id,
                 'completed_at' => $occurredAt,
-            ])->save();
+            ];
+
+            if ($odometer !== null) {
+                $activeRunUpdates['odometer_end_km'] = $odometer;
+            }
+
+            $activeRun->fill($activeRunUpdates)->save();
+            $this->vehicleOdometerService->syncHigherReading($vehicle, $odometer);
 
             $this->recordVehicleActivity(
                 vehicle: $vehicle,
@@ -276,6 +288,7 @@ class AutoRunLifecycleService
                     'reason' => 'collection_point_entry',
                     'ended_run_id' => $activeRun->uuid,
                     'location_id' => $location->uuid,
+                    'odometer_end_km' => $odometer,
                 ],
             );
         }
@@ -298,9 +311,11 @@ class AutoRunLifecycleService
             'auto_created' => true,
             'planned_start_at' => $occurredAt,
             'started_at' => $occurredAt,
+            'odometer_start_km' => $odometer,
             'origin_location_id' => $location->id,
             'notes' => 'Auto-created from geofence entry.',
         ]);
+        $this->vehicleOdometerService->syncHigherReading($vehicle, $odometer);
 
         $visit->run_id = $newRun->id;
         $visit->save();
@@ -319,6 +334,7 @@ class AutoRunLifecycleService
                 'reason' => 'collection_point_entry',
                 'run_id' => $newRun->uuid,
                 'origin_location_id' => $location->uuid,
+                'odometer_start_km' => $odometer,
             ],
         );
     }
@@ -465,7 +481,8 @@ class AutoRunLifecycleService
         VehicleActivity $visit,
         CarbonInterface $occurredAt,
         string $event,
-        ?string $driverIntegrationId = null
+        ?string $driverIntegrationId = null,
+        ?float $odometerKilometres = null
     ): void {
         foreach ($this->resolveLocationAutomationActions($merchant, $location, $event) as $index => $action) {
             if (!$this->automationConditionsMatch($merchant, $vehicle, $location, $visit, $action['conditions'] ?? [])) {
@@ -480,11 +497,12 @@ class AutoRunLifecycleService
                 $location,
                 $visit,
                 $occurredAt,
-                $driverIntegrationId
+                $driverIntegrationId,
+                $odometerKilometres
             ) {
                 match ($action['action'] ?? null) {
                     'record_vehicle_entry', 'record_vehicle_exit' => null,
-                    'start_run' => $this->handleCollectionPointEnter($merchant, $vehicle, $location, $visit, $occurredAt, $driverIntegrationId),
+                    'start_run' => $this->handleCollectionPointEnter($merchant, $vehicle, $location, $visit, $occurredAt, $driverIntegrationId, $odometerKilometres),
                     'create_shipment' => $this->handleDeliveryPointEnter($merchant, $vehicle, $location, $visit, $occurredAt),
                     default => null,
                 };

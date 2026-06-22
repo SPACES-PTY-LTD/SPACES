@@ -36,6 +36,23 @@ function formatDateTime(value?: string | null) {
   }).format(date)
 }
 
+function formatDurationSeconds(value?: number | null) {
+  if (typeof value !== "number") return "-"
+
+  const minutes = Math.round(value / 60)
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+
+  if (hours === 0) return `${minutes} min`
+  if (remainder === 0) return `${hours} hr`
+  return `${hours} hr ${remainder} min`
+}
+
+function formatKm(value?: number | null) {
+  if (typeof value !== "number") return "-"
+  return `${value.toLocaleString("en-US")} km`
+}
+
 function getProgress(run: Run) {
   const total = Number(run.shipment_count ?? run.shipments?.length ?? 0)
   if (total <= 0) return 0
@@ -579,6 +596,22 @@ export function RunsTrackingView({
                 <div className="rounded-lg border border-border bg-muted/30 p-3">
                   <div className="text-xs text-muted-foreground">Planned start</div>
                   <div className="text-sm font-semibold">{formatDateTime(selected.planned_start_at)}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground">Run time</div>
+                  <div className="text-sm font-semibold">{formatDurationSeconds(selected.duration_seconds)}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground">Run distance</div>
+                  <div className="text-sm font-semibold">{formatKm(selected.odometer_distance_km)}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground">Start odometer</div>
+                  <div className="text-sm font-semibold">{formatKm(selected.odometer_start_km)}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/30 p-3">
+                  <div className="text-xs text-muted-foreground">End odometer</div>
+                  <div className="text-sm font-semibold">{formatKm(selected.odometer_end_km)}</div>
                 </div>
               </div>
 

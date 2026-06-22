@@ -104,6 +104,18 @@ function formatDuration(value: number | null) {
   return `${hours} hr ${minutes} min`
 }
 
+function formatSeconds(value?: number | null) {
+  if (typeof value !== "number") return "-"
+  return formatDuration(Math.floor(value / 60))
+}
+
+function formatKm(value?: string | number | null) {
+  if (value === null || value === undefined || value === "") return "-"
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return "-"
+  return `${numeric.toLocaleString("en-US")} km`
+}
+
 export default async function ShipmentsReportPage({ searchParams }: ShipmentsReportPageProps) {
   const params = (await searchParams) ?? {}
   const dateCreated = getSingleValue(params.date_created)
@@ -172,6 +184,13 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
     to_location_display: formatLocation(item.to_location),
     from_total_time: formatDuration(minutesBetween(item.from_time_in, item.from_time_out)),
     to_total_time: formatDuration(minutesBetween(item.to_time_in, item.to_time_out)),
+    run_total_time: formatSeconds(item.run_duration_seconds),
+    run_odometer_start_display: formatKm(item.run_odometer_start_km),
+    run_odometer_end_display: formatKm(item.run_odometer_end_km),
+    run_odometer_distance_display: formatKm(item.run_odometer_distance_km),
+    odometer_at_collection_display: formatKm(item.odometer_at_collection),
+    odometer_at_delivery_display: formatKm(item.odometer_at_delivery),
+    total_km_from_collection_display: formatKm(item.total_km_from_collection),
     shipment_href: item.shipment_id ? AdminRoute.shipmentDetails(item.shipment_id) : "",
     vehicle_href: item.vehicle_id ? AdminRoute.vehicleDetails(item.vehicle_id) : "",
     driver_href: item.driver_id ? AdminRoute.driverDetails(item.driver_id) : "",
@@ -200,7 +219,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         data={rows}
         meta={tableMeta}
         loading_error={loadingError}
-        width="3600px"
+        width="4200px"
         filters={[
           {
             key: "date_created",
@@ -360,6 +379,13 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           { key: "to_time_in", label: "To Time In", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "to_time_out", label: "To Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "to_total_time", label: "To Total Time", className: "w-[140px]" },
+          { key: "odometer_at_collection_display", label: "Pickup Odometer", className: "w-[150px]" },
+          { key: "odometer_at_delivery_display", label: "Delivery Odometer", className: "w-[160px]" },
+          { key: "total_km_from_collection_display", label: "Shipment KM", className: "w-[140px]" },
+          { key: "run_total_time", label: "Run Time", className: "w-[120px]" },
+          { key: "run_odometer_start_display", label: "Run Start Odometer", className: "w-[170px]" },
+          { key: "run_odometer_end_display", label: "Run End Odometer", className: "w-[170px]" },
+          { key: "run_odometer_distance_display", label: "Run KM", className: "w-[120px]" },
           
           { key: "delivered_volume", label: "Delivered Volume" },
         ]}

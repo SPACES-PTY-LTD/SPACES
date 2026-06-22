@@ -17,6 +17,7 @@ class DriverPodRequest extends BaseRequest
             'file_key' => ['required', 'string', 'max:255'],
             'file_type' => ['nullable', 'string', 'max:50'],
             'signed_by' => ['nullable', 'string', 'max:255'],
+            'odometer_at_delivery' => ['nullable', 'integer', 'min:0'],
             'metadata' => ['nullable', 'array'],
         ];
     }

@@ -38,6 +38,13 @@ function toShipmentAddress(location: Location) {
   }
 }
 
+function formatKm(value?: string | number | null) {
+  if (value === null || value === undefined || value === "") return "-"
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return "-"
+  return `${numeric.toLocaleString("en-US")} km`
+}
+
 export default async function ShipmentsPage({
   searchParams,
 }: {
@@ -130,6 +137,7 @@ export default async function ShipmentsPage({
           ? AdminRoute.driverDetails(shipment.driver.driver_id)
           : "",
         truckRegistration: shipment.vehicle?.plate_number || "Unassigned",
+        shipmentKm: formatKm(shipment.booking?.total_km_from_collection),
         dropoff_location: formatAddress(
           shipment.dropoff_location ?? shipment.dropoff_address
         ),
@@ -201,7 +209,7 @@ export default async function ShipmentsPage({
         }
       />
       <DataTable
-        width="1600px"
+        width="1750px"
         views={[
           {
             label: "All",
@@ -338,6 +346,7 @@ export default async function ShipmentsPage({
           { key: "collection_date", label: "Collection Date", link: "href", type: "date_time", format: "YYYY-MM-DD", className:"w-[150px]" },
           { key: "created_at", label: "Created", type: "date_time", format: "YYYY-MM-DD", link: "href", className:"w-[150px]" },
           { key: "truckRegistration", label: "Truck Reg Number", link: "href", className: "w-[150px]" },
+          { key: "shipmentKm", label: "Shipment KM", link: "href", className: "w-[140px]" },
           { key: "driverName", label: "Driver", link: "driverHref", className: "w-[150px]" },
           ...(isSuperAdmin
             ? [

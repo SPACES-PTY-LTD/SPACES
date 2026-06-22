@@ -23,6 +23,7 @@ class ShipmentResource extends JsonResource
         $parcels = $this->relationLoaded('parcels') ? $this->parcels : collect();
         $totalParcelCount = $parcels->count();
         $scannedParcelCount = $parcels->filter(fn ($parcel) => $parcel->picked_up_scanned_at !== null)->count();
+        $booking = $this->relationLoaded('booking') ? $this->booking : null;
 
         return [
             'shipment_id' => $this->uuid,
@@ -53,6 +54,13 @@ class ShipmentResource extends JsonResource
             'run_status' => $currentRunShipment?->run?->status,
             'run_sequence' => $currentRunShipment?->sequence,
             'run_shipment_status' => $currentRunShipment?->status,
+            'booking' => $booking ? [
+                'booking_id' => $booking->uuid,
+                'status' => $booking->status,
+                'odometer_at_collection' => $booking->odometer_at_collection,
+                'odometer_at_delivery' => $booking->odometer_at_delivery,
+                'total_km_from_collection' => $booking->total_km_from_collection,
+            ] : null,
             'driver' => $driver ? [
                 'driver_id' => $driver->uuid,
                 'name' => $driverUser?->name,

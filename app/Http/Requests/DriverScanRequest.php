@@ -17,6 +17,7 @@ class DriverScanRequest extends BaseRequest
             'parcel_code' => ['required', 'string', 'min:10', 'max:12', 'regex:/^[A-Z0-9]+$/'],
             'event_description' => ['nullable', 'string'],
             'occurred_at' => ['nullable', 'date'],
+            'odometer_at_collection' => ['nullable', 'integer', 'min:0'],
             'payload' => ['nullable', 'array'],
         ];
     }

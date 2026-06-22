@@ -9,7 +9,7 @@ import { ShipmentStopsOverview } from "@/components/shipments/shipment-stops-ove
 import { EntityFilesSection } from "@/components/files/entity-files-section"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getLocationLabel } from "@/lib/address"
-import type { Shipment } from "@/lib/types"
+import type { Location, Shipment } from "@/lib/types"
 import type { ShipmentQuoteFormValues } from "@/components/shipments/shipment-quote-dialog"
 
 function formatDateTime(value?: string | null) {
@@ -24,6 +24,15 @@ function hasParcelValue(value?: string | number | null) {
 function buildParcelQrCodeUrl(value?: string | null) {
   if (!value) return null
   return `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(value)}`
+}
+
+function toEditableLocation(location?: Location | Partial<Location> | null) {
+  if (!location) return undefined
+
+  return {
+    ...location,
+    location_id: location.location_id ?? "",
+  }
 }
 
 export function ShipmentDetailView({
@@ -108,8 +117,12 @@ export function ShipmentDetailView({
                 invoiceInvoiceNumber: invoiceNumber,
                 invoicedAt: shipment.invoiced_at ?? "",
                 collectionDate: shipment.collection_date ?? "",
-                pickupLocation: shipment.pickup_location ?? shipment.pickup_address,
-                dropoffLocation: shipment.dropoff_location ?? shipment.dropoff_address,
+                pickupLocation: toEditableLocation(
+                  shipment.pickup_location ?? shipment.pickup_address
+                ),
+                dropoffLocation: toEditableLocation(
+                  shipment.dropoff_location ?? shipment.dropoff_address
+                ),
                 parcels: parcels.map((parcel) => ({
                   title: parcel.contents_description ?? "",
                   weight_kg: Number(parcel.weight_kg ?? parcel.weight ?? 0),

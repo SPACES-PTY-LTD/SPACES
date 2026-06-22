@@ -84,11 +84,18 @@ export type ShipmentsFullReportParams = {
 export type ShipmentFullReportRow = {
   shipment_id?: string
   vehicle_id?: string
+  run_id?: string
   date_created?: string
   collection_date?: string
   shipment_number?: string
   delivery_note_number?: string
   truck_plate_number?: string
+  run_started_at?: string
+  run_completed_at?: string
+  run_duration_seconds?: number | null
+  run_odometer_start_km?: number | null
+  run_odometer_end_km?: number | null
+  run_odometer_distance_km?: number | null
   driver_id?: string
   driver?: string
   shipment_type?: string
@@ -99,6 +106,9 @@ export type ShipmentFullReportRow = {
   to_location?: Location | null
   to_time_in?: string
   to_time_out?: string
+  odometer_at_collection?: number | null
+  odometer_at_delivery?: number | null
+  total_km_from_collection?: string | number | null
   shipment_status?: string
   delivered_volume?: string
 }

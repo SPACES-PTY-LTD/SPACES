@@ -119,6 +119,7 @@ class ShipmentService
             ->with([
                 'parcels',
                 'merchant',
+                'booking',
                 'pickupLocation',
                 'dropoffLocation',
                 'requestedVehicleType',

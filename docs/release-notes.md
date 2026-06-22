@@ -32,26 +32,47 @@ Add new entries at the top (newest first).
 - Replaced the location create/edit modal dialog with the same responsive right-side drawer layout.
 - Added desktop spacing and rounded corners to right-side drawers while keeping mobile drawers full-screen.
 - Removed the border from right-side drawers for a flatter panel style.
+- Added run odometer tracking for start and completion readings.
+- Added driver pickup and delivery odometer capture for shipment bookings.
+- Added monotonic vehicle odometer sync from accepted run and shipment readings.
+- Added shipment kilometre totals to admin shipment and booking data tables.
 
 ### API Changes
 - `POST /api/v1/shipments` now accepts optional `pickup_location_id` and `dropoff_location_id` fields instead of requiring address objects.
 - `PATCH /api/v1/shipments/{shipment_id}` now accepts optional `pickup_location_id` and `dropoff_location_id` fields.
 - Existing `pickup_address` and `dropoff_address` payloads remain supported.
+- Shipment and quote parcel payloads support the existing optional `parcels.*.type` field.
+- `POST /api/v1/runs/{run_id}/start` now accepts optional `odometer_start_km`.
+- `POST /api/v1/runs/{run_id}/complete` now accepts optional `odometer_end_km` and rejects values lower than the run start odometer.
+- `GET /api/v1/runs` and `GET /api/v1/runs/{run_id}` responses now include `duration_seconds`, `odometer_start_km`, `odometer_end_km`, and `odometer_distance_km`.
+- Shipment resources now include compact booking odometer fields when booking data is loaded.
+- `PATCH /api/v1/driver/shipments/{shipment_id}/status` now accepts `odometer_at_collection` and `odometer_at_delivery`; driver pickup/delivery completion requires the relevant odometer reading.
+- `POST /api/v1/driver/shipments/{shipment_id}/scan` now accepts `odometer_at_collection` for final pickup scan completion.
+- `POST /api/v1/driver/shipments/{shipment_id}/pod` now accepts optional `odometer_at_delivery` for delivery odometer backfill.
+- `GET /api/v1/reports/shipments_full_report` rows now include shipment pickup/delivery odometers, shipment kilometres from collection, and latest run odometer/duration fields.
 
 ### Database Changes
-- None.
+- Added nullable `odometer_start_km` and `odometer_end_km` columns to `runs`.
+- Existing booking odometer columns are now populated by driver pickup, delivery, scan, and POD flows.
 
 ### Behavior Changes
 - Creating or editing shipments from the admin UI now searches existing merchant locations instead of Google Places addresses.
 - Adding a location from a shipment picker selects the new location immediately after save.
 - Shipment create/update now reuses selected location records rather than duplicating address-only locations.
-- Shipment and quote parcel creation now tolerates either `weight` or legacy `weight_kg` parcel columns.
+- Shipment and quote parcel creation now tolerates either `weight` or legacy `weight_kg` parcel columns and keeps optional parcel `type` values.
 - Location combobox result lists now keep wheel/touch scrolling inside the popover instead of bubbling to the surrounding dialog.
 - Shipment quote/create/edit forms now open in a drawer with an internal scroll area and fixed footer actions.
 - Shipment quote/create/edit drawers now use a responsive right-side layout.
 - Location create/edit forms now open in a responsive right-side drawer.
 - Right-side drawers now have top, bottom, and right margins on non-mobile viewports.
 - Right-side drawers no longer render a panel border.
+- Drivers must provide pickup odometer readings when completing pickup through status updates or final parcel scans.
+- Drivers must provide delivery odometer readings when marking shipments delivered.
+- Shipment booking `total_km_from_collection` is calculated when pickup and delivery odometer readings are available.
+- Vehicle odometer values are updated only when a submitted run or shipment odometer is higher than the current vehicle odometer.
+- Automated run lifecycle events use provider odometer readings for run start/end when available.
+- Admin run tracking and shipment reports now surface odometer and distance fields.
+- Admin shipments, invoiced shipments, and bookings tables now show `Shipment KM` from booking collection-to-delivery totals.
 
 ### Breaking Changes
 - None.
@@ -70,6 +91,27 @@ Add new entries at the top (newest first).
 - `npm run lint -- src/components/ui/drawer.tsx src/components/shipments/shipment-quote-dialog.tsx`
 - `npm run lint -- src/components/locations/location-dialog.tsx`
 - `npm run lint -- src/components/ui/drawer.tsx`
+- `php -l database/migrations/2026_06_22_000001_add_odometer_fields_to_runs_table.php`
+- `php -l app/Services/VehicleOdometerService.php`
+- `php -l app/Services/RunService.php`
+- `php -l app/Services/AutoRunLifecycleService.php`
+- `php -l app/Http/Controllers/Api/V1/RunController.php`
+- `php -l app/Http/Controllers/Api/V1/DriverShipmentController.php`
+- `php -l app/Http/Controllers/Api/V1/ReportController.php`
+- `php -l app/Http/Controllers/Api/V1/ShipmentController.php`
+- `php -l app/Http/Resources/RunResource.php`
+- `php -l app/Http/Resources/ShipmentResource.php`
+- `php -l app/Http/Requests/DriverStatusUpdateRequest.php`
+- `php -l app/Http/Requests/DriverScanRequest.php`
+- `php -l app/Http/Requests/DriverPodRequest.php`
+- `php -l tests/Feature/RunApiTest.php`
+- `php -l tests/Feature/DriverShipmentApiTest.php`
+- `php -l app/Services/ShipmentService.php`
+- `php artisan test tests/Feature/RunApiTest.php tests/Feature/DriverShipmentApiTest.php`
+- `npm run lint -- src/app/admin/logistics/shipments/reports/shipments_report/page.tsx src/components/tracking/runs-tracking-view.tsx src/lib/api/reports.ts src/lib/types.ts`
+- `npm run lint -- src/app/admin/logistics/shipments/page.tsx src/app/admin/logistics/shipments/invoiced/page.tsx src/app/admin/logistics/shipments/bookings/page.tsx src/lib/types.ts`
+- `npm run lint -- 'app/shipments/[shipment_id].tsx' 'app/shipments/[shipment_id]/scan.tsx' src/lib/api.ts` (blocked locally: legacy Expo CLI does not accept forwarded file args and attempted to write `/Users/leroygwirize/.expo/state.json.*`)
+- `npx eslint 'app/shipments/[shipment_id].tsx' 'app/shipments/[shipment_id]/scan.tsx' src/lib/api.ts` (blocked locally: mobile dependencies are not installed and `npx` could not reach `registry.npmjs.org`)
 
 ## 2026-06-22 | Version: unreleased
 

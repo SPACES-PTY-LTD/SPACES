@@ -18,10 +18,12 @@ use App\Models\Shipment;
 use App\Models\ShipmentParcel;
 use App\Models\TrackingEvent;
 use App\Services\ActivityLogService;
+use App\Services\VehicleOdometerService;
 use App\Support\ApiResponse;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,6 +31,10 @@ use Throwable;
 
 class DriverShipmentController extends Controller
 {
+    public function __construct(private readonly VehicleOdometerService $vehicleOdometerService)
+    {
+    }
+
     private const COMPLETED_SHIPMENT_STATUSES = [
         'delivered',
         'failed',
@@ -115,7 +121,15 @@ class DriverShipmentController extends Controller
             }
 
             $newStatus = $request->validated()['status'];
-            $before = $booking->only(['status', 'collected_at', 'delivered_at', 'returned_at']);
+            $before = $booking->only([
+                'status',
+                'collected_at',
+                'delivered_at',
+                'returned_at',
+                'odometer_at_collection',
+                'odometer_at_delivery',
+                'total_km_from_collection',
+            ]);
             $currentIndex = array_search($booking->status, self::STATUS_FLOW, true);
             $newIndex = array_search($newStatus, self::STATUS_FLOW, true);
 
@@ -124,8 +138,20 @@ class DriverShipmentController extends Controller
             }
 
             $updateData = ['status' => $newStatus];
+            $collectionOdometer = $request->validated()['odometer_at_collection'] ?? null;
+            $deliveryOdometer = $request->validated()['odometer_at_delivery'] ?? null;
+            $requiresCollectionOdometer = $newIndex >= array_search('picked_up', self::STATUS_FLOW, true);
+            $requiresDeliveryOdometer = $newStatus === 'delivered';
 
-            if ($newStatus === 'picked_up' && !$booking->collected_at) {
+            if ($requiresCollectionOdometer && $booking->odometer_at_collection === null && $collectionOdometer === null) {
+                return ApiResponse::error('ODOMETER_REQUIRED', 'Pickup odometer is required to complete pickup.', [], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            if ($requiresDeliveryOdometer && $booking->odometer_at_delivery === null && $deliveryOdometer === null) {
+                return ApiResponse::error('ODOMETER_REQUIRED', 'Delivery odometer is required to complete delivery.', [], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            if ($requiresCollectionOdometer && !$booking->collected_at) {
                 $updateData['collected_at'] = now();
             }
 
@@ -137,7 +163,24 @@ class DriverShipmentController extends Controller
                 $updateData['returned_at'] = now();
             }
 
+            if ($collectionOdometer !== null) {
+                $updateData['odometer_at_collection'] = $collectionOdometer;
+            }
+
+            if ($deliveryOdometer !== null) {
+                $updateData['odometer_at_delivery'] = $deliveryOdometer;
+            }
+
+            if ($this->hasInvalidShipmentOdometerDistance($booking, $updateData)) {
+                return ApiResponse::error('INVALID_ODOMETER', 'Delivery odometer cannot be lower than pickup odometer.', [], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $this->fillTotalKmFromCollection($booking, $updateData);
+
             $booking->update($updateData);
+            $this->syncVehicleOdometerForShipment($shipment, $collectionOdometer);
+            $this->syncVehicleOdometerForShipment($shipment, $deliveryOdometer);
+
             $changes = $activityLogService->diffChanges($before, $booking->only(array_keys($before)));
             if (!empty($changes)) {
                 $activityLogService->log(
@@ -165,7 +208,11 @@ class DriverShipmentController extends Controller
                 'event_code' => $newStatus,
                 'event_description' => $request->validated()['note'] ?? 'Status updated by driver.',
                 'occurred_at' => now(),
-                'payload' => ['source' => 'driver'],
+                'payload' => array_filter([
+                    'source' => 'driver',
+                    'odometer_at_collection' => $collectionOdometer,
+                    'odometer_at_delivery' => $deliveryOdometer,
+                ], fn ($value) => $value !== null),
             ]);
 
             return ApiResponse::success(new DriverShipmentResource($this->refreshDriverShipment($shipment)));
@@ -215,6 +262,15 @@ class DriverShipmentController extends Controller
                 );
             }
 
+            $scannedParcelCountBefore = $shipment->parcels->filter(fn ($shipmentParcel) => $shipmentParcel->picked_up_scanned_at !== null)->count();
+            $totalParcelCountBefore = $shipment->parcels->count();
+            $willCompletePickup = $totalParcelCountBefore > 0 && ($scannedParcelCountBefore + 1) === $totalParcelCountBefore;
+            $collectionOdometer = $payload['odometer_at_collection'] ?? null;
+
+            if ($willCompletePickup && $booking->odometer_at_collection === null && $collectionOdometer === null) {
+                return ApiResponse::error('ODOMETER_REQUIRED', 'Pickup odometer is required to complete pickup.', [], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
             $occurredAt = !empty($payload['occurred_at'])
                 ? Carbon::parse($payload['occurred_at'])
                 : now();
@@ -245,10 +301,17 @@ class DriverShipmentController extends Controller
             $allParcelsScanned = $totalParcelCount > 0 && $scannedParcelCount === $totalParcelCount;
 
             if ($allParcelsScanned) {
-                $booking->update([
+                $bookingUpdates = [
                     'status' => 'picked_up',
                     'collected_at' => $booking->collected_at ?? $occurredAt,
-                ]);
+                ];
+
+                if ($collectionOdometer !== null) {
+                    $bookingUpdates['odometer_at_collection'] = $collectionOdometer;
+                }
+
+                $booking->update($bookingUpdates);
+                $this->syncVehicleOdometerForShipment($shipment, $collectionOdometer);
 
                 TrackingEvent::create([
                     'account_id' => $booking->account_id,
@@ -262,6 +325,7 @@ class DriverShipmentController extends Controller
                         'source' => 'driver',
                         'scanned_parcel_count' => $scannedParcelCount,
                         'total_parcel_count' => $totalParcelCount,
+                        'odometer_at_collection' => $collectionOdometer,
                     ],
                 ]);
 
@@ -269,9 +333,7 @@ class DriverShipmentController extends Controller
                     'status' => 'in_transit',
                     'collected_at' => $booking->collected_at ?? $occurredAt,
                 ]);
-                $shipment->update([
-                    'status' => 'in_transit',
-                ]);
+                $this->markShipmentInTransitIfSupported($shipment);
 
                 TrackingEvent::create([
                     'account_id' => $booking->account_id,
@@ -327,6 +389,16 @@ class DriverShipmentController extends Controller
 
             $data = $request->validated();
 
+            if (($data['odometer_at_delivery'] ?? null) !== null) {
+                $updates = [
+                    'odometer_at_delivery' => $data['odometer_at_delivery'],
+                ];
+
+                if ($this->hasInvalidShipmentOdometerDistance($booking, $updates)) {
+                    return ApiResponse::error('INVALID_ODOMETER', 'Delivery odometer cannot be lower than pickup odometer.', [], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+            }
+
             BookingPod::updateOrCreate(
                 ['booking_id' => $booking->id],
                 [
@@ -338,6 +410,16 @@ class DriverShipmentController extends Controller
                     'metadata' => $data['metadata'] ?? null,
                 ]
             );
+
+            if (($data['odometer_at_delivery'] ?? null) !== null) {
+                $updates = [
+                    'odometer_at_delivery' => $data['odometer_at_delivery'],
+                ];
+
+                $this->fillTotalKmFromCollection($booking, $updates);
+                $booking->update($updates);
+                $this->syncVehicleOdometerForShipment($shipment, $data['odometer_at_delivery']);
+            }
 
             return ApiResponse::success(new DriverShipmentResource($this->refreshDriverShipment($shipment)));
         } catch (Throwable $e) {
@@ -466,5 +548,49 @@ class DriverShipmentController extends Controller
             'merchant',
             'environment',
         ]);
+    }
+
+    private function fillTotalKmFromCollection(Booking $booking, array &$updates): void
+    {
+        $collectionOdometer = $updates['odometer_at_collection'] ?? $booking->odometer_at_collection;
+        $deliveryOdometer = $updates['odometer_at_delivery'] ?? $booking->odometer_at_delivery;
+
+        if ($collectionOdometer === null || $deliveryOdometer === null) {
+            return;
+        }
+
+        $updates['total_km_from_collection'] = max(0, $deliveryOdometer - $collectionOdometer);
+    }
+
+    private function hasInvalidShipmentOdometerDistance(Booking $booking, array $updates): bool
+    {
+        $collectionOdometer = $updates['odometer_at_collection'] ?? $booking->odometer_at_collection;
+        $deliveryOdometer = $updates['odometer_at_delivery'] ?? $booking->odometer_at_delivery;
+
+        return $collectionOdometer !== null
+            && $deliveryOdometer !== null
+            && $deliveryOdometer < $collectionOdometer;
+    }
+
+    private function syncVehicleOdometerForShipment(Shipment $shipment, ?int $odometer): void
+    {
+        $vehicle = $shipment->currentRunShipment?->run?->vehicle;
+        $this->vehicleOdometerService->syncHigherReading($vehicle, $odometer);
+    }
+
+    private function markShipmentInTransitIfSupported(Shipment $shipment): void
+    {
+        try {
+            $shipment->update(['status' => 'in_transit']);
+        } catch (QueryException $exception) {
+            if (!str_contains($exception->getMessage(), 'CHECK constraint failed')) {
+                throw $exception;
+            }
+
+            Log::warning('Shipment status could not be moved to in_transit.', [
+                'shipment_id' => $shipment->uuid,
+                'error' => $exception->getMessage(),
+            ]);
+        }
     }
 }
