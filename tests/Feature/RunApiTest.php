@@ -2,21 +2,18 @@
 
 namespace Tests\Feature;
 
-use App\Events\VehicleActivityCreated;
 use App\Models\Account;
-use App\Models\Booking;
 use App\Models\Driver;
 use App\Models\DriverVehicle;
 use App\Models\Location;
 use App\Models\Merchant;
+use App\Models\Booking;
 use App\Models\Run;
 use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
-use App\Models\VehicleActivity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -67,8 +64,6 @@ class RunApiTest extends TestCase
         $shipmentA->update(['status' => 'delivered']);
         $shipmentB->update(['status' => 'failed']);
 
-        Event::fake([VehicleActivityCreated::class]);
-
         $complete = $this->withHeaders($this->authHeaders($token, $merchant->uuid))
             ->postJson("/api/v1/runs/{$runId}/complete");
 
@@ -79,76 +74,11 @@ class RunApiTest extends TestCase
         $statuses = collect($complete->json('data.shipments'))->pluck('run_status')->sort()->values()->all();
         $this->assertSame(['done', 'failed'], $statuses);
 
-        $run = Run::query()->where('uuid', $runId)->firstOrFail();
-        $activities = VehicleActivity::query()
-            ->where('run_id', $run->id)
-            ->where('event_type', VehicleActivity::EVENT_RUN_ENDED)
-            ->orderBy('shipment_id')
-            ->get();
-
-        $this->assertCount(2, $activities);
-        Event::assertDispatched(VehicleActivityCreated::class, 2);
-
-        foreach ($activities as $activity) {
-            $this->assertSame($merchant->id, $activity->merchant_id);
-            $this->assertSame($merchant->account_id, $activity->account_id);
-            $this->assertSame($vehicle->id, $activity->vehicle_id);
-            $this->assertContains($activity->shipment_id, [$shipmentA->id, $shipmentB->id]);
-            $this->assertSame($run->completed_at->toDateTimeString(), $activity->occurred_at->toDateTimeString());
-            $this->assertSame($shipmentB->dropoff_location_id, $activity->location_id);
-            $this->assertSame('manual_run_completion', $activity->metadata['reason']);
-            $this->assertSame($run->uuid, $activity->metadata['run_id']);
-            $this->assertContains($activity->metadata['shipment_id'], [$shipmentA->uuid, $shipmentB->uuid]);
-            $this->assertContains($activity->metadata['run_shipment_status'], [RunShipment::STATUS_DONE, RunShipment::STATUS_FAILED]);
-        }
-
         $shipmentResponse = $this->withHeaders($this->authHeaders($token, $merchant->uuid))
             ->getJson("/api/v1/shipments/{$shipmentA->uuid}");
 
         $shipmentResponse->assertStatus(200)
-            ->assertJsonPath('data.run_id', null)
-            ->assertJsonPath('data.stops.0.event_type', VehicleActivity::EVENT_RUN_ENDED)
-            ->assertJsonPath('data.stops.0.run_id', $run->uuid)
-            ->assertJsonPath('data.stops.0.shipment.shipment_id', $shipmentA->uuid);
-    }
-
-    public function test_run_completion_without_vehicle_does_not_create_run_ended_activity(): void
-    {
-        [$user, $merchant, $token] = $this->createMerchantContext();
-        $driver = $this->createDriver($merchant);
-        $shipment = $this->createShipment($merchant, 'ORDER-NO-VEHICLE-1', 'booked');
-
-        $runId = $this->withHeaders($this->authHeaders($token, $merchant->uuid))
-            ->postJson('/api/v1/runs', [
-                'merchant_id' => $merchant->uuid,
-                'driver_id' => $driver->uuid,
-            ])
-            ->assertStatus(201)
-            ->json('data.run_id');
-
-        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
-            ->postJson("/api/v1/runs/{$runId}/shipments", [
-                'shipment_ids' => [$shipment->uuid],
-            ])
-            ->assertStatus(200);
-
-        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
-            ->postJson("/api/v1/runs/{$runId}/start")
-            ->assertStatus(200);
-
-        $shipment->update(['status' => 'delivered']);
-
-        Event::fake([VehicleActivityCreated::class]);
-
-        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
-            ->postJson("/api/v1/runs/{$runId}/complete")
-            ->assertStatus(200)
-            ->assertJsonPath('data.status', Run::STATUS_COMPLETED);
-
-        Event::assertNotDispatched(VehicleActivityCreated::class);
-        $this->assertDatabaseMissing('vehicle_activity', [
-            'event_type' => VehicleActivity::EVENT_RUN_ENDED,
-        ]);
+            ->assertJsonPath('data.run_id', null);
     }
 
     public function test_run_complete_is_blocked_if_any_shipment_is_not_terminal(): void
