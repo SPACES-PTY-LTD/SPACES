@@ -18,6 +18,7 @@ use App\Models\VehicleActivity;
 use App\Services\AutoRunLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class AutoRunLifecycleServiceTest extends TestCase
@@ -42,14 +43,14 @@ class AutoRunLifecycleServiceTest extends TestCase
         $locationC = $this->createLocation($merchant, 'Location C', false, -33.9400, 18.4400);
         $locationD = $this->createLocation($merchant, 'Location D', true, -33.9500, 18.4500);
 
-        $service->processVehiclePosition($vehicle, $merchant, -33.9200, 18.4200, Carbon::parse('2026-02-21 08:00:00')); // A enter
-        $service->processVehiclePosition($vehicle, $merchant, -33.9050, 18.4050, Carbon::parse('2026-02-21 08:10:00')); // A exit
-        $service->processVehiclePosition($vehicle, $merchant, -33.9300, 18.4300, Carbon::parse('2026-02-21 08:20:00')); // B enter
-        $service->processVehiclePosition($vehicle, $merchant, -33.9050, 18.4050, Carbon::parse('2026-02-21 08:30:00')); // B exit
-        $service->processVehiclePosition($vehicle, $merchant, -33.9300, 18.4300, Carbon::parse('2026-02-21 08:40:00')); // B re-enter
-        $service->processVehiclePosition($vehicle, $merchant, -33.9050, 18.4050, Carbon::parse('2026-02-21 08:50:00')); // B exit
-        $service->processVehiclePosition($vehicle, $merchant, -33.9400, 18.4400, Carbon::parse('2026-02-21 09:00:00')); // C enter
-        $service->processVehiclePosition($vehicle, $merchant, -33.9500, 18.4500, Carbon::parse('2026-02-21 09:10:00')); // D enter
+        $service->processVehiclePosition($vehicle, $merchant, -33.9200, 18.4200, Carbon::parse('2026-02-21 08:00:00'), null, null, 1000); // A enter
+        $service->processVehiclePosition($vehicle, $merchant, -33.9050, 18.4050, Carbon::parse('2026-02-21 08:10:00'), null, null, 1005); // A exit
+        $service->processVehiclePosition($vehicle, $merchant, -33.9300, 18.4300, Carbon::parse('2026-02-21 08:20:00'), null, null, 1025); // B enter
+        $service->processVehiclePosition($vehicle, $merchant, -33.9050, 18.4050, Carbon::parse('2026-02-21 08:30:00'), null, null, 1030); // B exit
+        $service->processVehiclePosition($vehicle, $merchant, -33.9300, 18.4300, Carbon::parse('2026-02-21 08:40:00'), null, null, 1032); // B re-enter
+        $service->processVehiclePosition($vehicle, $merchant, -33.9050, 18.4050, Carbon::parse('2026-02-21 08:50:00'), null, null, 1035); // B exit
+        $service->processVehiclePosition($vehicle, $merchant, -33.9400, 18.4400, Carbon::parse('2026-02-21 09:00:00'), null, null, 1050); // C enter
+        $service->processVehiclePosition($vehicle, $merchant, -33.9500, 18.4500, Carbon::parse('2026-02-21 09:10:00'), null, null, 1100); // D enter
 
         $runs = Run::query()->where('merchant_id', $merchant->id)->orderBy('id')->get();
         $this->assertCount(2, $runs);
@@ -72,7 +73,7 @@ class AutoRunLifecycleServiceTest extends TestCase
         $shipmentToB = $shipments->firstWhere('dropoff_location_id', $locationB->id);
         $shipmentToC = $shipments->firstWhere('dropoff_location_id', $locationC->id);
         $this->assertNull($shipmentToB->metadata['auto_delivery_attempts'] ?? null);
-        $this->assertSame('in_transit', $shipmentToC->status);
+        $this->assertSame('delivered', $shipmentToC->status);
         $this->assertSame('2026-02-21T08:00:01+00:00', $shipmentToB->collection_date?->toIso8601String());
         $this->assertSame('2026-02-21T08:00:01+00:00', $shipmentToC->collection_date?->toIso8601String());
         $this->assertDatabaseCount('bookings', 2);
@@ -86,10 +87,18 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertNotNull($bookingToB->booked_at);
         $this->assertNotNull($bookingToB->collected_at);
         $this->assertNotNull($bookingToB->delivered_at);
-        $this->assertSame('in_transit', $bookingToC->status);
+        $this->assertSame(1000, $bookingToB->odometer_at_request);
+        $this->assertSame(1000, $bookingToB->odometer_at_collection);
+        $this->assertSame(1030, $bookingToB->odometer_at_delivery);
+        $this->assertSame('30.00', (string) $bookingToB->total_km_from_collection);
+        $this->assertSame('delivered', $bookingToC->status);
         $this->assertNotNull($bookingToC->booked_at);
         $this->assertNotNull($bookingToC->collected_at);
-        $this->assertNull($bookingToC->delivered_at);
+        $this->assertNotNull($bookingToC->delivered_at);
+        $this->assertSame(1000, $bookingToC->odometer_at_request);
+        $this->assertSame(1000, $bookingToC->odometer_at_collection);
+        $this->assertSame(1100, $bookingToC->odometer_at_delivery);
+        $this->assertSame('100.00', (string) $bookingToC->total_km_from_collection);
         $this->assertDatabaseHas('shipment_parcels', [
             'shipment_id' => $shipmentToB->id,
             'contents_description' => 'Parcel #1',
@@ -179,7 +188,7 @@ class AutoRunLifecycleServiceTest extends TestCase
         $service = app(AutoRunLifecycleService::class);
         [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
 
-        $driverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $driverUser = $this->createUserWithoutEvents(['role' => 'driver']);
         $driverUser->forceFill(['account_id' => $merchant->account_id])->save();
 
         $driver = Driver::create([
@@ -227,7 +236,7 @@ class AutoRunLifecycleServiceTest extends TestCase
             'operating_countries' => ['US'],
         ]);
 
-        $wrongDriverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $wrongDriverUser = $this->createUserWithoutEvents(['role' => 'driver']);
         $wrongDriverUser->forceFill(['account_id' => $merchant->account_id])->save();
         $wrongDriver = Driver::create([
             'account_id' => $merchant->account_id,
@@ -237,7 +246,7 @@ class AutoRunLifecycleServiceTest extends TestCase
             'is_active' => true,
         ]);
 
-        $correctDriverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $correctDriverUser = $this->createUserWithoutEvents(['role' => 'driver']);
         $correctDriverUser->forceFill(['account_id' => $merchant->account_id])->save();
         $correctDriver = Driver::create([
             'account_id' => $merchant->account_id,
@@ -450,7 +459,7 @@ class AutoRunLifecycleServiceTest extends TestCase
         $service = app(AutoRunLifecycleService::class);
         [$merchant, $vehicle] = $this->createMerchantVehicleContext(false);
 
-        $driverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $driverUser = $this->createUserWithoutEvents(['role' => 'driver']);
         $driverUser->forceFill(['account_id' => $merchant->account_id])->save();
 
         $driver = Driver::create([
@@ -495,7 +504,7 @@ class AutoRunLifecycleServiceTest extends TestCase
             'operating_countries' => ['US'],
         ]);
 
-        $wrongDriverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $wrongDriverUser = $this->createUserWithoutEvents(['role' => 'driver']);
         $wrongDriverUser->forceFill(['account_id' => $merchant->account_id])->save();
         $wrongDriver = Driver::create([
             'account_id' => $merchant->account_id,
@@ -505,7 +514,7 @@ class AutoRunLifecycleServiceTest extends TestCase
             'is_active' => true,
         ]);
 
-        $correctDriverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $correctDriverUser = $this->createUserWithoutEvents(['role' => 'driver']);
         $correctDriverUser->forceFill(['account_id' => $merchant->account_id])->save();
         $correctDriver = Driver::create([
             'account_id' => $merchant->account_id,
@@ -539,7 +548,7 @@ class AutoRunLifecycleServiceTest extends TestCase
         $service = app(AutoRunLifecycleService::class);
         [$merchant, $vehicle] = $this->createMerchantVehicleContext(false);
 
-        $driverUserA = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $driverUserA = $this->createUserWithoutEvents(['role' => 'driver']);
         $driverUserA->forceFill(['account_id' => $merchant->account_id])->save();
         $driverA = Driver::create([
             'account_id' => $merchant->account_id,
@@ -548,7 +557,7 @@ class AutoRunLifecycleServiceTest extends TestCase
             'is_active' => true,
         ]);
 
-        $driverUserB = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $driverUserB = $this->createUserWithoutEvents(['role' => 'driver']);
         $driverUserB->forceFill(['account_id' => $merchant->account_id])->save();
         $driverB = Driver::create([
             'account_id' => $merchant->account_id,
@@ -597,7 +606,7 @@ class AutoRunLifecycleServiceTest extends TestCase
         $service = app(AutoRunLifecycleService::class);
         [$merchant, $vehicle] = $this->createMerchantVehicleContext(false);
 
-        $driverUser = User::withoutEvents(fn () => User::factory()->create(['role' => 'driver']));
+        $driverUser = $this->createUserWithoutEvents(['role' => 'driver']);
         $driverUser->forceFill(['account_id' => $merchant->account_id])->save();
 
         $driver = Driver::create([
@@ -640,7 +649,7 @@ class AutoRunLifecycleServiceTest extends TestCase
 
     private function createMerchantVehicleContext(bool $allowAutoCreation): array
     {
-        $user = User::withoutEvents(fn () => User::factory()->create(['role' => 'user']));
+        $user = $this->createUserWithoutEvents(['role' => 'user']);
 
         $account = Account::create(['owner_user_id' => $user->id]);
         $user->forceFill(['account_id' => $account->id])->save();
@@ -683,6 +692,14 @@ class AutoRunLifecycleServiceTest extends TestCase
             'location_type_id' => $type->id,
             'metadata' => ['geofence_radius_meters' => 120],
         ]);
+    }
+
+    private function createUserWithoutEvents(array $attributes = []): User
+    {
+        return User::withoutEvents(fn () => User::factory()->create([
+            'uuid' => (string) Str::uuid(),
+            ...$attributes,
+        ]));
     }
 
     private function firstOrCreateLocationType(Merchant $merchant, bool $isCollectionPoint): LocationType

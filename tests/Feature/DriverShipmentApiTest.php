@@ -261,7 +261,7 @@ class DriverShipmentApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.booking.status', 'in_transit')
-            ->assertJsonPath('data.status', 'booked')
+            ->assertJsonPath('data.status', 'in_transit')
             ->assertJsonPath('meta.scan_status', 'completed')
             ->assertJsonPath('meta.all_parcels_scanned', true);
 
@@ -276,7 +276,7 @@ class DriverShipmentApiTest extends TestCase
         ]);
         $this->assertDatabaseHas('shipments', [
             'id' => $shipment->id,
-            'status' => 'booked',
+            'status' => 'in_transit',
         ]);
         $this->assertDatabaseHas('tracking_events', [
             'shipment_id' => $shipment->id,

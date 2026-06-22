@@ -17,7 +17,7 @@ return new class extends Migration
                 ->name('fk_shipments_merchant')
                 ->index();
             $table->string('merchant_order_ref')->index();
-            $table->enum('status', ['draft', 'quoted', 'booked', 'cancelled', 'delivered', 'failed'])->default('draft')->index();
+            $table->enum('status', ['draft', 'quoted', 'booked', 'in_transit', 'cancelled', 'delivered', 'failed', 'offer_failed'])->default('draft')->index();
             $table->json('pickup_address');
             $table->json('dropoff_address');
             $table->text('pickup_instructions')->nullable();

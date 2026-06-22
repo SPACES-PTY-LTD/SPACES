@@ -117,7 +117,7 @@ class AutoRunLifecycleService
                 ])->save();
 
                 $this->closeShipmentStageAttempt($activeVisit, VehicleActivity::EVENT_SHIPMENT_DELIVERY, $occurredAt);
-                $this->markAutoShipmentDeliveredOnLocationExit($activeVisit, $occurredAt);
+                $this->markAutoShipmentDeliveredOnLocationExit($activeVisit, $occurredAt, $odometerKilometres);
                 if ($activeVisit->location) {
                     $this->executeConfiguredLocationAutomation(
                         merchant: $merchant,
@@ -364,7 +364,8 @@ class AutoRunLifecycleService
         Vehicle $vehicle,
         Location $location,
         VehicleActivity $visit,
-        CarbonInterface $occurredAt
+        CarbonInterface $occurredAt,
+        ?float $odometerKilometres = null
     ): void {
         $run = $this->findActiveRun($merchant, $vehicle);
         if (!$run || !$run->origin_location_id) {
@@ -388,7 +389,13 @@ class AutoRunLifecycleService
             $visit->shipment_id = $existingRunShipment->shipment->id;
             $visit->save();
             if ((bool) $existingRunShipment->shipment->auto_created) {
-                $this->internalBookingLifecycleService->ensureBookingForShipment($existingRunShipment->shipment, $run, $existingRunShipment->shipment->created_at ?? $occurredAt);
+                $this->internalBookingLifecycleService->ensureBookingForShipment(
+                    $existingRunShipment->shipment,
+                    $run,
+                    $existingRunShipment->shipment->created_at ?? $occurredAt,
+                    $run->odometer_start_km,
+                    $run->odometer_start_km
+                );
             }
 
             return;
@@ -467,7 +474,13 @@ class AutoRunLifecycleService
             ]
         );
 
-        $this->internalBookingLifecycleService->ensureBookingForShipment($shipment, $run, $shipment->created_at ?? $occurredAt);
+        $this->internalBookingLifecycleService->ensureBookingForShipment(
+            $shipment,
+            $run,
+            $shipment->created_at ?? $occurredAt,
+            $run->odometer_start_km,
+            $run->odometer_start_km
+        );
 
         if ($createdShipment) {
             $this->recordShipmentStageActivities($vehicle, $merchant, $run, $location, $visit, $shipment, $occurredAt, $collectionAt);
@@ -503,7 +516,7 @@ class AutoRunLifecycleService
                 match ($action['action'] ?? null) {
                     'record_vehicle_entry', 'record_vehicle_exit' => null,
                     'start_run' => $this->handleCollectionPointEnter($merchant, $vehicle, $location, $visit, $occurredAt, $driverIntegrationId, $odometerKilometres),
-                    'create_shipment' => $this->handleDeliveryPointEnter($merchant, $vehicle, $location, $visit, $occurredAt),
+                    'create_shipment' => $this->handleDeliveryPointEnter($merchant, $vehicle, $location, $visit, $occurredAt, $odometerKilometres),
                     default => null,
                 };
             });
@@ -788,11 +801,17 @@ class AutoRunLifecycleService
         ])->save();
     }
 
-    private function markAutoShipmentDeliveredOnLocationExit(VehicleActivity $visit, CarbonInterface $occurredAt): void
+    private function markAutoShipmentDeliveredOnLocationExit(
+        VehicleActivity $visit,
+        CarbonInterface $occurredAt,
+        ?float $odometerKilometres = null
+    ): void
     {
         if (!$visit->run_id || !$visit->location_id) {
             return;
         }
+
+        $odometer = $this->vehicleOdometerService->normalizeKilometres($odometerKilometres);
 
         $shipmentQuery = Shipment::query()
             ->where('merchant_id', $visit->merchant_id)
@@ -820,10 +839,12 @@ class AutoRunLifecycleService
         $shipment->metadata = $shipmentMetadata;
         $shipment->status = 'delivered';
         $shipment->save();
-        $this->internalBookingLifecycleService->markShipmentDelivered($shipment, $occurredAt);
+        $this->internalBookingLifecycleService->markShipmentDelivered($shipment, $occurredAt, $odometer);
 
         $vehicle = Vehicle::query()->find($visit->vehicle_id);
         if ($vehicle) {
+            $this->vehicleOdometerService->syncHigherReading($vehicle, $odometer);
+
             $this->recordVehicleActivity(
                 vehicle: $vehicle,
                 merchant: Merchant::query()->findOrFail($visit->merchant_id),

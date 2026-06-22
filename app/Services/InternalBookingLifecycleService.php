@@ -11,11 +11,19 @@ use Carbon\CarbonInterface;
 
 class InternalBookingLifecycleService
 {
-    public function ensureBookingForShipment(Shipment $shipment, ?Run $run = null, ?CarbonInterface $bookedAt = null): Booking
+    public function ensureBookingForShipment(
+        Shipment $shipment,
+        ?Run $run = null,
+        ?CarbonInterface $bookedAt = null,
+        ?int $odometerAtRequest = null,
+        ?int $odometerAtCollection = null
+    ): Booking
     {
         $shipment->loadMissing('booking');
 
         $booking = $shipment->booking;
+        $requestOdometer = $odometerAtRequest ?? $run?->odometer_start_km;
+        $collectionOdometer = $odometerAtCollection ?? $run?->odometer_start_km;
 
         if (!$booking) {
             $carrier = Carrier::firstOrCreate(
@@ -33,14 +41,33 @@ class InternalBookingLifecycleService
                 'status' => 'booked',
                 'carrier_code' => $carrier->code,
                 'booked_at' => $bookedAt ?? now(),
+                'odometer_at_request' => $requestOdometer,
             ]);
-        } elseif ($run && $booking->current_driver_id !== $run->driver_id) {
-            $booking->update(['current_driver_id' => $run->driver_id]);
+        } else {
+            $updates = [];
+
+            if ($run && $booking->current_driver_id !== $run->driver_id) {
+                $updates['current_driver_id'] = $run->driver_id;
+            }
+
+            if ($booking->odometer_at_request === null && $requestOdometer !== null) {
+                $updates['odometer_at_request'] = $requestOdometer;
+            }
+
+            if (!empty($updates)) {
+                $booking->update($updates);
+            }
+
             $booking->refresh();
         }
 
         if ($run && $run->status === Run::STATUS_IN_PROGRESS) {
-            $booking = $this->markBookingInTransit($booking, $run->started_at ?? $bookedAt ?? now(), $run->driver_id);
+            $booking = $this->markBookingInTransit(
+                $booking,
+                $run->started_at ?? $bookedAt ?? now(),
+                $run->driver_id,
+                $collectionOdometer
+            );
         }
 
         return $booking->fresh();
@@ -85,11 +112,15 @@ class InternalBookingLifecycleService
             }
 
             $booking = $shipment->booking ?: $this->ensureBookingForShipment($shipment, $run, $collectedAt ?? now());
-            $this->markBookingInTransit($booking, $collectedAt ?? $run->started_at ?? now(), $run->driver_id);
+            $this->markBookingInTransit($booking, $collectedAt ?? $run->started_at ?? now(), $run->driver_id, $run->odometer_start_km);
         }
     }
 
-    public function markShipmentDelivered(Shipment $shipment, ?CarbonInterface $deliveredAt = null): ?Booking
+    public function markShipmentDelivered(
+        Shipment $shipment,
+        ?CarbonInterface $deliveredAt = null,
+        ?int $odometerAtDelivery = null
+    ): ?Booking
     {
         $shipment->loadMissing('booking');
         $booking = $shipment->booking;
@@ -110,6 +141,23 @@ class InternalBookingLifecycleService
 
         if (!$booking->delivered_at) {
             $updates['delivered_at'] = $deliveredAt ?? now();
+        }
+
+        if (
+            $booking->odometer_at_delivery === null
+            && $odometerAtDelivery !== null
+            && (
+                $booking->odometer_at_collection === null
+                || $odometerAtDelivery >= $booking->odometer_at_collection
+            )
+        ) {
+            $updates['odometer_at_delivery'] = $odometerAtDelivery;
+        }
+
+        $collectionOdometer = $updates['odometer_at_collection'] ?? $booking->odometer_at_collection;
+        $deliveryOdometer = $updates['odometer_at_delivery'] ?? $booking->odometer_at_delivery;
+        if ($collectionOdometer !== null && $deliveryOdometer !== null) {
+            $updates['total_km_from_collection'] = max(0, $deliveryOdometer - $collectionOdometer);
         }
 
         if (!empty($updates)) {
@@ -161,7 +209,12 @@ class InternalBookingLifecycleService
         return $summary;
     }
 
-    private function markBookingInTransit(Booking $booking, CarbonInterface $collectedAt, ?int $driverId = null): Booking
+    private function markBookingInTransit(
+        Booking $booking,
+        CarbonInterface $collectedAt,
+        ?int $driverId = null,
+        ?int $odometerAtCollection = null
+    ): Booking
     {
         $updates = [];
 
@@ -175,6 +228,10 @@ class InternalBookingLifecycleService
 
         if ($booking->current_driver_id !== $driverId) {
             $updates['current_driver_id'] = $driverId;
+        }
+
+        if ($booking->odometer_at_collection === null && $odometerAtCollection !== null) {
+            $updates['odometer_at_collection'] = $odometerAtCollection;
         }
 
         if (!empty($updates)) {

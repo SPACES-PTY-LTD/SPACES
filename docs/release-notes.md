@@ -36,6 +36,8 @@ Add new entries at the top (newest first).
 - Added driver pickup and delivery odometer capture for shipment bookings.
 - Added monotonic vehicle odometer sync from accepted run and shipment readings.
 - Added shipment kilometre totals to admin shipment and booking data tables.
+- Fixed website production build type errors in route stop location selection and shipment edit address fallbacks.
+- Added booking odometer updates for auto-created/auto-updated shipments from vehicle location geofence events.
 
 ### API Changes
 - `POST /api/v1/shipments` now accepts optional `pickup_location_id` and `dropoff_location_id` fields instead of requiring address objects.
@@ -54,6 +56,8 @@ Add new entries at the top (newest first).
 ### Database Changes
 - Added nullable `odometer_start_km` and `odometer_end_km` columns to `runs`.
 - Existing booking odometer columns are now populated by driver pickup, delivery, scan, and POD flows.
+- Auto-created internal bookings now fill `odometer_at_request` and `odometer_at_collection` from the run start reading, and `odometer_at_delivery` from the delivery geofence exit reading when provided.
+- Fresh shipment and shipment parcel migrations now match current runtime behavior for `in_transit`/`offer_failed` shipment statuses and nullable auto-created parcel measurements.
 
 ### Behavior Changes
 - Creating or editing shipments from the admin UI now searches existing merchant locations instead of Google Places addresses.
@@ -71,8 +75,10 @@ Add new entries at the top (newest first).
 - Shipment booking `total_km_from_collection` is calculated when pickup and delivery odometer readings are available.
 - Vehicle odometer values are updated only when a submitted run or shipment odometer is higher than the current vehicle odometer.
 - Automated run lifecycle events use provider odometer readings for run start/end when available.
+- Automated vehicle-location shipment lifecycle events use provider odometer readings for booking request, collection, delivery, shipment distance, and vehicle odometer sync when available.
 - Admin run tracking and shipment reports now surface odometer and distance fields.
 - Admin shipments, invoiced shipments, and bookings tables now show `Shipment KM` from booking collection-to-delivery totals.
+- Route stop selection and shipment edit dialogs now normalize existing location values to the current location picker contract.
 
 ### Breaking Changes
 - None.
@@ -95,6 +101,9 @@ Add new entries at the top (newest first).
 - `php -l app/Services/VehicleOdometerService.php`
 - `php -l app/Services/RunService.php`
 - `php -l app/Services/AutoRunLifecycleService.php`
+- `php -l app/Services/InternalBookingLifecycleService.php`
+- `php -l database/migrations/2025_01_01_000040_create_shipments_table.php`
+- `php -l database/migrations/2025_01_01_000050_create_shipment_parcels_table.php`
 - `php -l app/Http/Controllers/Api/V1/RunController.php`
 - `php -l app/Http/Controllers/Api/V1/DriverShipmentController.php`
 - `php -l app/Http/Controllers/Api/V1/ReportController.php`
@@ -106,10 +115,14 @@ Add new entries at the top (newest first).
 - `php -l app/Http/Requests/DriverPodRequest.php`
 - `php -l tests/Feature/RunApiTest.php`
 - `php -l tests/Feature/DriverShipmentApiTest.php`
+- `php -l tests/Feature/AutoRunLifecycleServiceTest.php`
 - `php -l app/Services/ShipmentService.php`
 - `php artisan test tests/Feature/RunApiTest.php tests/Feature/DriverShipmentApiTest.php`
+- `php artisan test tests/Feature/AutoRunLifecycleServiceTest.php`
+- `php artisan test tests/Feature/RunApiTest.php tests/Feature/DriverShipmentApiTest.php tests/Feature/AutoRunLifecycleServiceTest.php`
 - `npm run lint -- src/app/admin/logistics/shipments/reports/shipments_report/page.tsx src/components/tracking/runs-tracking-view.tsx src/lib/api/reports.ts src/lib/types.ts`
 - `npm run lint -- src/app/admin/logistics/shipments/page.tsx src/app/admin/logistics/shipments/invoiced/page.tsx src/app/admin/logistics/shipments/bookings/page.tsx src/lib/types.ts`
+- `npm run build` (website; passes with existing unused-variable warnings)
 - `npm run lint -- 'app/shipments/[shipment_id].tsx' 'app/shipments/[shipment_id]/scan.tsx' src/lib/api.ts` (blocked locally: legacy Expo CLI does not accept forwarded file args and attempted to write `/Users/leroygwirize/.expo/state.json.*`)
 - `npx eslint 'app/shipments/[shipment_id].tsx' 'app/shipments/[shipment_id]/scan.tsx' src/lib/api.ts` (blocked locally: mobile dependencies are not installed and `npx` could not reach `registry.npmjs.org`)
 

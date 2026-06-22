@@ -16,10 +16,10 @@ return new class extends Migration
                 ->cascadeOnDelete()
                 ->name('fk_shipment_parcels_shipment')
                 ->index();
-            $table->decimal('weight_kg', 10, 3);
-            $table->decimal('length_cm', 10, 2);
-            $table->decimal('width_cm', 10, 2);
-            $table->decimal('height_cm', 10, 2);
+            $table->decimal('weight_kg', 10, 3)->nullable();
+            $table->decimal('length_cm', 10, 2)->nullable();
+            $table->decimal('width_cm', 10, 2)->nullable();
+            $table->decimal('height_cm', 10, 2)->nullable();
             $table->decimal('declared_value', 12, 2)->nullable();
             $table->string('contents_description')->nullable();
             $table->timestamps();
