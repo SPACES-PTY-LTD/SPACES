@@ -39,6 +39,7 @@ Add new entries at the top (newest first).
 - Fixed website production build type errors in route stop location selection and shipment edit address fallbacks.
 - Added booking odometer updates for auto-created/auto-updated shipments from vehicle location geofence events.
 - Fixed admin shipment list truck registration values for shipments whose vehicle is available from the latest activity instead of an active current run.
+- Fixed admin shipment list driver values for shipments whose driver is available from the latest activity instead of an active current run.
 
 ### API Changes
 - `POST /api/v1/shipments` now accepts optional `pickup_location_id` and `dropoff_location_id` fields instead of requiring address objects.
@@ -54,6 +55,7 @@ Add new entries at the top (newest first).
 - `POST /api/v1/driver/shipments/{shipment_id}/pod` now accepts optional `odometer_at_delivery` for delivery odometer backfill.
 - `GET /api/v1/reports/shipments_full_report` rows now include shipment pickup/delivery odometers, shipment kilometres from collection, and latest run odometer/duration fields.
 - `GET /api/v1/shipments` shipment resources now fall back to the latest vehicle activity vehicle when no current run vehicle is available.
+- `GET /api/v1/shipments` shipment resources now fall back to the latest vehicle activity run driver, then the activity vehicle's last driver, when no current run driver is available.
 
 ### Database Changes
 - Added nullable `odometer_start_km` and `odometer_end_km` columns to `runs`.
@@ -81,6 +83,7 @@ Add new entries at the top (newest first).
 - Admin run tracking and shipment reports now surface odometer and distance fields.
 - Admin shipments, invoiced shipments, and bookings tables now show `Shipment KM` from booking collection-to-delivery totals.
 - `/admin/logistics/shipments` now shows the truck registration from the latest shipment vehicle activity when a shipment no longer has an active current run assignment.
+- `/admin/logistics/shipments` now shows the driver from the latest shipment vehicle activity when a shipment no longer has an active current run assignment.
 - Route stop selection and shipment edit dialogs now normalize existing location values to the current location picker contract.
 
 ### Breaking Changes
@@ -114,7 +117,7 @@ Add new entries at the top (newest first).
 - `php -l app/Http/Resources/RunResource.php`
 - `php -l app/Http/Resources/ShipmentResource.php`
 - `php -l tests/Feature/ShipmentQuoteTest.php`
-- `php artisan test tests/Feature/ShipmentQuoteTest.php --filter=latest_activity_vehicle`
+- `php artisan test tests/Feature/ShipmentQuoteTest.php --filter=latest_activity_vehicle_and_driver`
 - `php artisan test tests/Feature/ShipmentQuoteTest.php`
 - `php -l app/Http/Requests/DriverStatusUpdateRequest.php`
 - `php -l app/Http/Requests/DriverScanRequest.php`

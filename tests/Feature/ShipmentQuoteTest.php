@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\Driver;
 use App\Models\Merchant;
 use App\Models\Location;
 use App\Models\Run;
@@ -215,7 +216,7 @@ class ShipmentQuoteTest extends TestCase
             ->assertJsonPath('data.stops.1.event_type', VehicleActivity::EVENT_SHIPMENT_DELIVERY);
     }
 
-    public function test_shipment_list_uses_latest_activity_vehicle_when_current_run_is_missing(): void
+    public function test_shipment_list_uses_latest_activity_vehicle_and_driver_when_current_run_is_missing(): void
     {
         $user = User::factory()->create();
         $account = Account::create(['owner_user_id' => $user->id]);
@@ -244,9 +245,20 @@ class ShipmentQuoteTest extends TestCase
             'plate_number' => 'LIST-123',
             'is_active' => true,
         ]);
+        $driverUser = User::factory()->create([
+            'account_id' => $account->id,
+            'name' => 'List Driver',
+        ]);
+        $driver = Driver::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'user_id' => $driverUser->id,
+            'is_active' => true,
+        ]);
         $run = Run::create([
             'account_id' => $account->id,
             'merchant_id' => $merchant->id,
+            'driver_id' => $driver->id,
             'vehicle_id' => $vehicle->id,
             'status' => Run::STATUS_COMPLETED,
         ]);
@@ -264,7 +276,8 @@ class ShipmentQuoteTest extends TestCase
         $this->withApiToken($user)
             ->getJson("/api/v1/shipments?merchant_id={$merchant->uuid}&per_page=10")
             ->assertOk()
-            ->assertJsonPath('data.0.vehicle.plate_number', 'LIST-123');
+            ->assertJsonPath('data.0.vehicle.plate_number', 'LIST-123')
+            ->assertJsonPath('data.0.driver.name', 'List Driver');
     }
 
     public function test_shipment_list_can_filter_invoiced_shipments(): void
