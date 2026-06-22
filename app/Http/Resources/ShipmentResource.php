@@ -19,7 +19,10 @@ class ShipmentResource extends JsonResource
         $run = $currentRunShipment?->run;
         $driver = $run?->driver;
         $driverUser = $driver?->user;
-        $vehicle = $run?->vehicle;
+        $latestVehicleActivity = $this->relationLoaded('latestVehicleActivity')
+            ? $this->latestVehicleActivity
+            : null;
+        $vehicle = $run?->vehicle ?? $latestVehicleActivity?->vehicle;
         $parcels = $this->relationLoaded('parcels') ? $this->parcels : collect();
         $totalParcelCount = $parcels->count();
         $scannedParcelCount = $parcels->filter(fn ($parcel) => $parcel->picked_up_scanned_at !== null)->count();

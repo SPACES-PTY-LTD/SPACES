@@ -125,6 +125,7 @@ class ShipmentService
                 'requestedVehicleType',
                 'currentRunShipment.run.driver.user',
                 'currentRunShipment.run.vehicle.lastDriver.user',
+                'latestVehicleActivity.vehicle',
             ]);
 
         if ($user->role !== 'super_admin') {
@@ -226,6 +227,7 @@ class ShipmentService
                 'requestedVehicleType',
                 'currentRunShipment.run.driver.user',
                 'currentRunShipment.run.vehicle.lastDriver.user',
+                'latestVehicleActivity.vehicle',
             ])
             ->where('shipments.merchant_id', $environment->merchant_id)
             ->where('shipments.environment_id', $environment->id);

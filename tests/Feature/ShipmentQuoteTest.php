@@ -215,6 +215,58 @@ class ShipmentQuoteTest extends TestCase
             ->assertJsonPath('data.stops.1.event_type', VehicleActivity::EVENT_SHIPMENT_DELIVERY);
     }
 
+    public function test_shipment_list_uses_latest_activity_vehicle_when_current_run_is_missing(): void
+    {
+        $user = User::factory()->create();
+        $account = Account::create(['owner_user_id' => $user->id]);
+        $user->forceFill(['account_id' => $account->id])->save();
+
+        $merchant = Merchant::factory()->create([
+            'owner_user_id' => $user->id,
+            'account_id' => $account->id,
+        ]);
+        $merchant->users()->attach($user->id, ['role' => 'owner']);
+
+        $create = $this->withApiToken($user)->postJson('/api/v1/shipments', [
+            'merchant_uuid' => $merchant->uuid,
+            'merchant_order_ref' => 'ORDER-LIST-VEHICLE-ACTIVITY',
+            'pickup_address' => $this->addressPayload('A'),
+            'dropoff_address' => $this->addressPayload('B'),
+            'auto_assign' => false,
+            'parcels' => [$this->parcelPayload()],
+        ])->assertStatus(201);
+
+        $shipmentId = $create->json('data.shipment_id');
+        $shipment = \App\Models\Shipment::query()->where('uuid', $shipmentId)->firstOrFail();
+        $vehicle = Vehicle::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'plate_number' => 'LIST-123',
+            'is_active' => true,
+        ]);
+        $run = Run::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'status' => Run::STATUS_COMPLETED,
+        ]);
+
+        VehicleActivity::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'shipment_id' => $shipment->id,
+            'run_id' => $run->id,
+            'event_type' => VehicleActivity::EVENT_SHIPMENT_DELIVERY,
+            'occurred_at' => '2026-02-28 09:00:00',
+        ]);
+
+        $this->withApiToken($user)
+            ->getJson("/api/v1/shipments?merchant_id={$merchant->uuid}&per_page=10")
+            ->assertOk()
+            ->assertJsonPath('data.0.vehicle.plate_number', 'LIST-123');
+    }
+
     public function test_shipment_list_can_filter_invoiced_shipments(): void
     {
         $user = User::factory()->create();
