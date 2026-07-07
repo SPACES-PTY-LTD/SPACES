@@ -1,13 +1,16 @@
 "use client"
 
 import * as React from "react"
+import { MapIcon, Satellite } from "lucide-react"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 import { updateLocation } from "@/lib/api/locations"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 import type { Location } from "@/lib/types"
 
 type LatLngLiteral = google.maps.LatLngLiteral
+type MapLayer = "roadmap" | "satellite"
 
 const fallbackCenter: LatLngLiteral = { lat: -33.9249, lng: 18.4241 }
 const defaultOffset = 0.005
@@ -64,6 +67,7 @@ export function LocationGeofence({
   const drawPointsRef = React.useRef<LatLngLiteral[]>([])
   const [loadingMap, setLoadingMap] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
+  const [mapLayer, setMapLayer] = React.useState<MapLayer>("roadmap")
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [hasPolygon, setHasPolygon] = React.useState(
     Boolean(getPolygonPath(location.polygon_bounds))
@@ -77,6 +81,7 @@ export function LocationGeofence({
   const lastSavedSignatureRef = React.useRef<string | null>(null)
   const autoSaveEnabledRef = React.useRef(false)
   const autoSaveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mapLayerRef = React.useRef<MapLayer>("roadmap")
 
   const getCurrentPolygonPath = React.useCallback((): LatLngLiteral[] => {
     if (!polygonRef.current) return []
@@ -151,6 +156,11 @@ export function LocationGeofence({
     polygonDragListenersRef.current = []
   }, [])
 
+  React.useEffect(() => {
+    mapLayerRef.current = mapLayer
+    mapInstance.current?.setMapTypeId(mapLayer)
+  }, [mapLayer])
+
   const updateCenterMarker = React.useCallback(
     (points: LatLngLiteral[]) => {
       if (!mapInstance.current || !points.length) return
@@ -210,6 +220,7 @@ export function LocationGeofence({
         mapInstance.current = new google.maps.Map(mapRef.current, {
           center,
           zoom: 13,
+          mapTypeId: mapLayerRef.current,
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
@@ -407,6 +418,30 @@ export function LocationGeofence({
         </div>
       ) : null}
       <div className="absolute inset-0" ref={mapRef} />
+      <div className="absolute left-4 top-4 z-10 inline-flex rounded-md border bg-background/95 p-1 shadow-sm backdrop-blur">
+        <Button
+          type="button"
+          size="sm"
+          variant={mapLayer === "roadmap" ? "default" : "ghost"}
+          className="h-8 rounded-sm px-3"
+          aria-pressed={mapLayer === "roadmap"}
+          onClick={() => setMapLayer("roadmap")}
+        >
+          <MapIcon className="h-4 w-4" />
+          Map
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={mapLayer === "satellite" ? "default" : "ghost"}
+          className="h-8 rounded-sm px-3"
+          aria-pressed={mapLayer === "satellite"}
+          onClick={() => setMapLayer("satellite")}
+        >
+          <Satellite className="h-4 w-4" />
+          Satellite
+        </Button>
+      </div>
     </div>
   )
 }

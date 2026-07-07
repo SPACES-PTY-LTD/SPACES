@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { MarkerClusterer, MarkerUtils, type Marker } from "@googlemaps/markerclusterer"
-import { Loader2, MapPin, RotateCcw, Search, X } from "lucide-react"
+import { Loader2, MapIcon, MapPin, RotateCcw, Satellite, Search, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +23,7 @@ import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 import type { ApiListResponse, Location } from "@/lib/types"
 
 type LatLngLiteral = google.maps.LatLngLiteral
+type MapLayer = "roadmap" | "satellite"
 
 type PaginationMeta = {
   current_page: number
@@ -579,6 +580,7 @@ function LocationsGeofenceMap({
   )
   const [loadingMap, setLoadingMap] = React.useState(true)
   const [mapReady, setMapReady] = React.useState(false)
+  const [mapLayer, setMapLayer] = React.useState<MapLayer>("roadmap")
   const [saving, setSaving] = React.useState(false)
   const [loadError, setLoadError] = React.useState<string | null>(null)
 
@@ -610,8 +612,9 @@ function LocationsGeofenceMap({
           mapInstance.current = new google.maps.Map(mapRef.current, {
             center: fallbackCenter,
             zoom: defaultZoom,
+            mapTypeId: "roadmap",
             ...(googleMapsMapId ? { mapId: googleMapsMapId } : {}),
-            mapTypeControl: true,
+            mapTypeControl: false,
             streetViewControl: true,
             fullscreenControl: true,
           })
@@ -632,6 +635,11 @@ function LocationsGeofenceMap({
       clearMapEntries()
     }
   }, [clearMapEntries])
+
+  React.useEffect(() => {
+    if (!mapReady || !mapInstance.current) return
+    mapInstance.current.setMapTypeId(mapLayer)
+  }, [mapLayer, mapReady])
 
   React.useEffect(() => {
     if (!mapReady || !mapInstance.current) return
@@ -880,6 +888,31 @@ function LocationsGeofenceMap({
         </div>
       ) : null}
       <div className="absolute inset-0" ref={mapRef} />
+
+      <div className="absolute left-4 top-4 z-10 inline-flex rounded-md border bg-background/95 p-1 shadow-sm backdrop-blur">
+        <Button
+          type="button"
+          size="sm"
+          variant={mapLayer === "roadmap" ? "default" : "ghost"}
+          className="h-8 rounded-sm px-3"
+          aria-pressed={mapLayer === "roadmap"}
+          onClick={() => setMapLayer("roadmap")}
+        >
+          <MapIcon className="h-4 w-4" />
+          Map
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={mapLayer === "satellite" ? "default" : "ghost"}
+          className="h-8 rounded-sm px-3"
+          aria-pressed={mapLayer === "satellite"}
+          onClick={() => setMapLayer("satellite")}
+        >
+          <Satellite className="h-4 w-4" />
+          Satellite
+        </Button>
+      </div>
 
       {selectedLocation ? (
         <div className="absolute bottom-4 right-4 z-10 w-[min(440px,calc(100%-2rem))] rounded-md border bg-background/95 p-4 shadow-lg backdrop-blur">
