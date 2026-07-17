@@ -8,7 +8,6 @@ import {
 import { isApiErrorResponse } from "@/lib/api/client"
 import { createShipment, listShipments } from "@/lib/api/shipments"
 import { listTags } from "@/lib/api/tags"
-import { formatAddress } from "@/lib/address"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { normalizeTableMeta } from "@/lib/table"
 import type { Location } from "@/lib/types"
@@ -43,6 +42,10 @@ function formatKm(value?: string | number | null) {
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return "-"
   return `${numeric.toLocaleString("en-US")} km`
+}
+
+function getLocationName(location?: Partial<Location> | null) {
+  return location?.name?.trim() || "-"
 }
 
 export default async function ShipmentsPage({
@@ -138,10 +141,10 @@ export default async function ShipmentsPage({
           : "",
         truckRegistration: shipment.vehicle?.plate_number || "Unassigned",
         shipmentKm: formatKm(shipment.booking?.total_km_from_collection),
-        dropoff_location: formatAddress(
+        dropoff_location: getLocationName(
           shipment.dropoff_location ?? shipment.dropoff_address
         ),
-        pickup_location: formatAddress(
+        pickup_location: getLocationName(
           shipment.pickup_location ?? shipment.pickup_address
         ),
         merchantHref: shipment.merchant_id

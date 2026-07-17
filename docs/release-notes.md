@@ -20,6 +20,73 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-07-17 | Version: unreleased
+
+### Summary
+- Updated the admin shipments table and shipments report to show pickup and dropoff location names instead of formatted street addresses.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The `From` and `To` columns on `/admin/logistics/shipments` now display the location name, or `-` when no name is available.
+- The `From Location` and `To Location` columns in the shipments report now display the location name only, or `-` when no name is available.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/app/admin/logistics/shipments/page.tsx` (could not run: website dependencies are not installed and `eslint` is unavailable)
+- `npm run lint -- src/app/admin/logistics/shipments/reports/shipments_report/page.tsx` (could not run: website dependencies are not installed and `eslint` is unavailable)
+
+## 2026-07-07 | Version: unreleased
+
+### Summary
+- Enabled native Google Maps layer controls on the admin location geofence editor.
+- Enabled native Google Maps layer controls on individual admin location detail geofence maps.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/locations/geofence` now shows Google's built-in `Map` and `Satellite` buttons while editing geofences.
+- `/admin/logistics/locations/{location_id}` geofence maps now show Google's built-in `Map` and `Satellite` buttons.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/components/locations/locations-geofence-page-content.tsx src/components/locations/location-geofence.tsx` (passes with existing unused-code warnings in `location-geofence.tsx`)
+
+## 2026-06-23 | Version: unreleased
+
+### Summary
+- Fixed internal booking odometer backfills so `Shipment KM` can calculate when delivery odometers arrive later.
+
+### API Changes
+- `GET /api/v1/shipments` and `GET /api/v1/bookings` can now surface `booking.total_km_from_collection` for backfilled internal bookings that previously missed the collection odometer.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Auto/internal booking creation now stores the collection odometer when it is known, even if the related run is no longer in progress.
+- Existing internal bookings with a missing collection odometer are updated when the lifecycle service is called with a known collection odometer.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Services/InternalBookingLifecycleService.php`
+- `php -l tests/Feature/AutoRunLifecycleServiceTest.php`
+- `php artisan test tests/Feature/AutoRunLifecycleServiceTest.php --filter=internal_booking_backfill_keeps_collection_odometer_for_shipment_km`
+
 ## 2026-06-22 | Version: unreleased
 
 ### Summary
