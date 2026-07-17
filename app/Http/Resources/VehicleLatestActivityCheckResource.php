@@ -22,6 +22,9 @@ class VehicleLatestActivityCheckResource extends JsonResource
             ? $this->getRelation('lastDriver')
             : null;
         $lastDriverUser = $lastDriver?->relationLoaded('user') ? $lastDriver->user : null;
+        $fleetStatus = $this->maintenance_mode_at !== null
+            ? 'maintenance'
+            : (((int) ($this->qualifying_active_runs_count ?? 0)) > 0 ? 'active' : 'standby');
 
         return [
             'activity_id' => $activity?->uuid,
@@ -37,6 +40,7 @@ class VehicleLatestActivityCheckResource extends JsonResource
                 'make' => $this->make,
                 'model' => $this->model,
                 'is_active' => (bool) $this->is_active,
+                'fleet_status' => $fleetStatus,
                 'last_driver_id' => $lastDriver?->uuid,
                 'driver_logged_at' => optional($this->driver_logged_at)?->toIso8601String(),
                 'last_driver' => $lastDriver ? [

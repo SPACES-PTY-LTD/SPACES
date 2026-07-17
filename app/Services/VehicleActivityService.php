@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Location;
 use App\Models\LocationType;
 use App\Models\Merchant;
+use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -83,6 +84,17 @@ class VehicleActivityService
 
         $vehicles = Vehicle::query()
             ->with(['lastDriver.user'])
+            ->withCount([
+                'activeRuns as qualifying_active_runs_count' => function (Builder $query) {
+                    $query->whereHas('runShipments', function (Builder $runShipmentQuery) {
+                        $runShipmentQuery
+                            ->where('status', '!=', RunShipment::STATUS_REMOVED)
+                            ->whereHas('shipment', function (Builder $shipmentQuery) {
+                                $shipmentQuery->whereNotIn('status', ['delivered', 'cancelled']);
+                            });
+                    });
+                },
+            ])
             ->where('merchant_id', $merchant->id)
             ->orderByDesc('created_at')
             ->orderByDesc('id')

@@ -27,6 +27,7 @@ import { FilterLocationsDialog } from "./components/filter-locations-dialog";
 import { ViewPresetControls } from "./components/view-preset-controls";
 import {
   createLoadForTruck,
+  createInitialStandbyTrucks,
   createInitialUnknownParkingTrucks,
   createPlaceholderNode,
   createPlateNumber,
@@ -326,6 +327,9 @@ export default function VirtualWarehousePage() {
   const [parkingTrucks, setParkingTrucks] = useState<TruckRender[]>(() =>
     ACTIVITY_FEED_SOURCE === "dummy" ? createInitialUnknownParkingTrucks() : []
   );
+  const [standbyTrucks, setStandbyTrucks] = useState<TruckRender[]>(() =>
+    ACTIVITY_FEED_SOURCE === "dummy" ? createInitialStandbyTrucks() : []
+  );
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
   const [visibleLocationTypes, setVisibleLocationTypes] = useState<FilterableLocationMeshType[]>([
     "warehouse",
@@ -482,6 +486,7 @@ export default function VirtualWarehousePage() {
       if (isApiErrorResponse(response)) {
         const now = Date.now();
         const fallbackParking: TruckRender[] = [];
+        const fallbackStandby: TruckRender[] = [];
         const fallbackLocationDetailsById = new Map<
           string,
           Pick<LocationNode, "label" | "company" | "fullAddress" | "city" | "province" | "country" | "meshType">
@@ -492,6 +497,17 @@ export default function VirtualWarehousePage() {
             if (!key) return acc;
 
             const truck = buildTruckFromActivity(item, now);
+            if (item.vehicle?.fleet_status === "standby") {
+              fallbackStandby.push({
+                ...truck,
+                locationId: "PARKING_STANDBY",
+                locationLabel: "Standby vehicles",
+                slot: fallbackStandby.length,
+                status: "parked",
+                changedAt: now
+              });
+              return acc;
+            }
             const placement = classifyActivityPlacement(item);
             if (placement === "unknown") {
               fallbackParking.push({
@@ -517,6 +533,7 @@ export default function VirtualWarehousePage() {
         const fallbackTrucks = (allVehiclesResponse.data ?? []).reduce<Record<string, TruckRender>>((acc, item) => {
           const key = getVehicleKey(item);
           if (!key) return acc;
+          if (item.vehicle?.fleet_status === "standby") return acc;
 
           if (classifyActivityPlacement(item) !== "location") {
             return acc;
@@ -544,6 +561,7 @@ export default function VirtualWarehousePage() {
         setRoadSlots(fallbackRoadSlots);
         setTrucks(fallbackTrucks);
         setParkingTrucks(fallbackParking);
+        setStandbyTrucks(fallbackStandby);
         setLocations((prevLocations) =>
           syncLocationsFromTrucks(prevLocations, fallbackTrucks).map((location) => {
             if (location.meshType === "placeholder") return location;
@@ -562,6 +580,8 @@ export default function VirtualWarehousePage() {
       const now = Date.now();
       const nextTrucks: Record<string, TruckRender> = {};
       const parkingByVehicleKey = new Map<string, TruckRender>();
+      const standbyByVehicleKey = new Map<string, TruckRender>();
+      const standbyVehicleKeys = new Set<string>();
       const locationSlots = new Map<string, number>();
       let nextRoadSlots = createRoadPlaceholders(BASE_ROAD_SLOT_COUNT);
       const locationDetailsById = new Map<
@@ -572,6 +592,19 @@ export default function VirtualWarehousePage() {
       for (const activity of allVehiclesResponse.data ?? []) {
         const key = getVehicleKey(activity);
         if (!key) continue;
+        if (activity.vehicle?.fleet_status === "standby") {
+          const resolvedKey = String(key);
+          standbyVehicleKeys.add(resolvedKey);
+          standbyByVehicleKey.set(resolvedKey, {
+            ...buildTruckFromActivity(activity, now),
+            locationId: "PARKING_STANDBY",
+            locationLabel: "Standby vehicles",
+            slot: 0,
+            status: "parked",
+            changedAt: now
+          });
+          continue;
+        }
         if (classifyActivityPlacement(activity) !== "unknown") continue;
         parkingByVehicleKey.set(String(key), {
           ...buildTruckFromActivity(activity, now),
@@ -585,6 +618,7 @@ export default function VirtualWarehousePage() {
 
       for (const activity of latestByVehicle) {
         const activityVehicleKey = getVehicleKey(activity);
+        if (activityVehicleKey && standbyVehicleKeys.has(String(activityVehicleKey))) continue;
         if (activityVehicleKey) parkingByVehicleKey.delete(String(activityVehicleKey));
         const truck = buildTruckFromActivity(activity, now);
         const locationId = activity.location?.location_id;
@@ -608,9 +642,14 @@ export default function VirtualWarehousePage() {
         ...truck,
         slot: index
       }));
+      const nextStandbyTrucks = Array.from(standbyByVehicleKey.values()).map((truck, index) => ({
+        ...truck,
+        slot: index
+      }));
 
       setRoadSlots(nextRoadSlots);
       setParkingTrucks(nextParkingTrucks);
+      setStandbyTrucks(nextStandbyTrucks);
       setTrucks(nextTrucks);
       setLocations((prevLocations) =>
         syncLocationsFromTrucks(prevLocations, nextTrucks).map((location) => {
@@ -735,6 +774,10 @@ export default function VirtualWarehousePage() {
     () => parkingTrucks.map((truck) => ({ ...truck, isSpeeding: isTruckSpeeding(truck), isWaitingOverdue: false })),
     [parkingTrucks]
   );
+  const standbyTruckList = useMemo(
+    () => standbyTrucks.map((truck) => ({ ...truck, isSpeeding: false, isWaitingOverdue: false })),
+    [standbyTrucks]
+  );
 
   const filteredTrucks = useMemo(
     () => truckList.filter((truck) => filteredLocationIds.has(truck.locationId)),
@@ -772,6 +815,7 @@ export default function VirtualWarehousePage() {
   const searchMatchedParkedTrucks = decoratedFilteredTrucks.filter(matchesRegNumber);
   const searchMatchedRoadTrucks = roadTruckList.filter(matchesRegNumber);
   const searchMatchedParkingTrucks = parkingTruckList.filter(matchesRegNumber);
+  const searchMatchedStandbyTrucks = standbyTruckList.filter(matchesRegNumber);
   const searchedLocationIds = useMemo(
     () => new Set(searchMatchedParkedTrucks.map((truck) => truck.locationId)),
     [searchMatchedParkedTrucks]
@@ -794,12 +838,18 @@ export default function VirtualWarehousePage() {
     () => (normalizedSearchQuery ? searchMatchedParkingTrucks : parkingTruckList),
     [normalizedSearchQuery, parkingTruckList, searchMatchedParkingTrucks]
   );
+  const displayedStandbyTrucks = useMemo(
+    () => (normalizedSearchQuery ? searchMatchedStandbyTrucks : standbyTruckList),
+    [normalizedSearchQuery, standbyTruckList, searchMatchedStandbyTrucks]
+  );
   const displayedRoadSlots = useMemo(
     () => displayedRoadTrucks.map((truck) => truck as TruckRender | null),
     [displayedRoadTrucks]
   );
-  const totalVehicleCount = decoratedFilteredTrucks.length + roadTruckList.length + parkingTruckList.length;
-  const searchResultsCount = displayedParkedTrucks.length + displayedRoadTrucks.length + displayedParkingTrucks.length;
+  const totalVehicleCount =
+    decoratedFilteredTrucks.length + roadTruckList.length + parkingTruckList.length + standbyTruckList.length;
+  const searchResultsCount =
+    displayedParkedTrucks.length + displayedRoadTrucks.length + displayedParkingTrucks.length + displayedStandbyTrucks.length;
 
   const locationTypeCounts = useMemo(() => {
     const counts: Record<FilterableLocationMeshType, number> = {
@@ -828,9 +878,10 @@ export default function VirtualWarehousePage() {
       displayedParkedTrucks.find((truck) => truck.truckId === selectedTruckId) ??
       displayedRoadTrucks.find((truck) => truck.truckId === selectedTruckId) ??
       displayedParkingTrucks.find((truck) => truck.truckId === selectedTruckId) ??
+      displayedStandbyTrucks.find((truck) => truck.truckId === selectedTruckId) ??
       null
     );
-  }, [selectedTruckId, displayedParkedTrucks, displayedRoadTrucks, displayedParkingTrucks]);
+  }, [selectedTruckId, displayedParkedTrucks, displayedRoadTrucks, displayedParkingTrucks, displayedStandbyTrucks]);
   const selectedLocation = useMemo(
     () =>
       selectedLocationId
@@ -854,7 +905,8 @@ export default function VirtualWarehousePage() {
   };
 
   const handleSearchSubmit = () => {
-    const visibleTruck = displayedRoadTrucks[0] ?? displayedParkingTrucks[0] ?? displayedParkedTrucks[0] ?? null;
+    const visibleTruck =
+      displayedRoadTrucks[0] ?? displayedParkingTrucks[0] ?? displayedStandbyTrucks[0] ?? displayedParkedTrucks[0] ?? null;
 
     if (visibleTruck) {
       setSelectedLocationId(null);
@@ -939,6 +991,7 @@ export default function VirtualWarehousePage() {
           trucks={displayedParkedTrucks}
           roadSlots={displayedRoadSlots}
           parkingTrucks={displayedParkingTrucks}
+          standbyTrucks={displayedStandbyTrucks}
           showVehicleRegNumbers={showVehicleRegNumbers}
           showLocationLabels={showLocationLabels}
           selectedTruck={selectedTruck}

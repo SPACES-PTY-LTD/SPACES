@@ -23,6 +23,32 @@ Add new entries at the top (newest first).
 ## 2026-07-17 | Version: unreleased
 
 ### Summary
+- Added a dedicated standby-vehicle section to the admin shipment monitoring scene.
+
+### API Changes
+- `GET /api/v1/vehicles/latest-activity-check` now returns `vehicle.fleet_status` as `active`, `maintenance`, or `standby`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Standby uses the fleet-summary definition: the vehicle has no qualifying active run and is not in maintenance.
+- Standby vehicles are shown only in their dedicated parking section and participate in search, selection, camera framing, and vehicle totals.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Services/VehicleActivityService.php`
+- `php -l app/Http/Resources/VehicleLatestActivityCheckResource.php`
+- `php -l tests/Feature/VehicleLatestActivityCheckTest.php`
+- `git diff --check`
+- `php artisan test tests/Feature/VehicleLatestActivityCheckTest.php` (blocked by the existing SQLite test schema requiring `users.uuid` while the user factory does not populate it)
+- `npm run build` in `website` (passes with existing unrelated lint warnings)
+
+## 2026-07-17 | Version: unreleased
+
+### Summary
 - Updated the admin shipments table to show pickup and dropoff location names instead of formatted street addresses.
 
 ### API Changes

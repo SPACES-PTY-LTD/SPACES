@@ -129,6 +129,29 @@ export function createInitialUnknownParkingTrucks(count = 8): TruckRender[] {
   });
 }
 
+export function createInitialStandbyTrucks(count = 6): TruckRender[] {
+  const now = Date.now();
+  return Array.from({ length: count }).map((_, index) => {
+    const truckId = `TRK-S${String(index + 1).padStart(3, "0")}`;
+    return {
+      truckId,
+      plateNumber: createPlateNumber(truckId),
+      locationId: "PARKING_STANDBY",
+      locationLabel: "Standby vehicles",
+      slot: index,
+      status: "parked",
+      changedAt: now,
+      driver: randomOf(DRIVERS),
+      shipment: {
+        ...createLoadForTruck(truckId),
+        destination: "Awaiting assignment"
+      },
+      vehicleRefCode: `STB-${index + 1}`,
+      shipmentRecord: null
+    };
+  });
+}
+
 export function startTruckStream(onEvent: (event: TruckEvent) => void) {
   const HOTSPOT_LOCATION_ID = "DEPOT-01";
   const HOTSPOT_TARGET_TRUCKS = 18;

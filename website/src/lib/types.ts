@@ -1011,6 +1011,7 @@ export interface VehicleActivity {
     make?: string | null
     model?: string | null
     is_active?: boolean
+    fleet_status?: "active" | "maintenance" | "standby"
     driver_logged_at?: string | null
     last_driver?: {
       driver_id?: UUID

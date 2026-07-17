@@ -7,6 +7,7 @@ use App\Models\Driver;
 use App\Models\Location;
 use App\Models\Merchant;
 use App\Models\Run;
+use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
@@ -100,6 +101,11 @@ class VehicleLatestActivityCheckTest extends TestCase
             'vehicle_id' => $vehicleWithActivity->id,
             'status' => Run::STATUS_IN_PROGRESS,
         ]);
+        RunShipment::create([
+            'run_id' => $run->id,
+            'shipment_id' => $shipment->id,
+            'status' => RunShipment::STATUS_ACTIVE,
+        ]);
 
         VehicleActivity::create([
             'account_id' => $account->id,
@@ -148,6 +154,7 @@ class VehicleLatestActivityCheckTest extends TestCase
             ->assertJsonPath('data.0.location', null)
             ->assertJsonPath('data.0.merchant.merchant_id', $merchant->uuid)
             ->assertJsonPath('data.0.vehicle.last_driver_id', null)
+            ->assertJsonPath('data.0.vehicle.fleet_status', 'standby')
             ->assertJsonPath('data.1.vehicle.vehicle_id', $vehicleWithActivity->uuid)
             ->assertJsonPath('data.1.activity_id', $latestActivity->uuid)
             ->assertJsonPath('data.1.merchant.merchant_id', $merchant->uuid)
@@ -155,11 +162,78 @@ class VehicleLatestActivityCheckTest extends TestCase
             ->assertJsonPath('data.1.run_id', $run->uuid)
             ->assertJsonPath('data.1.vehicle.last_driver_id', $driver->uuid)
             ->assertJsonPath('data.1.vehicle.last_driver.driver_id', $driver->uuid)
+            ->assertJsonPath('data.1.vehicle.fleet_status', 'active')
             ->assertJsonPath('data.1.vehicle.driver_logged_at', '2026-02-28T10:05:00+00:00')
             ->assertJsonPath('data.1.driver.driver_id', $driver->uuid)
             ->assertJsonPath('data.1.shipment.shipment_id', $shipment->uuid)
             ->assertJsonPath('data.1.event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
             ->assertJsonPath('data.1.metadata.source', 'test');
+    }
+
+    public function test_it_classifies_maintenance_and_non_qualifying_runs_outside_active_status(): void
+    {
+        $user = User::withoutEvents(fn () => User::factory()->create(['role' => 'user']));
+        $account = Account::create(['owner_user_id' => $user->id]);
+        $user->forceFill(['account_id' => $account->id])->save();
+        $merchant = Merchant::factory()->create([
+            'account_id' => $account->id,
+            'owner_user_id' => $user->id,
+            'status' => 'active',
+        ]);
+
+        $maintenanceVehicle = Vehicle::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'plate_number' => 'MAINT-1',
+            'maintenance_mode_at' => now(),
+            'is_active' => true,
+        ]);
+        $deliveredVehicle = Vehicle::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'plate_number' => 'DONE-1',
+            'is_active' => true,
+        ]);
+        $removedVehicle = Vehicle::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'plate_number' => 'REMOVED-1',
+            'is_active' => true,
+        ]);
+
+        foreach ([
+            [$deliveredVehicle, 'delivered', RunShipment::STATUS_DONE],
+            [$removedVehicle, 'draft', RunShipment::STATUS_REMOVED],
+        ] as [$vehicle, $shipmentStatus, $runShipmentStatus]) {
+            $shipment = Shipment::create([
+                'account_id' => $account->id,
+                'merchant_id' => $merchant->id,
+                'merchant_order_ref' => 'ORDER-'.$vehicle->id,
+                'status' => $shipmentStatus,
+            ]);
+            $run = Run::create([
+                'account_id' => $account->id,
+                'merchant_id' => $merchant->id,
+                'vehicle_id' => $vehicle->id,
+                'status' => Run::STATUS_IN_PROGRESS,
+            ]);
+            RunShipment::create([
+                'run_id' => $run->id,
+                'shipment_id' => $shipment->id,
+                'status' => $runShipmentStatus,
+            ]);
+        }
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/v1/vehicles/latest-activity-check?merchant_id='.$merchant->uuid);
+
+        $response->assertOk();
+        $statusesByPlate = collect($response->json('data'))
+            ->mapWithKeys(fn (array $item) => [$item['vehicle']['plate_number'] => $item['vehicle']['fleet_status']]);
+
+        $this->assertSame('maintenance', $statusesByPlate->get($maintenanceVehicle->plate_number));
+        $this->assertSame('standby', $statusesByPlate->get($deliveredVehicle->plate_number));
+        $this->assertSame('standby', $statusesByPlate->get($removedVehicle->plate_number));
     }
 
     public function test_it_requires_merchant_id(): void
