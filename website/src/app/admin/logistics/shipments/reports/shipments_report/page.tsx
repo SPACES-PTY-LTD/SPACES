@@ -67,7 +67,15 @@ function normalizeSortDirection(value: string): SortDirection | undefined {
 }
 
 function formatLocation(location?: Location | null) {
-  return location?.name?.trim() || "-"
+  if (!location) return "-"
+
+  const primary = [location.name, location.code ? `(${location.code})` : ""]
+    .filter(Boolean)
+    .join(" ")
+  const fallback = location.address_line_1 ?? location.city ?? location.country
+  const value = primary || fallback || "-"
+
+  return value
 }
 
 function parseDate(value?: string | null): Date | null {

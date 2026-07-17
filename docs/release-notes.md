@@ -23,7 +23,7 @@ Add new entries at the top (newest first).
 ## 2026-07-17 | Version: unreleased
 
 ### Summary
-- Updated the admin shipments table and shipments report to show pickup and dropoff location names instead of formatted street addresses.
+- Updated the admin shipments table to show pickup and dropoff location names instead of formatted street addresses.
 
 ### API Changes
 - None.
@@ -33,14 +33,12 @@ Add new entries at the top (newest first).
 
 ### Behavior Changes
 - The `From` and `To` columns on `/admin/logistics/shipments` now display the location name, or `-` when no name is available.
-- The `From Location` and `To Location` columns in the shipments report now display the location name only, or `-` when no name is available.
 
 ### Breaking Changes
 - None.
 
 ### Verification
 - `npm run lint -- src/app/admin/logistics/shipments/page.tsx` (could not run: website dependencies are not installed and `eslint` is unavailable)
-- `npm run lint -- src/app/admin/logistics/shipments/reports/shipments_report/page.tsx` (could not run: website dependencies are not installed and `eslint` is unavailable)
 
 ## 2026-07-07 | Version: unreleased
 
