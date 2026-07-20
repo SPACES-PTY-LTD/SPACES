@@ -198,7 +198,8 @@ async function performApiFetch<T>(
 
   if (
     contentType.includes("application/pdf") ||
-    contentType.includes("application/octet-stream")
+    contentType.includes("application/octet-stream") ||
+    contentType.startsWith("image/")
   ) {
     return (await response.blob()) as T
   }

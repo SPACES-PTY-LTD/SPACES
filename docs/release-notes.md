@@ -23,6 +23,34 @@ Add new entries at the top (newest first).
 ## 2026-07-20 | Version: unreleased
 
 ### Summary
+- Added AI-assisted delivery-note imports to run tracking with editable shipment and parcel review.
+
+### API Changes
+- Added `POST /api/v1/runs/{run_id}/delivery-note-imports` for PDF/image extraction.
+- Added `POST /api/v1/runs/{run_id}/delivery-note-imports/{import_id}/confirm` for atomic shipment creation and run attachment.
+- Added `GET /api/v1/runs/{run_id}/delivery-note-imports/{import_id}/download`.
+- Run and shipment resources now expose their linked delivery-note imports.
+
+### Database Changes
+- Added `delivery_note_imports` and `delivery_note_import_shipments` for one-file run storage and shipment associations.
+
+### Behavior Changes
+- Run actions now open a delivery-note drawer supporting separate-shipment and single-shipment parcel grouping modes.
+- AI results remain editable drafts until confirmation; confirmed imports disable automatic delivery offers and attach shipments to the selected mutable run.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l` for the delivery-note import service, controller, requests, models, resources, and migration.
+- `php artisan test tests/Unit/OpenAIServiceTest.php`
+- `php artisan test tests/Feature/DeliveryNoteImportTest.php`
+- `npm run build` in `website`
+- `git diff --check`
+
+## 2026-07-20 | Version: unreleased
+
+### Summary
 - Corrected boolean filtering for the merchant location-types API.
 - Fixed the location-type dropdown when creating a location for a merchant still using fallback defaults.
 

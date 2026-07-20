@@ -44,4 +44,12 @@ return [
         'password' => env('MIX_PASSWORD'),
     ],
 
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com'),
+        'delivery_note_model' => env('OPENAI_DELIVERY_NOTE_MODEL', 'gpt-5.6-terra'),
+        'delivery_note_max_output_tokens' => (int) env('OPENAI_DELIVERY_NOTE_MAX_OUTPUT_TOKENS', 4000),
+        'timeout' => (int) env('OPENAI_TIMEOUT', 90),
+    ],
+
 ];

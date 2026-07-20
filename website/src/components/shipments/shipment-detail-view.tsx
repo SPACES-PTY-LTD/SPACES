@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ShipmentDetailActions } from "@/components/shipments/shipment-detail-actions"
 import { ShipmentStopsOverview } from "@/components/shipments/shipment-stops-overview"
 import { EntityFilesSection } from "@/components/files/entity-files-section"
+import { DeliveryNoteImportList } from "@/components/files/delivery-note-import-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getLocationLabel } from "@/lib/address"
 import type { Location, Shipment } from "@/lib/types"
@@ -315,6 +316,14 @@ export function ShipmentDetailView({
         </TabsContent>
 
         <TabsContent value="files">
+          {(shipment.delivery_note_imports ?? []).length > 0 ? (
+            <Card className="mb-4">
+              <CardContent className="space-y-3 p-4">
+                <div className="font-semibold">Imported delivery notes</div>
+                <DeliveryNoteImportList imports={shipment.delivery_note_imports ?? []} accessToken={accessToken} />
+              </CardContent>
+            </Card>
+          ) : null}
           <EntityFilesSection
             entityType="shipment"
             entityId={shipmentId}

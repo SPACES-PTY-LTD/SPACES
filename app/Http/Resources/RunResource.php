@@ -102,6 +102,7 @@ class RunResource extends JsonResource
                 })->all(),
             'created_at' => $this->formatDateForMerchantTimezone($this->created_at, $request),
             'updated_at' => $this->formatDateForMerchantTimezone($this->updated_at, $request),
+            'delivery_note_imports' => DeliveryNoteImportResource::collection($this->whenLoaded('deliveryNoteImports')),
         ];
     }
 }

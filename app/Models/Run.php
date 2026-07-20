@@ -14,12 +14,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Run extends Model
 {
-    use HasFactory, SoftDeletes, HasUuid, HasAccountId;
+    use HasAccountId, HasFactory, HasUuid, SoftDeletes;
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_DISPATCHED = 'dispatched';
+
     public const STATUS_IN_PROGRESS = 'in_progress';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_CANCELLED = 'cancelled';
 
     protected $fillable = [
@@ -122,6 +126,11 @@ class Run extends Model
         return $this->belongsToMany(Shipment::class, 'run_shipments')
             ->withPivot(['uuid', 'sequence', 'pickup_stop_order', 'dropoff_stop_order', 'status'])
             ->withTimestamps();
+    }
+
+    public function deliveryNoteImports(): HasMany
+    {
+        return $this->hasMany(DeliveryNoteImport::class)->latest();
     }
 
     public function isMutable(): bool

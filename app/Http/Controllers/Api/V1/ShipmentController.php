@@ -53,6 +53,7 @@ class ShipmentController extends Controller
             );
         } catch (Throwable $e) {
             Log::error('Shipment create failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'SHIPMENT_CREATE_FAILED', 'Unable to create shipment.');
         }
     }
@@ -72,7 +73,7 @@ class ShipmentController extends Controller
             }
 
             $payload = $request->validated();
-            if (!array_key_exists('auto_assign', $payload)) {
+            if (! array_key_exists('auto_assign', $payload)) {
                 $payload['auto_assign'] = true;
             }
             if (empty($payload['service_type'])) {
@@ -112,6 +113,7 @@ class ShipmentController extends Controller
             ], ($result['created'] ?? false) ? Response::HTTP_CREATED : Response::HTTP_OK);
         } catch (Throwable $e) {
             Log::error('On-demand dispatch request failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'ON_DEMAND_DISPATCH_FAILED', 'Unable to process on-demand dispatch request.');
         }
     }
@@ -129,6 +131,7 @@ class ShipmentController extends Controller
             return ApiResponse::paginated($shipments, ShipmentResource::collection($shipments));
         } catch (Throwable $e) {
             Log::error('Shipment list failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'SHIPMENT_LIST_FAILED', 'Unable to list shipments.'.$e->getMessage());
         }
     }
@@ -162,6 +165,7 @@ class ShipmentController extends Controller
             return ApiResponse::error('VALIDATION', $e->getMessage(), [], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Throwable $e) {
             Log::error('Shipment assign driver failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'SHIPMENT_ASSIGN_DRIVER_FAILED', 'Unable to assign driver to shipment.');
         }
     }
@@ -209,6 +213,7 @@ class ShipmentController extends Controller
             return ApiResponse::success(new ShipmentResource($shipment));
         } catch (Throwable $e) {
             Log::error('Shipment fetch failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'SHIPMENT_NOT_FOUND', 'Shipment not found.', Response::HTTP_NOT_FOUND);
         }
     }
@@ -238,6 +243,7 @@ class ShipmentController extends Controller
             return ApiResponse::success(new ShipmentResource($this->loadShipmentRelations($shipment)));
         } catch (Throwable $e) {
             Log::error('Shipment update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'SHIPMENT_UPDATE_FAILED', 'Unable to update shipment.');
         }
     }
@@ -267,6 +273,7 @@ class ShipmentController extends Controller
             return ApiResponse::success(new ShipmentResource($this->loadShipmentRelations($shipment)));
         } catch (Throwable $e) {
             Log::error('Shipment delivery note update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'SHIPMENT_DELIVERY_NOTE_UPDATE_FAILED', 'Unable to update shipment delivery note number.');
         }
     }
@@ -302,6 +309,7 @@ class ShipmentController extends Controller
             return ApiResponse::success(new ShipmentResource($this->loadShipmentRelations($shipment)));
         } catch (Throwable $e) {
             Log::error('Shipment invoice number update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'SHIPMENT_INVOICE_NUMBER_UPDATE_FAILED', 'Unable to update shipment invoice number.');
         }
     }
@@ -327,6 +335,7 @@ class ShipmentController extends Controller
             return ApiResponse::success(['message' => 'Shipment deleted']);
         } catch (Throwable $e) {
             Log::error('Shipment delete failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'SHIPMENT_DELETE_FAILED', 'Unable to delete shipment.');
         }
     }
@@ -348,13 +357,14 @@ class ShipmentController extends Controller
             }
 
             $labelUrl = optional($shipment->booking)->label_url;
-            if (!$labelUrl) {
+            if (! $labelUrl) {
                 return ApiResponse::success(['status' => 'processing'], [], Response::HTTP_ACCEPTED);
             }
 
             return ApiResponse::success(['label_url' => $labelUrl]);
         } catch (Throwable $e) {
             Log::error('Shipment label failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'LABEL_FAILED', 'Unable to fetch label.');
         }
     }
@@ -381,6 +391,7 @@ class ShipmentController extends Controller
             return ApiResponse::success(TrackingEventResource::collection($events));
         } catch (Throwable $e) {
             Log::error('Shipment tracking failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'TRACKING_FAILED', 'Unable to fetch tracking.');
         }
     }
@@ -400,7 +411,8 @@ class ShipmentController extends Controller
             'vehicleActivities.vehicle.lastDriver.user',
             'vehicleActivities.location',
             'vehicleActivities.run.driver.user',
-            'vehicleActivities.shipment'
+            'vehicleActivities.shipment',
+            'deliveryNoteImports.run'
         );
     }
 }

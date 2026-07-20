@@ -3,7 +3,6 @@
 namespace App\Http\Resources;
 
 use App\Http\Resources\Concerns\FormatsMerchantTimestamps;
-use App\Http\Resources\VehicleActivityResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -89,6 +88,7 @@ class ShipmentResource extends JsonResource
             'stops' => VehicleActivityResource::collection($this->whenLoaded('vehicleActivities')),
             'offers' => DeliveryOfferResource::collection($this->whenLoaded('deliveryOffers')),
             'created_at' => $this->formatDateForMerchantTimezone($this->created_at, $request),
+            'delivery_note_imports' => DeliveryNoteImportResource::collection($this->whenLoaded('deliveryNoteImports')),
         ];
     }
 }

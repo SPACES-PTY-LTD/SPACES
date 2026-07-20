@@ -17,11 +17,16 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { StatusBadge } from "@/components/common/status-badge"
 import { ShipmentStopsOverview } from "@/components/shipments/shipment-stops-overview"
+import { DeliveryNoteImportDrawer } from "@/components/tracking/delivery-note-import-drawer"
+import { DeliveryNoteImportList } from "@/components/files/delivery-note-import-list"
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listRuns } from "@/lib/api/runs"
 import { cn } from "@/lib/utils"
 import type { ApiListResponse, Run, ShipmentStop } from "@/lib/types"
-import { Filter, Loader2, MessageCircle, Phone, Truck } from "lucide-react"
+import { ChevronDown, FileUp, Filter, Loader2, MessageCircle, Phone, Truck } from "lucide-react"
 import { formatAddress } from "@/lib/address"
 
 function formatDateTime(value?: string | null) {
@@ -171,6 +176,7 @@ export function RunsTrackingView({
   const [loadingMore, setLoadingMore] = React.useState(false)
   const [loadingSearch, setLoadingSearch] = React.useState(false)
   const [loadingError, setLoadingError] = React.useState<string | null>(null)
+  const [deliveryNoteOpen, setDeliveryNoteOpen] = React.useState(false)
   const listContainerRef = React.useRef<HTMLDivElement | null>(null)
   const loadMoreSentinelRef = React.useRef<HTMLDivElement | null>(null)
   const selected = allRuns.find((run) => run.run_id === selectedId) ?? allRuns[0]
@@ -581,6 +587,22 @@ export function RunsTrackingView({
                   <Button size="icon" variant="outline" disabled>
                     <MessageCircle className="h-4 w-4" />
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline">
+                        Actions <ChevronDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        disabled={!["draft", "dispatched"].includes(selected.status ?? "")}
+                        onSelect={() => setDeliveryNoteOpen(true)}
+                      >
+                        <FileUp className="h-4 w-4" />
+                        Upload Delivery Note
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
@@ -638,6 +660,13 @@ export function RunsTrackingView({
                 </div>
               </div>
 
+              {(selected.delivery_note_imports ?? []).length > 0 ? (
+                <div className="rounded-xl border border-border p-4">
+                  <div className="mb-2 text-sm font-semibold">Delivery notes</div>
+                  <DeliveryNoteImportList imports={selected.delivery_note_imports ?? []} accessToken={accessToken} runId={selected.run_id} />
+                </div>
+              ) : null}
+
               <Card className="bg-muted/30">
                 <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
                   <div className="flex items-center gap-3">
@@ -664,6 +693,19 @@ export function RunsTrackingView({
           </CardContent>
         </Card>
       )}
+      {selected ? (
+        <DeliveryNoteImportDrawer
+          run={selected}
+          accessToken={accessToken}
+          open={deliveryNoteOpen}
+          onOpenChange={setDeliveryNoteOpen}
+          onConfirmed={(updatedRun) => {
+            setAllRuns((current) => current.map((run) =>
+              run.run_id === updatedRun.run_id ? updatedRun : run
+            ))
+          }}
+        />
+      ) : null}
     </div>
   )
 }

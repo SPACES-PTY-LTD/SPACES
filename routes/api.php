@@ -1,35 +1,36 @@
 <?php
 
-use App\Http\Controllers\Api\V1\AdminController;
+use App\Http\Controllers\Api\V1\ActivityLogController;
+use App\Http\Controllers\Api\V1\AdminBillingController;
 use App\Http\Controllers\Api\V1\AdminCancelReasonController;
 use App\Http\Controllers\Api\V1\AdminCarrierController;
-use App\Http\Controllers\Api\V1\AdminBillingController;
+use App\Http\Controllers\Api\V1\AdminController;
 use App\Http\Controllers\Api\V1\AdminDriverAssignmentController;
 use App\Http\Controllers\Api\V1\AdminDriverVehicleController;
 use App\Http\Controllers\Api\V1\AdminTrackingProviderController;
 use App\Http\Controllers\Api\V1\AdminTrackingProviderFormFieldController;
 use App\Http\Controllers\Api\V1\AdminTrackingProviderOptionController;
 use App\Http\Controllers\Api\V1\AdminVehicleTypeController;
-use App\Http\Controllers\Api\V1\ActivityLogController;
 use App\Http\Controllers\Api\V1\AuthController;
-use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\BillingController;
+use App\Http\Controllers\Api\V1\BookingController;
 use App\Http\Controllers\Api\V1\CarrierWebhookController;
+use App\Http\Controllers\Api\V1\DataPurgeController;
+use App\Http\Controllers\Api\V1\DeliveryNoteImportController;
 use App\Http\Controllers\Api\V1\DriverController;
 use App\Http\Controllers\Api\V1\DriverDeviceController;
 use App\Http\Controllers\Api\V1\DriverOfferController;
-use App\Http\Controllers\Api\V1\DriverShipmentController;
 use App\Http\Controllers\Api\V1\DriverPresenceController;
+use App\Http\Controllers\Api\V1\DriverShipmentController;
 use App\Http\Controllers\Api\V1\DriverVehicleController;
-use App\Http\Controllers\Api\V1\DataPurgeController;
 use App\Http\Controllers\Api\V1\EntityFileController;
 use App\Http\Controllers\Api\V1\FileTypeController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\LocationTypeController;
 use App\Http\Controllers\Api\V1\MeController;
-use App\Http\Controllers\Api\V1\MerchantIntegrationController;
 use App\Http\Controllers\Api\V1\MerchantController;
 use App\Http\Controllers\Api\V1\MerchantEnvironmentController;
+use App\Http\Controllers\Api\V1\MerchantIntegrationController;
 use App\Http\Controllers\Api\V1\MerchantInviteController;
 use App\Http\Controllers\Api\V1\MerchantMemberController;
 use App\Http\Controllers\Api\V1\MerchantUserController;
@@ -40,8 +41,8 @@ use App\Http\Controllers\Api\V1\RunController;
 use App\Http\Controllers\Api\V1\ShipmentController;
 use App\Http\Controllers\Api\V1\ShipmentOfferController;
 use App\Http\Controllers\Api\V1\TagController;
-use App\Http\Controllers\Api\V1\VehicleController;
 use App\Http\Controllers\Api\V1\VehicleActivityController;
+use App\Http\Controllers\Api\V1\VehicleController;
 use App\Http\Controllers\Api\V1\WebhookSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
@@ -159,11 +160,14 @@ Route::prefix('v1')->group(function () {
         Route::get('runs/{run_uuid}', [RunController::class, 'show']);
         Route::patch('runs/{run_uuid}', [RunController::class, 'update']);
         Route::post('runs/{run_uuid}/shipments', [RunController::class, 'attachShipments']);
+        Route::post('runs/{run_uuid}/delivery-note-imports', [DeliveryNoteImportController::class, 'store']);
+        Route::post('runs/{run_uuid}/delivery-note-imports/{import_uuid}/confirm', [DeliveryNoteImportController::class, 'confirm']);
+        Route::get('runs/{run_uuid}/delivery-note-imports/{import_uuid}/download', [DeliveryNoteImportController::class, 'download']);
         Route::delete('runs/{run_uuid}/shipments/{shipment_uuid}', [RunController::class, 'detachShipment']);
         Route::post('runs/{run_uuid}/dispatch', [RunController::class, 'dispatch']);
         Route::post('runs/{run_uuid}/start', [RunController::class, 'start']);
         Route::post('runs/{run_uuid}/complete', [RunController::class, 'complete']);
-        
+
         Route::get('bookings', [BookingController::class, 'index'])->middleware('merchant.context');
         Route::get('bookings/{booking_uuid}', [BookingController::class, 'show']);
         Route::post('shipments/{shipment_uuid}/cancel', [BookingController::class, 'cancel']);
@@ -224,7 +228,7 @@ Route::prefix('v1')->group(function () {
             Route::get('vehicle-activities/{activity_uuid}', [VehicleActivityController::class, 'show']);
             Route::get('vehicles/latest-activity-check', [VehicleActivityController::class, 'latestActivityCheck']);
             Route::get('tags', [TagController::class, 'index'])->middleware('merchant.context');
-            
+
             Route::middleware('role:user')->group(function () {
                 Route::post('tracking-providers/activate', [MerchantIntegrationController::class, 'activateTrackingProvider']);
                 Route::put('tracking-providers/{provider_id}/options_data', [MerchantIntegrationController::class, 'updateTrackingProviderOptionsData']);
@@ -242,7 +246,7 @@ Route::prefix('v1')->group(function () {
             });
 
             Route::get('vehicle-types', [AdminVehicleTypeController::class, 'index']);
-            
+
             Route::post('cancel-reasons', [AdminCancelReasonController::class, 'store']);
             Route::middleware('role:super_admin')->group(function () {
                 Route::get('cancel-reasons/{cancel_reason_uuid}', [AdminCancelReasonController::class, 'show']);

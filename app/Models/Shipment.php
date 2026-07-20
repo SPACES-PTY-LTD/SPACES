@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Shipment extends Model
 {
-    use HasFactory, SoftDeletes, HasUuid, HasAccountId;
+    use HasAccountId, HasFactory, HasUuid, SoftDeletes;
 
     protected $fillable = [
         'uuid',
@@ -155,6 +155,11 @@ class Shipment extends Model
     public function files(): MorphMany
     {
         return $this->morphMany(EntityFile::class, 'attachable');
+    }
+
+    public function deliveryNoteImports(): BelongsToMany
+    {
+        return $this->belongsToMany(DeliveryNoteImport::class, 'delivery_note_import_shipments')->withTimestamps();
     }
 
     public function pickupAddressArray(): array

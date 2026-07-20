@@ -230,6 +230,7 @@ export interface Shipment {
   parcels?: ShipmentParcel[]
   stops?: ShipmentStop[]
   files?: EntityFile[]
+  delivery_note_imports?: DeliveryNoteImport[]
   created_at?: string
 }
 
@@ -458,6 +459,60 @@ export interface Run {
   shipments?: RunShipment[]
   created_at?: string
   updated_at?: string
+  delivery_note_imports?: DeliveryNoteImport[]
+}
+
+export type DeliveryNoteAddress = {
+  name?: string | null
+  company?: string | null
+  address_line_1?: string | null
+  address_line_2?: string | null
+  town?: string | null
+  city?: string | null
+  province?: string | null
+  post_code?: string | null
+  country?: string | null
+  first_name?: string | null
+  last_name?: string | null
+  phone?: string | null
+}
+
+export type DeliveryNoteLineItem = {
+  merchant_order_ref?: string | null
+  description?: string | null
+  quantity?: number | null
+  type?: string | null
+  weight?: number | null
+  length_cm?: number | null
+  width_cm?: number | null
+  height_cm?: number | null
+}
+
+export interface DeliveryNoteExtraction {
+  delivery_note_number?: string | null
+  merchant_order_ref?: string | null
+  collection_date?: string | null
+  pickup_address: DeliveryNoteAddress
+  dropoff_address: DeliveryNoteAddress
+  pickup_instructions?: string | null
+  dropoff_instructions?: string | null
+  line_items: DeliveryNoteLineItem[]
+}
+
+export interface DeliveryNoteImport {
+  import_id: UUID
+  run_id: UUID
+  status: "analyzed" | "confirmed" | "failed"
+  original_name: string
+  mime_type: string
+  size_bytes: number
+  download_url: string
+  model?: string | null
+  grouping_mode?: "separate_shipments" | "single_shipment"
+  extracted_data?: DeliveryNoteExtraction
+  shipment_ids?: UUID[]
+  confirmed_at?: string | null
+  created_at?: string
 }
 
 export interface WebhookSubscription {

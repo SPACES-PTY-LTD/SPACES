@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Driver;
 use App\Models\DeliveryRoute;
+use App\Models\Driver;
 use App\Models\Merchant;
 use App\Models\MerchantEnvironment;
 use App\Models\Run;
@@ -43,6 +43,7 @@ class RunService
                 'originLocation',
                 'destinationLocation',
                 'runShipments.shipment.parcels',
+                'deliveryNoteImports.shipments',
             ]);
 
         if ($environment) {
@@ -70,31 +71,31 @@ class RunService
             $query->where('driver_id', $driverId ?? 0);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['date'])) {
+        if (! empty($filters['date'])) {
             $query->whereDate('planned_start_at', $filters['date']);
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = trim((string) $filters['search']);
             $query->where(function (Builder $builder) use ($search) {
                 $builder
-                    ->where('uuid', 'like', '%' . $search . '%')
-                    ->orWhere('status', 'like', '%' . $search . '%')
-                    ->orWhere('service_area', 'like', '%' . $search . '%')
-                    ->orWhere('notes', 'like', '%' . $search . '%')
+                    ->where('uuid', 'like', '%'.$search.'%')
+                    ->orWhere('status', 'like', '%'.$search.'%')
+                    ->orWhere('service_area', 'like', '%'.$search.'%')
+                    ->orWhere('notes', 'like', '%'.$search.'%')
                     ->orWhereHas('driver.user', function (Builder $driverBuilder) use ($search) {
                         $driverBuilder
-                            ->where('name', 'like', '%' . $search . '%')
-                            ->orWhere('email', 'like', '%' . $search . '%');
+                            ->where('name', 'like', '%'.$search.'%')
+                            ->orWhere('email', 'like', '%'.$search.'%');
                     })
                     ->orWhereHas('vehicle', function (Builder $vehicleBuilder) use ($search) {
                         $vehicleBuilder
-                            ->where('plate_number', 'like', '%' . $search . '%')
-                            ->orWhere('ref_code', 'like', '%' . $search . '%');
+                            ->where('plate_number', 'like', '%'.$search.'%')
+                            ->orWhere('ref_code', 'like', '%'.$search.'%');
                     });
             });
         }
@@ -190,7 +191,7 @@ class RunService
 
     public function updateRun(Run $run, array $data): Run
     {
-        if (!$run->isMutable()) {
+        if (! $run->isMutable()) {
             throw new ConflictHttpException('Run can only be edited while in draft or dispatched status.');
         }
 
@@ -227,7 +228,7 @@ class RunService
 
     public function attachShipments(Run $run, array $shipmentUuids): Run
     {
-        if (!$run->isMutable()) {
+        if (! $run->isMutable()) {
             throw new ConflictHttpException('Run shipments can only be modified while run is draft or dispatched.');
         }
 
@@ -239,7 +240,7 @@ class RunService
 
             foreach ($shipmentUuids as $shipmentUuid) {
                 $shipment = $shipments->get($shipmentUuid);
-                if (!$shipment) {
+                if (! $shipment) {
                     throw new UnprocessableEntityHttpException("Shipment {$shipmentUuid} was not found.");
                 }
 
@@ -295,12 +296,12 @@ class RunService
 
     public function detachShipment(Run $run, string $shipmentUuid): Run
     {
-        if (!$run->isMutable()) {
+        if (! $run->isMutable()) {
             throw new ConflictHttpException('Run shipments can only be modified while run is draft or dispatched.');
         }
 
         $shipmentId = Shipment::where('uuid', $shipmentUuid)->value('id');
-        if (!$shipmentId) {
+        if (! $shipmentId) {
             throw new UnprocessableEntityHttpException('Shipment was not found.');
         }
 
@@ -310,7 +311,7 @@ class RunService
             ->where('status', '!=', RunShipment::STATUS_REMOVED)
             ->first();
 
-        if (!$runShipment) {
+        if (! $runShipment) {
             throw new UnprocessableEntityHttpException('Shipment is not attached to this run.');
         }
 
@@ -339,11 +340,11 @@ class RunService
 
     public function startRun(Run $run, ?int $odometerStartKm = null): Run
     {
-        if (!in_array($run->status, [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED], true)) {
+        if (! in_array($run->status, [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED], true)) {
             throw new ConflictHttpException('Only draft or dispatched runs can be started.');
         }
 
-        if (!$run->driver_id) {
+        if (! $run->driver_id) {
             throw new UnprocessableEntityHttpException('Run must have a driver before it can be started.');
         }
 
@@ -394,7 +395,7 @@ class RunService
 
             foreach ($runShipments as $runShipment) {
                 $shipmentStatus = $runShipment->shipment?->status;
-                if (!in_array($shipmentStatus, ['delivered', 'failed'], true)) {
+                if (! in_array($shipmentStatus, ['delivered', 'failed'], true)) {
                     throw new ConflictHttpException('All attached shipments must be delivered or failed before completing the run.');
                 }
 
@@ -424,7 +425,7 @@ class RunService
         }
 
         $merchantUuid = $data['merchant_id'] ?? $data['merchant_uuid'] ?? null;
-        if (!$merchantUuid) {
+        if (! $merchantUuid) {
             throw new UnprocessableEntityHttpException('The merchant_id field is required.');
         }
 
@@ -438,7 +439,7 @@ class RunService
         }
 
         $environmentUuid = $data['environment_id'] ?? $data['environment_uuid'] ?? null;
-        if (!$environmentUuid) {
+        if (! $environmentUuid) {
             return null;
         }
 
@@ -450,7 +451,7 @@ class RunService
 
     private function resolveDriverId(Merchant $merchant, ?string $driverUuid): ?int
     {
-        if (!$driverUuid) {
+        if (! $driverUuid) {
             return null;
         }
 
@@ -465,7 +466,7 @@ class RunService
             })
             ->first();
 
-        if (!$driver) {
+        if (! $driver) {
             throw new UnprocessableEntityHttpException('Selected driver is invalid for this merchant account.');
         }
 
@@ -474,7 +475,7 @@ class RunService
 
     private function resolveVehicleId(Merchant $merchant, ?string $vehicleUuid): ?int
     {
-        if (!$vehicleUuid) {
+        if (! $vehicleUuid) {
             return null;
         }
 
@@ -483,7 +484,7 @@ class RunService
             ->where('account_id', $merchant->account_id)
             ->first();
 
-        if (!$vehicle) {
+        if (! $vehicle) {
             throw new UnprocessableEntityHttpException('Selected vehicle is invalid for this merchant account.');
         }
 
@@ -492,7 +493,7 @@ class RunService
 
     private function resolveRouteId(Merchant $merchant, ?string $routeUuid): ?int
     {
-        if (!$routeUuid) {
+        if (! $routeUuid) {
             return null;
         }
 
@@ -501,7 +502,7 @@ class RunService
             ->where('merchant_id', $merchant->id)
             ->first();
 
-        if (!$route) {
+        if (! $route) {
             throw new UnprocessableEntityHttpException('Selected route is invalid for this merchant.');
         }
 
@@ -525,19 +526,20 @@ class RunService
             'originLocation',
             'destinationLocation',
             'runShipments.shipment',
+            'deliveryNoteImports.shipments',
         ]);
     }
 
     private function syncDriverVehicleAssignment(Run $run): void
     {
-        if (!$run->driver_id || !$run->vehicle_id) {
+        if (! $run->driver_id || ! $run->vehicle_id) {
             return;
         }
 
         $driver = Driver::query()->find($run->driver_id);
         $vehicle = Vehicle::query()->find($run->vehicle_id);
 
-        if (!$driver || !$vehicle) {
+        if (! $driver || ! $vehicle) {
             return;
         }
 
