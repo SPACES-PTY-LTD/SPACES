@@ -25,7 +25,7 @@ import {
 import { isApiErrorResponse } from "@/lib/api/client"
 import { createLocation, updateLocation } from "@/lib/api/locations"
 import type { LocationPayload } from "@/lib/api/locations"
-import { listLocationTypes } from "@/lib/api/location-types"
+import { listLocationTypes, patchLocationTypes } from "@/lib/api/location-types"
 import type { Location, LocationType } from "@/lib/types"
 import {
   PlacesSuggestions,
@@ -161,7 +161,40 @@ export function LocationDialog({
         setLocationTypesLoading(false)
         return
       }
-      setLocationTypes(response.data ?? [])
+
+      let types = response.data ?? []
+      if (response.meta?.is_default_fallback && types.length > 0) {
+        const savedResponse = await patchLocationTypes(
+          {
+            merchant_id: String(activeMerchantId),
+            types: types.map((type, index) => ({
+              slug: type.slug,
+              title: type.title,
+              collection_point: Boolean(type.collection_point),
+              delivery_point: Boolean(type.delivery_point),
+              sequence: type.sequence ?? index + 1,
+              icon: type.icon ?? null,
+              color: type.color ?? null,
+              default: Boolean(type.default),
+            })),
+          },
+          accessToken
+        )
+        if (ignore) return
+        if (isApiErrorResponse(savedResponse) || !savedResponse.success) {
+          toast.error(
+            isApiErrorResponse(savedResponse)
+              ? savedResponse.message
+              : "Failed to initialize location types."
+          )
+          setLocationTypes([])
+          setLocationTypesLoading(false)
+          return
+        }
+        types = savedResponse.data ?? []
+      }
+
+      setLocationTypes(types.filter((type) => Boolean(type.location_type_id)))
       setLocationTypesLoading(false)
     }
 

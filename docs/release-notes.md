@@ -20,6 +20,33 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-07-20 | Version: unreleased
+
+### Summary
+- Corrected boolean filtering for the merchant location-types API.
+- Fixed the location-type dropdown when creating a location for a merchant still using fallback defaults.
+
+### API Changes
+- `GET /api/v1/location-types` now interprets `collection_point=false` and `default=false` as false instead of treating the non-empty query strings as true.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Location-type list filters now return records matching the requested boolean value.
+- Fallback API coverage now verifies the configured pickup, dropoff, and service delivery flags.
+- Opening the create/edit location drawer now persists API fallback location types before populating the dropdown, ensuring every option has a valid `location_type_id`.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php -l app/Services/LocationTypeService.php`
+- `php -l tests/Feature/LocationTypeFallbackTest.php`
+- `php artisan test --filter=LocationTypeFallbackTest`
+- `npm run build` in `website`
+- `git diff --check`
+
 ## 2026-07-17 | Version: unreleased
 
 ### Summary

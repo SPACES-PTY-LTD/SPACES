@@ -24,11 +24,17 @@ class LocationTypeService
             ->orderBy('id');
 
         if (array_key_exists('collection_point', $filters)) {
-            $query->where('collection_point', (bool) $filters['collection_point']);
+            $query->where(
+                'collection_point',
+                filter_var($filters['collection_point'], FILTER_VALIDATE_BOOLEAN)
+            );
         }
 
         if (array_key_exists('default', $filters)) {
-            $query->where('default', (bool) $filters['default']);
+            $query->where(
+                'default',
+                filter_var($filters['default'], FILTER_VALIDATE_BOOLEAN)
+            );
         }
 
         $types = $query->get();

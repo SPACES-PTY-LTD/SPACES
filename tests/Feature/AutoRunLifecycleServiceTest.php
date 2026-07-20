@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleActivity;
 use App\Services\AutoRunLifecycleService;
+use App\Services\InternalBookingLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -147,6 +148,50 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertNotNull($openVisit);
         $this->assertSame($locationD->id, $openVisit->location_id);
         $this->assertSame($secondRun->id, $openVisit->run_id);
+    }
+
+    public function test_internal_booking_backfill_keeps_collection_odometer_for_shipment_km(): void
+    {
+        $service = app(InternalBookingLifecycleService::class);
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $pickup = $this->createLocation($merchant, 'Pickup', true, -33.9200, 18.4200);
+        $dropoff = $this->createLocation($merchant, 'Dropoff', false, -33.9300, 18.4300);
+
+        $run = Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'status' => Run::STATUS_COMPLETED,
+            'auto_created' => true,
+            'started_at' => '2026-02-21 08:00:00',
+            'completed_at' => '2026-02-21 09:00:00',
+            'odometer_start_km' => 1000,
+            'odometer_end_km' => 1045,
+            'origin_location_id' => $pickup->id,
+            'destination_location_id' => $dropoff->id,
+        ]);
+        $shipment = Shipment::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'merchant_order_ref' => 'AUTO-BACKFILL-KM',
+            'status' => 'delivered',
+            'pickup_location_id' => $pickup->id,
+            'dropoff_location_id' => $dropoff->id,
+            'auto_created' => true,
+        ]);
+        RunShipment::create([
+            'run_id' => $run->id,
+            'shipment_id' => $shipment->id,
+            'status' => RunShipment::STATUS_DONE,
+        ]);
+
+        $booking = $service->ensureBookingForShipment($shipment, $run, $shipment->created_at, 1000, 1000);
+        $this->assertSame(1000, $booking->odometer_at_collection);
+
+        $booking = $service->markShipmentDelivered($shipment, Carbon::parse('2026-02-21 09:00:00'), 1045);
+        $this->assertSame(1000, $booking?->odometer_at_collection);
+        $this->assertSame(1045, $booking?->odometer_at_delivery);
+        $this->assertSame('45.00', (string) $booking?->total_km_from_collection);
     }
 
     public function test_it_only_logs_visits_when_auto_creation_setting_is_disabled(): void
