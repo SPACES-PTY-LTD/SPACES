@@ -23,6 +23,34 @@ Add new entries at the top (newest first).
 ## 2026-07-21 | Version: unreleased
 
 ### Summary
+- Added selected-row CSV exports to vehicles, locations, shipments, drivers, shipment reports, routes, and vehicle activities.
+
+### API Changes
+- Driver list resources now include `vehicle_type_id` so driver CSV files match the existing import contract.
+- No export endpoint was added; exports use the existing scoped and paginated list/report APIs.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Logistics tables now support checkbox selection and direct CSV downloads for visible selections and all filtered records across pagination.
+- Shipment parcels and route stops export as individual rows with repeated parent data; parents without children still produce one row.
+- Driver CSV columns are import-compatible and leave `password` blank, preventing credential data from being exposed or existing passwords from being overwritten.
+- Exporting preserves the current selection and reports loading, success, and API errors in the interface.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run build` in `website`
+- `php artisan test tests/Feature/DriverIndexTest.php` (passes)
+- `tests/Feature/DriverCsvImportTest.php` attempted; existing test setup fails before import execution because its user factory omits the database-required UUID.
+- `php -l app/Http/Resources/DriverResource.php`
+- `git diff --check`
+
+## 2026-07-21 | Version: unreleased
+
+### Summary
 - Enabled delivery-note uploads and shipment creation for runs that are already in progress.
 
 ### API Changes

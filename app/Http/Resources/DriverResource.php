@@ -4,7 +4,6 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use App\Http\Resources\VehicleResource;
 
 class DriverResource extends JsonResource
 {
@@ -18,6 +17,7 @@ class DriverResource extends JsonResource
             'telephone' => $this->user?->telephone,
             'intergration_id' => $this->intergration_id,
             'carrier' => $this->carrier ? new CarrierResource($this->carrier) : null,
+            'vehicle_type_id' => $this->vehicleType?->uuid,
             'vehicles' => VehicleResource::collection($this->vehicles),
             'is_active' => (bool) $this->is_active,
             'notes' => $this->notes,

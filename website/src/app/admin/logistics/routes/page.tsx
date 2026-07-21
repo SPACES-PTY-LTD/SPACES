@@ -1,5 +1,5 @@
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
-import { DataTable } from "@/components/common/data-table"
+import { ExportableDataTable } from "@/components/common/exportable-data-table"
 import { PageHeader } from "@/components/layout/page-header"
 import { RouteDialog } from "@/components/routes/route-dialog"
 import { isApiErrorResponse } from "@/lib/api/client"
@@ -115,7 +115,12 @@ export default async function RoutesPage({ searchParams }: RoutesPageProps) {
         }
       />
 
-      <DataTable
+      <ExportableDataTable
+        resource="routes"
+        idKey="route_id"
+        label="routes"
+        accessToken={session.accessToken}
+        merchantId={merchantId ?? null}
         data={rows}
         views={
           [

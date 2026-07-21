@@ -4,6 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { DataTable, type DataTableSelectionState, type Filter } from "@/components/common/data-table"
+import { CsvExportAction } from "@/components/common/csv-export-action"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -305,12 +306,15 @@ export function LocationsTable({
         idKey: "location_id",
         label: "locations",
         renderBulkActions: (selection) => (
-          <BulkUpdateLocationTypeAction
-            selection={selection}
-            accessToken={accessToken}
-            merchantId={merchantId}
-            locationTypes={locationTypes}
-          />
+          <>
+            <CsvExportAction resource="locations" selection={selection} accessToken={accessToken} merchantId={merchantId} />
+            <BulkUpdateLocationTypeAction
+              selection={selection}
+              accessToken={accessToken}
+              merchantId={merchantId}
+              locationTypes={locationTypes}
+            />
+          </>
         ),
       }}
       enableSorting

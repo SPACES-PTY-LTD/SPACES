@@ -1,5 +1,5 @@
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
-import { DataTable } from "@/components/common/data-table"
+import { ExportableDataTable } from "@/components/common/exportable-data-table"
 import { PageHeader } from "@/components/layout/page-header"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listLocationTypes } from "@/lib/api/location-types"
@@ -140,7 +140,12 @@ export default async function VehicleActivitiesPage({ searchParams }: VehicleAct
         description="Monitor vehicle events like movement, speeding, and geofence entries."
       />
 
-      <DataTable
+      <ExportableDataTable
+        resource="vehicle-activities"
+        idKey="activity_id"
+        label="vehicle activities"
+        accessToken={session.accessToken}
+        merchantId={merchantId ?? null}
         views={[
           {
             label: "All",

@@ -1,6 +1,6 @@
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import Link from "next/link"
-import { DataTable } from "@/components/common/data-table"
+import { ExportableDataTable } from "@/components/common/exportable-data-table"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { isApiErrorResponse } from "@/lib/api/client"
@@ -215,7 +215,12 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         }
       />
 
-      <DataTable
+      <ExportableDataTable
+        resource="shipment-report"
+        idKey="shipment_id"
+        label="report rows"
+        accessToken={session.accessToken}
+        merchantId={merchantId ?? null}
         data={rows}
         meta={tableMeta}
         loading_error={loadingError}

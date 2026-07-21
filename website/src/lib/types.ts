@@ -854,6 +854,8 @@ export interface Driver {
   telephone?: string | null
   carrier?: Carrier
   vehicle_type_id?: UUID
+  intergration_id?: string | null
+  metadata?: Record<string, unknown> | null
   is_active?: boolean
   notes?: string | null
   created_at?: string

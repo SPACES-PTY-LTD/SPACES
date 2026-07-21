@@ -1,5 +1,5 @@
 import { AdminRoute } from "@/lib/routes/admin"
-import { DataTable } from "@/components/common/data-table"
+import { ExportableDataTable } from "@/components/common/exportable-data-table"
 import { PageHeader } from "@/components/layout/page-header"
 import { CreateDriverDialog } from "@/components/drivers/create-driver-dialog"
 import { ImportDriversDialog } from "@/components/drivers/import-drivers-dialog"
@@ -77,7 +77,12 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
           </div>
         }
       />
-      <DataTable
+      <ExportableDataTable
+        resource="drivers"
+        idKey="driver_id"
+        label="drivers"
+        accessToken={session.accessToken}
+        merchantId={merchantId ?? null}
         data={rows}
         meta={tableMeta}
         loading_error={loading_error}

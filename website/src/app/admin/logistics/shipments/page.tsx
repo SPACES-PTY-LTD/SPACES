@@ -1,5 +1,5 @@
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
-import { DataTable } from "@/components/common/data-table"
+import { ExportableDataTable } from "@/components/common/exportable-data-table"
 import { PageHeader } from "@/components/layout/page-header"
 import {
   ShipmentQuoteDialog,
@@ -211,7 +211,12 @@ export default async function ShipmentsPage({
           />
         }
       />
-      <DataTable
+      <ExportableDataTable
+        resource="shipments"
+        idKey="shipment_id"
+        label="shipments"
+        accessToken={session.accessToken}
+        merchantId={merchantId ?? null}
         width="1750px"
         views={[
           {
