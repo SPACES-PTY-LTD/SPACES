@@ -226,13 +226,17 @@ class RunService
         return $this->loadRun($run);
     }
 
-    public function attachShipments(Run $run, array $shipmentUuids): Run
+    public function attachShipments(Run $run, array $shipmentUuids, bool $allowInProgress = false): Run
     {
-        if (! $run->isMutable()) {
+        $canAttach = $run->isMutable() || ($allowInProgress && $run->status === Run::STATUS_IN_PROGRESS);
+        if (! $canAttach) {
             throw new ConflictHttpException('Run shipments can only be modified while run is draft or dispatched.');
         }
 
         return DB::transaction(function () use ($run, $shipmentUuids) {
+            $attachmentStatus = $run->status === Run::STATUS_IN_PROGRESS
+                ? RunShipment::STATUS_ACTIVE
+                : RunShipment::STATUS_PLANNED;
             $shipments = Shipment::query()
                 ->whereIn('uuid', $shipmentUuids)
                 ->get()
@@ -276,7 +280,7 @@ class RunService
 
                 if ($runShipment) {
                     if ($runShipment->status === RunShipment::STATUS_REMOVED) {
-                        $runShipment->status = RunShipment::STATUS_PLANNED;
+                        $runShipment->status = $attachmentStatus;
                         $runShipment->save();
                     }
 
@@ -286,7 +290,7 @@ class RunService
                 RunShipment::create([
                     'run_id' => $run->id,
                     'shipment_id' => $shipment->id,
-                    'status' => RunShipment::STATUS_PLANNED,
+                    'status' => $attachmentStatus,
                 ]);
             }
 

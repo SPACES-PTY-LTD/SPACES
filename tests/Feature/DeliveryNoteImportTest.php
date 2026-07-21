@@ -16,7 +16,7 @@ class DeliveryNoteImportTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_delivery_note_can_be_analyzed_then_confirmed_as_separate_shipments(): void
+    public function test_delivery_note_can_be_analyzed_and_confirmed_on_an_in_progress_run(): void
     {
         Storage::fake('local');
         config()->set('filesystems.default', 'local');
@@ -45,7 +45,7 @@ class DeliveryNoteImportTest extends TestCase
         $run = Run::create([
             'account_id' => $merchant->account_id,
             'merchant_id' => $merchant->id,
-            'status' => Run::STATUS_DRAFT,
+            'status' => Run::STATUS_IN_PROGRESS,
         ]);
 
         $analysis = $this->apiAs($user)->post(
@@ -75,6 +75,10 @@ class DeliveryNoteImportTest extends TestCase
             'auto_assign' => false,
         ]);
         $this->assertDatabaseCount('delivery_note_import_shipments', 2);
+        $this->assertDatabaseHas('run_shipments', [
+            'run_id' => $run->id,
+            'status' => 'active',
+        ]);
         $this->assertDatabaseHas('delivery_note_imports', [
             'uuid' => $importId,
             'status' => 'confirmed',

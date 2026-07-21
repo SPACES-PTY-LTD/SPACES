@@ -20,6 +20,29 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-07-21 | Version: unreleased
+
+### Summary
+- Enabled delivery-note uploads and shipment creation for runs that are already in progress.
+
+### API Changes
+- Delivery-note analyze and confirm endpoints now accept in-progress runs.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The tracking-page Upload Delivery Note action remains enabled for draft, dispatched, and in-progress runs.
+- Shipments created from a delivery note on an in-progress run are attached with an active run-shipment status.
+
+### Breaking Changes
+- None.
+
+### Verification
+- php artisan test tests/Feature/DeliveryNoteImportTest.php
+- npm run build in website
+- git diff --check
+
 ## 2026-07-20 | Version: unreleased
 
 ### Summary

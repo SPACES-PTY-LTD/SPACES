@@ -24,8 +24,8 @@ class DeliveryNoteImportService
 
     public function analyze(Run $run, User $user, UploadedFile $file): DeliveryNoteImport
     {
-        if (! $run->isMutable()) {
-            throw new ConflictHttpException('Delivery notes can only be imported while the run is draft or dispatched.');
+        if (! $this->canImportInto($run)) {
+            throw new ConflictHttpException('Delivery notes can only be imported while the run is draft, dispatched, or in progress.');
         }
 
         $disk = (string) config('filesystems.default', 'local');
@@ -68,8 +68,8 @@ class DeliveryNoteImportService
 
     public function confirm(Run $run, DeliveryNoteImport $import, array $data): array
     {
-        if (! $run->isMutable()) {
-            throw new ConflictHttpException('Delivery notes can only be confirmed while the run is draft or dispatched.');
+        if (! $this->canImportInto($run)) {
+            throw new ConflictHttpException('Delivery notes can only be confirmed while the run is draft, dispatched, or in progress.');
         }
         if ($import->run_id !== $run->id) {
             abort(404);
@@ -108,7 +108,11 @@ class DeliveryNoteImportService
                 return $result['shipment'];
             });
 
-            $refreshedRun = $this->runService->attachShipments($run, $shipments->pluck('uuid')->all());
+            $refreshedRun = $this->runService->attachShipments(
+                $run,
+                $shipments->pluck('uuid')->all(),
+                allowInProgress: true
+            );
             $import->shipments()->sync($shipments->pluck('id')->all());
             $import->update([
                 'status' => DeliveryNoteImport::STATUS_CONFIRMED,
@@ -179,5 +183,14 @@ class DeliveryNoteImportService
             'height_cm' => $item['height_cm'] ?? null,
             'contents_description' => $item['description'],
         ], fn ($value) => $value !== null && $value !== '');
+    }
+
+    private function canImportInto(Run $run): bool
+    {
+        return in_array($run->status, [
+            Run::STATUS_DRAFT,
+            Run::STATUS_DISPATCHED,
+            Run::STATUS_IN_PROGRESS,
+        ], true);
     }
 }

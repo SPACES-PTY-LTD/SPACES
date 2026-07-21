@@ -595,7 +595,7 @@ export function RunsTrackingView({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
-                        disabled={!["draft", "dispatched"].includes(selected.status ?? "")}
+                        disabled={!["draft", "dispatched", "in_progress"].includes(selected.status ?? "")}
                         onSelect={() => setDeliveryNoteOpen(true)}
                       >
                         <FileUp className="h-4 w-4" />
