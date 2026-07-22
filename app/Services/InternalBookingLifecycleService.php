@@ -42,6 +42,7 @@ class InternalBookingLifecycleService
                 'carrier_code' => $carrier->code,
                 'booked_at' => $bookedAt ?? now(),
                 'odometer_at_request' => $requestOdometer,
+                'odometer_at_collection' => $collectionOdometer,
             ]);
         } else {
             $updates = [];
@@ -52,6 +53,10 @@ class InternalBookingLifecycleService
 
             if ($booking->odometer_at_request === null && $requestOdometer !== null) {
                 $updates['odometer_at_request'] = $requestOdometer;
+            }
+
+            if ($booking->odometer_at_collection === null && $collectionOdometer !== null) {
+                $updates['odometer_at_collection'] = $collectionOdometer;
             }
 
             if (!empty($updates)) {
@@ -70,7 +75,10 @@ class InternalBookingLifecycleService
             );
         }
 
-        return $booking->fresh();
+        $booking = $booking->fresh();
+        $shipment->setRelation('booking', $booking);
+
+        return $booking;
     }
 
     public function syncRunBookingDrivers(Run $run): void
@@ -122,7 +130,7 @@ class InternalBookingLifecycleService
         ?int $odometerAtDelivery = null
     ): ?Booking
     {
-        $shipment->loadMissing('booking');
+        $shipment->load('booking');
         $booking = $shipment->booking;
 
         if (!$booking) {
