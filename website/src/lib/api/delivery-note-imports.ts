@@ -6,8 +6,10 @@ import type {
   Run,
 } from "@/lib/types"
 
-export type DeliveryNoteConfirmPayload = DeliveryNoteExtraction & {
+export type DeliveryNoteConfirmPayload = Omit<DeliveryNoteExtraction, "pickup_address" | "dropoff_address"> & {
   grouping_mode: "separate_shipments" | "single_shipment"
+  pickup_address?: DeliveryNoteExtraction["pickup_address"]
+  dropoff_address?: DeliveryNoteExtraction["dropoff_address"]
 }
 
 export async function analyzeDeliveryNote(

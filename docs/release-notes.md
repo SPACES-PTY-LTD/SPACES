@@ -20,6 +20,32 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-07-22 | Version: unreleased
+
+### Summary
+- Added merchant-scoped pickup/drop-off location selection and parcel-type presets to AI delivery-note review.
+
+### API Changes
+- Delivery-note confirmation now accepts `pickup_location_id` and `dropoff_location_id` while retaining address payload compatibility for existing clients.
+- Selected locations are validated through the existing shipment merchant/environment location rules.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Delivery-note review loads searchable run-merchant locations, exactly matches AI-extracted addresses when unambiguous, and requires both locations before confirmation.
+- Unmatched AI addresses prefill the existing Create Location drawer; a created location is immediately selected without clearing review data.
+- Line-item types now use Box, Pallet, Envelope, Bag, Crate, Drum, or Other; unknown AI values remain editable under Other.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/DeliveryNoteImportTest.php`
+- `npx tsc --noEmit` in `website`
+- `npm run build` in `website`
+- `git diff --check`
+
 ## 2026-07-21 | Version: unreleased
 
 ### Summary

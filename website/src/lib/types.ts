@@ -494,6 +494,8 @@ export interface DeliveryNoteExtraction {
   collection_date?: string | null
   pickup_address: DeliveryNoteAddress
   dropoff_address: DeliveryNoteAddress
+  pickup_location_id?: UUID | null
+  dropoff_location_id?: UUID | null
   pickup_instructions?: string | null
   dropoff_instructions?: string | null
   line_items: DeliveryNoteLineItem[]

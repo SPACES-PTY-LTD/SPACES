@@ -74,12 +74,18 @@ function parsePolygonBounds(value: string) {
 
 export function LocationDialog({
   location,
+  initialValues,
+  defaultLocationTypeSlug,
+  lockMerchant = false,
   merchantId,
   accessToken,
   onSaved,
   trigger,
 }: {
   location?: Location
+  initialValues?: Partial<Location>
+  defaultLocationTypeSlug?: string
+  lockMerchant?: boolean
   merchantId?: string | null
   accessToken?: string
   onSaved?: (location: Location) => void
@@ -93,23 +99,23 @@ export function LocationDialog({
   const [locationTypes, setLocationTypes] = React.useState<LocationType[]>([])
   const [locationTypesLoading, setLocationTypesLoading] = React.useState(false)
   const [values, setValues] = React.useState<FormState>({
-    locationTypeId: location?.location_type_id ?? location?.type?.location_type_id ?? "",
-    name: location?.name ?? "",
-    code: location?.code ?? "",
-    company: location?.company ?? "",
-    addressLine1: location?.address_line_1 ?? "",
-    addressLine2: location?.address_line_2 ?? "",
-    town: location?.town ?? "",
-    city: location?.city ?? "",
-    country: location?.country ?? "",
-    firstName: location?.first_name ?? "",
-    lastName: location?.last_name ?? "",
-    phone: location?.phone ?? "",
-    province: location?.province ?? "",
-    postCode: location?.post_code ?? "",
-    latitude: String(location?.latitude ?? ""),
-    longitude: String(location?.longitude ?? ""),
-    googlePlaceId: location?.google_place_id ?? "",
+    locationTypeId: location?.location_type_id ?? location?.type?.location_type_id ?? initialValues?.location_type_id ?? "",
+    name: location?.name ?? initialValues?.name ?? "",
+    code: location?.code ?? initialValues?.code ?? "",
+    company: location?.company ?? initialValues?.company ?? "",
+    addressLine1: location?.address_line_1 ?? initialValues?.address_line_1 ?? "",
+    addressLine2: location?.address_line_2 ?? initialValues?.address_line_2 ?? "",
+    town: location?.town ?? initialValues?.town ?? "",
+    city: location?.city ?? initialValues?.city ?? "",
+    country: location?.country ?? initialValues?.country ?? "",
+    firstName: location?.first_name ?? initialValues?.first_name ?? "",
+    lastName: location?.last_name ?? initialValues?.last_name ?? "",
+    phone: location?.phone ?? initialValues?.phone ?? "",
+    province: location?.province ?? initialValues?.province ?? "",
+    postCode: location?.post_code ?? initialValues?.post_code ?? "",
+    latitude: String(location?.latitude ?? initialValues?.latitude ?? ""),
+    longitude: String(location?.longitude ?? initialValues?.longitude ?? ""),
+    googlePlaceId: location?.google_place_id ?? initialValues?.google_place_id ?? "",
     polygonBounds: location?.polygon_bounds
       ? JSON.stringify(location.polygon_bounds)
       : "",
@@ -120,32 +126,32 @@ export function LocationDialog({
   React.useEffect(() => {
     if (!open) return
     setValues({
-      locationTypeId: location?.location_type_id ?? location?.type?.location_type_id ?? "",
-      name: location?.name ?? "",
-      code: location?.code ?? "",
-      company: location?.company ?? "",
-      addressLine1: location?.address_line_1 ?? "",
-      addressLine2: location?.address_line_2 ?? "",
-      town: location?.town ?? "",
-      city: location?.city ?? "",
-      country: location?.country ?? "",
-      firstName: location?.first_name ?? "",
-      lastName: location?.last_name ?? "",
-      phone: location?.phone ?? "",
-      province: location?.province ?? "",
-      postCode: location?.post_code ?? "",
-      latitude: String(location?.latitude ?? ""),
-      longitude: String(location?.longitude ?? ""),
-      googlePlaceId: location?.google_place_id ?? "",
+      locationTypeId: location?.location_type_id ?? location?.type?.location_type_id ?? initialValues?.location_type_id ?? "",
+      name: location?.name ?? initialValues?.name ?? "",
+      code: location?.code ?? initialValues?.code ?? "",
+      company: location?.company ?? initialValues?.company ?? "",
+      addressLine1: location?.address_line_1 ?? initialValues?.address_line_1 ?? "",
+      addressLine2: location?.address_line_2 ?? initialValues?.address_line_2 ?? "",
+      town: location?.town ?? initialValues?.town ?? "",
+      city: location?.city ?? initialValues?.city ?? "",
+      country: location?.country ?? initialValues?.country ?? "",
+      firstName: location?.first_name ?? initialValues?.first_name ?? "",
+      lastName: location?.last_name ?? initialValues?.last_name ?? "",
+      phone: location?.phone ?? initialValues?.phone ?? "",
+      province: location?.province ?? initialValues?.province ?? "",
+      postCode: location?.post_code ?? initialValues?.post_code ?? "",
+      latitude: String(location?.latitude ?? initialValues?.latitude ?? ""),
+      longitude: String(location?.longitude ?? initialValues?.longitude ?? ""),
+      googlePlaceId: location?.google_place_id ?? initialValues?.google_place_id ?? "",
       polygonBounds: location?.polygon_bounds
         ? JSON.stringify(location.polygon_bounds)
         : "",
     })
-  }, [open, location])
+  }, [initialValues, open, location])
 
   React.useEffect(() => {
     if (!open) return
-    const activeMerchantId = selectedMerchantId ?? merchantId ?? null
+    const activeMerchantId = lockMerchant ? merchantId ?? null : selectedMerchantId ?? merchantId ?? null
     if (!activeMerchantId) return
 
     let ignore = false
@@ -195,6 +201,14 @@ export function LocationDialog({
       }
 
       setLocationTypes(types.filter((type) => Boolean(type.location_type_id)))
+      if (!isEdit && defaultLocationTypeSlug) {
+        const defaultType = types.find((type) => type.slug === defaultLocationTypeSlug)
+        if (defaultType?.location_type_id) {
+          setValues((current) => current.locationTypeId
+            ? current
+            : { ...current, locationTypeId: defaultType.location_type_id as string })
+        }
+      }
       setLocationTypesLoading(false)
     }
 
@@ -202,7 +216,7 @@ export function LocationDialog({
     return () => {
       ignore = true
     }
-  }, [accessToken, merchantId, open, selectedMerchantId])
+  }, [accessToken, defaultLocationTypeSlug, isEdit, lockMerchant, merchantId, open, selectedMerchantId])
 
   const updateValue = (key: keyof FormState, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -252,7 +266,7 @@ export function LocationDialog({
         setLoading(false)
         return
       }
-      const payloadMerchantId = selectedMerchantId ?? merchantId ?? null
+      const payloadMerchantId = lockMerchant ? merchantId ?? null : selectedMerchantId ?? merchantId ?? null
       const payload: LocationPayload = {
         location_type_id: values.locationTypeId,
         name: values.name,

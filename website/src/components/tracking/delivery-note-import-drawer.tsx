@@ -1,14 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, Plus, Trash2, Upload } from "lucide-react"
+import { Check, ChevronsUpDown, Loader2, Plus, RefreshCw, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import {
+  Command, CommandEmpty, CommandInput, CommandItem, CommandList, CommandSeparator,
+} from "@/components/ui/command"
 import {
   Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle,
 } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
@@ -20,9 +24,34 @@ import {
   analyzeDeliveryNote, confirmDeliveryNoteImport,
 } from "@/lib/api/delivery-note-imports"
 import { isApiErrorResponse } from "@/lib/api/client"
+import { listLocations } from "@/lib/api/locations"
+import { LocationDialog } from "@/components/locations/location-dialog"
+import { formatAddress } from "@/lib/address"
+import { cn } from "@/lib/utils"
 import type {
-  DeliveryNoteAddress, DeliveryNoteExtraction, DeliveryNoteLineItem, Run,
+  DeliveryNoteAddress, DeliveryNoteExtraction, DeliveryNoteLineItem, Location, Run,
 } from "@/lib/types"
+
+const parcelTypes = ["Box", "Pallet", "Envelope", "Bag", "Crate", "Drum"] as const
+
+const normalize = (value: unknown) => String(value ?? "").trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
+
+const addressKey = (address: DeliveryNoteAddress | Location) => [
+  address.address_line_1, address.address_line_2, address.town, address.city,
+  address.province, address.post_code, address.country,
+].map(normalize).filter(Boolean).join("|")
+
+function exactLocationMatch(address: DeliveryNoteAddress, locations: Location[]) {
+  const key = addressKey(address)
+  if (!key || !normalize(address.address_line_1) || !normalize(address.city)) return null
+  const matches = locations.filter((location) => addressKey(location) === key)
+  if (matches.length === 1) return matches[0]
+  const name = normalize(address.name)
+  return name ? matches.find((location) => normalize(location.name) === name) ?? null : null
+}
+
+const parcelTypeSelection = (value: string | null | undefined) =>
+  parcelTypes.find((type) => normalize(type) === normalize(value)) ?? "Other"
 
 const emptyAddress = (): DeliveryNoteAddress => ({
   name: "", company: "", address_line_1: "", address_line_2: "", town: "",
@@ -56,19 +85,69 @@ export function DeliveryNoteImportDrawer({
   const [mode, setMode] = React.useState<"separate_shipments" | "single_shipment">("separate_shipments")
   const [analyzing, setAnalyzing] = React.useState(false)
   const [confirming, setConfirming] = React.useState(false)
+  const [locations, setLocations] = React.useState<Location[]>([])
+  const [locationsLoading, setLocationsLoading] = React.useState(false)
+  const [locationsError, setLocationsError] = React.useState("")
+  const [pickupLocation, setPickupLocation] = React.useState<Location | null>(null)
+  const [dropoffLocation, setDropoffLocation] = React.useState<Location | null>(null)
+  const matchedImportRef = React.useRef("")
 
   const reset = React.useCallback(() => {
     setFile(null)
     setImportId("")
     setData(emptyExtraction())
     setMode("separate_shipments")
+    setPickupLocation(null)
+    setDropoffLocation(null)
+    matchedImportRef.current = ""
   }, [])
 
-  const setAddress = (
-    side: "pickup_address" | "dropoff_address",
-    key: keyof DeliveryNoteAddress,
-    value: string
-  ) => setData((current) => ({ ...current, [side]: { ...current[side], [key]: value } }))
+  const loadLocations = React.useCallback(async () => {
+    if (!run.merchant_id) return
+    setLocationsLoading(true)
+    setLocationsError("")
+    const loaded: Location[] = []
+    let page = 1
+    let lastPage = 1
+    do {
+      const response = await listLocations(accessToken, {
+        merchant_id: run.merchant_id,
+        environment_id: run.environment_id ?? undefined,
+        page,
+        per_page: 100,
+        sort_by: "name",
+        sort_dir: "asc",
+      })
+      if (isApiErrorResponse(response)) {
+        setLocationsError(response.message || "Failed to load locations.")
+        setLocationsLoading(false)
+        return
+      }
+      loaded.push(...(response.data ?? []))
+      lastPage = Math.max(Number(response.meta?.last_page ?? 1), 1)
+      page += 1
+    } while (page <= lastPage)
+    setLocations(Array.from(new Map(loaded.map((location) => [location.location_id, location])).values()))
+    setLocationsLoading(false)
+  }, [accessToken, run.environment_id, run.merchant_id])
+
+  React.useEffect(() => {
+    if (open) void loadLocations()
+  }, [loadLocations, open])
+
+  React.useEffect(() => {
+    if (!importId || !locations.length || matchedImportRef.current === importId) return
+    matchedImportRef.current = importId
+    const pickup = exactLocationMatch(data.pickup_address, locations)
+    const dropoff = exactLocationMatch(data.dropoff_address, locations)
+    setPickupLocation(pickup)
+    setDropoffLocation(dropoff)
+    setData((current) => ({
+      ...current,
+      pickup_location_id: pickup?.location_id ?? null,
+      dropoff_location_id: dropoff?.location_id ?? null,
+    }))
+  }, [data.dropoff_address, data.pickup_address, importId, locations])
 
   const setLine = (index: number, key: keyof DeliveryNoteLineItem, value: string) => {
     setData((current) => ({
@@ -104,9 +183,18 @@ export function DeliveryNoteImportDrawer({
   }
 
   const confirm = async () => {
+    if (!data.pickup_location_id || !data.dropoff_location_id) {
+      toast.error("Select or create both the pickup and drop-off locations.")
+      return
+    }
     setConfirming(true)
     const response = await confirmDeliveryNoteImport(
-      run.run_id, importId, { ...data, grouping_mode: mode }, accessToken
+      run.run_id, importId, {
+        ...data,
+        pickup_address: undefined,
+        dropoff_address: undefined,
+        grouping_mode: mode,
+      }, accessToken
     )
     setConfirming(false)
     if (isApiErrorResponse(response)) return toast.error(response.message)
@@ -115,13 +203,6 @@ export function DeliveryNoteImportDrawer({
     onOpenChange(false)
     reset()
   }
-
-  const addressFields: Array<[keyof DeliveryNoteAddress, string]> = [
-    ["name", "Location name"], ["company", "Company"], ["address_line_1", "Address line 1"],
-    ["address_line_2", "Address line 2"], ["town", "Town"], ["city", "City"],
-    ["province", "Province"], ["post_code", "Post code"], ["country", "Country"],
-    ["first_name", "Contact first name"], ["last_name", "Contact last name"], ["phone", "Phone"],
-  ]
 
   return (
     <Drawer open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) reset() }}>
@@ -166,16 +247,40 @@ export function DeliveryNoteImportDrawer({
               ) : null}
 
               <div className="grid gap-6 lg:grid-cols-2">
-                {(["pickup_address", "dropoff_address"] as const).map((side) => (
-                  <div key={side} className="space-y-3 rounded-lg border p-4">
-                    <h3 className="font-semibold">{side === "pickup_address" ? "Origin / pickup" : "Destination / drop-off"}</h3>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {addressFields.map(([key, label]) => (
-                        <Field key={key} label={label} value={String(data[side]?.[key] ?? "")} onChange={(value) => setAddress(side, key, value)} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                <DeliveryNoteLocationPicker
+                  title="Origin / pickup"
+                  value={pickupLocation}
+                  locations={locations}
+                  loading={locationsLoading}
+                  error={locationsError}
+                  draft={data.pickup_address}
+                  merchantId={run.merchant_id}
+                  accessToken={accessToken}
+                  defaultLocationTypeSlug="pickup"
+                  onRetry={() => void loadLocations()}
+                  onChange={(location) => {
+                    setPickupLocation(location)
+                    setData((current) => ({ ...current, pickup_location_id: location.location_id }))
+                  }}
+                  onCreated={(location) => setLocations((current) => [location, ...current.filter((item) => item.location_id !== location.location_id)])}
+                />
+                <DeliveryNoteLocationPicker
+                  title="Destination / drop-off"
+                  value={dropoffLocation}
+                  locations={locations}
+                  loading={locationsLoading}
+                  error={locationsError}
+                  draft={data.dropoff_address}
+                  merchantId={run.merchant_id}
+                  accessToken={accessToken}
+                  defaultLocationTypeSlug="dropoff"
+                  onRetry={() => void loadLocations()}
+                  onChange={(location) => {
+                    setDropoffLocation(location)
+                    setData((current) => ({ ...current, dropoff_location_id: location.location_id }))
+                  }}
+                  onCreated={(location) => setLocations((current) => [location, ...current.filter((item) => item.location_id !== location.location_id)])}
+                />
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -202,8 +307,21 @@ export function DeliveryNoteImportDrawer({
                     <TableRow key={index}>
                       {mode === "separate_shipments" ? <TableCell><Input value={item.merchant_order_ref ?? ""} onChange={(e) => setLine(index, "merchant_order_ref", e.target.value)} /></TableCell> : null}
                       <TableCell><Input value={item.description ?? ""} onChange={(e) => setLine(index, "description", e.target.value)} /></TableCell>
-                      {(["quantity", "type", "weight", "length_cm", "width_cm", "height_cm"] as const).map((key) => (
-                        <TableCell key={key}><Input type={key === "type" ? "text" : "number"} min={key === "quantity" ? 1 : 0} value={item[key] ?? ""} onChange={(e) => setLine(index, key, e.target.value)} /></TableCell>
+                      <TableCell><Input type="number" min={1} value={item.quantity ?? ""} onChange={(e) => setLine(index, "quantity", e.target.value)} /></TableCell>
+                      <TableCell className="space-y-2">
+                        <Select value={parcelTypeSelection(item.type)} onValueChange={(value) => setLine(index, "type", value === "Other" ? "" : value)}>
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {parcelTypes.map((type) => <SelectItem key={type} value={type}>{type}</SelectItem>)}
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {parcelTypeSelection(item.type) === "Other" ? (
+                          <Input placeholder="Custom type" value={item.type ?? ""} onChange={(e) => setLine(index, "type", e.target.value)} />
+                        ) : null}
+                      </TableCell>
+                      {(["weight", "length_cm", "width_cm", "height_cm"] as const).map((key) => (
+                        <TableCell key={key}><Input type="number" min={0} value={item[key] ?? ""} onChange={(e) => setLine(index, key, e.target.value)} /></TableCell>
                       ))}
                       <TableCell><Button type="button" size="icon" variant="ghost" disabled={data.line_items.length === 1} onClick={() => setData({ ...data, line_items: data.line_items.filter((_, i) => i !== index) })}><Trash2 className="h-4 w-4" /></Button></TableCell>
                     </TableRow>
@@ -230,6 +348,118 @@ export function DeliveryNoteImportDrawer({
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
+  )
+}
+
+function DeliveryNoteLocationPicker({
+  title, value, locations, loading, error, draft, merchantId, accessToken,
+  defaultLocationTypeSlug, onRetry, onChange, onCreated,
+}: {
+  title: string
+  value: Location | null
+  locations: Location[]
+  loading: boolean
+  error: string
+  draft: DeliveryNoteAddress
+  merchantId?: string | null
+  accessToken?: string
+  defaultLocationTypeSlug: "pickup" | "dropoff"
+  onRetry: () => void
+  onChange: (location: Location) => void
+  onCreated: (location: Location) => void
+}) {
+  const [open, setOpen] = React.useState(false)
+  const selectedLabel = value?.name || value?.company || value?.code || formatAddress(value)
+  const draftAddress = formatAddress(draft as Location)
+  const initialValues = React.useMemo<Partial<Location>>(() => ({
+    name: draft.name ?? undefined,
+    company: draft.company ?? undefined,
+    address_line_1: draft.address_line_1 ?? undefined,
+    address_line_2: draft.address_line_2 ?? undefined,
+    town: draft.town ?? undefined,
+    city: draft.city ?? undefined,
+    province: draft.province ?? undefined,
+    post_code: draft.post_code ?? undefined,
+    country: draft.country ?? undefined,
+    first_name: draft.first_name ?? undefined,
+    last_name: draft.last_name ?? undefined,
+    phone: draft.phone ?? undefined,
+  }), [draft])
+
+  return (
+    <div className="space-y-3 rounded-lg border p-4">
+      <h3 className="font-semibold">{title}</h3>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            disabled={loading || !merchantId}
+            className="h-auto min-h-10 w-full justify-between whitespace-normal text-left font-normal"
+          >
+            <span className={cn("line-clamp-2", !selectedLabel && "text-muted-foreground")}>
+              {loading ? "Loading locations..." : selectedLabel || "Select a location"}
+            </span>
+            <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Search name, company, code or address..." />
+            <CommandList className="max-h-72">
+              <CommandEmpty>No locations found.</CommandEmpty>
+              {locations.map((location) => {
+                const label = location.name || location.company || location.code || formatAddress(location)
+                const subtitle = formatAddress(location)
+                return (
+                  <CommandItem
+                    key={location.location_id}
+                    value={`${label} ${location.company ?? ""} ${location.code ?? ""} ${subtitle}`}
+                    onSelect={() => { onChange(location); setOpen(false) }}
+                    className="items-start"
+                  >
+                    <Check className={cn("mt-0.5 size-4 shrink-0", value?.location_id === location.location_id ? "opacity-100" : "opacity-0")} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{label}</span>
+                      {subtitle && subtitle !== label ? <span className="block truncate text-xs text-muted-foreground">{subtitle}</span> : null}
+                    </span>
+                  </CommandItem>
+                )
+              })}
+            </CommandList>
+            <CommandSeparator />
+            <div className="p-1">
+              <LocationDialog
+                merchantId={merchantId}
+                lockMerchant
+                accessToken={accessToken}
+                initialValues={initialValues}
+                defaultLocationTypeSlug={defaultLocationTypeSlug}
+                onSaved={(location) => {
+                  onCreated(location)
+                  onChange(location)
+                  setOpen(false)
+                }}
+                trigger={<Button type="button" variant="ghost" className="w-full justify-start"><Plus className="size-4" />Add new location</Button>}
+              />
+            </div>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {!value && draftAddress ? (
+        <div className="rounded-md bg-muted p-3 text-sm">
+          <p className="font-medium">AI-extracted address needs a location</p>
+          <p className="mt-1 text-muted-foreground">{draft.name || draft.company ? `${draft.name || draft.company} — ` : ""}{draftAddress}</p>
+        </div>
+      ) : null}
+      {error ? (
+        <div className="flex items-center justify-between gap-2 text-sm text-destructive">
+          <span>{error}</span>
+          <Button type="button" size="sm" variant="outline" onClick={onRetry}><RefreshCw className="mr-2 size-3" />Retry</Button>
+        </div>
+      ) : null}
+    </div>
   )
 }
 

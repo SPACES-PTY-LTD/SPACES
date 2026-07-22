@@ -40,6 +40,7 @@ export async function listLocations(
   token?: string | null,
   params?: {
     merchant_id?: string
+    environment_id?: string
     page?: number
     per_page?: number
     search?: string

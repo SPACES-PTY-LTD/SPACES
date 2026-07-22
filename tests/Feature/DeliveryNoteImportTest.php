@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\Location;
 use App\Models\Merchant;
 use App\Models\Run;
 use App\Models\User;
@@ -94,6 +95,67 @@ class DeliveryNoteImportTest extends TestCase
         $this->assertDatabaseCount('shipments', 2);
     }
 
+    public function test_confirmation_uses_selected_merchant_locations_and_rejects_foreign_locations(): void
+    {
+        Storage::fake('local');
+        config()->set('filesystems.default', 'local');
+        config()->set('services.openai.api_key', 'test-key');
+        Http::fake([
+            'api.openai.com/v1/responses' => Http::response([
+                'model' => 'gpt-5.6-terra',
+                'output' => [['content' => [['type' => 'output_text', 'text' => json_encode($this->extraction())]]]],
+            ]),
+        ]);
+
+        $user = User::factory()->create();
+        $account = Account::create(['owner_user_id' => $user->id]);
+        $user->update(['account_id' => $account->id]);
+        $merchant = Merchant::factory()->create(['owner_user_id' => $user->id, 'account_id' => $account->id]);
+        $merchant->users()->attach($user->id, ['role' => 'owner']);
+        $otherMerchant = Merchant::factory()->create(['account_id' => $account->id]);
+        $run = Run::create([
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_DRAFT,
+        ]);
+        $pickup = $this->location($merchant, 'Selected pickup');
+        $dropoff = $this->location($merchant, 'Selected drop-off');
+        $foreign = $this->location($otherMerchant, 'Foreign location');
+
+        $analysis = $this->apiAs($user)->post(
+            "/api/v1/runs/{$run->uuid}/delivery-note-imports",
+            ['file' => UploadedFile::fake()->image('delivery-note.png')]
+        );
+        $analysis->assertCreated();
+        $importId = $analysis->json('data.import_id');
+        $payload = [
+            'grouping_mode' => 'single_shipment',
+            ...$this->extraction(),
+            'pickup_location_id' => $foreign->uuid,
+            'dropoff_location_id' => $dropoff->uuid,
+        ];
+        unset($payload['pickup_address'], $payload['dropoff_address']);
+
+        $this->apiAs($user)->postJson(
+            "/api/v1/runs/{$run->uuid}/delivery-note-imports/{$importId}/confirm",
+            $payload
+        )->assertUnprocessable()
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR')
+            ->assertJsonStructure(['error' => ['details' => ['pickup_location_id']]]);
+
+        $payload['pickup_location_id'] = $pickup->uuid;
+        $confirmation = $this->apiAs($user)->postJson(
+            "/api/v1/runs/{$run->uuid}/delivery-note-imports/{$importId}/confirm",
+            $payload
+        );
+        $confirmation->assertOk()->assertJsonCount(1, 'data.shipment_ids');
+        $this->assertDatabaseHas('shipments', [
+            'merchant_id' => $merchant->id,
+            'pickup_location_id' => $pickup->id,
+            'dropoff_location_id' => $dropoff->id,
+        ]);
+    }
+
     private function extraction(): array
     {
         return [
@@ -141,6 +203,20 @@ class DeliveryNoteImportTest extends TestCase
             'width_cm' => null,
             'height_cm' => null,
         ];
+    }
+
+    private function location(Merchant $merchant, string $name): Location
+    {
+        return Location::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'name' => $name,
+            'address_line_1' => '1 Main Road',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8000',
+            'country' => 'ZA',
+        ]);
     }
 
     private function apiAs(User $user): self

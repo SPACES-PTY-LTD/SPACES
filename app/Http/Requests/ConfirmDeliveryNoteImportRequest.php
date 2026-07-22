@@ -31,8 +31,10 @@ class ConfirmDeliveryNoteImportRequest extends BaseRequest
             'delivery_note_number' => ['nullable', 'string', 'max:120'],
             'merchant_order_ref' => ['required_if:grouping_mode,single_shipment', 'nullable', 'string', 'max:255'],
             'collection_date' => ['required', 'date'],
-            'pickup_address' => ['required', 'array'],
-            'dropoff_address' => ['required', 'array'],
+            'pickup_location_id' => ['nullable', 'uuid', 'exists:locations,uuid'],
+            'dropoff_location_id' => ['nullable', 'uuid', 'exists:locations,uuid'],
+            'pickup_address' => ['required_without:pickup_location_id', 'array'],
+            'dropoff_address' => ['required_without:dropoff_location_id', 'array'],
             'pickup_instructions' => ['nullable', 'string'],
             'dropoff_instructions' => ['nullable', 'string'],
             'line_items' => ['required', 'array', 'min:1'],
@@ -47,8 +49,14 @@ class ConfirmDeliveryNoteImportRequest extends BaseRequest
         ];
 
         foreach ($address as $key => $rule) {
-            $rules["pickup_address.{$key}"] = $rule;
-            $rules["dropoff_address.{$key}"] = $rule;
+            $rules["pickup_address.{$key}"] = array_map(
+                fn ($item) => $item === 'required' ? 'required_with:pickup_address' : $item,
+                $rule
+            );
+            $rules["dropoff_address.{$key}"] = array_map(
+                fn ($item) => $item === 'required' ? 'required_with:dropoff_address' : $item,
+                $rule
+            );
         }
 
         return $rules;
