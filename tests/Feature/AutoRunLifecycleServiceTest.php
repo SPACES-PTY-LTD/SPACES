@@ -3,13 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
-use App\Models\Booking;
 use App\Models\Driver;
 use App\Models\Location;
 use App\Models\LocationType;
 use App\Models\Merchant;
 use App\Models\Run;
 use App\Models\RunShipment;
+use App\Models\Booking;
 use App\Models\Shipment;
 use App\Models\ShipmentParcel;
 use App\Models\User;
@@ -425,107 +425,6 @@ class AutoRunLifecycleServiceTest extends TestCase
 
         $this->assertNotNull($activeVisit);
         $this->assertSame($run->id, $activeVisit->run_id);
-    }
-
-    public function test_it_creates_shipment_on_existing_run_before_rolling_over_to_a_new_run(): void
-    {
-        $service = app(AutoRunLifecycleService::class);
-        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
-
-        $locationA = $this->createLocation($merchant, 'Location A', true, -33.9200, 18.4200);
-        $locationB = $this->createLocation($merchant, 'Location B', false, -33.9500, 18.4500);
-
-        $merchant->location_automation_settings = [
-            'location_types' => [
-                [
-                    'location_type_id' => $locationB->locationType->uuid,
-                    'entry' => [
-                        ['id' => 'entry-record', 'action' => 'record_vehicle_entry', 'conditions' => []],
-                        ['id' => 'entry-create-shipment', 'action' => 'create_shipment', 'conditions' => []],
-                        ['id' => 'entry-start-run', 'action' => 'start_run', 'conditions' => []],
-                    ],
-                    'exit' => [],
-                ],
-            ],
-        ];
-        $merchant->save();
-
-        $service->processVehiclePosition($vehicle, $merchant->fresh(), -33.9200, 18.4200, Carbon::parse('2026-07-22 08:00:00'));
-        $originalRun = Run::query()->where('merchant_id', $merchant->id)->firstOrFail();
-
-        $service->processVehiclePosition($vehicle, $merchant->fresh(), -33.9050, 18.4050, Carbon::parse('2026-07-22 08:10:00'));
-        $service->processVehiclePosition($vehicle, $merchant->fresh(), -33.9500, 18.4500, Carbon::parse('2026-07-22 08:20:00'));
-
-        $runs = Run::query()->where('merchant_id', $merchant->id)->orderBy('id')->get();
-        $shipment = Shipment::query()->where('merchant_id', $merchant->id)->sole();
-
-        $this->assertCount(2, $runs);
-        $this->assertSame(Run::STATUS_COMPLETED, $runs[0]->status);
-        $this->assertSame($locationA->id, $runs[0]->origin_location_id);
-        $this->assertSame($locationB->id, $runs[0]->destination_location_id);
-        $this->assertSame(Run::STATUS_IN_PROGRESS, $runs[1]->status);
-        $this->assertSame($locationB->id, $runs[1]->origin_location_id);
-        $this->assertSame($locationA->id, $shipment->pickup_location_id);
-        $this->assertSame($locationB->id, $shipment->dropoff_location_id);
-        $this->assertDatabaseHas('run_shipments', [
-            'run_id' => $originalRun->id,
-            'shipment_id' => $shipment->id,
-        ]);
-
-        $visit = VehicleActivity::query()
-            ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
-            ->where('location_id', $locationB->id)
-            ->latest('id')
-            ->firstOrFail();
-
-        $this->assertSame($runs[1]->id, $visit->run_id);
-        $this->assertSame($shipment->id, $visit->shipment_id);
-    }
-
-    public function test_it_skips_same_location_shipment_and_continues_later_automation_actions(): void
-    {
-        $service = app(AutoRunLifecycleService::class);
-        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
-
-        $locationA = $this->createLocation($merchant, 'Location A', true, -33.9200, 18.4200);
-        $merchant->location_automation_settings = [
-            'location_types' => [
-                [
-                    'location_type_id' => $locationA->locationType->uuid,
-                    'entry' => [
-                        ['id' => 'entry-record', 'action' => 'record_vehicle_entry', 'conditions' => []],
-                        ['id' => 'entry-create-shipment', 'action' => 'create_shipment', 'conditions' => []],
-                        ['id' => 'entry-start-run', 'action' => 'start_run', 'conditions' => []],
-                    ],
-                    'exit' => [],
-                ],
-            ],
-        ];
-        $merchant->save();
-
-        $service->processVehiclePosition($vehicle, $merchant->fresh(), -33.9200, 18.4200, Carbon::parse('2026-07-22 09:00:00'));
-        $run = Run::query()->where('merchant_id', $merchant->id)->sole();
-
-        $service->processVehiclePosition($vehicle, $merchant->fresh(), -33.9050, 18.4050, Carbon::parse('2026-07-22 09:10:00'));
-        $service->processVehiclePosition($vehicle, $merchant->fresh(), -33.9200, 18.4200, Carbon::parse('2026-07-22 09:20:00'));
-
-        $this->assertDatabaseCount('shipments', 0);
-        $this->assertDatabaseCount('run_shipments', 0);
-        $this->assertDatabaseCount('runs', 1);
-        $this->assertSame(Run::STATUS_IN_PROGRESS, $run->fresh()->status);
-
-        $visit = VehicleActivity::query()
-            ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
-            ->where('location_id', $locationA->id)
-            ->latest('id')
-            ->firstOrFail();
-
-        $this->assertSame($run->id, $visit->run_id);
-        $this->assertNull($visit->shipment_id);
-        $this->assertSame(
-            ['record_vehicle_entry', 'create_shipment', 'start_run'],
-            collect($visit->metadata['automation'] ?? [])->pluck('action')->all()
-        );
     }
 
     public function test_it_backfills_missing_bookings_for_auto_created_shipments(): void

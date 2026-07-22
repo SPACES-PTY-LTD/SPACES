@@ -23,49 +23,6 @@ Add new entries at the top (newest first).
 ## 2026-07-22 | Version: unreleased
 
 ### Summary
-- Added shipment numbers to truck activity entries on location detail pages.
-
-### API Changes
-- None.
-
-### Database Changes
-- None.
-
-### Behavior Changes
-- Truck activity entries with a shipment now show the shipment number as a link to its admin detail page, with the shipment ID used as a fallback when no number is available.
-
-### Breaking Changes
-- None.
-
-### Verification
-- `npm run lint -- src/components/locations/location-truck-activity-timeline-card.tsx` in `website`
-- `git diff --check`
-
-## 2026-07-22 | Version: unreleased
-
-### Summary
-- Prevented location automation from creating shipments whose pickup and drop-off are the same location.
-
-### API Changes
-- None.
-
-### Database Changes
-- None.
-
-### Behavior Changes
-- The `Create shipment` automation action now skips shipment creation when the active run originated at the current location, while allowing later configured actions to continue.
-- Added regression coverage proving Scenario 2 creates the shipment on the existing run before ending it and starting the next run.
-
-### Breaking Changes
-- None.
-
-### Verification
-- `/opt/homebrew/bin/php artisan test tests/Feature/AutoRunLifecycleServiceTest.php`
-- `git diff --check`
-
-## 2026-07-22 | Version: unreleased
-
-### Summary
 - Added merchant-scoped pickup/drop-off location selection and parcel-type presets to AI delivery-note review.
 
 ### API Changes

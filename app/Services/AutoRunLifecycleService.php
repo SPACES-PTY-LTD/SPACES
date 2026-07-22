@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Events\VehicleActivityCreated;
 use App\Models\Driver;
+use App\Models\DriverVehicle;
 use App\Models\Location;
 use App\Models\LocationType;
 use App\Models\Merchant;
@@ -20,9 +21,7 @@ use Illuminate\Support\Facades\DB;
 class AutoRunLifecycleService
 {
     private const AUTOMATION_EVENT_ENTRY = 'entry';
-
     private const AUTOMATION_EVENT_EXIT = 'exit';
-
     private ?array $activeAutomationContext = null;
 
     public function __construct(
@@ -31,7 +30,9 @@ class AutoRunLifecycleService
         private InternalBookingLifecycleService $internalBookingLifecycleService,
         private ShipmentParcelService $shipmentParcelService,
         private VehicleOdometerService $vehicleOdometerService,
-    ) {}
+    )
+    {
+    }
 
     public function processVehiclePosition(
         Vehicle $vehicle,
@@ -107,7 +108,7 @@ class AutoRunLifecycleService
                 return true;
             }
 
-            if ($activeVisit && (! $location || $activeVisit->location_id !== $location->id)) {
+            if ($activeVisit && (!$location || $activeVisit->location_id !== $location->id)) {
                 $activeVisit->fill([
                     'exited_at' => $occurredAt,
                     'latitude' => $latitude,
@@ -171,7 +172,7 @@ class AutoRunLifecycleService
                 );
             }
 
-            if (! $location) {
+            if (!$location) {
                 return false;
             }
 
@@ -209,11 +210,11 @@ class AutoRunLifecycleService
                 ]
             );
 
-            if (! $merchant->allow_auto_shipment_creations_at_locations) {
+            if (!$merchant->allow_auto_shipment_creations_at_locations) {
                 return true;
             }
 
-            if (! $location->locationType) {
+            if (!$location->locationType) {
                 return true;
             }
 
@@ -292,7 +293,7 @@ class AutoRunLifecycleService
             );
         }
 
-        if ($activeRun && ! $shouldCompleteExistingRun) {
+        if ($activeRun && !$shouldCompleteExistingRun) {
             $visit->run_id = $activeRun->id;
             $visit->save();
             $this->updateVehicleLastKnownDriver($visit);
@@ -343,7 +344,7 @@ class AutoRunLifecycleService
         Vehicle $vehicle,
         ?string $driverIntegrationId
     ): ?int {
-        if (! empty($driverIntegrationId)) {
+        if (!empty($driverIntegrationId)) {
             $driverId = $this->resolveDriverIdByIntegrationForMerchant(
                 merchantId: $merchant->id,
                 accountId: $merchant->account_id,
@@ -367,11 +368,7 @@ class AutoRunLifecycleService
         ?float $odometerKilometres = null
     ): void {
         $run = $this->findActiveRun($merchant, $vehicle);
-        if (! $run || ! $run->origin_location_id) {
-            return;
-        }
-
-        if ((int) $run->origin_location_id === (int) $location->id) {
+        if (!$run || !$run->origin_location_id) {
             return;
         }
 
@@ -413,7 +410,7 @@ class AutoRunLifecycleService
             ->first();
 
         $createdShipment = false;
-        if (! $shipment) {
+        if (!$shipment) {
             $shipment = Shipment::create([
                 'account_id' => $merchant->account_id,
                 'merchant_id' => $merchant->id,
@@ -457,7 +454,7 @@ class AutoRunLifecycleService
             $shipment->restore();
         }
 
-        if (! in_array($shipment->status, ['cancelled', 'delivered', 'failed'], true)) {
+        if (!in_array($shipment->status, ['cancelled', 'delivered', 'failed'], true)) {
             $shipment->status = 'in_transit';
             $shipment->save();
         }
@@ -501,7 +498,7 @@ class AutoRunLifecycleService
         ?float $odometerKilometres = null
     ): void {
         foreach ($this->resolveLocationAutomationActions($merchant, $location, $event) as $index => $action) {
-            if (! $this->automationConditionsMatch($merchant, $vehicle, $location, $visit, $action['conditions'] ?? [])) {
+            if (!$this->automationConditionsMatch($merchant, $vehicle, $location, $visit, $action['conditions'] ?? [])) {
                 continue;
             }
 
@@ -634,7 +631,7 @@ class AutoRunLifecycleService
                 default => $actual === $expected,
             };
 
-            if (! $matches) {
+            if (!$matches) {
                 return false;
             }
         }
@@ -674,7 +671,7 @@ class AutoRunLifecycleService
             return Shipment::query()->find($visit->shipment_id);
         }
 
-        if (! $run) {
+        if (!$run) {
             return null;
         }
 
@@ -714,7 +711,7 @@ class AutoRunLifecycleService
             'location_id' => $location->uuid,
             'location_type_id' => $location->locationType?->uuid,
             'executed_at' => now()->toIso8601String(),
-            'has_conditions' => ! empty($action['conditions']),
+            'has_conditions' => !empty($action['conditions']),
             'condition_count' => count($action['conditions'] ?? []),
             'conditions' => $action['conditions'] ?? [],
         ];
@@ -778,7 +775,7 @@ class AutoRunLifecycleService
         string $eventType,
         CarbonInterface $occurredAt
     ): void {
-        if (! $visit->run_id || ! $visit->shipment_id || ! $visit->location_id) {
+        if (!$visit->run_id || !$visit->shipment_id || !$visit->location_id) {
             return;
         }
 
@@ -793,7 +790,7 @@ class AutoRunLifecycleService
             ->lockForUpdate()
             ->first();
 
-        if (! $activity) {
+        if (!$activity) {
             return;
         }
 
@@ -808,8 +805,9 @@ class AutoRunLifecycleService
         VehicleActivity $visit,
         CarbonInterface $occurredAt,
         ?float $odometerKilometres = null
-    ): void {
-        if (! $visit->run_id || ! $visit->location_id) {
+    ): void
+    {
+        if (!$visit->run_id || !$visit->location_id) {
             return;
         }
 
@@ -831,7 +829,7 @@ class AutoRunLifecycleService
 
         $shipment = $shipmentQuery->orderByDesc('id')->first();
 
-        if (! $shipment) {
+        if (!$shipment) {
             return;
         }
 
@@ -904,7 +902,7 @@ class AutoRunLifecycleService
 
     private function shouldCompleteRunAtCollectionPoint(Run $run, Location $location): bool
     {
-        if (! $run->origin_location_id || (int) $run->origin_location_id !== (int) $location->id) {
+        if (!$run->origin_location_id || (int) $run->origin_location_id !== (int) $location->id) {
             return true;
         }
 
@@ -961,18 +959,18 @@ class AutoRunLifecycleService
 
         foreach ($locations as $location) {
             $matches = false;
-            if (! empty($location->polygon_wkt ?? null)) {
+            if (!empty($location->polygon_wkt ?? null)) {
                 $polygon = $this->parseWktPolygon($location->polygon_wkt);
                 $matches = $polygon !== [] && $this->pointInPolygon($latitude, $longitude, $polygon);
             }
 
-            if (! $matches && $location->latitude !== null && $location->longitude !== null) {
+            if (!$matches && $location->latitude !== null && $location->longitude !== null) {
                 $distance = $this->distanceMeters($latitude, $longitude, (float) $location->latitude, (float) $location->longitude);
                 $radius = (float) (($location->metadata['geofence_radius_meters'] ?? 150));
                 $matches = $distance <= $radius;
             }
 
-            if (! $matches) {
+            if (!$matches) {
                 continue;
             }
 
@@ -1004,7 +1002,7 @@ class AutoRunLifecycleService
         $points = [];
         foreach ($pairs as $pair) {
             $parts = preg_split('/\s+/', trim($pair));
-            if (count($parts) !== 2 || ! is_numeric($parts[0]) || ! is_numeric($parts[1])) {
+            if (count($parts) !== 2 || !is_numeric($parts[0]) || !is_numeric($parts[1])) {
                 continue;
             }
 
@@ -1030,7 +1028,7 @@ class AutoRunLifecycleService
                 && ($latitude < ($latJ - $latI) * ($longitude - $lngI) / (($lngJ - $lngI) ?: 0.0000001) + $latI);
 
             if ($intersects) {
-                $inside = ! $inside;
+                $inside = !$inside;
             }
         }
 
@@ -1068,10 +1066,10 @@ class AutoRunLifecycleService
         $state = $vehicle->metadata['vehicle_activity_state'] ?? [];
         $stateChanged = false;
 
-        if ($speedKph !== null) {
-            $motionState = $speedKph > 0
-                ? VehicleActivity::EVENT_MOVING
-                : VehicleActivity::EVENT_STOPPED;
+            if ($speedKph !== null) {
+                $motionState = $speedKph > 0
+                    ? VehicleActivity::EVENT_MOVING
+                    : VehicleActivity::EVENT_STOPPED;
 
             if (($state['motion'] ?? null) !== $motionState) {
                 $this->recordVehicleActivity(
@@ -1110,7 +1108,7 @@ class AutoRunLifecycleService
         }
 
         $isSpeeding = $speedKph !== null && $speedLimitKph !== null && $speedKph > $speedLimitKph;
-        if ($isSpeeding && ! ($state['is_speeding'] ?? false)) {
+        if ($isSpeeding && !($state['is_speeding'] ?? false)) {
             $this->recordVehicleActivity(
                 vehicle: $vehicle,
                 merchant: $merchant,
@@ -1143,7 +1141,7 @@ class AutoRunLifecycleService
                     'provider_position' => $providerPosition,
                 ],
             );
-        } elseif (! $isSpeeding && ($state['is_speeding'] ?? false)) {
+        } elseif (!$isSpeeding && ($state['is_speeding'] ?? false)) {
             $state['is_speeding'] = false;
             $stateChanged = true;
         }
@@ -1206,17 +1204,17 @@ class AutoRunLifecycleService
 
     private function updateVehicleLastKnownDriver(VehicleActivity $activity): void
     {
-        if (! in_array($activity->event_type, VehicleActivity::DRIVER_SNAPSHOT_EVENT_TYPES, true)) {
+        if (!in_array($activity->event_type, VehicleActivity::DRIVER_SNAPSHOT_EVENT_TYPES, true)) {
             return;
         }
 
         $driverId = $this->resolveLastKnownDriverId($activity);
-        if (! $driverId || ! $activity->created_at) {
+        if (!$driverId || !$activity->created_at) {
             return;
         }
 
         $vehicle = Vehicle::query()->whereKey($activity->vehicle_id)->lockForUpdate()->first();
-        if (! $vehicle) {
+        if (!$vehicle) {
             return;
         }
 
@@ -1232,7 +1230,7 @@ class AutoRunLifecycleService
     private function resolveLastKnownDriverId(VehicleActivity $activity): ?int
     {
         $driverIntegrationId = $activity->metadata['driver_intergration_id'] ?? null;
-        if (! empty($driverIntegrationId)) {
+        if (!empty($driverIntegrationId)) {
             $driverId = $this->resolveDriverIdByIntegrationForMerchant(
                 merchantId: $activity->merchant_id,
                 accountId: $activity->account_id,
@@ -1269,7 +1267,7 @@ class AutoRunLifecycleService
             }
         }
 
-        if (! $accountId) {
+        if (!$accountId) {
             return null;
         }
 
@@ -1300,7 +1298,7 @@ class AutoRunLifecycleService
             ->orderByDesc('id')
             ->first();
 
-        if (! $activity) {
+        if (!$activity) {
             return;
         }
 
