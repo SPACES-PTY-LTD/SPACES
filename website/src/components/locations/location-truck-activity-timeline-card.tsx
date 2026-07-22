@@ -171,6 +171,17 @@ export function LocationTruckActivityTimelineCard({
                         ? `${activity.speed_kph} kph`
                         : "No speed"}
                     </div>
+                    {activity.shipment?.shipment_id ? (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Shipment: {" "}
+                        <Link
+                          href={AdminRoute.shipmentDetails(activity.shipment.shipment_id)}
+                          className="text-primary underline-offset-4 hover:underline"
+                        >
+                          {activity.shipment.merchant_order_ref ?? activity.shipment.shipment_id}
+                        </Link>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ))}
