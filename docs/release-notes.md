@@ -23,6 +23,29 @@ Add new entries at the top (newest first).
 ## 2026-07-23 | Version: unreleased
 
 ### Summary
+- Fixed shipment monitoring placement for standby-classified vehicles that are currently inside a location.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- A vehicle whose latest activity places it inside a location is now shown at that location even when its fleet status is `standby`.
+- Standby placement continues to apply when the latest activity does not identify the vehicle as being inside a location.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/app/admin/logistics/shipments/monitoring/page.tsx`
+- `npm run build`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
 - Fixed Autorun delivery when location automation replaces the active run before exit.
 
 ### API Changes

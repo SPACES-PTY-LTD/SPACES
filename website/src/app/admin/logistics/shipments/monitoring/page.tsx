@@ -497,7 +497,8 @@ export default function VirtualWarehousePage() {
             if (!key) return acc;
 
             const truck = buildTruckFromActivity(item, now);
-            if (item.vehicle?.fleet_status === "standby") {
+            const placement = classifyActivityPlacement(item);
+            if (item.vehicle?.fleet_status === "standby" && placement !== "location") {
               fallbackStandby.push({
                 ...truck,
                 locationId: "PARKING_STANDBY",
@@ -508,7 +509,6 @@ export default function VirtualWarehousePage() {
               });
               return acc;
             }
-            const placement = classifyActivityPlacement(item);
             if (placement === "unknown") {
               fallbackParking.push({
                 ...truck,
@@ -533,8 +533,6 @@ export default function VirtualWarehousePage() {
         const fallbackTrucks = (allVehiclesResponse.data ?? []).reduce<Record<string, TruckRender>>((acc, item) => {
           const key = getVehicleKey(item);
           if (!key) return acc;
-          if (item.vehicle?.fleet_status === "standby") return acc;
-
           if (classifyActivityPlacement(item) !== "location") {
             return acc;
           }
@@ -592,7 +590,10 @@ export default function VirtualWarehousePage() {
       for (const activity of allVehiclesResponse.data ?? []) {
         const key = getVehicleKey(activity);
         if (!key) continue;
-        if (activity.vehicle?.fleet_status === "standby") {
+        if (
+          activity.vehicle?.fleet_status === "standby" &&
+          classifyActivityPlacement(activity) !== "location"
+        ) {
           const resolvedKey = String(key);
           standbyVehicleKeys.add(resolvedKey);
           standbyByVehicleKey.set(resolvedKey, {
@@ -618,7 +619,12 @@ export default function VirtualWarehousePage() {
 
       for (const activity of latestByVehicle) {
         const activityVehicleKey = getVehicleKey(activity);
-        if (activityVehicleKey && standbyVehicleKeys.has(String(activityVehicleKey))) continue;
+        const placement = classifyActivityPlacement(activity);
+        if (activityVehicleKey && standbyVehicleKeys.has(String(activityVehicleKey))) {
+          if (placement !== "location") continue;
+          standbyVehicleKeys.delete(String(activityVehicleKey));
+          standbyByVehicleKey.delete(String(activityVehicleKey));
+        }
         if (activityVehicleKey) parkingByVehicleKey.delete(String(activityVehicleKey));
         const truck = buildTruckFromActivity(activity, now);
         const locationId = activity.location?.location_id;
