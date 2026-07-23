@@ -26,6 +26,7 @@ class AdminAutorunTestControllerTest extends TestCase
             'merchant_id' => $merchant->uuid,
             'vehicle_id' => $vehicle->uuid,
             'location_id' => $location->uuid,
+            'action' => 'enter',
         ]);
 
         $response->assertOk()
@@ -54,6 +55,7 @@ class AdminAutorunTestControllerTest extends TestCase
             'merchant_id' => $merchant->uuid,
             'vehicle_id' => $vehicle->uuid,
             'location_id' => $location->uuid,
+            'action' => 'enter',
         ])->assertOk()
             ->assertJsonPath('data.requested_location.location_id', $location->uuid);
     }
@@ -68,6 +70,7 @@ class AdminAutorunTestControllerTest extends TestCase
             'merchant_id' => $merchant->uuid,
             'vehicle_id' => $vehicle->uuid,
             'location_id' => $location->uuid,
+            'action' => 'enter',
         ])->assertForbidden();
     }
 
@@ -90,6 +93,7 @@ class AdminAutorunTestControllerTest extends TestCase
             'merchant_id' => $merchant->uuid,
             'vehicle_id' => $vehicle->uuid,
             'location_id' => $location->uuid,
+            'action' => 'enter',
         ])->assertUnprocessable()
             ->assertJsonPath('error.code', 'VALIDATION_ERROR');
     }
@@ -112,6 +116,7 @@ class AdminAutorunTestControllerTest extends TestCase
             'merchant_id' => $merchant->uuid,
             'vehicle_id' => $vehicle->uuid,
             'location_id' => $location->uuid,
+            'action' => 'enter',
         ])->assertOk()
             ->assertJsonPath('data.simulated_coordinates.latitude', -33.92)
             ->assertJsonPath('data.simulated_coordinates.longitude', 18.43);
@@ -127,6 +132,7 @@ class AdminAutorunTestControllerTest extends TestCase
             'merchant_id' => $merchant->uuid,
             'vehicle_id' => $vehicle->uuid,
             'location_id' => $requested->uuid,
+            'action' => 'enter',
         ])->assertOk()
             ->assertJsonPath('data.requested_location.location_id', $requested->uuid)
             ->assertJsonPath('data.resolved_location.location_id', $winner->uuid)
@@ -146,6 +152,7 @@ class AdminAutorunTestControllerTest extends TestCase
             'merchant_id' => $merchant->uuid,
             'vehicle_id' => $vehicle->uuid,
             'location_id' => $location->uuid,
+            'action' => 'enter',
         ]);
 
         $response->assertBadRequest()
@@ -153,6 +160,51 @@ class AdminAutorunTestControllerTest extends TestCase
             ->assertJsonPath('error.message', 'Unable to process the autorun lifecycle test.')
             ->assertJsonStructure(['error' => ['request_id']]);
         $this->assertStringNotContainsString('sensitive provider detail', $response->getContent());
+    }
+
+    public function test_admin_can_process_an_exit_for_the_selected_active_visit(): void
+    {
+        [$admin, $merchant, $vehicle] = $this->context('super_admin');
+        $location = $this->location($merchant, 'Depot', -33.9249, 18.4241);
+        $token = $admin->createToken('test-suite')->plainTextToken;
+
+        $this->withToken($token)->postJson('/api/v1/admin/tools/autorun-test', [
+            'merchant_id' => $merchant->uuid,
+            'vehicle_id' => $vehicle->uuid,
+            'location_id' => $location->uuid,
+            'action' => 'enter',
+        ])->assertOk();
+
+        $this->withToken($token)->postJson('/api/v1/admin/tools/autorun-test', [
+            'merchant_id' => $merchant->uuid,
+            'vehicle_id' => $vehicle->uuid,
+            'location_id' => $location->uuid,
+            'action' => 'exit',
+        ])->assertOk()
+            ->assertJsonPath('data.action', 'exit')
+            ->assertJsonPath('data.inside_geofence', false)
+            ->assertJsonPath('data.resolved_location', null)
+            ->assertJsonPath('data.simulated_coordinates.latitude', null);
+
+        $this->assertDatabaseHas('vehicle_activity', [
+            'vehicle_id' => $vehicle->id,
+            'location_id' => $location->id,
+            'event_type' => VehicleActivity::EVENT_EXITED_LOCATION,
+        ]);
+    }
+
+    public function test_exit_is_rejected_when_the_truck_has_no_active_visit_at_the_location(): void
+    {
+        [$admin, $merchant, $vehicle] = $this->context('super_admin');
+        $location = $this->location($merchant, 'Depot', -33.9249, 18.4241);
+
+        $this->withToken($admin->createToken('test-suite')->plainTextToken)->postJson('/api/v1/admin/tools/autorun-test', [
+            'merchant_id' => $merchant->uuid,
+            'vehicle_id' => $vehicle->uuid,
+            'location_id' => $location->uuid,
+            'action' => 'exit',
+        ])->assertUnprocessable()
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR');
     }
 
     private function context(string $role): array

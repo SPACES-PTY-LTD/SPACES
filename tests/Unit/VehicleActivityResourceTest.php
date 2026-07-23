@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Http\Resources\VehicleActivityResource;
+use App\Models\Booking;
 use App\Models\Location;
 use App\Models\Shipment;
 use App\Models\VehicleActivity;
@@ -30,6 +31,8 @@ class VehicleActivityResourceTest extends TestCase
         ]);
         $shipment->setRelation('pickupLocation', $pickup);
         $shipment->setRelation('dropoffLocation', $dropoff);
+        $shipment->forceFill(['created_at' => '2026-07-23 10:00:00']);
+        $shipment->setRelation('booking', new Booking(['delivered_at' => '2026-07-23 12:30:00']));
 
         $activity = new VehicleActivity(['uuid' => 'activity-uuid']);
         $activity->setRelation('merchant', null);
@@ -44,5 +47,7 @@ class VehicleActivityResourceTest extends TestCase
         $this->assertSame('Origin Depot', $payload['shipment']['pickup_location']['name']);
         $this->assertSame('dropoff-uuid', $payload['shipment']['dropoff_location']['location_id']);
         $this->assertSame('Destination Store', $payload['shipment']['dropoff_location']['name']);
+        $this->assertSame('2026-07-23T10:00:00+00:00', $payload['shipment']['created_at']);
+        $this->assertSame('2026-07-23T12:30:00+00:00', $payload['shipment']['delivered_at']);
     }
 }

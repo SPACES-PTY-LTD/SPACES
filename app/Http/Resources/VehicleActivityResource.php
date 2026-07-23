@@ -70,6 +70,8 @@ class VehicleActivityResource extends JsonResource
                 'merchant_order_ref' => $this->shipment->merchant_order_ref,
                 'status' => $this->shipment->status,
                 'auto_created' => (bool) $this->shipment->auto_created,
+                'created_at' => optional($this->shipment->created_at)?->toIso8601String(),
+                'delivered_at' => optional($this->shipment->booking?->delivered_at)?->toIso8601String(),
                 'pickup_location' => $this->shipment->pickupLocation ? [
                     'location_id' => $this->shipment->pickupLocation->uuid,
                     'name' => $this->shipment->pickupLocation->name,

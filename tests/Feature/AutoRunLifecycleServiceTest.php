@@ -544,6 +544,160 @@ class AutoRunLifecycleServiceTest extends TestCase
         ]);
     }
 
+    public function test_it_delivers_a_qualifying_shipment_on_exit_for_the_same_vehicle_run(): void
+    {
+        $service = app(AutoRunLifecycleService::class);
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+
+        $origin = $this->createLocation($merchant, 'Collection A', true, -33.9200, 18.4200);
+        $dropoff = $this->createLocation($merchant, 'Delivery B', false, -33.9500, 18.4500);
+
+        $service->processVehiclePosition($vehicle, $merchant, -33.9200, 18.4200, Carbon::parse('2026-03-04 12:00:00'), null, null, 1000);
+        $service->processVehiclePosition($vehicle, $merchant, -33.9050, 18.4050, Carbon::parse('2026-03-04 12:10:00'), null, null, 1005);
+        $service->processVehiclePosition($vehicle, $merchant, -33.9500, 18.4500, Carbon::parse('2026-03-04 12:20:00'), null, null, 1010);
+
+        $run = Run::query()->where('vehicle_id', $vehicle->id)->firstOrFail();
+        $shipment = Shipment::query()->where('dropoff_location_id', $dropoff->id)->firstOrFail();
+        $booking = Booking::query()->where('shipment_id', $shipment->id)->firstOrFail();
+
+        $otherVehicle = Vehicle::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'plate_number' => 'OTHER-VEHICLE',
+            'is_active' => true,
+        ]);
+        $otherRun = Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $otherVehicle->id,
+            'status' => Run::STATUS_IN_PROGRESS,
+            'origin_location_id' => $origin->id,
+            'started_at' => Carbon::parse('2026-03-04 11:00:00'),
+        ]);
+        $otherShipment = Shipment::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'merchant_order_ref' => 'OTHER-VEHICLE-SHIPMENT',
+            'status' => 'in_transit',
+            'pickup_location_id' => $origin->id,
+            'dropoff_location_id' => $dropoff->id,
+            'auto_created' => true,
+        ]);
+        RunShipment::create([
+            'run_id' => $otherRun->id,
+            'shipment_id' => $otherShipment->id,
+            'status' => RunShipment::STATUS_ACTIVE,
+        ]);
+
+        $this->assertDatabaseMissing('vehicle_activity', [
+            'shipment_id' => $shipment->id,
+            'event_type' => VehicleActivity::EVENT_SHIPMENT_DELIVERY,
+        ]);
+
+        $service->processVehiclePosition($vehicle, $merchant, -33.9050, 18.4050, Carbon::parse('2026-03-04 12:30:00'), null, null, 1015);
+
+        $shipment->refresh();
+        $booking->refresh();
+        $this->assertSame('delivered', $shipment->status);
+        $this->assertSame('delivered', $booking->status);
+        $this->assertNotNull($booking->delivered_at);
+        $this->assertSame(1015, $booking->odometer_at_delivery);
+        $this->assertDatabaseHas('run_shipments', [
+            'run_id' => $run->id,
+            'shipment_id' => $shipment->id,
+            'status' => RunShipment::STATUS_DONE,
+        ]);
+        $this->assertDatabaseHas('vehicle_activity', [
+            'vehicle_id' => $vehicle->id,
+            'run_id' => $run->id,
+            'shipment_id' => $shipment->id,
+            'location_id' => $dropoff->id,
+            'event_type' => VehicleActivity::EVENT_SHIPMENT_DELIVERY,
+        ]);
+        $this->assertDatabaseHas('vehicle_activity', [
+            'shipment_id' => $shipment->id,
+            'event_type' => VehicleActivity::EVENT_SHIPMENT_ENDED,
+        ]);
+        $otherShipment->refresh();
+        $this->assertSame('in_transit', $otherShipment->status);
+        $this->assertDatabaseHas('run_shipments', [
+            'run_id' => $otherRun->id,
+            'shipment_id' => $otherShipment->id,
+            'status' => RunShipment::STATUS_ACTIVE,
+        ]);
+    }
+
+    public function test_it_delivers_the_shipment_from_the_completed_run_when_entry_starts_a_new_run(): void
+    {
+        $service = app(AutoRunLifecycleService::class);
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $origin = $this->createLocation($merchant, 'Origin', true, -33.9200, 18.4200);
+
+        $combinedType = LocationType::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'slug' => 'combined-sequenced',
+            'title' => 'Combined Sequenced',
+            'collection_point' => true,
+            'delivery_point' => true,
+            'sequence' => 20,
+            'default' => false,
+        ]);
+        $destination = Location::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Truckwash',
+            'address_line_1' => '1 Wash Road',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+            'latitude' => -33.9500,
+            'longitude' => 18.4500,
+            'location_type_id' => $combinedType->id,
+            'metadata' => ['geofence_radius_meters' => 120],
+        ]);
+        $merchant->forceFill([
+            'location_automation_settings' => [
+                'location_types' => [[
+                    'location_type_id' => $combinedType->uuid,
+                    'entry' => [
+                        ['id' => 'create-first', 'action' => 'create_shipment', 'conditions' => []],
+                        ['id' => 'start-second', 'action' => 'start_run', 'conditions' => []],
+                    ],
+                    'exit' => [['id' => 'record-exit', 'action' => 'record_vehicle_exit', 'conditions' => []]],
+                ]],
+            ],
+        ])->save();
+
+        $service->processVehiclePosition($vehicle, $merchant->fresh(), -33.9200, 18.4200, Carbon::parse('2026-03-04 13:00:00'));
+        $service->processVehiclePosition($vehicle, $merchant->fresh(), -33.9050, 18.4050, Carbon::parse('2026-03-04 13:10:00'));
+        $service->processVehiclePosition($vehicle, $merchant->fresh(), -33.9500, 18.4500, Carbon::parse('2026-03-04 13:20:00'));
+
+        $shipment = Shipment::query()->where('dropoff_location_id', $destination->id)->firstOrFail();
+        $shipmentRun = $shipment->runs()->firstOrFail();
+        $activeRun = Run::query()->where('vehicle_id', $vehicle->id)->where('status', Run::STATUS_IN_PROGRESS)->firstOrFail();
+        $this->assertNotSame($shipmentRun->id, $activeRun->id);
+        $this->assertSame(Run::STATUS_COMPLETED, $shipmentRun->status);
+        $this->assertSame($origin->id, $shipment->pickup_location_id);
+
+        $service->processVehiclePosition($vehicle, $merchant->fresh(), -33.9050, 18.4050, Carbon::parse('2026-03-04 13:30:00'));
+
+        $shipment->refresh();
+        $this->assertSame('delivered', $shipment->status);
+        $this->assertDatabaseHas('vehicle_activity', [
+            'vehicle_id' => $vehicle->id,
+            'run_id' => $shipmentRun->id,
+            'shipment_id' => $shipment->id,
+            'location_id' => $destination->id,
+            'event_type' => VehicleActivity::EVENT_SHIPMENT_DELIVERY,
+        ]);
+        $this->assertDatabaseHas('run_shipments', [
+            'run_id' => $shipmentRun->id,
+            'shipment_id' => $shipment->id,
+            'status' => RunShipment::STATUS_DONE,
+        ]);
+    }
+
     public function test_it_backfills_missing_bookings_for_auto_created_shipments(): void
     {
         Carbon::setTestNow('2026-03-01 09:00:00');

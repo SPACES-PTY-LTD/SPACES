@@ -205,6 +205,16 @@ export function LocationTruckActivityTimelineCard({
                             </Link>
                           ) : getShipmentLocationLabel(activity.shipment.dropoff_location)}
                         </div>
+                        <div>
+                          Created: {activity.shipment.created_at
+                            ? moment(activity.shipment.created_at).format("YYYY-MM-DD HH:mm:ss")
+                            : "Unknown"}
+                        </div>
+                        <div>
+                          Delivered: {activity.shipment.delivered_at
+                            ? moment(activity.shipment.delivered_at).format("YYYY-MM-DD HH:mm:ss")
+                            : "Not delivered"}
+                        </div>
                       </div>
                     ) : null}
                   </div>

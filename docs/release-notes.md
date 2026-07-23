@@ -23,6 +23,143 @@ Add new entries at the top (newest first).
 ## 2026-07-23 | Version: unreleased
 
 ### Summary
+- Fixed Autorun delivery when location automation replaces the active run before exit.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Exit delivery now follows the shipment's actual run assignment for the exiting truck, even when that run was completed and the visit was subsequently linked to a newly started run.
+- Shipment Delivery and Shipment Ended activities retain the shipment's actual run ID, and unrelated vehicle shipments remain untouched.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/AutoRunLifecycleServiceTest.php`
+- `php artisan test tests/Feature/AdminAutorunTestControllerTest.php`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Corrected Autorun shipment-delivery activity timing.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Shipment creation and collection remain entry events, while `Shipment Delivery` is now created only on a qualifying location exit and timestamped at that exit.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/AutoRunLifecycleServiceTest.php`
+- `php artisan test tests/Feature/AdminAutorunTestControllerTest.php`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Restored first-exit delivery for qualifying Autorun shipments.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- A shipment may now be delivered on the exit from the visit in which it was created, provided the exit matches its drop-off, pickup differs from drop-off, and it belongs to the truck's exact run.
+- Delivery attempt activity is recorded when the shipment is created and closed by the qualifying exit.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/AutoRunLifecycleServiceTest.php`
+- `php artisan test tests/Feature/AdminAutorunTestControllerTest.php`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Added shipment creation and delivery timestamps to truck activity cards.
+
+### API Changes
+- Vehicle activity shipment summaries now include `created_at` and the associated booking's `delivered_at` timestamp.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Truck activity shipment details show second-level creation and delivery times, with explicit fallbacks for missing timestamps and undelivered shipments.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Unit/VehicleActivityResourceTest.php`
+- `npm run build` in `website`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Added manual location exit processing to the Autorun lifecycle test tool.
+
+### API Changes
+- `POST /api/v1/admin/tools/autorun-test` now requires an `action` of `enter` or `exit`.
+- Exit responses omit simulated coordinates and reject trucks without an active visit at the selected location.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Admins can choose Enter location or Exit location; exits deterministically close the selected active visit and run the same exit automation, shipment, and activity behavior as tracked geofence exits.
+
+### Breaking Changes
+- Clients of the Autorun test endpoint must provide the new `action` field.
+
+### Verification
+- `php artisan test tests/Feature/AdminAutorunTestControllerTest.php`
+- `php artisan test tests/Feature/AutoRunLifecycleServiceTest.php`
+- `npm run build` in `website`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Prevented auto-created shipments from being delivered during the same location visit in which they were created.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Autorun now records collection at shipment creation but defers the delivery attempt until a later visit to the drop-off on the same vehicle run.
+- Exiting the creation visit leaves shipment, booking, and run-shipment state unchanged; a later qualifying exit completes them without affecting shipments assigned to another vehicle run.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/AutoRunLifecycleServiceTest.php`
+- `php artisan test tests/Feature/AdminAutorunTestControllerTest.php`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
 - Changed the Autorun test tool's third column to show merchant-wide truck activity.
 
 ### API Changes

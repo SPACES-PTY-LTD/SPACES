@@ -44,20 +44,43 @@ class AdminAutorunTestController extends Controller
                 ]);
             }
 
-            [$latitude, $longitude] = $this->representativePoint($location);
             $processedAt = now();
-            $insideGeofence = $service->processVehiclePosition(
-                vehicle: $vehicle,
-                merchant: $merchant,
-                latitude: $latitude,
-                longitude: $longitude,
-                eventAt: $processedAt,
-                providerPosition: [
-                    'source' => 'admin_autorun_test',
-                    'requested_location_id' => $location->uuid,
-                    'triggered_by_user_id' => $request->user()?->uuid,
-                ],
-            );
+            $providerPosition = [
+                'source' => 'admin_autorun_test',
+                'action' => $data['action'],
+                'requested_location_id' => $location->uuid,
+                'triggered_by_user_id' => $request->user()?->uuid,
+            ];
+            $latitude = null;
+            $longitude = null;
+
+            if ($data['action'] === 'exit') {
+                $processed = $service->processVehicleLocationExit(
+                    vehicle: $vehicle,
+                    merchant: $merchant,
+                    location: $location,
+                    eventAt: $processedAt,
+                    providerPosition: $providerPosition,
+                );
+
+                if (! $processed) {
+                    throw ValidationException::withMessages([
+                        'action' => 'The selected truck does not have an active visit at this location.',
+                    ]);
+                }
+
+                $insideGeofence = false;
+            } else {
+                [$latitude, $longitude] = $this->representativePoint($location);
+                $insideGeofence = $service->processVehiclePosition(
+                    vehicle: $vehicle,
+                    merchant: $merchant,
+                    latitude: $latitude,
+                    longitude: $longitude,
+                    eventAt: $processedAt,
+                    providerPosition: $providerPosition,
+                );
+            }
 
             $resolvedVisit = VehicleActivity::query()
                 ->where('merchant_id', $merchant->id)
@@ -70,6 +93,7 @@ class AdminAutorunTestController extends Controller
 
             return ApiResponse::success([
                 'status' => 'processed',
+                'action' => $data['action'],
                 'processed_at' => Carbon::instance($processedAt)->toIso8601String(),
                 'inside_geofence' => $insideGeofence,
                 'simulated_coordinates' => [

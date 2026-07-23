@@ -108,66 +108,18 @@ class AutoRunLifecycleService
             }
 
             if ($activeVisit && (! $location || $activeVisit->location_id !== $location->id)) {
-                $activeVisit->fill([
-                    'exited_at' => $occurredAt,
-                    'latitude' => $latitude,
-                    'longitude' => $longitude,
-                    'exit_reason' => VehicleActivity::EXIT_REASON_LEFT_GEOFENCE,
-                ])->save();
-
-                $this->closeShipmentStageAttempt($activeVisit, VehicleActivity::EVENT_SHIPMENT_DELIVERY, $occurredAt);
-                $this->markAutoShipmentDeliveredOnLocationExit($activeVisit, $occurredAt, $odometerKilometres);
-                if ($activeVisit->location) {
-                    $this->executeConfiguredLocationAutomation(
-                        merchant: $merchant,
-                        vehicle: $vehicle,
-                        location: $activeVisit->location,
-                        visit: $activeVisit,
-                        occurredAt: $occurredAt,
-                        event: self::AUTOMATION_EVENT_EXIT,
-                        driverIntegrationId: $driverIntegrationId,
-                        odometerKilometres: $odometerKilometres,
-                    );
-                }
-
-                $this->recordVehicleActivity(
+                $this->exitActiveVisit(
+                    activeVisit: $activeVisit,
                     vehicle: $vehicle,
                     merchant: $merchant,
-                    eventType: VehicleActivity::EVENT_EXITED_LOCATION,
                     occurredAt: $occurredAt,
                     latitude: $latitude,
                     longitude: $longitude,
-                    location: $activeVisit->location,
-                    runId: $activeVisit->run_id,
-                    shipmentId: $activeVisit->shipment_id,
                     speedKph: $speedKph,
                     speedLimitKph: $speedLimitKph,
-                    metadata: [
-                        'driver_intergration_id' => $driverIntegrationId,
-                        'odometer_kilometres' => $odometerKilometres,
-                        'provider_position' => $providerPosition,
-                        'visit_id' => $activeVisit->uuid,
-                        'entered_at' => optional($activeVisit->entered_at)?->toIso8601String(),
-                        'exited_at' => optional($activeVisit->exited_at)?->toIso8601String(),
-                        'exit_reason' => $activeVisit->exit_reason,
-                    ],
-                );
-
-                $this->activityLogService->log(
-                    action: 'vehicle_exited',
-                    entityType: 'vehicle_activity',
-                    entity: $activeVisit,
-                    accountId: $merchant->account_id,
-                    merchantId: $merchant->id,
-                    title: 'Vehicle exited location geofence',
-                    metadata: [
-                        'vehicle_id' => $vehicle->uuid,
-                        'location_id' => $activeVisit->location?->uuid,
-                        'visit_id' => $activeVisit->uuid,
-                        'entered_at' => optional($activeVisit->entered_at)?->toIso8601String(),
-                        'exited_at' => optional($activeVisit->exited_at)?->toIso8601String(),
-                        'exit_reason' => $activeVisit->exit_reason,
-                    ]
+                    odometerKilometres: $odometerKilometres,
+                    driverIntegrationId: $driverIntegrationId,
+                    providerPosition: $providerPosition,
                 );
             }
 
@@ -230,6 +182,125 @@ class AutoRunLifecycleService
 
             return true;
         });
+    }
+
+    public function processVehicleLocationExit(
+        Vehicle $vehicle,
+        Merchant $merchant,
+        Location $location,
+        ?CarbonInterface $eventAt = null,
+        array $providerPosition = []
+    ): bool {
+        $occurredAt = Carbon::instance(($eventAt ?? now())->toDateTime());
+
+        return DB::transaction(function () use ($vehicle, $merchant, $location, $occurredAt, $providerPosition) {
+            $vehicle = Vehicle::query()->whereKey($vehicle->id)->lockForUpdate()->firstOrFail();
+            $activeVisit = VehicleActivity::query()
+                ->where('merchant_id', $merchant->id)
+                ->where('vehicle_id', $vehicle->id)
+                ->where('location_id', $location->id)
+                ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+                ->whereNull('exited_at')
+                ->with('location')
+                ->latest('entered_at')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $activeVisit) {
+                return false;
+            }
+
+            $this->exitActiveVisit(
+                activeVisit: $activeVisit,
+                vehicle: $vehicle,
+                merchant: $merchant,
+                occurredAt: $occurredAt,
+                latitude: $activeVisit->latitude !== null ? (float) $activeVisit->latitude : null,
+                longitude: $activeVisit->longitude !== null ? (float) $activeVisit->longitude : null,
+                speedKph: $activeVisit->speed_kph !== null ? (float) $activeVisit->speed_kph : null,
+                speedLimitKph: $activeVisit->speed_limit_kph !== null ? (float) $activeVisit->speed_limit_kph : null,
+                odometerKilometres: null,
+                driverIntegrationId: null,
+                providerPosition: $providerPosition,
+            );
+
+            return true;
+        });
+    }
+
+    private function exitActiveVisit(
+        VehicleActivity $activeVisit,
+        Vehicle $vehicle,
+        Merchant $merchant,
+        CarbonInterface $occurredAt,
+        ?float $latitude,
+        ?float $longitude,
+        ?float $speedKph,
+        ?float $speedLimitKph,
+        ?float $odometerKilometres,
+        ?string $driverIntegrationId,
+        array $providerPosition
+    ): void {
+        $activeVisit->fill([
+            'exited_at' => $occurredAt,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'exit_reason' => VehicleActivity::EXIT_REASON_LEFT_GEOFENCE,
+        ])->save();
+
+        $this->markAutoShipmentDeliveredOnLocationExit($activeVisit, $occurredAt, $odometerKilometres);
+        if ($activeVisit->location) {
+            $this->executeConfiguredLocationAutomation(
+                merchant: $merchant,
+                vehicle: $vehicle,
+                location: $activeVisit->location,
+                visit: $activeVisit,
+                occurredAt: $occurredAt,
+                event: self::AUTOMATION_EVENT_EXIT,
+                driverIntegrationId: $driverIntegrationId,
+                odometerKilometres: $odometerKilometres,
+            );
+        }
+
+        $this->recordVehicleActivity(
+            vehicle: $vehicle,
+            merchant: $merchant,
+            eventType: VehicleActivity::EVENT_EXITED_LOCATION,
+            occurredAt: $occurredAt,
+            latitude: $latitude,
+            longitude: $longitude,
+            location: $activeVisit->location,
+            runId: $activeVisit->run_id,
+            shipmentId: $activeVisit->shipment_id,
+            speedKph: $speedKph,
+            speedLimitKph: $speedLimitKph,
+            metadata: [
+                'driver_intergration_id' => $driverIntegrationId,
+                'odometer_kilometres' => $odometerKilometres,
+                'provider_position' => $providerPosition,
+                'visit_id' => $activeVisit->uuid,
+                'entered_at' => optional($activeVisit->entered_at)?->toIso8601String(),
+                'exited_at' => optional($activeVisit->exited_at)?->toIso8601String(),
+                'exit_reason' => $activeVisit->exit_reason,
+            ],
+        );
+
+        $this->activityLogService->log(
+            action: 'vehicle_exited',
+            entityType: 'vehicle_activity',
+            entity: $activeVisit,
+            accountId: $merchant->account_id,
+            merchantId: $merchant->id,
+            title: 'Vehicle exited location geofence',
+            metadata: [
+                'vehicle_id' => $vehicle->uuid,
+                'location_id' => $activeVisit->location?->uuid,
+                'visit_id' => $activeVisit->uuid,
+                'entered_at' => optional($activeVisit->entered_at)?->toIso8601String(),
+                'exited_at' => optional($activeVisit->exited_at)?->toIso8601String(),
+                'exit_reason' => $activeVisit->exit_reason,
+            ]
+        );
     }
 
     private function handleCollectionPointEnter(
@@ -486,7 +557,7 @@ class AutoRunLifecycleService
         );
 
         if ($createdShipment) {
-            $this->recordShipmentStageActivities($vehicle, $merchant, $run, $location, $visit, $shipment, $occurredAt, $collectionAt);
+            $this->recordShipmentCollectionActivity($vehicle, $merchant, $run, $shipment, $collectionAt);
         }
     }
 
@@ -722,14 +793,11 @@ class AutoRunLifecycleService
         $visit->save();
     }
 
-    private function recordShipmentStageActivities(
+    private function recordShipmentCollectionActivity(
         Vehicle $vehicle,
         Merchant $merchant,
         Run $run,
-        Location $location,
-        VehicleActivity $visit,
         Shipment $shipment,
-        CarbonInterface $occurredAt,
         CarbonInterface $collectionAt
     ): void {
         $originLocation = $run->originLocation;
@@ -753,7 +821,17 @@ class AutoRunLifecycleService
             enteredAt: $collectionEnteredAt,
             exitedAt: $collectionAt,
         );
+    }
 
+    private function recordShipmentDeliveryAttempt(
+        Vehicle $vehicle,
+        Merchant $merchant,
+        Run $run,
+        Location $location,
+        VehicleActivity $visit,
+        Shipment $shipment,
+        CarbonInterface $occurredAt
+    ): void {
         $this->recordVehicleActivity(
             vehicle: $vehicle,
             merchant: $merchant,
@@ -776,14 +854,15 @@ class AutoRunLifecycleService
     private function closeShipmentStageAttempt(
         VehicleActivity $visit,
         string $eventType,
-        CarbonInterface $occurredAt
+        CarbonInterface $occurredAt,
+        ?int $runId = null
     ): void {
         if (! $visit->run_id || ! $visit->shipment_id || ! $visit->location_id) {
             return;
         }
 
         $activity = VehicleActivity::query()
-            ->where('run_id', $visit->run_id)
+            ->where('run_id', $runId ?? $visit->run_id)
             ->where('shipment_id', $visit->shipment_id)
             ->where('location_id', $visit->location_id)
             ->where('event_type', $eventType)
@@ -815,25 +894,48 @@ class AutoRunLifecycleService
 
         $odometer = $this->vehicleOdometerService->normalizeKilometres($odometerKilometres);
 
-        $shipmentQuery = Shipment::query()
-            ->where('merchant_id', $visit->merchant_id)
-            ->where('auto_created', true)
-            ->where('dropoff_location_id', $visit->location_id)
-            ->whereColumn('pickup_location_id', '!=', 'dropoff_location_id')
-            ->whereNotIn('status', ['cancelled', 'delivered', 'failed'])
-            ->whereHas('runShipments', function (Builder $builder) use ($visit) {
-                $builder->where('run_id', $visit->run_id)
-                    ->where('status', '!=', RunShipment::STATUS_REMOVED);
+        $assignmentQuery = RunShipment::query()
+            ->with(['run', 'shipment'])
+            ->where('status', '!=', RunShipment::STATUS_REMOVED)
+            ->whereHas('run', function (Builder $builder) use ($visit) {
+                $builder->where('vehicle_id', $visit->vehicle_id)
+                    ->where('merchant_id', $visit->merchant_id);
+            })
+            ->whereHas('shipment', function (Builder $builder) use ($visit) {
+                $builder->where('merchant_id', $visit->merchant_id)
+                    ->where('auto_created', true)
+                    ->where('dropoff_location_id', $visit->location_id)
+                    ->whereColumn('pickup_location_id', '!=', 'dropoff_location_id')
+                    ->whereNotIn('status', ['cancelled', 'delivered', 'failed']);
             });
 
         if ($visit->shipment_id) {
-            $shipmentQuery->where('id', $visit->shipment_id);
+            $assignmentQuery->where('shipment_id', $visit->shipment_id);
+        } else {
+            $assignmentQuery->where('run_id', $visit->run_id);
         }
 
-        $shipment = $shipmentQuery->orderByDesc('id')->first();
+        $assignment = $assignmentQuery->orderByDesc('id')->first();
+        $shipment = $assignment?->shipment;
+        $run = $assignment?->run;
 
-        if (! $shipment) {
+        if (! $shipment || ! $run) {
             return;
+        }
+
+        $vehicle = Vehicle::query()->find($visit->vehicle_id);
+        $merchant = Merchant::query()->find($visit->merchant_id);
+        if ($vehicle && $merchant && $run && $visit->location) {
+            $this->recordShipmentDeliveryAttempt(
+                vehicle: $vehicle,
+                merchant: $merchant,
+                run: $run,
+                location: $visit->location,
+                visit: $visit,
+                shipment: $shipment,
+                occurredAt: $occurredAt,
+            );
+            $this->closeShipmentStageAttempt($visit, VehicleActivity::EVENT_SHIPMENT_DELIVERY, $occurredAt, $run->id);
         }
 
         $shipmentMetadata = $shipment->metadata ?? [];
@@ -844,19 +946,18 @@ class AutoRunLifecycleService
         $shipment->save();
         $this->internalBookingLifecycleService->markShipmentDelivered($shipment, $occurredAt, $odometer);
 
-        $vehicle = Vehicle::query()->find($visit->vehicle_id);
         if ($vehicle) {
             $this->vehicleOdometerService->syncHigherReading($vehicle, $odometer);
 
             $this->recordVehicleActivity(
                 vehicle: $vehicle,
-                merchant: Merchant::query()->findOrFail($visit->merchant_id),
+                merchant: $merchant ?? Merchant::query()->findOrFail($visit->merchant_id),
                 eventType: VehicleActivity::EVENT_SHIPMENT_ENDED,
                 occurredAt: $occurredAt,
                 latitude: $visit->latitude !== null ? (float) $visit->latitude : null,
                 longitude: $visit->longitude !== null ? (float) $visit->longitude : null,
                 location: $visit->location,
-                runId: $visit->run_id,
+                runId: $run->id,
                 shipmentId: $shipment->id,
                 metadata: [
                     'reason' => 'location_exit',
@@ -871,11 +972,7 @@ class AutoRunLifecycleService
             $visit->save();
         }
 
-        RunShipment::query()
-            ->where('run_id', $visit->run_id)
-            ->where('shipment_id', $shipment->id)
-            ->where('status', '!=', RunShipment::STATUS_REMOVED)
-            ->update(['status' => RunShipment::STATUS_DONE]);
+        $assignment->update(['status' => RunShipment::STATUS_DONE]);
     }
 
     private function autoOrderReference(Run $run, Location $location): string

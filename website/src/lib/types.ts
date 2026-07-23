@@ -306,6 +306,8 @@ export interface ShipmentStop {
     auto_created?: boolean
     pickup_location?: Pick<Location, "location_id" | "name" | "company" | "code" | "full_address"> | null
     dropoff_location?: Pick<Location, "location_id" | "name" | "company" | "code" | "full_address"> | null
+    created_at?: string | null
+    delivered_at?: string | null
   } | null
   event_type?: string | null
   occurred_at?: string | null
@@ -1116,6 +1118,8 @@ export interface VehicleActivity {
     auto_created?: boolean
     pickup_location?: Pick<Location, "location_id" | "name" | "company" | "code" | "full_address"> | null
     dropoff_location?: Pick<Location, "location_id" | "name" | "company" | "code" | "full_address"> | null
+    created_at?: string | null
+    delivered_at?: string | null
   } | null
   event_type?: VehicleActivityEventType
   occurred_at?: string | null

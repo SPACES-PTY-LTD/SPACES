@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { runAutorunTest, type AutorunTestResult } from "@/lib/api/autorun-test"
 import { listLocations } from "@/lib/api/locations"
@@ -102,6 +103,7 @@ export function AutorunTestTool({ accessToken, merchantId, merchantName }: { acc
   const [locationsLoading, setLocationsLoading] = React.useState(false)
   const [vehiclesLoading, setVehiclesLoading] = React.useState(false)
   const [processing, setProcessing] = React.useState(false)
+  const [action, setAction] = React.useState<"enter" | "exit">("enter")
   const [result, setResult] = React.useState<AutorunTestResult | null>(null)
   const [refreshKey, setRefreshKey] = React.useState(0)
   const [automation, setAutomation] = React.useState<MerchantLocationAutomation | null>(null)
@@ -155,11 +157,11 @@ export function AutorunTestTool({ accessToken, merchantId, merchantName }: { acc
 
   const process = async () => {
     if (!merchantId || !vehicle?.vehicle_id || !location?.location_id) return
-    const confirmed = window.confirm("This runs the real Autorun lifecycle. It may close visits and create or update runs, shipments, bookings, and activities. Continue?")
+    const confirmed = window.confirm(`This will process a real location ${action} and may update runs, shipments, bookings, and activities. Continue?`)
     if (!confirmed) return
     setProcessing(true)
     setResult(null)
-    const response = await runAutorunTest({ merchant_id: merchantId, vehicle_id: vehicle.vehicle_id, location_id: location.location_id }, accessToken)
+    const response = await runAutorunTest({ merchant_id: merchantId, vehicle_id: vehicle.vehicle_id, location_id: location.location_id, action }, accessToken)
     setProcessing(false)
     if (isApiErrorResponse(response)) {
       toast.error(response.message || "Autorun lifecycle test failed.")
@@ -194,6 +196,16 @@ export function AutorunTestTool({ accessToken, merchantId, merchantName }: { acc
         <CardHeader><CardTitle>Process position</CardTitle><CardDescription>Run the lifecycle for the selected merchant{merchantName ? `: ${merchantName}` : "."}</CardDescription></CardHeader>
         <CardContent className="space-y-5">
           {!merchantId ? <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">Select a merchant before using this tool.</div> : null}
+          <div className="space-y-2">
+            <Label>Action</Label>
+            <Select value={action} onValueChange={(value) => { setAction(value as "enter" | "exit"); setResult(null) }} disabled={processing}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="enter">Enter location</SelectItem>
+                <SelectItem value="exit">Exit location</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <SearchPicker label="Location" placeholder="Select a location" searchPlaceholder="Search locations..." value={location} options={locations} loading={locationsLoading} getId={(item) => item.location_id} getLabel={(item) => item.name || item.code || item.full_address || "Unnamed location"} onOpenChange={setLocationOpen} onSearch={setLocationQuery} onChange={(item) => { setLocation(item); setResult(null) }} disabled={!merchantId || processing} />
           {location ? (
             <div className="-mt-3 space-y-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
@@ -228,11 +240,11 @@ export function AutorunTestTool({ accessToken, merchantId, merchantName }: { acc
               ) : null}
             </div>
           ) : null}
-          {location && !locationHasGeometry ? <p className="text-sm text-destructive">This location has no usable point or polygon geometry.</p> : null}
+          {action === "enter" && location && !locationHasGeometry ? <p className="text-sm text-destructive">This location has no usable point or polygon geometry.</p> : null}
           <SearchPicker label="Truck" placeholder="Select a truck" searchPlaceholder="Search trucks..." value={vehicle} options={vehicles} loading={vehiclesLoading} getId={(item) => item.vehicle_id ?? item.vehicle_uuid ?? ""} getLabel={(item) => item.plate_number || item.ref_code || `${item.make ?? ""} ${item.model ?? ""}`.trim() || "Unnamed truck"} onOpenChange={setVehicleOpen} onSearch={setVehicleQuery} onChange={(item) => { setVehicle(item); setResult(null) }} disabled={!merchantId || processing} />
           <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"><div className="flex gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" /><span>This commits the same side effects as live vehicle tracking. You will be asked to confirm.</span></div></div>
-          <Button className="w-full" disabled={!merchantId || !vehicle?.vehicle_id || !locationHasGeometry || processing} onClick={process}>{processing ? <><Loader2 className="size-4 animate-spin" />Processing...</> : "Process"}</Button>
-          {result ? <div className={cn("space-y-1 rounded-md border p-3 text-sm", result.location_mismatch && "border-amber-500/50 bg-amber-500/10")}><p className="font-medium">Processed {new Date(result.processed_at).toLocaleString()}</p><p>Inside geofence: {result.inside_geofence ? "Yes" : "No"}</p><p>Coordinates: {result.simulated_coordinates.latitude.toFixed(6)}, {result.simulated_coordinates.longitude.toFixed(6)}</p><p>Resolved location: {result.resolved_location?.name || result.resolved_location?.code || "None"}</p>{result.location_mismatch ? <p className="font-medium text-amber-700">Warning: normal geofence resolution selected a different overlapping location.</p> : null}</div> : null}
+          <Button className="w-full" disabled={!merchantId || !vehicle?.vehicle_id || (action === "enter" && !locationHasGeometry) || !location || processing} onClick={process}>{processing ? <><Loader2 className="size-4 animate-spin" />Processing...</> : "Process"}</Button>
+          {result ? <div className={cn("space-y-1 rounded-md border p-3 text-sm", result.location_mismatch && "border-amber-500/50 bg-amber-500/10")}><p className="font-medium">Processed {result.action === "enter" ? "entry" : "exit"} {new Date(result.processed_at).toLocaleString()}</p><p>Inside geofence: {result.inside_geofence ? "Yes" : "No"}</p>{result.simulated_coordinates.latitude != null && result.simulated_coordinates.longitude != null ? <p>Coordinates: {result.simulated_coordinates.latitude.toFixed(6)}, {result.simulated_coordinates.longitude.toFixed(6)}</p> : null}<p>Resolved location: {result.resolved_location?.name || result.resolved_location?.code || "None"}</p>{result.location_mismatch ? <p className="font-medium text-amber-700">Warning: normal geofence resolution selected a different overlapping location.</p> : null}</div> : null}
         </CardContent>
       </Card>
       <div>{merchantId ? <LocationTruckActivityTimelineCard key={`all-${refreshKey}`} merchantId={merchantId} accessToken={accessToken} title="All truck activity" /> : <Card><CardHeader><CardTitle>All truck activity</CardTitle><CardDescription>Select a merchant to view its truck activity.</CardDescription></CardHeader></Card>}</div>

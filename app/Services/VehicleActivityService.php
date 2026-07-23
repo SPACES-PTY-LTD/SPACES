@@ -21,7 +21,7 @@ class VehicleActivityService
     public function listActivities(User $user, array $filters): LengthAwarePaginator
     {
         $query = $this->scopedQuery($user)
-            ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment.pickupLocation', 'shipment.dropoffLocation'])
+            ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment.pickupLocation', 'shipment.dropoffLocation', 'shipment.booking'])
             ->orderByDesc('occurred_at')
             ->orderByDesc('id');
 
@@ -128,7 +128,7 @@ class VehicleActivityService
             ->joinSub($latestActivityIdSub, 'latest_vehicle_activity', function ($join) {
                 $join->on('latest_vehicle_activity.latest_activity_id', '=', 'vehicle_activity.id');
             })
-            ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment.pickupLocation', 'shipment.dropoffLocation'])
+            ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment.pickupLocation', 'shipment.dropoffLocation', 'shipment.booking'])
             ->get()
             ->keyBy('vehicle_id');
 
@@ -143,7 +143,7 @@ class VehicleActivityService
     public function getActivity(User $user, string $activityUuid): VehicleActivity
     {
         $activity = $this->scopedQuery($user)
-            ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment.pickupLocation', 'shipment.dropoffLocation'])
+            ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment.pickupLocation', 'shipment.dropoffLocation', 'shipment.booking'])
             ->where('uuid', $activityUuid)
             ->first();
 

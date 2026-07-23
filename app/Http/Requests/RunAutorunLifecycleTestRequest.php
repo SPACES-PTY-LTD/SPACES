@@ -15,6 +15,7 @@ class RunAutorunLifecycleTestRequest extends BaseRequest
             'merchant_id' => ['required', 'uuid', 'exists:merchants,uuid'],
             'vehicle_id' => ['required', 'uuid', 'exists:vehicles,uuid'],
             'location_id' => ['required', 'uuid', 'exists:locations,uuid'],
+            'action' => ['required', 'string', 'in:enter,exit'],
         ];
     }
 }
