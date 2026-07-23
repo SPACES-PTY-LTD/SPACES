@@ -1,10 +1,16 @@
 import Link from "next/link"
-import { KeyRound, Network } from "lucide-react"
+import { KeyRound, Network, Route } from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AdminLinks } from "@/lib/routes/admin"
 
 const tools = [
+  {
+    title: "Autorun Lifecycle Test",
+    description: "Manually process a truck at a location and inspect the resulting lifecycle activity.",
+    href: AdminLinks.autorunTest,
+    icon: Route,
+  },
   {
     title: "Powerfleet Authentication Check",
     description: "Inspect the saved Powerfleet authentication response, decoded token payload, and expiry timing.",

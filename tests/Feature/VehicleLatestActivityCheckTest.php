@@ -145,7 +145,7 @@ class VehicleLatestActivityCheckTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)
-            ->getJson('/api/v1/vehicles/latest-activity-check?merchant_id=' . $merchant->uuid);
+            ->getJson('/api/v1/vehicles/latest-activity-check?merchant_id='.$merchant->uuid);
 
         $response->assertOk()
             ->assertJsonCount(2, 'data')

@@ -23,6 +23,7 @@ export const AdminLinks = {
   settingsAccount: `${ADMIN_BASE}/settings/account`,
   setup: `${ADMIN_BASE}/setup`,
   tools: `${ADMIN_BASE}/tools`,
+  autorunTest: `${ADMIN_BASE}/tools/autoruntest`,
   powerfleetAuthenticationCheck: `${ADMIN_BASE}/tools/powerfleet-authentication-check`,
   powerfleetOrganizations: `${ADMIN_BASE}/tools/powerfleet-organizations`,
   settingsCompliance: `${ADMIN_BASE}/settings/compliance`,

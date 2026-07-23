@@ -20,6 +20,159 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Changed the Autorun test tool's third column to show merchant-wide truck activity.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The `All truck activity` timeline is no longer filtered by the selected location; its View All link retains the selected merchant filter.
+- Location detail usages of the shared timeline remain location-scoped.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run build` in `website`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Prevented Autorun from creating or completing same-location runs and shipments.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Autorun no longer creates a shipment when its pickup and drop-off would be the same location, and existing invalid same-location shipments are not marked delivered or otherwise updated on exit.
+- Returning to the origin of an active run now reuses that run even when it has shipments; it is not ended and replaced with a run whose origin and destination match.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/AutoRunLifecycleServiceTest.php`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Added shipment origin and destination details to location truck activity cards.
+
+### API Changes
+- Vehicle activity shipment summaries now include pickup and drop-off location identifiers and labels.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Shipment activity shown in the Autorun tool now displays linked `From` and `To` locations beneath the shipment reference.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Unit/VehicleActivityResourceTest.php`
+- `npm run build` in `website`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Added effective location-type automatic actions to the Autorun lifecycle test form.
+
+### API Changes
+- None; the tool uses the existing merchant location-automation endpoint.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Selecting a typed location now shows its entry and exit actions, condition counts, configured-versus-fallback source, and whether merchant automation is disabled.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run build` in `website`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Added the selected location type to the Autorun lifecycle test form.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Selecting a location now displays its assigned location type directly below the dropdown, with a `Not assigned` fallback.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run build` in `website`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Extended the Autorun lifecycle test tool to normal merchant admins.
+
+### API Changes
+- `POST /api/v1/admin/tools/autorun-test` now accepts both `user` and `super_admin` roles while enforcing account-level merchant access.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Normal admins can now see and use `/admin/tools/autoruntest` for their selected merchant; cross-account execution remains forbidden.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/AdminAutorunTestControllerTest.php`
+- `npm run build` in `website`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
+- Added a super-admin Autorun lifecycle test tool for manually processing a truck at a selected merchant location.
+
+### API Changes
+- Added `POST /api/v1/admin/tools/autorun-test` with merchant, vehicle, and location UUID validation and post-run diagnostics.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Super admins can confirm and run the real Autorun lifecycle from `/admin/tools/autoruntest`, then inspect refreshed truck and location activity timelines.
+- Point coordinates or a polygon center are passed through the normal geofence resolver; overlapping-location mismatches are reported rather than bypassed.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/AdminAutorunTestControllerTest.php`
+- `npm run build` in `website`
+- `git diff --check`
+
 ## 2026-07-22 | Version: unreleased
 
 ### Summary

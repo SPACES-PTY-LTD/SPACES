@@ -12,10 +12,11 @@ import { listVehicleActivities } from "@/lib/api/vehicle-activities"
 import type { VehicleActivity } from "@/lib/types"
 
 type LocationTruckActivityTimelineCardProps = {
-  locationId: string
+  locationId?: string
   merchantId?: string
   accessToken?: string
   perPage?: number
+  title?: string
 }
 
 function formatEventType(value?: string | null) {
@@ -47,11 +48,16 @@ function getVehicleLabel(activity: VehicleActivity) {
   )
 }
 
+function getShipmentLocationLabel(location: NonNullable<VehicleActivity["shipment"]>["pickup_location"]) {
+  return location?.name || location?.company || location?.code || location?.full_address || "Not set"
+}
+
 export function LocationTruckActivityTimelineCard({
   locationId,
   merchantId,
   accessToken,
   perPage = 10,
+  title = "Truck activity",
 }: LocationTruckActivityTimelineCardProps) {
   const [items, setItems] = React.useState<VehicleActivity[]>([])
   const [currentPage, setCurrentPage] = React.useState(1)
@@ -118,9 +124,12 @@ export function LocationTruckActivityTimelineCard({
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle>Truck activity</CardTitle>
+          <CardTitle>{title}</CardTitle>
           <Link
-            href={withAdminQuery(AdminLinks.vehicleActivities, { location_id: locationId })}
+            href={withAdminQuery(AdminLinks.vehicleActivities, {
+              location_id: locationId,
+              merchant_id: merchantId,
+            })}
             className="text-sm text-primary underline-offset-4 hover:underline"
           >
             View all
@@ -145,7 +154,7 @@ export function LocationTruckActivityTimelineCard({
                   key={activity.activity_id}
                   className={`relative pb-5 ${index === items.length - 1 ? "pb-0" : ""}`}
                 >
-                  <span className="absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border border-primary/40 bg-primary/20" />
+                  <span className="absolute -left-5.75 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-primary/20 bg-border"></span>
                   <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="text-sm font-medium">{formatEventType(activity.event_type)}</div>
@@ -172,14 +181,30 @@ export function LocationTruckActivityTimelineCard({
                         : "No speed"}
                     </div>
                     {activity.shipment?.shipment_id ? (
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Shipment: {" "}
-                        <Link
-                          href={AdminRoute.shipmentDetails(activity.shipment.shipment_id)}
-                          className="text-primary underline-offset-4 hover:underline"
-                        >
-                          {activity.shipment.merchant_order_ref ?? activity.shipment.shipment_id}
-                        </Link>
+                      <div className="mt-2 space-y-1 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                        <div>
+                          Shipment: {" "}
+                          <Link
+                            href={AdminRoute.shipmentDetails(activity.shipment.shipment_id)}
+                            className="text-primary underline-offset-4 hover:underline"
+                          >
+                            {activity.shipment.merchant_order_ref ?? activity.shipment.shipment_id}
+                          </Link>
+                        </div>
+                        <div>
+                          From: {activity.shipment.pickup_location?.location_id ? (
+                            <Link href={AdminRoute.locationDetails(activity.shipment.pickup_location.location_id)} className="text-primary underline-offset-4 hover:underline">
+                              {getShipmentLocationLabel(activity.shipment.pickup_location)}
+                            </Link>
+                          ) : getShipmentLocationLabel(activity.shipment.pickup_location)}
+                        </div>
+                        <div>
+                          To: {activity.shipment.dropoff_location?.location_id ? (
+                            <Link href={AdminRoute.locationDetails(activity.shipment.dropoff_location.location_id)} className="text-primary underline-offset-4 hover:underline">
+                              {getShipmentLocationLabel(activity.shipment.dropoff_location)}
+                            </Link>
+                          ) : getShipmentLocationLabel(activity.shipment.dropoff_location)}
+                        </div>
                       </div>
                     ) : null}
                   </div>

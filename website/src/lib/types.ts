@@ -304,6 +304,8 @@ export interface ShipmentStop {
     merchant_order_ref?: string | null
     status?: string | null
     auto_created?: boolean
+    pickup_location?: Pick<Location, "location_id" | "name" | "company" | "code" | "full_address"> | null
+    dropoff_location?: Pick<Location, "location_id" | "name" | "company" | "code" | "full_address"> | null
   } | null
   event_type?: string | null
   occurred_at?: string | null
@@ -1112,6 +1114,8 @@ export interface VehicleActivity {
     merchant_order_ref?: string | null
     status?: string | null
     auto_created?: boolean
+    pickup_location?: Pick<Location, "location_id" | "name" | "company" | "code" | "full_address"> | null
+    dropoff_location?: Pick<Location, "location_id" | "name" | "company" | "code" | "full_address"> | null
   } | null
   event_type?: VehicleActivityEventType
   occurred_at?: string | null

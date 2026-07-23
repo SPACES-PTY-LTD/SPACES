@@ -3,13 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\Booking;
 use App\Models\Driver;
 use App\Models\Location;
 use App\Models\LocationType;
 use App\Models\Merchant;
 use App\Models\Run;
 use App\Models\RunShipment;
-use App\Models\Booking;
 use App\Models\Shipment;
 use App\Models\ShipmentParcel;
 use App\Models\User;
@@ -425,6 +425,123 @@ class AutoRunLifecycleServiceTest extends TestCase
 
         $this->assertNotNull($activeVisit);
         $this->assertSame($run->id, $activeVisit->run_id);
+    }
+
+    public function test_it_reuses_a_run_when_the_truck_returns_to_its_origin_with_shipments(): void
+    {
+        $service = app(AutoRunLifecycleService::class);
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+
+        $origin = $this->createLocation($merchant, 'Collection A', true, -33.9200, 18.4200);
+        $dropoff = $this->createLocation($merchant, 'Delivery B', false, -33.9500, 18.4500);
+
+        $service->processVehiclePosition($vehicle, $merchant, -33.9200, 18.4200, Carbon::parse('2026-03-04 10:00:00'));
+        $service->processVehiclePosition($vehicle, $merchant, -33.9050, 18.4050, Carbon::parse('2026-03-04 10:10:00'));
+
+        $run = Run::query()->where('merchant_id', $merchant->id)->firstOrFail();
+        $shipment = Shipment::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'merchant_order_ref' => 'RETURN-TO-ORIGIN',
+            'status' => 'in_transit',
+            'pickup_location_id' => $origin->id,
+            'dropoff_location_id' => $dropoff->id,
+            'auto_created' => true,
+        ]);
+        RunShipment::create([
+            'run_id' => $run->id,
+            'shipment_id' => $shipment->id,
+            'status' => RunShipment::STATUS_ACTIVE,
+        ]);
+
+        $service->processVehiclePosition($vehicle, $merchant, -33.9200, 18.4200, Carbon::parse('2026-03-04 10:20:00'));
+
+        $this->assertDatabaseCount('runs', 1);
+        $run->refresh();
+        $this->assertSame(Run::STATUS_IN_PROGRESS, $run->status);
+        $this->assertSame($origin->id, $run->origin_location_id);
+        $this->assertNull($run->destination_location_id);
+        $this->assertNull($run->completed_at);
+        $this->assertDatabaseMissing('vehicle_activity', [
+            'run_id' => $run->id,
+            'event_type' => VehicleActivity::EVENT_RUN_ENDED,
+        ]);
+    }
+
+    public function test_it_does_not_create_or_deliver_a_shipment_to_its_pickup_location(): void
+    {
+        $service = app(AutoRunLifecycleService::class);
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+
+        $type = LocationType::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'slug' => 'collection-and-delivery',
+            'title' => 'Collection and Delivery',
+            'collection_point' => true,
+            'delivery_point' => true,
+            'sequence' => 10,
+            'default' => false,
+        ]);
+        $location = Location::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Combined Depot',
+            'address_line_1' => '1 Combined Road',
+            'city' => 'Cape Town',
+            'province' => 'Western Cape',
+            'post_code' => '8001',
+            'latitude' => -33.9200,
+            'longitude' => 18.4200,
+            'location_type_id' => $type->id,
+            'metadata' => ['geofence_radius_meters' => 120],
+        ]);
+
+        $service->processVehiclePosition($vehicle, $merchant, -33.9200, 18.4200, Carbon::parse('2026-03-04 11:00:00'));
+
+        $run = Run::query()->where('merchant_id', $merchant->id)->firstOrFail();
+        $this->assertDatabaseCount('shipments', 0);
+        $this->assertSame($location->id, $run->origin_location_id);
+        $this->assertNull($run->destination_location_id);
+
+        $invalidShipment = Shipment::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'merchant_order_ref' => 'INVALID-SAME-LOCATION',
+            'status' => 'in_transit',
+            'pickup_location_id' => $location->id,
+            'dropoff_location_id' => $location->id,
+            'auto_created' => true,
+            'metadata' => ['unchanged' => true],
+        ]);
+        RunShipment::create([
+            'run_id' => $run->id,
+            'shipment_id' => $invalidShipment->id,
+            'status' => RunShipment::STATUS_ACTIVE,
+        ]);
+        VehicleActivity::query()
+            ->where('vehicle_id', $vehicle->id)
+            ->where('location_id', $location->id)
+            ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+            ->latest('id')
+            ->firstOrFail()
+            ->forceFill(['shipment_id' => $invalidShipment->id])
+            ->save();
+
+        $service->processVehiclePosition($vehicle, $merchant, -33.9050, 18.4050, Carbon::parse('2026-03-04 11:10:00'));
+
+        $invalidShipment->refresh();
+        $this->assertSame('in_transit', $invalidShipment->status);
+        $this->assertSame(['unchanged' => true], $invalidShipment->metadata);
+        $this->assertDatabaseMissing('vehicle_activity', [
+            'shipment_id' => $invalidShipment->id,
+            'event_type' => VehicleActivity::EVENT_SHIPMENT_ENDED,
+        ]);
+        $this->assertDatabaseHas('run_shipments', [
+            'run_id' => $run->id,
+            'shipment_id' => $invalidShipment->id,
+            'status' => RunShipment::STATUS_ACTIVE,
+        ]);
     }
 
     public function test_it_backfills_missing_bookings_for_auto_created_shipments(): void

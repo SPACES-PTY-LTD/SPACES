@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\ActivityLogController;
+use App\Http\Controllers\Api\V1\AdminAutorunTestController;
 use App\Http\Controllers\Api\V1\AdminBillingController;
 use App\Http\Controllers\Api\V1\AdminCancelReasonController;
 use App\Http\Controllers\Api\V1\AdminCarrierController;
@@ -107,6 +108,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('webhooks/subscriptions/{subscription_uuid}', [WebhookSubscriptionController::class, 'update']);
         Route::delete('webhooks/subscriptions/{subscription_uuid}', [WebhookSubscriptionController::class, 'destroy']);
         Route::post('webhooks/subscriptions/{subscription_uuid}/test', [WebhookSubscriptionController::class, 'test']);
+        Route::post('admin/tools/autorun-test', [AdminAutorunTestController::class, 'store']);
 
         Route::middleware('role:super_admin')->prefix('admin')->group(function () {
             Route::get('users', [AdminController::class, 'users']);

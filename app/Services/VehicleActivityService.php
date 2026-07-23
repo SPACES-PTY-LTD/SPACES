@@ -11,9 +11,9 @@ use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleActivity;
 use App\Support\MerchantAccess;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class VehicleActivityService
@@ -21,52 +21,52 @@ class VehicleActivityService
     public function listActivities(User $user, array $filters): LengthAwarePaginator
     {
         $query = $this->scopedQuery($user)
-            ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment'])
+            ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment.pickupLocation', 'shipment.dropoffLocation'])
             ->orderByDesc('occurred_at')
             ->orderByDesc('id');
 
-        if (!empty($filters['merchant_id'])) {
+        if (! empty($filters['merchant_id'])) {
             $merchantId = Merchant::query()->where('uuid', $filters['merchant_id'])->value('id');
             $query->where('merchant_id', $merchantId ?? 0);
         }
 
-        if (!empty($filters['vehicle_id'])) {
+        if (! empty($filters['vehicle_id'])) {
             $vehicleId = Vehicle::query()->where('uuid', $filters['vehicle_id'])->value('id');
             $query->where('vehicle_id', $vehicleId ?? 0);
         }
 
-        if (!empty($filters['plate_number'])) {
+        if (! empty($filters['plate_number'])) {
             $query->whereHas('vehicle', function (Builder $builder) use ($filters) {
-                $builder->where('plate_number', 'like', '%' . $filters['plate_number'] . '%');
+                $builder->where('plate_number', 'like', '%'.$filters['plate_number'].'%');
             });
         }
 
-        if (!empty($filters['location_id'])) {
+        if (! empty($filters['location_id'])) {
             $locationId = Location::query()->where('uuid', $filters['location_id'])->value('id');
             $query->where('location_id', $locationId ?? 0);
         }
 
-        if (!empty($filters['location_type_id'])) {
+        if (! empty($filters['location_type_id'])) {
             $locationTypeId = LocationType::query()->where('uuid', $filters['location_type_id'])->value('id');
             $query->whereHas('location', function (Builder $builder) use ($locationTypeId) {
                 $builder->where('location_type_id', $locationTypeId ?? 0);
             });
         }
 
-        if (!empty($filters['shipment_id'])) {
+        if (! empty($filters['shipment_id'])) {
             $shipmentId = Shipment::query()->where('uuid', $filters['shipment_id'])->value('id');
             $query->where('shipment_id', $shipmentId ?? 0);
         }
 
-        if (!empty($filters['event_type'])) {
+        if (! empty($filters['event_type'])) {
             $query->where('event_type', $filters['event_type']);
         }
 
-        if (!empty($filters['from'])) {
+        if (! empty($filters['from'])) {
             $query->whereDate('occurred_at', '>=', $filters['from']);
         }
 
-        if (!empty($filters['to'])) {
+        if (! empty($filters['to'])) {
             $query->whereDate('occurred_at', '<=', $filters['to']);
         }
 
@@ -78,8 +78,8 @@ class VehicleActivityService
     public function listVehiclesWithLatestActivity(User $user, array $filters): Collection
     {
         $merchant = $this->resolveMerchantForVehicleListing($user, $filters['merchant_id']);
-        if (!$merchant) {
-            return new Collection();
+        if (! $merchant) {
+            return new Collection;
         }
 
         $vehicles = Vehicle::query()
@@ -128,7 +128,7 @@ class VehicleActivityService
             ->joinSub($latestActivityIdSub, 'latest_vehicle_activity', function ($join) {
                 $join->on('latest_vehicle_activity.latest_activity_id', '=', 'vehicle_activity.id');
             })
-            ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment'])
+            ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment.pickupLocation', 'shipment.dropoffLocation'])
             ->get()
             ->keyBy('vehicle_id');
 
@@ -143,11 +143,11 @@ class VehicleActivityService
     public function getActivity(User $user, string $activityUuid): VehicleActivity
     {
         $activity = $this->scopedQuery($user)
-            ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment'])
+            ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment.pickupLocation', 'shipment.dropoffLocation'])
             ->where('uuid', $activityUuid)
             ->first();
 
-        if (!$activity) {
+        if (! $activity) {
             throw new ModelNotFoundException('Vehicle activity not found.');
         }
 
@@ -168,7 +168,7 @@ class VehicleActivityService
     private function resolveMerchantForVehicleListing(User $user, string $merchantUuid): ?Merchant
     {
         $merchant = Merchant::query()->where('uuid', $merchantUuid)->first();
-        if (!$merchant) {
+        if (! $merchant) {
             return null;
         }
 

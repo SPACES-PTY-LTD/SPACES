@@ -156,7 +156,7 @@ export function VehicleActivityTimelineCard({
                     key={activity.activity_id}
                     className={`relative pb-5 ${index === items.length - 1 ? "pb-0" : ""}`}
                   >
-                    <span className="absolute -left-6 top-1.5 h-3.5 w-3.5 rounded-full border border-primary/40 bg-primary/20" />
+                    <span className="absolute -left-5.75 top-1.5 h-3.5 w-3.5 rounded-full border-2 border-primary/20 bg-border"></span>
                     <div className="rounded-md border border-border/60 bg-muted/20 p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="text-sm font-medium">
