@@ -25,6 +25,7 @@ Add new entries at the top (newest first).
 ### Summary
 - Expanded the shipment information shown in truck details on shipment monitoring.
 - Added the vehicle's last known position map to truck details.
+- Fixed active-run vehicles missing from the Vehicles in transit section.
 
 ### API Changes
 - None.
@@ -36,6 +37,7 @@ Add new entries at the top (newest first).
 - Truck details now show the shipment's pickup location, destination, creation time, and delivery time when delivered.
 - Shipment pickup and destination names open their corresponding location details when location IDs are available.
 - Truck details now show a compact Google map when the latest vehicle activity has coordinates, or an unavailable message when it does not.
+- Vehicles with an active run are now shown in Vehicles in transit whenever their latest state does not place them inside a location, including when the separate activity feed omits them or has sparse location data.
 
 ### Breaking Changes
 - None.

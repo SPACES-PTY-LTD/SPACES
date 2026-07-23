@@ -136,6 +136,10 @@ function classifyActivityPlacement(activity: VehicleActivity): "location" | "roa
   return hasRoadSignal ? "road" : "unknown";
 }
 
+function hasActiveRun(activity: VehicleActivity): boolean {
+  return activity.vehicle?.fleet_status === "active";
+}
+
 function isTruckSpeeding(truck: Pick<TruckRender, "speedKph" | "speedLimitKph">): boolean {
   return (
     truck.speedKph !== null &&
@@ -531,6 +535,9 @@ export default function VirtualWarehousePage() {
 
             const truck = buildTruckFromActivity(item, now);
             const placement = classifyActivityPlacement(item);
+            if (hasActiveRun(item) && placement !== "location") {
+              return assignTruckToEarliestRoadPlaceholder(acc, truck);
+            }
             if (item.vehicle?.fleet_status === "standby" && placement !== "location") {
               fallbackStandby.push({
                 ...truck,
@@ -613,8 +620,9 @@ export default function VirtualWarehousePage() {
       const parkingByVehicleKey = new Map<string, TruckRender>();
       const standbyByVehicleKey = new Map<string, TruckRender>();
       const standbyVehicleKeys = new Set<string>();
+      const activeRunVehicleKeys = new Set<string>();
+      const roadByVehicleKey = new Map<string, TruckRender>();
       const locationSlots = new Map<string, number>();
-      let nextRoadSlots = createRoadPlaceholders(BASE_ROAD_SLOT_COUNT);
       const locationDetailsById = new Map<
         string,
         Pick<LocationNode, "label" | "company" | "fullAddress" | "city" | "province" | "country" | "meshType">
@@ -623,11 +631,19 @@ export default function VirtualWarehousePage() {
       for (const activity of allVehiclesResponse.data ?? []) {
         const key = getVehicleKey(activity);
         if (!key) continue;
+        const resolvedKey = String(key);
+        const placement = classifyActivityPlacement(activity);
+        if (hasActiveRun(activity)) {
+          activeRunVehicleKeys.add(resolvedKey);
+          if (placement !== "location") {
+            roadByVehicleKey.set(resolvedKey, buildTruckFromActivity(activity, now));
+          }
+          continue;
+        }
         if (
           activity.vehicle?.fleet_status === "standby" &&
-          classifyActivityPlacement(activity) !== "location"
+          placement !== "location"
         ) {
-          const resolvedKey = String(key);
           standbyVehicleKeys.add(resolvedKey);
           standbyByVehicleKey.set(resolvedKey, {
             ...buildTruckFromActivity(activity, now),
@@ -639,8 +655,8 @@ export default function VirtualWarehousePage() {
           });
           continue;
         }
-        if (classifyActivityPlacement(activity) !== "unknown") continue;
-        parkingByVehicleKey.set(String(key), {
+        if (placement !== "unknown") continue;
+        parkingByVehicleKey.set(resolvedKey, {
           ...buildTruckFromActivity(activity, now),
           locationId: "PARKING_UNKNOWN",
           locationLabel: "Unknown location parking",
@@ -652,17 +668,26 @@ export default function VirtualWarehousePage() {
 
       for (const activity of latestByVehicle) {
         const activityVehicleKey = getVehicleKey(activity);
+        const resolvedActivityVehicleKey = activityVehicleKey ? String(activityVehicleKey) : null;
         const placement = classifyActivityPlacement(activity);
-        if (activityVehicleKey && standbyVehicleKeys.has(String(activityVehicleKey))) {
+        if (resolvedActivityVehicleKey && standbyVehicleKeys.has(resolvedActivityVehicleKey)) {
           if (placement !== "location") continue;
-          standbyVehicleKeys.delete(String(activityVehicleKey));
-          standbyByVehicleKey.delete(String(activityVehicleKey));
+          standbyVehicleKeys.delete(resolvedActivityVehicleKey);
+          standbyByVehicleKey.delete(resolvedActivityVehicleKey);
         }
-        if (activityVehicleKey) parkingByVehicleKey.delete(String(activityVehicleKey));
+        if (resolvedActivityVehicleKey) {
+          parkingByVehicleKey.delete(resolvedActivityVehicleKey);
+          roadByVehicleKey.delete(resolvedActivityVehicleKey);
+        }
         const truck = buildTruckFromActivity(activity, now);
         const locationId = activity.location?.location_id;
         if (!locationId || isExitedLocationEvent(activity.event_type)) {
-          nextRoadSlots = assignTruckToEarliestRoadPlaceholder(nextRoadSlots, truck);
+          if (
+            resolvedActivityVehicleKey &&
+            activeRunVehicleKeys.has(resolvedActivityVehicleKey)
+          ) {
+            roadByVehicleKey.set(resolvedActivityVehicleKey, truck);
+          }
           continue;
         }
 
@@ -685,6 +710,10 @@ export default function VirtualWarehousePage() {
         ...truck,
         slot: index
       }));
+      const nextRoadSlots = Array.from(roadByVehicleKey.values()).reduce<Array<TruckRender | null>>(
+        (slots, truck) => assignTruckToEarliestRoadPlaceholder(slots, truck),
+        createRoadPlaceholders(BASE_ROAD_SLOT_COUNT)
+      );
 
       setRoadSlots(nextRoadSlots);
       setParkingTrucks(nextParkingTrucks);
