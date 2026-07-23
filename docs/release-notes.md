@@ -26,6 +26,7 @@ Add new entries at the top (newest first).
 - Expanded the shipment information shown in truck details on shipment monitoring.
 - Added the vehicle's last known position map to truck details.
 - Fixed active-run vehicles missing from the Vehicles in transit section.
+- Hid empty vehicle-status sections from shipment monitoring.
 
 ### API Changes
 - None.
@@ -38,12 +39,13 @@ Add new entries at the top (newest first).
 - Shipment pickup and destination names open their corresponding location details when location IDs are available.
 - Truck details now show a compact Google map when the latest vehicle activity has coordinates, or an unavailable message when it does not.
 - Vehicles with an active run are now shown in Vehicles in transit whenever their latest state does not place them inside a location, including when the separate activity feed omits them or has sparse location data.
+- Vehicles in transit, Unknown location vehicles, and Standby vehicles sections now appear only while their respective section contains at least one vehicle.
 
 ### Breaking Changes
 - None.
 
 ### Verification
-- `npm run lint -- src/app/admin/logistics/shipments/monitoring/page.tsx src/app/admin/logistics/shipments/monitoring/types.ts src/components/vehicles/vehicle-location-map.tsx`
+- `npm run lint -- src/app/admin/logistics/shipments/monitoring/page.tsx src/app/admin/logistics/shipments/monitoring/types.ts src/app/admin/logistics/shipments/monitoring/components/activity-scene.tsx src/components/vehicles/vehicle-location-map.tsx`
 - `npm run build`
 - `git diff --check`
 

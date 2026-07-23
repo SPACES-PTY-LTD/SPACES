@@ -333,6 +333,9 @@ export function ActivityScene({
   const [minPolarAngle, setMinPolarAngle] = useState(DEFAULT_MIN_POLAR_ANGLE);
   const [maxPolarAngle, setMaxPolarAngle] = useState(DEFAULT_MAX_POLAR_ANGLE);
   const hasManualViewRef = useRef(false);
+  const hasTransitVehicles = roadSlots.some((truck) => truck !== null);
+  const hasUnknownLocationVehicles = parkingTrucks.length > 0;
+  const hasStandbyVehicles = standbyTrucks.length > 0;
   const desiredCameraRef = useRef<Vector3 | null>(null);
   const desiredTargetRef = useRef<Vector3 | null>(null);
   const desiredOrbitDistanceRef = useRef<number | null>(null);
@@ -415,7 +418,7 @@ export function ActivityScene({
       return { truck, x, z };
     });
 
-    return { laneCount, laneGap, roadWidth, roadDepth, roadCenterZ, placements };
+    return { laneCount, laneGap, roadWidth, roadDepth, roadCenterZ, placements, minLocationZ };
   }, [roadSlots, locations, positionByLocationId, columnsPerRow]);
 
   const parkingLayout = useMemo(() => {
@@ -426,8 +429,10 @@ export function ActivityScene({
     const parkingWidth = columnsPerRow * spacingX;
     const parkingDepth = rows * spacingZ + paddingZ * 2;
     const centerOffsetX = ((columnsPerRow - 1) * spacingX) / 2;
-    const parkingCenterZ =
-      roadLayout.roadCenterZ - (roadLayout.roadDepth / 2 + parkingGapFromRoad + parkingDepth / 2);
+    const previousBackEdgeZ = hasTransitVehicles
+      ? roadLayout.roadCenterZ - roadLayout.roadDepth / 2
+      : roadLayout.minLocationZ;
+    const parkingCenterZ = previousBackEdgeZ - (parkingGapFromRoad + parkingDepth / 2);
 
     const placements = parkingTrucks.map((truck, index) => {
       const rowIndex = Math.floor(index / columnsPerRow);
@@ -439,7 +444,7 @@ export function ActivityScene({
     });
 
     return { rows, parkingWidth, parkingDepth, parkingCenterZ, placements, spacingZ };
-  }, [parkingTrucks, columnsPerRow, spacingX, roadLayout.roadCenterZ, roadLayout.roadDepth]);
+  }, [parkingTrucks, columnsPerRow, spacingX, roadLayout, hasTransitVehicles]);
 
   const standbyLayout = useMemo(() => {
     const rows = Math.max(1, Math.ceil(Math.max(standbyTrucks.length, 1) / columnsPerRow));
@@ -449,9 +454,12 @@ export function ActivityScene({
     const parkingWidth = columnsPerRow * spacingX;
     const parkingDepth = rows * spacingZ + paddingZ * 2;
     const centerOffsetX = ((columnsPerRow - 1) * spacingX) / 2;
-    const parkingCenterZ =
-      parkingLayout.parkingCenterZ -
-      (parkingLayout.parkingDepth / 2 + gapFromUnknownParking + parkingDepth / 2);
+    const previousBackEdgeZ = hasUnknownLocationVehicles
+      ? parkingLayout.parkingCenterZ - parkingLayout.parkingDepth / 2
+      : hasTransitVehicles
+        ? roadLayout.roadCenterZ - roadLayout.roadDepth / 2
+        : roadLayout.minLocationZ;
+    const parkingCenterZ = previousBackEdgeZ - (gapFromUnknownParking + parkingDepth / 2);
 
     const placements = standbyTrucks.map((truck, index) => {
       const rowIndex = Math.floor(index / columnsPerRow);
@@ -463,11 +471,19 @@ export function ActivityScene({
     });
 
     return { rows, parkingWidth, parkingDepth, parkingCenterZ, placements, spacingZ };
-  }, [standbyTrucks, columnsPerRow, spacingX, parkingLayout.parkingCenterZ, parkingLayout.parkingDepth]);
+  }, [standbyTrucks, columnsPerRow, spacingX, parkingLayout, roadLayout, hasUnknownLocationVehicles, hasTransitVehicles]);
 
   const controlsTarget = useMemo(() => {
     if (locations.length === 0) {
-      return [0, 1.8, (roadLayout.roadCenterZ + standbyLayout.parkingCenterZ) / 2] as const;
+      const visibleSectionCenters = [
+        hasTransitVehicles ? roadLayout.roadCenterZ : null,
+        hasUnknownLocationVehicles ? parkingLayout.parkingCenterZ : null,
+        hasStandbyVehicles ? standbyLayout.parkingCenterZ : null
+      ].filter((value): value is number => value !== null);
+      const centerZ = visibleSectionCenters.length > 0
+        ? (Math.min(...visibleSectionCenters) + Math.max(...visibleSectionCenters)) / 2
+        : 0;
+      return [0, 1.8, centerZ] as const;
     }
 
     let minX = Number.POSITIVE_INFINITY;
@@ -487,14 +503,11 @@ export function ActivityScene({
 
     if (!Number.isFinite(minX) || !Number.isFinite(minZ)) return [0, 1.8, 0] as const;
 
-    minZ = Math.min(
-      minZ,
-      roadLayout.roadCenterZ - roadLayout.roadDepth / 2,
-      parkingLayout.parkingCenterZ - parkingLayout.parkingDepth / 2,
-      standbyLayout.parkingCenterZ - standbyLayout.parkingDepth / 2
-    );
+    if (hasTransitVehicles) minZ = Math.min(minZ, roadLayout.roadCenterZ - roadLayout.roadDepth / 2);
+    if (hasUnknownLocationVehicles) minZ = Math.min(minZ, parkingLayout.parkingCenterZ - parkingLayout.parkingDepth / 2);
+    if (hasStandbyVehicles) minZ = Math.min(minZ, standbyLayout.parkingCenterZ - standbyLayout.parkingDepth / 2);
     return [(minX + maxX) / 2, 1.8, (minZ + maxZ) / 2] as const;
-  }, [locations, positionByLocationId, roadLayout, parkingLayout, standbyLayout]);
+  }, [locations, positionByLocationId, roadLayout, parkingLayout, standbyLayout, hasTransitVehicles, hasUnknownLocationVehicles, hasStandbyVehicles]);
 
   const parkedTruckPositionById = useMemo(() => {
     const map = new Map<string, { x: number; z: number }>();
@@ -557,14 +570,27 @@ export function ActivityScene({
     const parkingMinX = -parkingLayout.parkingWidth / 2;
     const parkingMaxX = parkingLayout.parkingWidth / 2;
     const parkingMinZ = parkingLayout.parkingCenterZ - parkingLayout.parkingDepth / 2;
+    const parkingMaxZ = parkingLayout.parkingCenterZ + parkingLayout.parkingDepth / 2;
     const standbyMinX = -standbyLayout.parkingWidth / 2;
     const standbyMaxX = standbyLayout.parkingWidth / 2;
     const standbyMinZ = standbyLayout.parkingCenterZ - standbyLayout.parkingDepth / 2;
+    const standbyMaxZ = standbyLayout.parkingCenterZ + standbyLayout.parkingDepth / 2;
 
-    let minX = Math.min(roadMinX, parkingMinX, standbyMinX);
-    let maxX = Math.max(roadMaxX, parkingMaxX, standbyMaxX);
-    let minZ = Math.min(roadMinZ, parkingMinZ, standbyMinZ);
-    let maxZ = roadMaxZ;
+    let minX = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let minZ = Number.POSITIVE_INFINITY;
+    let maxZ = Number.NEGATIVE_INFINITY;
+
+    const includeBounds = (sectionMinX: number, sectionMaxX: number, sectionMinZ: number, sectionMaxZ: number) => {
+      minX = Math.min(minX, sectionMinX);
+      maxX = Math.max(maxX, sectionMaxX);
+      minZ = Math.min(minZ, sectionMinZ);
+      maxZ = Math.max(maxZ, sectionMaxZ);
+    };
+
+    if (hasTransitVehicles) includeBounds(roadMinX, roadMaxX, roadMinZ, roadMaxZ);
+    if (hasUnknownLocationVehicles) includeBounds(parkingMinX, parkingMaxX, parkingMinZ, parkingMaxZ);
+    if (hasStandbyVehicles) includeBounds(standbyMinX, standbyMaxX, standbyMinZ, standbyMaxZ);
 
     for (const position of positionByLocationId.values()) {
       minX = Math.min(minX, position.x - 3.8);
@@ -601,8 +627,10 @@ export function ActivityScene({
       maxZ = Math.max(maxZ, position.z + 1.8);
     }
 
+    if (!Number.isFinite(minX)) return { minX: -4, maxX: 4, minZ: -4, maxZ: 4 };
+
     return { minX, maxX, minZ, maxZ };
-  }, [roadLayout, parkingLayout, standbyLayout, positionByLocationId, parkedTruckPositionById, roadTruckPositionById, parkingTruckPositionById, standbyTruckPositionById]);
+  }, [roadLayout, parkingLayout, standbyLayout, positionByLocationId, parkedTruckPositionById, roadTruckPositionById, parkingTruckPositionById, standbyTruckPositionById, hasTransitVehicles, hasUnknownLocationVehicles, hasStandbyVehicles]);
 
   const overviewPose = useMemo(() => {
     const boundsCenterX = (sceneTopBounds.minX + sceneTopBounds.maxX) / 2;
@@ -765,24 +793,26 @@ export function ActivityScene({
       <directionalLight position={[20, 18, 12]} intensity={4.2} />
       <directionalLight position={[-10, 8, -12]} intensity={0.45} />
 
-      <mesh position={[0, -0.11, roadLayout.roadCenterZ]}>
-        <boxGeometry args={[roadLayout.roadWidth, 0.22, roadLayout.roadDepth]} />
-        <meshStandardMaterial color="#333333" roughness={0.92} />
-      </mesh>
+      {hasTransitVehicles ? <>
+        <mesh position={[0, -0.11, roadLayout.roadCenterZ]}>
+          <boxGeometry args={[roadLayout.roadWidth, 0.22, roadLayout.roadDepth]} />
+          <meshStandardMaterial color="#333333" roughness={0.92} />
+        </mesh>
+        <mesh position={[0, -0.23, roadLayout.roadCenterZ]}>
+          <boxGeometry args={[roadLayout.roadWidth + 0.5, 0.03, roadLayout.roadDepth + 0.5]} />
+          <meshStandardMaterial color="#38383a" roughness={0.95} />
+        </mesh>
+      </> : null}
 
-      <mesh position={[0, -0.23, roadLayout.roadCenterZ]}>
-        <boxGeometry args={[roadLayout.roadWidth + 0.5, 0.03, roadLayout.roadDepth + 0.5]} />
-        <meshStandardMaterial color="#38383a" roughness={0.95} />
-      </mesh>
-
-      <mesh position={[0, -0.11, parkingLayout.parkingCenterZ]}>
+      {hasUnknownLocationVehicles ? <>
+        <mesh position={[0, -0.11, parkingLayout.parkingCenterZ]}>
         <boxGeometry args={[parkingLayout.parkingWidth, 0.18, parkingLayout.parkingDepth]} />
         <meshStandardMaterial color="#4b5563" roughness={0.92} />
-      </mesh>
-      <mesh position={[0, -0.21, parkingLayout.parkingCenterZ]}>
+        </mesh>
+        <mesh position={[0, -0.21, parkingLayout.parkingCenterZ]}>
         <boxGeometry args={[parkingLayout.parkingWidth + 0.5, 0.02, parkingLayout.parkingDepth + 0.5]} />
         <meshStandardMaterial color="#374151" roughness={0.95} />
-      </mesh>
+        </mesh>
       {Array.from({ length: parkingLayout.rows + 1 }).map((_, rowIndex) => {
         const dividerZ =
           parkingLayout.parkingCenterZ +
@@ -794,15 +824,17 @@ export function ActivityScene({
           </mesh>
         );
       })}
+      </> : null}
 
-      <mesh position={[0, -0.11, standbyLayout.parkingCenterZ]}>
+      {hasStandbyVehicles ? <>
+        <mesh position={[0, -0.11, standbyLayout.parkingCenterZ]}>
         <boxGeometry args={[standbyLayout.parkingWidth, 0.18, standbyLayout.parkingDepth]} />
         <meshStandardMaterial color="#475569" roughness={0.92} />
-      </mesh>
-      <mesh position={[0, -0.21, standbyLayout.parkingCenterZ]}>
+        </mesh>
+        <mesh position={[0, -0.21, standbyLayout.parkingCenterZ]}>
         <boxGeometry args={[standbyLayout.parkingWidth + 0.5, 0.02, standbyLayout.parkingDepth + 0.5]} />
         <meshStandardMaterial color="#334155" roughness={0.95} />
-      </mesh>
+        </mesh>
       {Array.from({ length: standbyLayout.rows + 1 }).map((_, rowIndex) => {
         const dividerZ =
           standbyLayout.parkingCenterZ +
@@ -814,8 +846,9 @@ export function ActivityScene({
           </mesh>
         );
       })}
+      </> : null}
 
-      {Array.from({ length: Math.max(roadLayout.laneCount - 1, 0) }).map((_, laneDividerIndex) => {
+      {hasTransitVehicles ? Array.from({ length: Math.max(roadLayout.laneCount - 1, 0) }).map((_, laneDividerIndex) => {
         const dividerLane = laneDividerIndex + 1;
         const dividerZ =
           roadLayout.roadCenterZ + (dividerLane - roadLayout.laneCount / 2) * roadLayout.laneGap;
@@ -828,23 +861,23 @@ export function ActivityScene({
             dashCount={dashCount}
           />
         );
-      })}
+      }) : null}
 
-      <AnimatedRoadEdgeDecor
+      {hasTransitVehicles ? <AnimatedRoadEdgeDecor
         roadWidth={roadLayout.roadWidth}
         roadCenterZ={roadLayout.roadCenterZ}
         roadDepth={roadLayout.roadDepth}
-      />
+      /> : null}
 
-      <AnimatedRoadTimingSign
+      {hasTransitVehicles ? <AnimatedRoadTimingSign
         roadWidth={roadLayout.roadWidth}
         roadCenterZ={roadLayout.roadCenterZ}
         laneCount={roadLayout.laneCount}
         laneGap={roadLayout.laneGap}
-      />
-      <AreaLabel x={0} y={1.7} z={roadLayout.roadCenterZ} text="Vehicles in transit" />
-      <AreaLabel x={0} y={1.5} z={parkingLayout.parkingCenterZ} text="Unknown location vehicle" />
-      <AreaLabel x={0} y={1.5} z={standbyLayout.parkingCenterZ} text="Standby vehicles" />
+      /> : null}
+      {hasTransitVehicles ? <AreaLabel x={0} y={1.7} z={roadLayout.roadCenterZ} text="Vehicles in transit" /> : null}
+      {hasUnknownLocationVehicles ? <AreaLabel x={0} y={1.5} z={parkingLayout.parkingCenterZ} text="Unknown location vehicles" /> : null}
+      {hasStandbyVehicles ? <AreaLabel x={0} y={1.5} z={standbyLayout.parkingCenterZ} text="Standby vehicles" /> : null}
 
       {locations.map((location) => {
         const x = positionByLocationId.get(location.locationId)?.x ?? 0;
@@ -879,7 +912,7 @@ export function ActivityScene({
         );
       })}
 
-      {roadLayout.placements.map(({ truck, x, z }, index) => (
+      {hasTransitVehicles ? roadLayout.placements.map(({ truck, x, z }, index) => (
         truck ? (
           <RoadTruckMesh
             key={`road-${truck.truckId}`}
@@ -893,7 +926,7 @@ export function ActivityScene({
         ) : (
           <RoadTruckPlaceholderMesh key={`road-placeholder-${index}`} x={x} z={z} />
         )
-      ))}
+      )) : null}
 
       {parkingLayout.placements.map(({ truck, x, z }) => (
         <RoadTruckMesh
