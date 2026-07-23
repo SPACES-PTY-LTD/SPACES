@@ -90,5 +90,15 @@ export type TruckRender = {
     merchantOrderRef?: string | null;
     status?: string | null;
     autoCreated?: boolean;
+    pickupLocation?: {
+      locationId?: string;
+      label: string;
+    } | null;
+    dropoffLocation?: {
+      locationId?: string;
+      label: string;
+    } | null;
+    createdAt?: string | null;
+    deliveredAt?: string | null;
   } | null;
 };

@@ -23,6 +23,31 @@ Add new entries at the top (newest first).
 ## 2026-07-23 | Version: unreleased
 
 ### Summary
+- Expanded the shipment information shown in truck details on shipment monitoring.
+- Added the vehicle's last known position map to truck details.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Truck details now show the shipment's pickup location, destination, creation time, and delivery time when delivered.
+- Shipment pickup and destination names open their corresponding location details when location IDs are available.
+- Truck details now show a compact Google map when the latest vehicle activity has coordinates, or an unavailable message when it does not.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/app/admin/logistics/shipments/monitoring/page.tsx src/app/admin/logistics/shipments/monitoring/types.ts src/components/vehicles/vehicle-location-map.tsx`
+- `npm run build`
+- `git diff --check`
+
+## 2026-07-23 | Version: unreleased
+
+### Summary
 - Fixed shipment monitoring placement for standby-classified vehicles that are currently inside a location.
 
 ### API Changes

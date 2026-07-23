@@ -4,8 +4,6 @@ import * as React from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 
-type LatLngLiteral = google.maps.LatLngLiteral
-
 const pointZoom = 15
 
 function toCoordinate(value: number | string | null | undefined) {
@@ -17,10 +15,12 @@ export function VehicleLocationMap({
   latitude,
   longitude,
   label,
+  compact = false,
 }: {
   latitude?: number | string | null
   longitude?: number | string | null
   label?: string | null
+  compact?: boolean
 }) {
   const mapRef = React.useRef<HTMLDivElement | null>(null)
   const mapInstance = React.useRef<google.maps.Map | null>(null)
@@ -89,7 +89,7 @@ export function VehicleLocationMap({
 
   return (
     <Card>
-      <CardContent className="space-y-3">
+      <CardContent className={compact ? "space-y-2 p-2" : "space-y-3"}>
         <div>
           <div className="text-xs text-muted-foreground">Last known location</div>
           <div className="font-medium">{label?.trim() || "Vehicle map"}</div>
@@ -100,7 +100,7 @@ export function VehicleLocationMap({
           </div>
         ) : null}
         <div className="overflow-hidden rounded-lg border border-border">
-          <div ref={mapRef} className="h-[360px] w-full bg-muted/30" />
+          <div ref={mapRef} className={`${compact ? "h-[180px]" : "h-[360px]"} w-full bg-muted/30`} />
         </div>
         {loadingMap && !loadError ? (
           <div className="text-sm text-muted-foreground">Loading map…</div>

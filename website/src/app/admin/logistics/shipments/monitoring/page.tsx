@@ -11,6 +11,7 @@ import { listAllVehiclesCheck, listVehicleActivities } from "@/lib/api/vehicle-a
 import { ShipmentMapDialog } from "@/components/dashboard/shipment-map-dialog";
 import { DriverMapDialog } from "@/components/dashboard/driver-map-dialog";
 import { LocationMapDialog } from "@/components/dashboard/location-map-dialog";
+import { VehicleLocationMap } from "@/components/vehicles/vehicle-location-map";
 import { AdminLinks, AdminRoute, withAdminQuery } from "@/lib/routes/admin";
 import type { VehicleActivity } from "@/lib/types";
 import {
@@ -157,6 +158,24 @@ function formatDurationMs(value: number): string {
   return `${minutes}m ${seconds}s`;
 }
 
+function formatDateTime(value?: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
+}
+
+function getShipmentLocationLabel(
+  location: NonNullable<NonNullable<VehicleActivity["shipment"]>["pickup_location"]> | null | undefined
+): string | null {
+  if (!location) return null;
+  return location.name?.trim() || location.company?.trim() || location.code?.trim() || location.full_address?.trim() || null;
+}
+
 function getMetadataString(metadata: Record<string, unknown> | null | undefined, key: string): string | null {
   const value = metadata?.[key];
   return typeof value === "string" && value.trim().length > 0 ? value : null;
@@ -248,7 +267,21 @@ function buildTruckFromActivity(activity: VehicleActivity, changedAt: number): T
         shipmentId: activity.shipment.shipment_id,
         merchantOrderRef: activity.shipment.merchant_order_ref ?? null,
         status: activity.shipment.status ?? null,
-        autoCreated: activity.shipment.auto_created
+        autoCreated: activity.shipment.auto_created,
+        pickupLocation: getShipmentLocationLabel(activity.shipment.pickup_location)
+          ? {
+              locationId: activity.shipment.pickup_location?.location_id,
+              label: getShipmentLocationLabel(activity.shipment.pickup_location) as string
+            }
+          : null,
+        dropoffLocation: getShipmentLocationLabel(activity.shipment.dropoff_location)
+          ? {
+              locationId: activity.shipment.dropoff_location?.location_id,
+              label: getShipmentLocationLabel(activity.shipment.dropoff_location) as string
+            }
+          : null,
+        createdAt: activity.shipment.created_at ?? null,
+        deliveredAt: activity.shipment.delivered_at ?? null
       }
     : null;
 
@@ -1058,6 +1091,8 @@ export default function VirtualWarehousePage() {
             border: "1px solid rgba(15, 23, 42, 0.12)",
             borderRadius: 14,
             padding: 14,
+            maxHeight: "calc(100vh - 82px)",
+            overflowY: "auto",
             boxShadow: "0 12px 35px rgba(15,23,42,0.16)",
             fontFamily: "ui-sans-serif, system-ui, -apple-system"
           }}
@@ -1199,6 +1234,18 @@ export default function VirtualWarehousePage() {
                   </div>
                 ) : null}
                 <div style={{ height: 1, background: "rgba(15,23,42,0.12)", margin: "4px 0" }} />
+                <div style={{ fontWeight: 700 }}>Vehicle location</div>
+                {Number.isFinite(selectedTruck.latitude) && Number.isFinite(selectedTruck.longitude) ? (
+                  <VehicleLocationMap
+                    latitude={selectedTruck.latitude}
+                    longitude={selectedTruck.longitude}
+                    label={selectedTruck.plateNumber}
+                    compact
+                  />
+                ) : (
+                  <div style={{ color: "#64748b" }}>No vehicle coordinates are available.</div>
+                )}
+                <div style={{ height: 1, background: "rgba(15,23,42,0.12)", margin: "4px 0" }} />
                 <div style={{ fontWeight: 700 }}>Shipment</div>
                 <div>
                   Reference:{" "}
@@ -1242,7 +1289,7 @@ export default function VirtualWarehousePage() {
                 {selectedTruck.shipmentRecord ? (
 	                  <>
 	                    <div style={{ height: 1, background: "rgba(15,23,42,0.12)", margin: "4px 0" }} />
-	                    <div style={{ fontWeight: 700 }}>Shipment</div>
+	                    <div style={{ fontWeight: 700 }}>Shipment info</div>
 	                    <div>
 	                      Shipment ref:{" "}
                       {selectedTruck.shipmentRecord.shipmentId ? (
@@ -1283,6 +1330,36 @@ export default function VirtualWarehousePage() {
                           selectedTruck.shipmentRecord.status ?? "-"
                         )}
                       </div>
+	                    <div>
+	                      From: {selectedTruck.shipmentRecord.pickupLocation ? (
+                          selectedTruck.shipmentRecord.pickupLocation.locationId ? (
+                            <button
+                              type="button"
+                              onClick={() => openLocationDialog(selectedTruck.shipmentRecord?.pickupLocation?.locationId)}
+                              style={detailButtonStyle}
+                            >
+                              {selectedTruck.shipmentRecord.pickupLocation.label}
+                            </button>
+                          ) : selectedTruck.shipmentRecord.pickupLocation.label
+                        ) : "-"}
+	                    </div>
+	                    <div>
+	                      Destination: {selectedTruck.shipmentRecord.dropoffLocation ? (
+                          selectedTruck.shipmentRecord.dropoffLocation.locationId ? (
+                            <button
+                              type="button"
+                              onClick={() => openLocationDialog(selectedTruck.shipmentRecord?.dropoffLocation?.locationId)}
+                              style={detailButtonStyle}
+                            >
+                              {selectedTruck.shipmentRecord.dropoffLocation.label}
+                            </button>
+                          ) : selectedTruck.shipmentRecord.dropoffLocation.label
+                        ) : "-"}
+	                    </div>
+	                    <div>Time created: {formatDateTime(selectedTruck.shipmentRecord.createdAt)}</div>
+	                    {selectedTruck.shipmentRecord.deliveredAt ? (
+	                      <div>Time delivered: {formatDateTime(selectedTruck.shipmentRecord.deliveredAt)}</div>
+	                    ) : null}
 	                  </>
 	                ) : null}
               </div>
