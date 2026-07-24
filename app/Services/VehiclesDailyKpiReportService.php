@@ -70,11 +70,16 @@ class VehiclesDailyKpiReportService
             ->where('merchant_id', $merchant->id)
             ->whereIn('vehicle_id', $vehicles->pluck('id'))
             ->whereBetween('occurred_at', [$from, $to])
-            ->whereIn('event_type', [
-                VehicleActivity::EVENT_SPEEDING,
-                VehicleActivity::EVENT_STOPPED,
-                VehicleActivity::EVENT_ENTERED_LOCATION,
-            ])
+            ->where(function ($builder) {
+                $builder->whereIn('event_type', [
+                    VehicleActivity::EVENT_SPEEDING,
+                    VehicleActivity::EVENT_STOPPED,
+                ])->orWhere(function ($locationBuilder) {
+                    $locationBuilder
+                        ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+                        ->whereHas('location', fn ($locationQuery) => $locationQuery->withTrashed());
+                });
+            })
             ->get(['vehicle_id', 'event_type', 'occurred_at', 'speed_kph', 'location_id']);
 
         foreach ($activities as $activity) {
@@ -157,7 +162,7 @@ class VehiclesDailyKpiReportService
                     ->where('speed_kph', '>', 80))
                 ->when($metric === 'known_location_stops', fn ($builder) => $builder
                     ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
-                    ->whereNotNull('location_id'))
+                    ->whereHas('location', fn ($locationQuery) => $locationQuery->withTrashed()))
                 ->when($metric === 'unknown_location_stops', fn ($builder) => $builder
                     ->where('event_type', VehicleActivity::EVENT_STOPPED))
                 ->when($metric === 'unknown_location_stops', fn ($builder) => $builder->whereNull('location_id'))
@@ -171,6 +176,8 @@ class VehiclesDailyKpiReportService
                 'status' => $activity->event_type,
                 'speed_kph' => $activity->speed_kph !== null ? (float) $activity->speed_kph : null,
                 'speed_limit_kph' => $activity->speed_limit_kph !== null ? (float) $activity->speed_limit_kph : null,
+                'latitude' => $activity->latitude !== null ? (float) $activity->latitude : null,
+                'longitude' => $activity->longitude !== null ? (float) $activity->longitude : null,
                 'location' => $activity->location?->name ?? $activity->location?->code,
                 'run_id' => $activity->run?->uuid,
                 'shipment_id' => $activity->shipment?->uuid,

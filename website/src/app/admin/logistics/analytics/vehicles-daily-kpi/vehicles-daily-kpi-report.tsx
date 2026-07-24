@@ -287,6 +287,13 @@ export function VehiclesDailyKpiReport({
                 <tbody>
                   {drilldownResponse.data.map((entry) => {
                     const href = entryHref(entry)
+                    const hasCoordinates = entry.latitude != null && entry.longitude != null
+                    const coordinatesLabel = hasCoordinates
+                      ? `${Number(entry.latitude).toFixed(6)}, ${Number(entry.longitude).toFixed(6)}`
+                      : null
+                    const googleMapsHref = hasCoordinates
+                      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${entry.latitude},${entry.longitude}`)}`
+                      : null
                     const details = entry.entry_type === "activity"
                       ? [entry.speed_kph != null ? `${entry.speed_kph} km/h` : null, entry.speed_limit_kph != null ? `limit ${entry.speed_limit_kph} km/h` : null].filter(Boolean).join(" · ") || "-"
                       : entry.entry_type === "run"
@@ -299,7 +306,19 @@ export function VehiclesDailyKpiReport({
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">{formatDateTime(entry.occurred_at)}</td>
                         <td className="px-3 py-2 capitalize">{entry.status?.replaceAll("_", " ") ?? "-"}</td>
-                        <td className="px-3 py-2">{entry.location ?? "-"}</td>
+                        <td className="px-3 py-2">
+                          {drilldown?.metric === "unknown_location_stops" && googleMapsHref ? (
+                            <a
+                              href={googleMapsHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary underline-offset-4 hover:underline"
+                            >
+                              {coordinatesLabel}
+                              <span className="sr-only"> (opens in a new tab)</span>
+                            </a>
+                          ) : entry.location ?? "-"}
+                        </td>
                         <td className="px-3 py-2">{details}</td>
                         <td className="px-3 py-2 font-mono text-xs">{entry.run_id ?? "-"}</td>
                       </tr>

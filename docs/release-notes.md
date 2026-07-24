@@ -41,6 +41,8 @@ Add new entries at the top (newest first).
 - Non-zero KPI values open an on-demand modal showing the exact activities, runs, or shipments behind the count.
 - Replaced `total_stops` with `known_location_stops`, displayed as “Stops at known Locations” and counting saved-location arrivals from linked `entered_location` activities while unknown stops remain unlinked stopped telemetry events.
 - KPI drill-down entries now show location names in a dedicated column, including names from soft-deleted historical locations.
+- Known-location stops now require the activity's `location_id` to resolve to an existing location record, including soft-deleted historical records.
+- Unknown-location stop drill-down entries now show latitude and longitude as links that open the position in Google Maps in a new tab.
 
 ### Breaking Changes
 - None.

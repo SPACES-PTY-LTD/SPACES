@@ -341,6 +341,8 @@ export type VehicleDailyKpiEntry = {
   status?: string | null
   speed_kph?: number | null
   speed_limit_kph?: number | null
+  latitude?: number | null
+  longitude?: number | null
   location?: string | null
   run_id?: string | null
   shipment_id?: string | null

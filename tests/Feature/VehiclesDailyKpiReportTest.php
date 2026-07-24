@@ -47,6 +47,7 @@ class VehiclesDailyKpiReportTest extends TestCase
         $this->activity($account, $merchant, $vehicle, VehicleActivity::EVENT_STOPPED, '2026-07-02 10:00:00');
         $this->activity($account, $merchant, $vehicle, VehicleActivity::EVENT_STOPPED, '2026-07-02 10:30:00', null, $location);
         $this->activity($account, $merchant, $vehicle, VehicleActivity::EVENT_ENTERED_LOCATION, '2026-07-02 10:45:00', null, $location);
+        $location->delete();
 
         $run = Run::create([
             'uuid' => (string) Str::uuid(),
@@ -112,6 +113,12 @@ class VehiclesDailyKpiReportTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.location', 'Saved Depot')
             ->assertJsonPath('data.0.status', VehicleActivity::EVENT_ENTERED_LOCATION);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/reports/vehicles-daily-kpi/entries?merchant_id={$merchant->uuid}&vehicle_id={$vehicle->uuid}&year=2026&month=7&day=2&metric=unknown_location_stops")
+            ->assertOk()
+            ->assertJsonPath('data.0.latitude', -26.2041)
+            ->assertJsonPath('data.0.longitude', 28.0473);
 
         Carbon::setTestNow();
     }
@@ -215,6 +222,8 @@ class VehiclesDailyKpiReportTest extends TestCase
             'event_type' => $event,
             'occurred_at' => $occurredAt,
             'speed_kph' => $speed,
+            'latitude' => -26.2041,
+            'longitude' => 28.0473,
         ]);
     }
 }
