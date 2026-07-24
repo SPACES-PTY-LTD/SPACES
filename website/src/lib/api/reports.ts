@@ -24,7 +24,10 @@ export type DashboardStats = {
 export type FleetStatusReport = {
   active: number
   maintenance: number
+  at_location: number
+  in_transit: number
   standby: number
+  unknown: number
   total: number
 }
 

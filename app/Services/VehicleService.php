@@ -3,13 +3,13 @@
 namespace App\Services;
 
 use App\Models\Merchant;
-use App\Models\RunShipment;
 use App\Models\Tag;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\VehicleActivity;
 use App\Models\VehicleType;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -19,9 +19,7 @@ class VehicleService
     public function __construct(
         private ActivityLogService $activityLogService,
         private TagService $tagService
-    )
-    {
-    }
+    ) {}
 
     public function listVehicles(User $user, array $filters): LengthAwarePaginator
     {
@@ -52,7 +50,7 @@ class VehicleService
             $query->where('vehicles.is_active', (bool) $filters['is_active']);
         }
 
-        if (!empty($filters['vehicle_type_id'])) {
+        if (! empty($filters['vehicle_type_id'])) {
             $vehicleTypeId = VehicleType::where('uuid', $filters['vehicle_type_id'])->value('id');
             if ($vehicleTypeId) {
                 $query->where('vehicles.vehicle_type_id', $vehicleTypeId);
@@ -61,7 +59,7 @@ class VehicleService
             }
         }
 
-        if (!empty($filters['tag_id'])) {
+        if (! empty($filters['tag_id'])) {
             $tagQuery = Tag::query()->where('uuid', $filters['tag_id']);
             if ($this->shouldScopeToAccount($user)) {
                 $tagQuery->where('account_id', $user->account_id);
@@ -77,13 +75,13 @@ class VehicleService
         }
 
         // with_location_only
-        if (!empty($filters['with_location_only'])) {
+        if (! empty($filters['with_location_only'])) {
             $query->whereNotNull('vehicles.last_location_address');
         }
 
         // search
-        if (!empty($filters['search'])) {
-            $searchTerm = '%' . str_replace(' ', '%', $filters['search']) . '%';
+        if (! empty($filters['search'])) {
+            $searchTerm = '%'.str_replace(' ', '%', $filters['search']).'%';
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('vehicles.plate_number', 'like', $searchTerm)
                     ->orWhere('vehicles.make', 'like', $searchTerm)
@@ -113,7 +111,7 @@ class VehicleService
     {
         $merchant = $this->resolveVehicleMerchant($user, $data['merchant_id'] ?? null);
         $vehicleTypeId = null;
-        if (!empty($data['vehicle_type_id'])) {
+        if (! empty($data['vehicle_type_id'])) {
             $vehicleTypeId = VehicleType::where('uuid', $data['vehicle_type_id'])->value('id');
         }
 
@@ -184,28 +182,77 @@ class VehicleService
     public function buildFleetStatusSummary(User $user, array $filters = []): array
     {
         $scopedVehicles = $this->buildScopedVehicleQuery($user, $filters);
+        $vehicles = $scopedVehicles->get(['vehicles.id', 'vehicles.maintenance_mode_at']);
+        $vehicleIds = $vehicles->pluck('id');
+        $counts = [
+            'at_location' => 0,
+            'in_transit' => 0,
+            'standby' => 0,
+            'unknown' => 0,
+        ];
 
-        $maintenance = (clone $scopedVehicles)
-            ->whereNotNull('maintenance_mode_at')
-            ->count();
+        $latestTransitions = collect();
+        if ($vehicleIds->isNotEmpty()) {
+            $latestOccurredAtSub = VehicleActivity::query()
+                ->selectRaw('vehicle_id, MAX(occurred_at) as latest_occurred_at')
+                ->whereIn('vehicle_id', $vehicleIds)
+                ->whereIn('event_type', [
+                    VehicleActivity::EVENT_ENTERED_LOCATION,
+                    VehicleActivity::EVENT_EXITED_LOCATION,
+                ])
+                ->groupBy('vehicle_id')
+                ->toBase();
 
-        $active = (clone $scopedVehicles)
-            ->whereNull('maintenance_mode_at')
-            ->whereHas('activeRuns.runShipments', function ($query) {
-                $query
-                    ->where('status', '!=', RunShipment::STATUS_REMOVED)
-                    ->whereHas('shipment', function ($shipmentQuery) {
-                        $shipmentQuery->whereNotIn('status', ['delivered', 'cancelled']);
-                    });
-            })
-            ->count();
+            $latestTransitionIdSub = VehicleActivity::query()
+                ->from('vehicle_activity as latest_transition_candidates')
+                ->selectRaw('latest_transition_candidates.vehicle_id, MAX(latest_transition_candidates.id) as latest_activity_id')
+                ->joinSub($latestOccurredAtSub, 'latest_transition_occurred_at', function ($join) {
+                    $join->on('latest_transition_occurred_at.vehicle_id', '=', 'latest_transition_candidates.vehicle_id')
+                        ->on('latest_transition_occurred_at.latest_occurred_at', '=', 'latest_transition_candidates.occurred_at');
+                })
+                ->whereIn('latest_transition_candidates.event_type', [
+                    VehicleActivity::EVENT_ENTERED_LOCATION,
+                    VehicleActivity::EVENT_EXITED_LOCATION,
+                ])
+                ->groupBy('latest_transition_candidates.vehicle_id')
+                ->toBase();
 
-        $total = (clone $scopedVehicles)->count();
+            $latestTransitions = VehicleActivity::query()
+                ->select('vehicle_activity.*')
+                ->joinSub($latestTransitionIdSub, 'latest_monitoring_activity', function ($join) {
+                    $join->on('latest_monitoring_activity.latest_activity_id', '=', 'vehicle_activity.id');
+                })
+                ->get()
+                ->keyBy('vehicle_id');
+        }
+
+        foreach ($vehicles as $vehicle) {
+            $transition = $latestTransitions->get($vehicle->id);
+            if (! $transition) {
+                $counts['unknown']++;
+
+                continue;
+            }
+
+            $isExit = $transition->event_type === VehicleActivity::EVENT_EXITED_LOCATION
+                || ($transition->event_type === VehicleActivity::EVENT_ENTERED_LOCATION && $transition->exited_at !== null);
+            if ($isExit) {
+                $counts['in_transit']++;
+
+                continue;
+            }
+
+            $enteredAt = $transition->entered_at ?? $transition->occurred_at ?? $transition->created_at;
+            $counts[$enteredAt?->lte(now()->subHours(48)) ? 'standby' : 'at_location']++;
+        }
+
+        $maintenance = $vehicles->whereNotNull('maintenance_mode_at')->count();
+        $total = $vehicles->count();
 
         return [
-            'active' => $active,
+            'active' => $counts['in_transit'],
             'maintenance' => $maintenance,
-            'standby' => max($total - $active - $maintenance, 0),
+            ...$counts,
             'total' => $total,
         ];
     }
@@ -233,7 +280,7 @@ class VehicleService
             'metadata',
         ]);
 
-        if (array_key_exists('last_location_address', $data) && !array_key_exists('location_updated_at', $data)) {
+        if (array_key_exists('last_location_address', $data) && ! array_key_exists('location_updated_at', $data)) {
             $data['location_updated_at'] = Carbon::now();
         }
 
@@ -265,7 +312,7 @@ class VehicleService
 
         $after = $vehicle->only(array_keys($before));
         $changes = $this->activityLogService->diffChanges($before, $after);
-        if (!empty($changes)) {
+        if (! empty($changes)) {
             $this->activityLogService->log(
                 action: 'updated',
                 entityType: 'vehicle',
@@ -292,7 +339,7 @@ class VehicleService
         $after = ['tags' => $this->tagService->namesFor($vehicle)];
         $changes = $this->activityLogService->diffChanges($before, $after);
 
-        if (!empty($changes)) {
+        if (! empty($changes)) {
             $this->activityLogService->log(
                 action: 'updated',
                 entityType: 'vehicle',
@@ -351,6 +398,7 @@ class VehicleService
                     'line' => $line,
                     'errors' => $mapped['errors'],
                 ];
+
                 continue;
             }
 
@@ -377,8 +425,8 @@ class VehicleService
                 $vehicle = $this->resolveVehicleImportTarget($merchant->id, $merchant->account_id, $payload);
                 $isUpdate = $vehicle !== null;
 
-                if (!$vehicle) {
-                    $vehicle = new Vehicle();
+                if (! $vehicle) {
+                    $vehicle = new Vehicle;
                 }
 
                 $vehicle->fill($payload);
@@ -397,7 +445,7 @@ class VehicleService
                 $failed++;
                 $errors[] = [
                     'line' => $line,
-                    'errors' => ['Unable to persist row: ' . $exception->getMessage()],
+                    'errors' => ['Unable to persist row: '.$exception->getMessage()],
                 ];
             }
         }
@@ -413,7 +461,7 @@ class VehicleService
 
     private function shouldScopeToAccount(User $user): bool
     {
-        return $user->role === 'user' && !empty($user->account_id);
+        return $user->role === 'user' && ! empty($user->account_id);
     }
 
     private function buildScopedVehicleQuery(User $user, array $filters = [])
@@ -421,7 +469,7 @@ class VehicleService
         $query = Vehicle::query()->select('vehicles.*');
 
         $merchantUuid = $filters['merchant_uuid'] ?? $filters['merchant_id'] ?? null;
-        if (!empty($merchantUuid)) {
+        if (! empty($merchantUuid)) {
             $merchantQuery = Merchant::query()->where('uuid', $merchantUuid);
             if ($this->shouldScopeToAccount($user)) {
                 $merchantQuery->where('account_id', $user->account_id);
@@ -444,7 +492,7 @@ class VehicleService
     private function resolveMerchant(User $user): ?Merchant
     {
         $merchant = $user->merchants()->orderBy('merchants.id')->first();
-        if (!$merchant) {
+        if (! $merchant) {
             $merchant = $user->ownedMerchants()->orderBy('id')->first();
         }
 
@@ -453,7 +501,7 @@ class VehicleService
 
     private function resolveVehicleMerchant(User $user, ?string $merchantUuid): ?Merchant
     {
-        if (!$merchantUuid) {
+        if (! $merchantUuid) {
             return $this->resolveMerchant($user);
         }
 
@@ -476,7 +524,7 @@ class VehicleService
         $csv->setFlags(\SplFileObject::READ_CSV | \SplFileObject::SKIP_EMPTY | \SplFileObject::DROP_NEW_LINE);
 
         $rawHeaders = $csv->fgetcsv();
-        if (!is_array($rawHeaders) || $rawHeaders === [null]) {
+        if (! is_array($rawHeaders) || $rawHeaders === [null]) {
             throw ValidationException::withMessages([
                 'file' => 'The CSV file is empty or does not contain a header row.',
             ]);
@@ -493,10 +541,10 @@ class VehicleService
 
         $rows = [];
         $line = 1;
-        while (!$csv->eof()) {
+        while (! $csv->eof()) {
             $record = $csv->fgetcsv();
             $line++;
-            if (!is_array($record) || $record === [null]) {
+            if (! is_array($record) || $record === [null]) {
                 continue;
             }
 
@@ -504,7 +552,7 @@ class VehicleService
                 fn ($value) => trim((string) ($value ?? '')) !== ''
             );
 
-            if (!$hasNonEmptyValue) {
+            if (! $hasNonEmptyValue) {
                 continue;
             }
 
@@ -584,7 +632,7 @@ class VehicleService
 
     private function resolveVehicleTypeIdOrFail(?string $vehicleTypeUuid): ?int
     {
-        if (!$vehicleTypeUuid) {
+        if (! $vehicleTypeUuid) {
             return null;
         }
 
@@ -602,7 +650,7 @@ class VehicleService
         }
 
         $vehicleTypeId = $query->value('id');
-        if (!$vehicleTypeId) {
+        if (! $vehicleTypeId) {
             throw ValidationException::withMessages([
                 'vehicle_type_id' => 'vehicle_type must match an existing vehicle type UUID, code, or name.',
             ]);
@@ -613,7 +661,7 @@ class VehicleService
 
     private function resolveVehicleImportTarget(int $merchantId, int $accountId, array $payload): ?Vehicle
     {
-        if (!empty($payload['intergration_id'])) {
+        if (! empty($payload['intergration_id'])) {
             return Vehicle::withTrashed()
                 ->where('merchant_id', $merchantId)
                 ->where('account_id', $accountId)
@@ -621,7 +669,7 @@ class VehicleService
                 ->first();
         }
 
-        if (!empty($payload['plate_number'])) {
+        if (! empty($payload['plate_number'])) {
             return Vehicle::withTrashed()
                 ->where('merchant_id', $merchantId)
                 ->where('account_id', $accountId)
@@ -629,7 +677,7 @@ class VehicleService
                 ->first();
         }
 
-        if (!empty($payload['ref_code'])) {
+        if (! empty($payload['ref_code'])) {
             return Vehicle::withTrashed()
                 ->where('merchant_id', $merchantId)
                 ->where('account_id', $accountId)
@@ -640,21 +688,21 @@ class VehicleService
         return null;
     }
 
-    private function parseNullableInt(null|string $value): ?int
+    private function parseNullableInt(?string $value): ?int
     {
         if ($value === null || trim($value) === '') {
             return null;
         }
 
         $value = trim($value);
-        if (!preg_match('/^-?\d+$/', $value)) {
+        if (! preg_match('/^-?\d+$/', $value)) {
             return null;
         }
 
         return (int) $value;
     }
 
-    private function parseNullableBool(null|string $value): ?bool
+    private function parseNullableBool(?string $value): ?bool
     {
         if ($value === null || trim($value) === '') {
             return null;
@@ -665,25 +713,24 @@ class VehicleService
         return is_bool($parsed) ? $parsed : null;
     }
 
-    private function parseNullableJsonArray(null|string $value): array|null
+    private function parseNullableJsonArray(?string $value): ?array
     {
         if ($value === null || trim($value) === '') {
             return null;
         }
 
         $decoded = json_decode($value, true);
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             return null;
         }
 
         return $decoded;
     }
 
-    private function nullableString(null|string $value): ?string
+    private function nullableString(?string $value): ?string
     {
         $value = trim((string) ($value ?? ''));
 
         return $value !== '' ? $value : null;
     }
-
 }

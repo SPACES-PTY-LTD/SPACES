@@ -23,6 +23,31 @@ Add new entries at the top (newest first).
 ## 2026-07-24 | Version: unreleased
 
 ### Summary
+- Aligned the fleet-status report and dashboard chart with location-transition monitoring states.
+
+### API Changes
+- `GET /api/v1/reports/fleet_status` now returns `at_location`, `in_transit`, `standby`, and `unknown` counts using the same 48-hour transition rules as shipment monitoring.
+- `active` remains available as a compatibility alias for `in_transit`; `maintenance` remains an operational count and may overlap physical monitoring states.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The Fleet status chart now displays the four mutually exclusive physical monitoring states instead of run-derived active and standby counts.
+
+### Breaking Changes
+- The meaning of `standby` now reflects a continuous location dwell of at least 48 hours.
+
+### Verification
+- `php artisan test tests/Feature/VehicleServiceTest.php tests/Feature/VehicleLatestActivityCheckTest.php`
+- `vendor/bin/pint --test app/Services/VehicleService.php tests/Feature/VehicleServiceTest.php`
+- `npm run lint -- src/components/reports/fleet-status-chart.tsx src/lib/api/reports.ts`
+- `npm run build`
+- `git diff --check`
+
+## 2026-07-24 | Version: unreleased
+
+### Summary
 - Replaced shipment-monitoring vehicle placement with time-based location-transition classification.
 
 ### API Changes

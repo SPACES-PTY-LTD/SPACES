@@ -8,15 +8,17 @@ import { isApiErrorResponse } from "@/lib/api/client"
 import { getFleetStatus, type FleetStatusReport } from "@/lib/api/reports"
 
 const COLORS = {
-  active: "var(--color-chart-2)",
-  maintenance: "var(--color-chart-5)",
+  at_location: "var(--color-chart-2)",
+  in_transit: "var(--color-chart-1)",
   standby: "var(--color-chart-3)",
+  unknown: "var(--color-chart-5)",
 } as const
 
 const LABELS = {
-  active: "Active",
-  maintenance: "Maintenance",
+  at_location: "At location",
+  in_transit: "In transit",
   standby: "Standby",
+  unknown: "Unknown location",
 } as const
 
 type StatusKey = keyof typeof LABELS
@@ -24,7 +26,10 @@ type StatusKey = keyof typeof LABELS
 const EMPTY_REPORT: FleetStatusReport = {
   active: 0,
   maintenance: 0,
+  at_location: 0,
+  in_transit: 0,
   standby: 0,
+  unknown: 0,
   total: 0,
 }
 
@@ -80,7 +85,7 @@ export function FleetStatusChart({
       <CardHeader>
         <CardTitle>Fleet status</CardTitle>
         <div className="text-xs text-muted-foreground">
-          Active, maintenance, and standby vehicles for the selected merchant.
+          Vehicles by their latest location-transition status for the selected merchant.
         </div>
       </CardHeader>
       <CardContent>
