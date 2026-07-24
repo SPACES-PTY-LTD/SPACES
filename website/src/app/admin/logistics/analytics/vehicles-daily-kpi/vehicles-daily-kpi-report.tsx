@@ -33,7 +33,7 @@ const KPI_ROWS = [
   ["speed_violations", "Speed Violation > 80km/hr (Over Speed)"],
   ["runs", "Runs"],
   ["shipments", "Shipments"],
-  ["total_stops", "Total Stops"],
+  ["known_location_stops", "Stops at Known Locations"],
   ["unknown_location_stops", "Stops at Unknown Locations"],
   ["invoiced_shipments", "Invoiced Shipments"],
 ] as const

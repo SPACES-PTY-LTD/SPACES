@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\Location;
 use App\Models\Merchant;
 use App\Models\Run;
 use App\Models\RunShipment;
@@ -27,11 +28,25 @@ class VehiclesDailyKpiReportTest extends TestCase
         $emptyVehicle = $this->vehicle($account, $merchant, 'HR000000');
         $deletedVehicle = $this->vehicle($account, $merchant, 'DELETED');
         $deletedVehicle->delete();
+        $location = Location::create([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $account->id,
+            'merchant_id' => $merchant->id,
+            'name' => 'Saved Depot',
+            'code' => 'DEPOT',
+            'address_line_1' => '1 Depot Road',
+            'city' => 'Johannesburg',
+            'country' => 'ZA',
+            'province' => 'Gauteng',
+            'post_code' => '2000',
+        ]);
 
         $this->activity($account, $merchant, $vehicle, VehicleActivity::EVENT_SPEEDING, '2026-07-02 08:00:00', 81);
         $this->activity($account, $merchant, $vehicle, VehicleActivity::EVENT_SPEEDING, '2026-07-01 22:30:00', 90);
         $this->activity($account, $merchant, $vehicle, VehicleActivity::EVENT_SPEEDING, '2026-07-02 09:00:00', 80);
         $this->activity($account, $merchant, $vehicle, VehicleActivity::EVENT_STOPPED, '2026-07-02 10:00:00');
+        $this->activity($account, $merchant, $vehicle, VehicleActivity::EVENT_STOPPED, '2026-07-02 10:30:00', null, $location);
+        $this->activity($account, $merchant, $vehicle, VehicleActivity::EVENT_ENTERED_LOCATION, '2026-07-02 10:45:00', null, $location);
 
         $run = Run::create([
             'uuid' => (string) Str::uuid(),
@@ -69,7 +84,8 @@ class VehiclesDailyKpiReportTest extends TestCase
         $this->assertSame(2, $row['days']['2']['speed_violations']);
         $this->assertSame(1, $row['days']['2']['runs']);
         $this->assertSame(1, $row['days']['2']['shipments']);
-        $this->assertSame(1, $row['days']['2']['total_stops']);
+        $this->assertSame(1, $row['days']['2']['known_location_stops']);
+        $this->assertArrayNotHasKey('total_stops', $row['days']['2']);
         $this->assertSame(1, $row['days']['2']['unknown_location_stops']);
         $this->assertSame(1, $row['days']['3']['invoiced_shipments']);
         $this->assertNotNull(collect($response->json('data'))->firstWhere('vehicle_id', $emptyVehicle->uuid));
@@ -79,7 +95,7 @@ class VehiclesDailyKpiReportTest extends TestCase
             ['speed_violations', 2, 2],
             ['runs', 2, 1],
             ['shipments', 2, 1],
-            ['total_stops', 2, 1],
+            ['known_location_stops', 2, 1],
             ['unknown_location_stops', 2, 1],
             ['invoiced_shipments', 3, 1],
         ] as [$metric, $day, $total]) {
@@ -90,6 +106,12 @@ class VehiclesDailyKpiReportTest extends TestCase
                 ->assertJsonPath('meta.total', $total)
                 ->assertJsonCount($total, 'data');
         }
+
+        $this->withToken($token)
+            ->getJson("/api/v1/reports/vehicles-daily-kpi/entries?merchant_id={$merchant->uuid}&vehicle_id={$vehicle->uuid}&year=2026&month=7&day=2&metric=known_location_stops")
+            ->assertOk()
+            ->assertJsonPath('data.0.location', 'Saved Depot')
+            ->assertJsonPath('data.0.status', VehicleActivity::EVENT_ENTERED_LOCATION);
 
         Carbon::setTestNow();
     }
@@ -143,7 +165,7 @@ class VehiclesDailyKpiReportTest extends TestCase
             ->assertStatus(422);
 
         $this->withToken($token)
-            ->getJson("/api/v1/reports/vehicles-daily-kpi/entries?merchant_id={$merchant->uuid}&vehicle_id={$vehicle->uuid}&year=2026&month=7&day=24&metric=invalid")
+            ->getJson("/api/v1/reports/vehicles-daily-kpi/entries?merchant_id={$merchant->uuid}&vehicle_id={$vehicle->uuid}&year=2026&month=7&day=24&metric=total_stops")
             ->assertStatus(422);
 
         Carbon::setTestNow();
@@ -181,13 +203,15 @@ class VehiclesDailyKpiReportTest extends TestCase
         Vehicle $vehicle,
         string $event,
         string $occurredAt,
-        ?float $speed = null
+        ?float $speed = null,
+        ?Location $location = null
     ): VehicleActivity {
         return VehicleActivity::create([
             'uuid' => (string) Str::uuid(),
             'account_id' => $account->id,
             'merchant_id' => $merchant->id,
             'vehicle_id' => $vehicle->id,
+            'location_id' => $location?->id,
             'event_type' => $event,
             'occurred_at' => $occurredAt,
             'speed_kph' => $speed,

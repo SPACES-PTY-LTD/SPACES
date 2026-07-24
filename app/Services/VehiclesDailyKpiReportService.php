@@ -18,7 +18,7 @@ class VehiclesDailyKpiReportService
         'speed_violations' => 'Speed Violation > 80km/hr (Over Speed)',
         'runs' => 'Runs',
         'shipments' => 'Shipments',
-        'total_stops' => 'Total Stops',
+        'known_location_stops' => 'Stops at Known Locations',
         'unknown_location_stops' => 'Stops at Unknown Locations',
         'invoiced_shipments' => 'Invoiced Shipments',
     ];
@@ -27,7 +27,7 @@ class VehiclesDailyKpiReportService
         'speed_violations',
         'runs',
         'shipments',
-        'total_stops',
+        'known_location_stops',
         'unknown_location_stops',
         'invoiced_shipments',
     ];
@@ -70,7 +70,11 @@ class VehiclesDailyKpiReportService
             ->where('merchant_id', $merchant->id)
             ->whereIn('vehicle_id', $vehicles->pluck('id'))
             ->whereBetween('occurred_at', [$from, $to])
-            ->whereIn('event_type', [VehicleActivity::EVENT_SPEEDING, VehicleActivity::EVENT_STOPPED])
+            ->whereIn('event_type', [
+                VehicleActivity::EVENT_SPEEDING,
+                VehicleActivity::EVENT_STOPPED,
+                VehicleActivity::EVENT_ENTERED_LOCATION,
+            ])
             ->get(['vehicle_id', 'event_type', 'occurred_at', 'speed_kph', 'location_id']);
 
         foreach ($activities as $activity) {
@@ -78,11 +82,11 @@ class VehiclesDailyKpiReportService
             if ($activity->event_type === VehicleActivity::EVENT_SPEEDING && (float) $activity->speed_kph > 80) {
                 $rows[$activity->vehicle_id]['days'][$day]['speed_violations']++;
             }
-            if ($activity->event_type === VehicleActivity::EVENT_STOPPED) {
-                $rows[$activity->vehicle_id]['days'][$day]['total_stops']++;
-                if ($activity->location_id === null) {
-                    $rows[$activity->vehicle_id]['days'][$day]['unknown_location_stops']++;
-                }
+            if ($activity->event_type === VehicleActivity::EVENT_ENTERED_LOCATION && $activity->location_id !== null) {
+                $rows[$activity->vehicle_id]['days'][$day]['known_location_stops']++;
+            }
+            if ($activity->event_type === VehicleActivity::EVENT_STOPPED && $activity->location_id === null) {
+                $rows[$activity->vehicle_id]['days'][$day]['unknown_location_stops']++;
             }
         }
 
@@ -138,7 +142,7 @@ class VehiclesDailyKpiReportService
     ): array {
         [$selectedDate, $from, $to, $timezone] = $this->dayRange($merchant, $year, $month, $day);
 
-        if (in_array($metric, ['speed_violations', 'total_stops', 'unknown_location_stops'], true)) {
+        if (in_array($metric, ['speed_violations', 'known_location_stops', 'unknown_location_stops'], true)) {
             $query = VehicleActivity::query()
                 ->with(['location', 'run.driver.user', 'shipment'])
                 ->where('merchant_id', $merchant->id)
@@ -147,7 +151,10 @@ class VehiclesDailyKpiReportService
                 ->when($metric === 'speed_violations', fn ($builder) => $builder
                     ->where('event_type', VehicleActivity::EVENT_SPEEDING)
                     ->where('speed_kph', '>', 80))
-                ->when($metric !== 'speed_violations', fn ($builder) => $builder
+                ->when($metric === 'known_location_stops', fn ($builder) => $builder
+                    ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+                    ->whereNotNull('location_id'))
+                ->when($metric === 'unknown_location_stops', fn ($builder) => $builder
                     ->where('event_type', VehicleActivity::EVENT_STOPPED))
                 ->when($metric === 'unknown_location_stops', fn ($builder) => $builder->whereNull('location_id'))
                 ->orderBy('occurred_at');

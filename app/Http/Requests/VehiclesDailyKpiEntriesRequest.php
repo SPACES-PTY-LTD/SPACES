@@ -23,7 +23,7 @@ class VehiclesDailyKpiEntriesRequest extends BaseRequest
                 'speed_violations',
                 'runs',
                 'shipments',
-                'total_stops',
+                'known_location_stops',
                 'unknown_location_stops',
                 'invoiced_shipments',
             ])],

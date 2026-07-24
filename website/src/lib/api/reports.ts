@@ -306,7 +306,7 @@ export type VehicleDailyKpiMetrics = {
   speed_violations: number
   runs: number
   shipments: number
-  total_stops: number
+  known_location_stops: number
   unknown_location_stops: number
   invoiced_shipments: number
 }
