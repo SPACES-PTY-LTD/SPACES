@@ -18,7 +18,7 @@ class VehiclesDailyKpiReportService
         'speed_violations' => 'Speed Violation > 80km/hr (Over Speed)',
         'runs' => 'Runs',
         'shipments' => 'Shipments',
-        'known_location_stops' => 'Stops at Known Locations',
+        'known_location_stops' => 'Stops at known Locations',
         'unknown_location_stops' => 'Stops at Unknown Locations',
         'invoiced_shipments' => 'Invoiced Shipments',
     ];
