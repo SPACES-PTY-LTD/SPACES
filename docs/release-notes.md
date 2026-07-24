@@ -23,6 +23,33 @@ Add new entries at the top (newest first).
 ## 2026-07-24 | Version: unreleased
 
 ### Summary
+- Added the Vehicles Daily KPI analytics report with per-vehicle, per-day operational metrics.
+
+### API Changes
+- Added `GET /api/v1/reports/vehicles-daily-kpi` with merchant, year, month, and data-only filters.
+- The response includes daily speeding, run, shipment, stop, unknown-location stop, and invoiced-shipment counts plus month metadata and available years.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Admins can open `/admin/logistics/analytics/vehicles-daily-kpi` from the Analytics menu, select any non-future month, and optionally hide vehicles with no data.
+- The report includes all non-deleted vehicles and leaves zero-value table cells blank.
+- The data-only filter accepts boolean query values serialized as either `1`/`0` or `true`/`false`.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/VehiclesDailyKpiReportTest.php`
+- `vendor/bin/pint --test app/Http/Controllers/Api/V1/ReportController.php app/Http/Requests/VehiclesDailyKpiReportRequest.php app/Services/VehiclesDailyKpiReportService.php tests/Feature/VehiclesDailyKpiReportTest.php`
+- `npm run lint -- src/app/admin/logistics/analytics/vehicles-daily-kpi/page.tsx src/app/admin/logistics/analytics/vehicles-daily-kpi/vehicles-daily-kpi-report.tsx src/lib/api/reports.ts src/lib/routes/admin.ts src/lib/navigation.ts`
+- `npm run build`
+- `git diff --check`
+
+## 2026-07-24 | Version: unreleased
+
+### Summary
 - Replaced the dashboard Live bookings map with a Vehicles in transit map.
 
 ### API Changes

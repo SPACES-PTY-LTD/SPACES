@@ -153,6 +153,11 @@ export const adminNavGroups: NavGroup[] = [
             icon: ChartArea,
           },
           {
+            title: "Vehicles Daily KPI",
+            href: AdminLinks.analyticsVehiclesDailyKpi,
+            icon: ChartArea,
+          },
+          {
             title: "Missing Documents",
             href: AdminLinks.analyticsMissingDocuments,
             icon: FileText,

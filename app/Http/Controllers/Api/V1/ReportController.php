@@ -10,6 +10,7 @@ use App\Http\Requests\FleetStatusReportRequest;
 use App\Http\Requests\MappedBookingsReportRequest;
 use App\Http\Requests\MissingDocumentsReportRequest;
 use App\Http\Requests\ShipmentsByLocationReportRequest;
+use App\Http\Requests\VehiclesDailyKpiReportRequest;
 use App\Http\Resources\LocationResource;
 use App\Http\Resources\MappedBookingReportResource;
 use App\Http\Resources\VehicleActivityResource;
@@ -25,6 +26,7 @@ use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleActivity;
+use App\Services\VehiclesDailyKpiReportService;
 use App\Services\VehicleService;
 use App\Support\ApiResponse;
 use Carbon\Carbon;
@@ -48,6 +50,40 @@ class ReportController extends Controller
         'in_transit',
     ];
 
+    public function vehiclesDailyKpi(
+        VehiclesDailyKpiReportRequest $request,
+        VehiclesDailyKpiReportService $service
+    ) {
+        try {
+            $validated = $request->validated();
+            $environment = $request->attributes->get('merchant_environment');
+            $merchantQuery = $this->applyMerchantScope(Merchant::query(), $environment, $request->user());
+
+            if (! empty($validated['merchant_id'])) {
+                $merchantQuery->where('uuid', $validated['merchant_id']);
+            } elseif ($environment) {
+                $merchantQuery->whereKey($environment->merchant_id);
+            }
+
+            $merchant = $merchantQuery->firstOrFail();
+            $report = $service->build(
+                $merchant,
+                (int) $validated['year'],
+                (int) $validated['month'],
+                (bool) ($validated['only_with_data'] ?? false)
+            );
+
+            return ApiResponse::success($report['data'], $report['meta']);
+        } catch (Throwable $e) {
+            Log::error('Vehicles daily KPI report failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->apiError($e, 'VEHICLES_DAILY_KPI_FAILED', 'Unable to generate vehicles daily KPI report.');
+        }
+    }
+
     public function shipmentsFullReport(Request $request)
     {
         try {
@@ -55,7 +91,7 @@ class ReportController extends Controller
             $user = $request->user();
             $merchantUuid = $request->get('merchant_id');
 
-            if (empty($merchantUuid) && !$environment) {
+            if (empty($merchantUuid) && ! $environment) {
                 throw ValidationException::withMessages([
                     'merchant_id' => 'The merchant_id field is required.',
                 ]);
@@ -106,7 +142,7 @@ class ReportController extends Controller
                 $user
             );
 
-            if (!empty($merchantUuid)) {
+            if (! empty($merchantUuid)) {
                 $merchantId = Merchant::query()
                     ->where('uuid', (string) $merchantUuid)
                     ->value('id');
@@ -115,47 +151,47 @@ class ReportController extends Controller
                 $query->where('shipments.merchant_id', $environment->merchant_id);
             }
 
-            if (!empty($request->get('date_created'))) {
+            if (! empty($request->get('date_created'))) {
                 $query->whereDate('shipments.created_at', $request->get('date_created'));
             }
 
-            if (!empty($request->get('created_from'))) {
+            if (! empty($request->get('created_from'))) {
                 $query->whereDate('shipments.created_at', '>=', $request->get('created_from'));
             }
 
-            if (!empty($request->get('created_to'))) {
+            if (! empty($request->get('created_to'))) {
                 $query->whereDate('shipments.created_at', '<=', $request->get('created_to'));
             }
 
-            if (!empty($request->get('collection_date'))) {
+            if (! empty($request->get('collection_date'))) {
                 $query->whereDate('shipments.collection_date', $request->get('collection_date'));
             }
 
-            if (!empty($request->get('shipment_number'))) {
-                $query->where('shipments.merchant_order_ref', 'like', '%' . $request->get('shipment_number') . '%');
+            if (! empty($request->get('shipment_number'))) {
+                $query->where('shipments.merchant_order_ref', 'like', '%'.$request->get('shipment_number').'%');
             }
 
-            if (!empty($request->get('delivery_note_number'))) {
-                $query->where('shipments.delivery_note_number', 'like', '%' . $request->get('delivery_note_number') . '%');
+            if (! empty($request->get('delivery_note_number'))) {
+                $query->where('shipments.delivery_note_number', 'like', '%'.$request->get('delivery_note_number').'%');
             }
 
-            if (!empty($request->get('truck_plate_number'))) {
-                $query->where('report_vehicles.plate_number', 'like', '%' . $request->get('truck_plate_number') . '%');
+            if (! empty($request->get('truck_plate_number'))) {
+                $query->where('report_vehicles.plate_number', 'like', '%'.$request->get('truck_plate_number').'%');
             }
 
-            if (!empty($request->get('driver_id'))) {
+            if (! empty($request->get('driver_id'))) {
                 $query->where('report_drivers.uuid', $request->get('driver_id'));
             }
 
-            if (!empty($request->get('from_location_id'))) {
+            if (! empty($request->get('from_location_id'))) {
                 $query->where('report_pickup_locations.uuid', $request->get('from_location_id'));
             }
 
-            if (!empty($request->get('to_location_id'))) {
+            if (! empty($request->get('to_location_id'))) {
                 $query->where('report_dropoff_locations.uuid', $request->get('to_location_id'));
             }
 
-            if (!empty($request->get('location_tag_id'))) {
+            if (! empty($request->get('location_tag_id'))) {
                 $locationTagId = $request->get('location_tag_id');
                 $query->where(function (Builder $builder) use ($locationTagId) {
                     $builder
@@ -168,7 +204,7 @@ class ReportController extends Controller
                 });
             }
 
-            if (!empty($request->get('vehicle_tag_id'))) {
+            if (! empty($request->get('vehicle_tag_id'))) {
                 $vehicleTagId = $request->get('vehicle_tag_id');
                 $query->whereExists(function ($subquery) use ($vehicleTagId) {
                     $subquery
@@ -186,13 +222,13 @@ class ReportController extends Controller
                 });
             }
 
-            if (!empty($request->get('shipment_status'))) {
+            if (! empty($request->get('shipment_status'))) {
                 $query->where('shipments.status', $request->get('shipment_status'));
             }
 
             $sortBy = (string) $request->get('sort_by', 'date_created');
             $sortDirection = strtolower((string) $request->get('sort_direction', 'desc'));
-            if (!in_array($sortDirection, ['asc', 'desc'], true)) {
+            if (! in_array($sortDirection, ['asc', 'desc'], true)) {
                 $sortDirection = 'desc';
             }
 
@@ -236,16 +272,16 @@ class ReportController extends Controller
                     ? max(0, $run->completed_at->diffInSeconds($run->started_at))
                     : null;
 
-                $fromVisit = $stageActivityMap[$shipment->id . ':' . VehicleActivity::EVENT_SHIPMENT_COLLECTION]
-                    ?? ($visitMap[$shipment->id . ':' . $shipment->pickup_location_id] ?? null);
-                $toVisit = $stageActivityMap[$shipment->id . ':' . VehicleActivity::EVENT_SHIPMENT_DELIVERY]
-                    ?? ($visitMap[$shipment->id . ':' . $shipment->dropoff_location_id] ?? null);
+                $fromVisit = $stageActivityMap[$shipment->id.':'.VehicleActivity::EVENT_SHIPMENT_COLLECTION]
+                    ?? ($visitMap[$shipment->id.':'.$shipment->pickup_location_id] ?? null);
+                $toVisit = $stageActivityMap[$shipment->id.':'.VehicleActivity::EVENT_SHIPMENT_DELIVERY]
+                    ?? ($visitMap[$shipment->id.':'.$shipment->dropoff_location_id] ?? null);
 
                 return [
                     'date_created' => optional($shipment->created_at)?->toIso8601String(),
                     'collection_date' => optional($shipment->collection_date)?->toIso8601String(),
                     'shipment_number' => $shipment->merchant_order_ref,
-                    "shipment_id" => $shipment->uuid,
+                    'shipment_id' => $shipment->uuid,
                     'delivery_note_number' => $shipment->delivery_note_number,
                     'truck_plate_number' => $run?->vehicle?->plate_number,
                     'vehicle_id' => $run?->vehicle?->uuid,
@@ -308,14 +344,14 @@ class ReportController extends Controller
             $validated = $request->validated();
             $merchantId = null;
 
-            if (!empty($validated['merchant_id'])) {
+            if (! empty($validated['merchant_id'])) {
                 $merchantId = Merchant::query()
                     ->where('uuid', $validated['merchant_id'])
                     ->value('id');
             }
 
             [$start, $end] = $this->resolveDateRange($request, $environment, $user);
-            if (!$start || !$end) {
+            if (! $start || ! $end) {
                 return ApiResponse::success([]);
             }
 
@@ -371,7 +407,7 @@ class ReportController extends Controller
             $validated = $request->validated();
             $merchantId = null;
 
-            if (!empty($validated['merchant_id'])) {
+            if (! empty($validated['merchant_id'])) {
                 $merchantId = Merchant::query()
                     ->where('uuid', $validated['merchant_id'])
                     ->value('id');
@@ -464,9 +500,9 @@ class ReportController extends Controller
             $perPage = min((int) ($validated['per_page'] ?? 100), 200);
 
             $merchantScope = $this->applyMerchantScope(Merchant::query(), $environment, $user);
-            if (!empty($validated['merchant_id'])) {
+            if (! empty($validated['merchant_id'])) {
                 $merchantId = Merchant::query()->where('uuid', $validated['merchant_id'])->value('id');
-                if (!$merchantId) {
+                if (! $merchantId) {
                     return ApiResponse::success([], [
                         'current_page' => 1,
                         'per_page' => $perPage,
@@ -494,7 +530,7 @@ class ReportController extends Controller
 
             $merchantIds = $accessibleMerchants->pluck('id')->all();
             $accountIds = $accessibleMerchants->pluck('account_id')->filter()->unique()->values()->all();
-            $entityTypes = !empty($validated['entity_type'])
+            $entityTypes = ! empty($validated['entity_type'])
                 ? [(string) $validated['entity_type']]
                 : FileType::ENTITY_TYPES;
 
@@ -804,14 +840,14 @@ class ReportController extends Controller
                 : 'shipments.pickup_location_id';
 
             $merchantId = null;
-            if (!empty($validated['merchant_id'])) {
+            if (! empty($validated['merchant_id'])) {
                 $merchantId = Merchant::query()
                     ->where('uuid', $validated['merchant_id'])
                     ->value('id');
             }
 
             [$start, $end] = $this->resolveDateRange($request, $environment, $user);
-            if (!$start || !$end) {
+            if (! $start || ! $end) {
                 return ApiResponse::success([], [
                     'total_locations' => 0,
                     'total_shipments' => 0,
@@ -900,7 +936,7 @@ class ReportController extends Controller
                 ->whereIn('status', self::ACTIVE_MAPPED_BOOKING_STATUSES)
                 ->whereNotNull('shipment_id');
 
-            if (!empty($validated['merchant_id'])) {
+            if (! empty($validated['merchant_id'])) {
                 $merchantId = Merchant::query()
                     ->where('uuid', $validated['merchant_id'])
                     ->value('id');
@@ -912,8 +948,8 @@ class ReportController extends Controller
                 }
             }
 
-            if (!empty($validated['search'])) {
-                $searchTerm = '%' . str_replace(' ', '%', trim((string) $validated['search'])) . '%';
+            if (! empty($validated['search'])) {
+                $searchTerm = '%'.str_replace(' ', '%', trim((string) $validated['search'])).'%';
 
                 $query->where(function (Builder $builder) use ($searchTerm) {
                     $builder
@@ -985,9 +1021,9 @@ class ReportController extends Controller
     {
         $merchantScope = $this->applyMerchantScope(Merchant::query(), $environment, $user);
 
-        if (!empty($merchantUuid)) {
+        if (! empty($merchantUuid)) {
             $merchantId = Merchant::query()->where('uuid', $merchantUuid)->value('id');
-            if (!$merchantId) {
+            if (! $merchantId) {
                 return collect();
             }
 
@@ -1050,7 +1086,7 @@ class ReportController extends Controller
                 END as entity_label
             ");
 
-        if (!empty($entityType)) {
+        if (! empty($entityType)) {
             $query->where('ft.entity_type', $entityType);
         }
 
@@ -1084,7 +1120,7 @@ class ReportController extends Controller
             ->pluck('account_id', 'id');
 
         $vehicleCountsByAccount = DB::table('vehicles')
-            ->when(!empty($accountIds), fn ($builder) => $builder->whereIn('account_id', $accountIds))
+            ->when(! empty($accountIds), fn ($builder) => $builder->whereIn('account_id', $accountIds))
             ->whereNull('deleted_at')
             ->selectRaw('account_id, COUNT(*) as total')
             ->groupBy('account_id')
@@ -1247,7 +1283,7 @@ class ReportController extends Controller
         $startDate = $request->get('start_date');
         $endDate = $request->get('end_date');
 
-        if (!$startDate || !$endDate) {
+        if (! $startDate || ! $endDate) {
             throw new HttpResponseException(ApiResponse::error(
                 'INVALID_DATE_RANGE',
                 'Custom date range requires start_date and end_date in YYYY-MM-DD format.',
@@ -1272,7 +1308,7 @@ class ReportController extends Controller
             ->filter()
             ->min();
 
-        if (!$minDate) {
+        if (! $minDate) {
             return [null, null];
         }
 
@@ -1310,7 +1346,7 @@ class ReportController extends Controller
         }
 
         if ($user && $user->role !== 'super_admin') {
-            if (!empty($user->account_id)) {
+            if (! empty($user->account_id)) {
                 $query->where('account_id', $user->account_id);
             } else {
                 $query->whereHas('merchant.users', function (Builder $builder) use ($user) {
@@ -1363,7 +1399,7 @@ class ReportController extends Controller
         }
 
         if ($user && $user->role !== 'super_admin') {
-            if (!empty($user->account_id)) {
+            if (! empty($user->account_id)) {
                 return $query->where('account_id', $user->account_id);
             }
 
@@ -1382,7 +1418,7 @@ class ReportController extends Controller
         }
 
         if ($user && $user->role !== 'super_admin') {
-            if (!empty($user->account_id)) {
+            if (! empty($user->account_id)) {
                 return $query->where('account_id', $user->account_id);
             }
 
@@ -1404,7 +1440,7 @@ class ReportController extends Controller
         }
 
         if ($user && $user->role !== 'super_admin') {
-            if (!empty($user->account_id)) {
+            if (! empty($user->account_id)) {
                 return $query->where('account_id', $user->account_id);
             }
 
@@ -1426,7 +1462,7 @@ class ReportController extends Controller
         }
 
         if ($user && $user->role !== 'super_admin') {
-            if (!empty($user->account_id)) {
+            if (! empty($user->account_id)) {
                 return $query->where('account_id', $user->account_id);
             }
 
@@ -1471,7 +1507,7 @@ class ReportController extends Controller
         }
 
         if ($user && $user->role !== 'super_admin') {
-            if (!empty($user->account_id)) {
+            if (! empty($user->account_id)) {
                 return $query->where('account_id', $user->account_id);
             }
 
@@ -1513,7 +1549,7 @@ class ReportController extends Controller
 
         $map = [];
         foreach ($visits as $visit) {
-            $key = $visit->shipment_id . ':' . $visit->location_id;
+            $key = $visit->shipment_id.':'.$visit->location_id;
             $map[$key] = [
                 'activity' => (new VehicleActivityResource($visit))->toArray($request),
                 'time_in' => $visit->entered_at ? Carbon::parse($visit->entered_at)->toIso8601String() : null,
@@ -1551,7 +1587,7 @@ class ReportController extends Controller
 
         $map = [];
         foreach ($activities as $activity) {
-            $key = $activity->shipment_id . ':' . $activity->event_type;
+            $key = $activity->shipment_id.':'.$activity->event_type;
             $map[$key] = [
                 'activity' => (new VehicleActivityResource($activity))->toArray($request),
                 'time_in' => $activity->entered_at ? Carbon::parse($activity->entered_at)->toIso8601String() : null,
@@ -1582,7 +1618,7 @@ class ReportController extends Controller
                 $formatted = number_format($total, 3, '.', '');
                 $formatted = rtrim(rtrim($formatted, '0'), '.');
 
-                return $formatted . ' ' . $measurement;
+                return $formatted.' '.$measurement;
             })
             ->filter()
             ->values();

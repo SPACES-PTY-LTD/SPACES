@@ -302,6 +302,37 @@ export type ShipmentsByLocationReportResponse = {
   error?: unknown
 }
 
+export type VehicleDailyKpiMetrics = {
+  speed_violations: number
+  runs: number
+  shipments: number
+  total_stops: number
+  unknown_location_stops: number
+  invoiced_shipments: number
+}
+
+export type VehicleDailyKpiRow = {
+  vehicle_id: string
+  registration: string
+  days: Record<string, VehicleDailyKpiMetrics>
+}
+
+export type VehiclesDailyKpiReportResponse = {
+  success: boolean
+  data: VehicleDailyKpiRow[]
+  meta?: {
+    request_id?: string
+    year: number
+    month: number
+    month_label: string
+    days_in_month: number
+    current_local_date: string
+    available_years: number[]
+    timezone: string
+  }
+  error?: unknown
+}
+
 export async function getCreatedOverTime(
   dateRange: string,
   token?: string | null,
@@ -388,6 +419,16 @@ export async function getShipmentsByLocationReport(
   token?: string | null
 ) {
   return apiFetch<ShipmentsByLocationReportResponse>("/api/v1/reports/shipments-by-location", {
+    token,
+    params,
+  })
+}
+
+export async function getVehiclesDailyKpiReport(
+  params: { merchant_id?: string; year: number; month: number; only_with_data?: boolean },
+  token?: string | null
+) {
+  return apiFetch<VehiclesDailyKpiReportResponse>("/api/v1/reports/vehicles-daily-kpi", {
     token,
     params,
   })
