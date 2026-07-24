@@ -1085,6 +1085,27 @@ export interface VehicleActivity {
       is_active?: boolean
     } | null
   } | null
+  monitoring?: {
+    status: "at_location" | "standby" | "in_transit" | "unknown"
+    since_at?: string | null
+    location?: {
+      location_id?: UUID
+      name?: string | null
+      company?: string | null
+      code?: string | null
+      type?: {
+        icon?: string | null
+        slug?: string | null
+        title?: string | null
+      } | null
+      full_address?: string | null
+      city?: string | null
+      province?: string | null
+      country?: string | null
+    } | null
+    source_activity_id?: UUID | null
+    source_event_type?: VehicleActivityEventType | null
+  }
   location_id?: UUID | null
   location?: {
     location_id?: UUID

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\VehicleActivity;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -11,6 +12,9 @@ class VehicleLatestActivityCheckResource extends JsonResource
     {
         $activity = $this->relationLoaded('latestVehicleActivity')
             ? $this->getRelation('latestVehicleActivity')
+            : null;
+        $monitoringActivity = $this->relationLoaded('latestMonitoringActivity')
+            ? $this->getRelation('latestMonitoringActivity')
             : null;
         $merchant = $this->relationLoaded('resolvedMerchant')
             ? $this->getRelation('resolvedMerchant')
@@ -25,6 +29,17 @@ class VehicleLatestActivityCheckResource extends JsonResource
         $fleetStatus = $this->maintenance_mode_at !== null
             ? 'maintenance'
             : (((int) ($this->qualifying_active_runs_count ?? 0)) > 0 ? 'active' : 'standby');
+        $monitoringIsExit = $monitoringActivity?->event_type === VehicleActivity::EVENT_EXITED_LOCATION
+            || ($monitoringActivity?->event_type === VehicleActivity::EVENT_ENTERED_LOCATION && $monitoringActivity?->exited_at !== null);
+        $monitoringSince = $monitoringIsExit
+            ? ($monitoringActivity?->exited_at ?? $monitoringActivity?->occurred_at ?? $monitoringActivity?->created_at)
+            : ($monitoringActivity?->entered_at ?? $monitoringActivity?->occurred_at ?? $monitoringActivity?->created_at);
+        $monitoringStatus = match (true) {
+            $monitoringActivity === null => 'unknown',
+            $monitoringIsExit => 'in_transit',
+            $monitoringSince?->lte(now()->subHours(48)) => 'standby',
+            default => 'at_location',
+        };
 
         return [
             'activity_id' => $activity?->uuid,
@@ -51,6 +66,27 @@ class VehicleLatestActivityCheckResource extends JsonResource
                     'intergration_id' => $lastDriver->intergration_id,
                     'is_active' => (bool) $lastDriver->is_active,
                 ] : null,
+            ],
+            'monitoring' => [
+                'status' => $monitoringStatus,
+                'since_at' => optional($monitoringSince)?->toIso8601String(),
+                'location' => $monitoringActivity?->location ? [
+                    'location_id' => $monitoringActivity->location->uuid,
+                    'name' => $monitoringActivity->location->name,
+                    'company' => $monitoringActivity->location->company,
+                    'code' => $monitoringActivity->location->code,
+                    'type' => $monitoringActivity->location->locationType ? [
+                        'title' => $monitoringActivity->location->locationType->title,
+                        'slug' => $monitoringActivity->location->locationType->slug,
+                        'icon' => $monitoringActivity->location->locationType->icon,
+                    ] : null,
+                    'full_address' => $monitoringActivity->location->full_address,
+                    'city' => $monitoringActivity->location->city,
+                    'province' => $monitoringActivity->location->province,
+                    'country' => $monitoringActivity->location->country,
+                ] : null,
+                'source_activity_id' => $monitoringActivity?->uuid,
+                'source_event_type' => $monitoringActivity?->event_type,
             ],
             'location' => $activity?->location ? [
                 'location_id' => $activity->location->uuid,

@@ -20,6 +20,34 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-07-24 | Version: unreleased
+
+### Summary
+- Replaced shipment-monitoring vehicle placement with time-based location-transition classification.
+
+### API Changes
+- Added an additive `monitoring` object to `GET /api/v1/vehicles/latest-activity-check` with the resolved status, state timestamp, current or last location, and source transition details.
+- Existing latest activity and `vehicle.fleet_status` fields remain available for compatibility.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Vehicles remain at their entered location for less than 48 hours and move to Standby vehicles at 48 hours.
+- Vehicles remain in transit after exiting a location until a later location entry, regardless of run status or transit age.
+- Vehicles without location-transition history appear under Unknown location vehicles.
+- Unrelated activity events no longer override the vehicle's physical monitoring placement.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/VehicleLatestActivityCheckTest.php`
+- `vendor/bin/pint --test app/Services/VehicleActivityService.php app/Http/Resources/VehicleLatestActivityCheckResource.php tests/Feature/VehicleLatestActivityCheckTest.php`
+- `npm run lint -- src/app/admin/logistics/shipments/monitoring/page.tsx src/app/admin/logistics/shipments/monitoring/types.ts src/app/admin/logistics/shipments/monitoring/components/activity-scene.tsx src/components/vehicles/vehicle-location-map.tsx src/lib/types.ts`
+- `npm run build`
+- `git diff --check`
+
 ## 2026-07-23 | Version: unreleased
 
 ### Summary

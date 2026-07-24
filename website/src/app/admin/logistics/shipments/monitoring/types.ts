@@ -64,6 +64,8 @@ export type TruckRender = {
   plateNumber: string;
   locationId: string;
   locationLabel?: string;
+  monitoringLocationId?: string | null;
+  monitoringLocationLabel?: string | null;
   slot: number;
   status: TruckStatus;
   changedAt: number;

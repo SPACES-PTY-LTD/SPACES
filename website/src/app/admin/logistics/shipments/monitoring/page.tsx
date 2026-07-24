@@ -117,29 +117,6 @@ function isExitedLocationEvent(eventType?: string): boolean {
   return (eventType ?? "").toLowerCase() === "exited_location";
 }
 
-function classifyActivityPlacement(activity: VehicleActivity): "location" | "road" | "unknown" {
-  if (Boolean(activity.location?.location_id) && !isExitedLocationEvent(activity.event_type)) {
-    return "location";
-  }
-
-  const hasRoadSignal = Boolean(
-    activity.event_type ??
-      activity.location?.location_id ??
-      activity.latitude ??
-      activity.longitude ??
-      activity.speed_kph ??
-      activity.speed_limit_kph ??
-      activity.occurred_at ??
-      activity.created_at
-  );
-
-  return hasRoadSignal ? "road" : "unknown";
-}
-
-function hasActiveRun(activity: VehicleActivity): boolean {
-  return activity.vehicle?.fleet_status === "active";
-}
-
 function isTruckSpeeding(truck: Pick<TruckRender, "speedKph" | "speedLimitKph">): boolean {
   return (
     truck.speedKph !== null &&
@@ -520,107 +497,17 @@ export default function VirtualWarehousePage() {
       });
 
       if (cancelled) return;
-      if (isApiErrorResponse(response)) {
-        const now = Date.now();
-        const fallbackParking: TruckRender[] = [];
-        const fallbackStandby: TruckRender[] = [];
-        const fallbackLocationDetailsById = new Map<
-          string,
-          Pick<LocationNode, "label" | "company" | "fullAddress" | "city" | "province" | "country" | "meshType">
-        >();
-        const fallbackRoadSlots = (allVehiclesResponse.data ?? []).reduce<Array<TruckRender | null>>(
-          (acc, item) => {
-            const key = getVehicleKey(item);
-            if (!key) return acc;
-
-            const truck = buildTruckFromActivity(item, now);
-            const placement = classifyActivityPlacement(item);
-            if (hasActiveRun(item) && placement !== "location") {
-              return assignTruckToEarliestRoadPlaceholder(acc, truck);
-            }
-            if (item.vehicle?.fleet_status === "standby" && placement !== "location") {
-              fallbackStandby.push({
-                ...truck,
-                locationId: "PARKING_STANDBY",
-                locationLabel: "Standby vehicles",
-                slot: fallbackStandby.length,
-                status: "parked",
-                changedAt: now
-              });
-              return acc;
-            }
-            if (placement === "unknown") {
-              fallbackParking.push({
-                ...truck,
-                locationId: "PARKING_UNKNOWN",
-                locationLabel: "Unknown location parking",
-                slot: fallbackParking.length,
-                status: "parked",
-                changedAt: now
-              });
-              return acc;
-            }
-
-            if (placement === "road") {
-              return assignTruckToEarliestRoadPlaceholder(acc, truck);
-            }
-
-            return acc;
-          },
-          createRoadPlaceholders(BASE_ROAD_SLOT_COUNT)
-        );
-        
-        const fallbackTrucks = (allVehiclesResponse.data ?? []).reduce<Record<string, TruckRender>>((acc, item) => {
-          const key = getVehicleKey(item);
-          if (!key) return acc;
-          if (classifyActivityPlacement(item) !== "location") {
-            return acc;
-          }
-
-          const truck = buildTruckFromActivity(item, now);
-          const resolvedLocationId = String(item.location?.location_id);
-          fallbackLocationDetailsById.set(resolvedLocationId, buildLocationDetails(item));
-          const usedSlots = new Set(
-            Object.values(acc)
-              .filter((existingTruck) => existingTruck.locationId === resolvedLocationId)
-              .map((existingTruck) => existingTruck.slot)
-          );
-          let slot = 0;
-          while (usedSlots.has(slot)) slot += 1;
-
-          acc[truck.truckId] = {
-            ...truck,
-            locationId: resolvedLocationId,
-            slot
-          };
-          return acc;
-        }, {});
-
-        setRoadSlots(fallbackRoadSlots);
-        setTrucks(fallbackTrucks);
-        setParkingTrucks(fallbackParking);
-        setStandbyTrucks(fallbackStandby);
-        setLocations((prevLocations) =>
-          syncLocationsFromTrucks(prevLocations, fallbackTrucks).map((location) => {
-            if (location.meshType === "placeholder") return location;
-            const details = fallbackLocationDetailsById.get(location.locationId);
-            if (!details) return location;
-            return { ...location, ...details };
-          })
-        );
-        setLatest(null);
-        setHistory([]);
-        setApiError(response.message);
-        return;
-      }
-
-      const latestByVehicle = getLatestActivityPerVehicle(response.data ?? []);
+      const latestByVehicle = isApiErrorResponse(response) ? [] : getLatestActivityPerVehicle(response.data ?? []);
+      const activityDetailsByVehicle = new Map(
+        latestByVehicle.flatMap((activity) => {
+          const key = getVehicleKey(activity);
+          return key ? [[String(key), activity] as const] : [];
+        })
+      );
       const now = Date.now();
       const nextTrucks: Record<string, TruckRender> = {};
       const parkingByVehicleKey = new Map<string, TruckRender>();
       const standbyByVehicleKey = new Map<string, TruckRender>();
-      const standbyVehicleKeys = new Set<string>();
-      const activeRunVehicleKeys = new Set<string>();
       const roadByVehicleKey = new Map<string, TruckRender>();
       const locationSlots = new Map<string, number>();
       const locationDetailsById = new Map<
@@ -632,21 +519,39 @@ export default function VirtualWarehousePage() {
         const key = getVehicleKey(activity);
         if (!key) continue;
         const resolvedKey = String(key);
-        const placement = classifyActivityPlacement(activity);
-        if (hasActiveRun(activity)) {
-          activeRunVehicleKeys.add(resolvedKey);
-          if (placement !== "location") {
-            roadByVehicleKey.set(resolvedKey, buildTruckFromActivity(activity, now));
-          }
+        const monitoring = activity.monitoring;
+        const detail = activityDetailsByVehicle.get(resolvedKey);
+        const displayActivity: VehicleActivity = {
+          ...activity,
+          ...detail,
+          vehicle: activity.vehicle,
+          monitoring,
+          location: monitoring?.location ?? null,
+          event_type: monitoring?.source_event_type ?? undefined,
+          occurred_at: monitoring?.since_at ?? activity.occurred_at
+        };
+        const monitoringLocationId = monitoring?.location?.location_id ?? null;
+        const monitoringLocationLabel = monitoring?.location
+          ? buildLocationDetails(displayActivity).label
+          : null;
+        const truck = {
+          ...buildTruckFromActivity(displayActivity, now),
+          monitoringLocationId,
+          monitoringLocationLabel
+        };
+
+        if (monitoring?.status === "in_transit") {
+          roadByVehicleKey.set(resolvedKey, {
+            ...truck,
+            locationId: "ON_ROAD",
+            locationLabel: "On road"
+          });
           continue;
         }
-        if (
-          activity.vehicle?.fleet_status === "standby" &&
-          placement !== "location"
-        ) {
-          standbyVehicleKeys.add(resolvedKey);
+
+        if (monitoring?.status === "standby") {
           standbyByVehicleKey.set(resolvedKey, {
-            ...buildTruckFromActivity(activity, now),
+            ...truck,
             locationId: "PARKING_STANDBY",
             locationLabel: "Standby vehicles",
             slot: 0,
@@ -655,43 +560,20 @@ export default function VirtualWarehousePage() {
           });
           continue;
         }
-        if (placement !== "unknown") continue;
-        parkingByVehicleKey.set(resolvedKey, {
-          ...buildTruckFromActivity(activity, now),
-          locationId: "PARKING_UNKNOWN",
-          locationLabel: "Unknown location parking",
-          slot: 0,
-          status: "parked",
-          changedAt: now
-        });
-      }
 
-      for (const activity of latestByVehicle) {
-        const activityVehicleKey = getVehicleKey(activity);
-        const resolvedActivityVehicleKey = activityVehicleKey ? String(activityVehicleKey) : null;
-        const placement = classifyActivityPlacement(activity);
-        if (resolvedActivityVehicleKey && standbyVehicleKeys.has(resolvedActivityVehicleKey)) {
-          if (placement !== "location") continue;
-          standbyVehicleKeys.delete(resolvedActivityVehicleKey);
-          standbyByVehicleKey.delete(resolvedActivityVehicleKey);
-        }
-        if (resolvedActivityVehicleKey) {
-          parkingByVehicleKey.delete(resolvedActivityVehicleKey);
-          roadByVehicleKey.delete(resolvedActivityVehicleKey);
-        }
-        const truck = buildTruckFromActivity(activity, now);
-        const locationId = activity.location?.location_id;
-        if (!locationId || isExitedLocationEvent(activity.event_type)) {
-          if (
-            resolvedActivityVehicleKey &&
-            activeRunVehicleKeys.has(resolvedActivityVehicleKey)
-          ) {
-            roadByVehicleKey.set(resolvedActivityVehicleKey, truck);
-          }
+        if (monitoring?.status !== "at_location" || !monitoringLocationId) {
+          parkingByVehicleKey.set(resolvedKey, {
+            ...truck,
+            locationId: "PARKING_UNKNOWN",
+            locationLabel: "Unknown location parking",
+            slot: 0,
+            status: "parked",
+            changedAt: now
+          });
           continue;
         }
 
-        const resolvedLocationId = String(locationId);
+        const resolvedLocationId = String(monitoringLocationId);
         const nextSlot = locationSlots.get(resolvedLocationId) ?? 0;
         locationSlots.set(resolvedLocationId, nextSlot + 1);
         nextTrucks[truck.truckId] = {
@@ -699,7 +581,7 @@ export default function VirtualWarehousePage() {
           locationId: resolvedLocationId,
           slot: nextSlot
         };
-        locationDetailsById.set(resolvedLocationId, buildLocationDetails(activity));
+        locationDetailsById.set(resolvedLocationId, buildLocationDetails(displayActivity));
       }
 
       const nextParkingTrucks = Array.from(parkingByVehicleKey.values()).map((truck, index) => ({
@@ -731,7 +613,7 @@ export default function VirtualWarehousePage() {
       const nextHistory = latestByVehicle.slice(0, 50).map(buildEventFromActivity);
       setLatest(nextHistory[0] ?? null);
       setHistory(nextHistory);
-      setApiError(null);
+      setApiError(isApiErrorResponse(response) ? response.message : null);
     };
 
     run();
@@ -1167,7 +1049,9 @@ export default function VirtualWarehousePage() {
 	                    selectedTruck.plateNumber
 	                  )}
 	                  {" • "}
-	                  {selectedTruck.locationId !== "ON_ROAD" && selectedTruck.locationId !== "PARKING_UNKNOWN" ? (
+	                  {selectedTruck.locationId !== "ON_ROAD" &&
+                    selectedTruck.locationId !== "PARKING_UNKNOWN" &&
+                    selectedTruck.locationId !== "PARKING_STANDBY" ? (
                       <button
                         type="button"
                         onClick={() => openLocationDialog(selectedTruck.locationId)}
@@ -1179,6 +1063,22 @@ export default function VirtualWarehousePage() {
 	                    selectedTruck.locationLabel ?? selectedTruck.locationId
 	                  )}
 	                </div>
+                  {selectedTruck.locationId === "PARKING_STANDBY" && selectedTruck.monitoringLocationLabel ? (
+                    <div style={{ color: "#64748b" }}>
+                      Last location:{" "}
+                      {selectedTruck.monitoringLocationId ? (
+                        <button
+                          type="button"
+                          onClick={() => openLocationDialog(selectedTruck.monitoringLocationId)}
+                          style={detailButtonStyle}
+                        >
+                          {selectedTruck.monitoringLocationLabel}
+                        </button>
+                      ) : (
+                        selectedTruck.monitoringLocationLabel
+                      )}
+                    </div>
+                  ) : null}
 	                <div style={{ color: "#64748b" }}>
 	                  {selectedTruck.vehicleId ? (
 	                    <Link href={AdminRoute.vehicleDetails(selectedTruck.vehicleId)} style={detailLinkStyle}>

@@ -132,9 +132,44 @@ class VehicleActivityService
             ->get()
             ->keyBy('vehicle_id');
 
-        $vehicles->each(function (Vehicle $vehicle) use ($activities, $merchant) {
+        $latestTransitionOccurredAtSub = VehicleActivity::query()
+            ->selectRaw('vehicle_id, MAX(occurred_at) as latest_occurred_at')
+            ->where('merchant_id', $merchant->id)
+            ->whereIn('vehicle_id', $vehicleIds)
+            ->whereIn('event_type', [
+                VehicleActivity::EVENT_ENTERED_LOCATION,
+                VehicleActivity::EVENT_EXITED_LOCATION,
+            ])
+            ->groupBy('vehicle_id')
+            ->toBase();
+
+        $latestTransitionIdSub = VehicleActivity::query()
+            ->from('vehicle_activity as latest_transition_candidates')
+            ->selectRaw('latest_transition_candidates.vehicle_id, MAX(latest_transition_candidates.id) as latest_activity_id')
+            ->joinSub($latestTransitionOccurredAtSub, 'latest_transition_occurred_at', function ($join) {
+                $join->on('latest_transition_occurred_at.vehicle_id', '=', 'latest_transition_candidates.vehicle_id')
+                    ->on('latest_transition_occurred_at.latest_occurred_at', '=', 'latest_transition_candidates.occurred_at');
+            })
+            ->whereIn('latest_transition_candidates.event_type', [
+                VehicleActivity::EVENT_ENTERED_LOCATION,
+                VehicleActivity::EVENT_EXITED_LOCATION,
+            ])
+            ->groupBy('latest_transition_candidates.vehicle_id')
+            ->toBase();
+
+        $monitoringActivities = VehicleActivity::query()
+            ->select('vehicle_activity.*')
+            ->joinSub($latestTransitionIdSub, 'latest_monitoring_activity', function ($join) {
+                $join->on('latest_monitoring_activity.latest_activity_id', '=', 'vehicle_activity.id');
+            })
+            ->with('location.locationType')
+            ->get()
+            ->keyBy('vehicle_id');
+
+        $vehicles->each(function (Vehicle $vehicle) use ($activities, $monitoringActivities, $merchant) {
             $vehicle->setRelation('resolvedMerchant', $merchant);
             $vehicle->setRelation('latestVehicleActivity', $activities->get($vehicle->id));
+            $vehicle->setRelation('latestMonitoringActivity', $monitoringActivities->get($vehicle->id));
         });
 
         return $vehicles;
