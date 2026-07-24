@@ -43,6 +43,8 @@ Add new entries at the top (newest first).
 - KPI drill-down entries now show location names in a dedicated column, including names from soft-deleted historical locations.
 - Known-location stops now require the activity's `location_id` to resolve to an existing location record, including soft-deleted historical records.
 - Unknown-location stop drill-down entries now show latitude and longitude as links that open the position in Google Maps in a new tab.
+- Known-location names in the KPI drill-down now open the existing location information dialog without leaving the report.
+- The shipment tracking map and stop activity timeline are capped at 480px high, with long activity timelines using the shadcn Scroll Area component.
 
 ### Breaking Changes
 - None.

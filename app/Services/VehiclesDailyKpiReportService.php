@@ -179,6 +179,7 @@ class VehiclesDailyKpiReportService
                 'latitude' => $activity->latitude !== null ? (float) $activity->latitude : null,
                 'longitude' => $activity->longitude !== null ? (float) $activity->longitude : null,
                 'location' => $activity->location?->name ?? $activity->location?->code,
+                'location_id' => $activity->location?->uuid,
                 'run_id' => $activity->run?->uuid,
                 'shipment_id' => $activity->shipment?->uuid,
                 'shipment_reference' => $activity->shipment?->merchant_order_ref,

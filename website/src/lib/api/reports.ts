@@ -344,6 +344,7 @@ export type VehicleDailyKpiEntry = {
   latitude?: number | null
   longitude?: number | null
   location?: string | null
+  location_id?: string | null
   run_id?: string | null
   shipment_id?: string | null
   shipment_reference?: string | null

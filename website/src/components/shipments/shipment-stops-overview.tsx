@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   Dialog,
@@ -483,7 +484,7 @@ export function ShipmentStopsOverview({
 
   return (
     <>
-      <div className="flex-1 flex">
+      <div className="flex h-[480px] max-h-[480px] min-h-0 flex-1">
 
         {loadError ? (
           <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
@@ -496,7 +497,7 @@ export function ShipmentStopsOverview({
             We can only show the shipment route map when stop coordinates are available.
           </div>
         ) : (
-        <div ref={mapRef} className="min-h-[420px] rounded-lg flex-1 w-full bg-muted/30" />
+        <div ref={mapRef} className="h-full min-h-0 w-full flex-1 rounded-lg bg-muted/30" />
         )}
 
         {loadingMap && mappedStops.length > 0 && !loadError ? (
@@ -504,16 +505,17 @@ export function ShipmentStopsOverview({
         ) : null}
       </div>
 
-      <Card id="stops_card" className="h-full py-3">
-        <CardContent className="space-y-4 px-3 text-sm">
+      <Card id="stops_card" className="h-[480px] max-h-[480px] overflow-hidden py-3">
+        <CardContent className="h-full overflow-hidden px-3 text-sm">
 
           {orderedStops.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border/70 p-6 bg-muted/30 text-muted-foreground">
               No stop activity is available for this shipment yet.
             </div>
           ) : (
-            <div className="space-y-0">
-              {orderedStops.map((stop, index) => {
+            <ScrollArea className="h-full pr-3">
+              <div className="space-y-0">
+                {orderedStops.map((stop, index) => {
                 const active = stop.stopKey === selectedStopKey
                 const hovered = stop.stopKey === hoveredStopKey
                 return (
@@ -587,8 +589,9 @@ export function ShipmentStopsOverview({
                     </div>
                   </button>
                 )
-              })}
-            </div>
+                })}
+              </div>
+            </ScrollArea>
           )}
         </CardContent>
       </Card>

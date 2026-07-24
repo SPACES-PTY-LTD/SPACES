@@ -22,6 +22,7 @@ import {
   type VehiclesDailyKpiEntriesResponse,
 } from "@/lib/api/reports"
 import { AdminRoute } from "@/lib/routes/admin"
+import { LocationMapDialog } from "@/components/dashboard/location-map-dialog"
 import Link from "next/link"
 
 const MONTHS = [
@@ -80,6 +81,7 @@ export function VehiclesDailyKpiReport({
   const [drilldownResponse, setDrilldownResponse] = React.useState<VehiclesDailyKpiEntriesResponse | null>(null)
   const [drilldownError, setDrilldownError] = React.useState<string | null>(null)
   const [drilldownLoading, setDrilldownLoading] = React.useState(false)
+  const [selectedLocationId, setSelectedLocationId] = React.useState<string | null>(null)
   const [currentYear, currentMonth] = currentLocalDate.split("-").map(Number)
   const frozenEdgeShadow = isHorizontallyScrolled
     ? "shadow-[8px_0_10px_-8px_rgba(0,0,0,0.45)]"
@@ -317,6 +319,14 @@ export function VehiclesDailyKpiReport({
                               {coordinatesLabel}
                               <span className="sr-only"> (opens in a new tab)</span>
                             </a>
+                          ) : entry.location && entry.location_id ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLocationId(entry.location_id ?? null)}
+                              className="text-left text-primary underline-offset-4 hover:underline"
+                            >
+                              {entry.location}
+                            </button>
                           ) : entry.location ?? "-"}
                         </td>
                         <td className="px-3 py-2">{details}</td>
@@ -340,6 +350,14 @@ export function VehiclesDailyKpiReport({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LocationMapDialog
+        open={Boolean(selectedLocationId)}
+        locationId={selectedLocationId}
+        accessToken={accessToken}
+        merchantId={merchantId}
+        onOpenChange={(open) => { if (!open) setSelectedLocationId(null) }}
+      />
     </div>
   )
 }
