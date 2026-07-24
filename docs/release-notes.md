@@ -40,6 +40,7 @@ Add new entries at the top (newest first).
 - The frozen vehicle and KPI columns gain an edge shadow while the daily columns are horizontally scrolled.
 - Non-zero KPI values open an on-demand modal showing the exact activities, runs, or shipments behind the count.
 - Replaced `total_stops` with `known_location_stops`, displayed as “Stops at known Locations” and counting saved-location arrivals from linked `entered_location` activities while unknown stops remain unlinked stopped telemetry events.
+- KPI drill-down entries now show location names in a dedicated column, including names from soft-deleted historical locations.
 
 ### Breaking Changes
 - None.

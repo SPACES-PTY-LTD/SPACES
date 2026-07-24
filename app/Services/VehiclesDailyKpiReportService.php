@@ -144,7 +144,11 @@ class VehiclesDailyKpiReportService
 
         if (in_array($metric, ['speed_violations', 'known_location_stops', 'unknown_location_stops'], true)) {
             $query = VehicleActivity::query()
-                ->with(['location', 'run.driver.user', 'shipment'])
+                ->with([
+                    'location' => fn ($builder) => $builder->withTrashed(),
+                    'run.driver.user',
+                    'shipment',
+                ])
                 ->where('merchant_id', $merchant->id)
                 ->where('vehicle_id', $vehicle->id)
                 ->whereBetween('occurred_at', [$from, $to])

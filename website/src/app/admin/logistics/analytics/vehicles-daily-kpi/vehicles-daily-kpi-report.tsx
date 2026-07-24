@@ -279,6 +279,7 @@ export function VehiclesDailyKpiReport({
                     <th className="px-3 py-2 text-left">Reference</th>
                     <th className="px-3 py-2 text-left">Date / time</th>
                     <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-left">Location</th>
                     <th className="px-3 py-2 text-left">Details</th>
                     <th className="px-3 py-2 text-left">Run</th>
                   </tr>
@@ -287,7 +288,7 @@ export function VehiclesDailyKpiReport({
                   {drilldownResponse.data.map((entry) => {
                     const href = entryHref(entry)
                     const details = entry.entry_type === "activity"
-                      ? [entry.speed_kph != null ? `${entry.speed_kph} km/h` : null, entry.speed_limit_kph != null ? `limit ${entry.speed_limit_kph} km/h` : null, entry.location || "Unknown location"].filter(Boolean).join(" · ")
+                      ? [entry.speed_kph != null ? `${entry.speed_kph} km/h` : null, entry.speed_limit_kph != null ? `limit ${entry.speed_limit_kph} km/h` : null].filter(Boolean).join(" · ") || "-"
                       : entry.entry_type === "run"
                         ? [entry.driver || "No driver", `${entry.shipment_count ?? 0} shipments`].join(" · ")
                         : [entry.invoice_number ? `Invoice ${entry.invoice_number}` : null].filter(Boolean).join(" · ") || "-"
@@ -298,6 +299,7 @@ export function VehiclesDailyKpiReport({
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">{formatDateTime(entry.occurred_at)}</td>
                         <td className="px-3 py-2 capitalize">{entry.status?.replaceAll("_", " ") ?? "-"}</td>
+                        <td className="px-3 py-2">{entry.location ?? "-"}</td>
                         <td className="px-3 py-2">{details}</td>
                         <td className="px-3 py-2 font-mono text-xs">{entry.run_id ?? "-"}</td>
                       </tr>
