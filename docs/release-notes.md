@@ -23,6 +23,29 @@ Add new entries at the top (newest first).
 ## 2026-07-24 | Version: unreleased
 
 ### Summary
+- Replaced the dashboard Live bookings map with a Vehicles in transit map.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The dashboard map now loads vehicles from `GET /api/v1/vehicles/latest-activity-check` and only displays vehicles whose monitoring status is `in_transit`.
+- The map reports both total in-transit vehicles and how many have coordinates, and shipment-linked markers continue to open shipment details.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `npm run lint -- src/components/dashboard/mapped-bookings-map-card.tsx src/components/dashboard/live-bookings-map-section.tsx src/lib/api/vehicle-activities.ts`
+- `npm run build`
+- `git diff --check`
+
+## 2026-07-24 | Version: unreleased
+
+### Summary
 - Aligned the fleet-status report and dashboard chart with location-transition monitoring states.
 
 ### API Changes

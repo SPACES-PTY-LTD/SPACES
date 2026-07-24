@@ -7,55 +7,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { loadGoogleMaps } from "@/lib/googleMapsLoader"
-import { cn } from "@/lib/utils"
 import { isApiErrorResponse } from "@/lib/api/client"
-import {
-  getMappedBookings,
-  type MappedBookingsReport,
-} from "@/lib/api/reports"
+import { listAllVehiclesCheck } from "@/lib/api/vehicle-activities"
+import type { VehicleActivity } from "@/lib/types"
 
 type LatLngLiteral = google.maps.LatLngLiteral
 
 type MarkerEntry = {
-  bookingId: string
+  vehicleId: string
   shipmentId?: string
   marker: google.maps.Marker
-  color: string
 }
 
 const fallbackCenter: LatLngLiteral = { lat: -26.2041, lng: 28.0473 }
 const defaultZoom = 10
 const selectedMarkerZoom = 14
 
-const STATUS_CONFIG: Record<
-  string,
-  { color: string; label: string }
-> = {
-  booked: { color: "#f59e0b", label: "Booked" },
-  in_transit: { color: "#06b6d4", label: "In transit" },
-  delivered: { color: "#10b981", label: "Delivered" },
-  cancelled: { color: "#78716c", label: "Cancelled" },
-  failed: { color: "#ef4444", label: "Failed" },
-}
-
-const EMPTY_REPORT: MappedBookingsReport = {
-  data: [],
-  meta: {
-    counts_by_status: {},
-    total: 0,
-  },
-}
-
-function getStatusConfig(status?: string | null) {
-  if (!status) {
-    return { color: "#000000", label: "Unknown" }
-  }
-
-  return STATUS_CONFIG[status] ?? {
-    color: "#64748b",
-    label: status.replace(/_/g, " ").replace(/^./, (value) => value.toUpperCase()),
-  }
-}
+const IN_TRANSIT_COLOR = "#06b6d4"
 
 function getMarkerIcon(color: string, selected: boolean) {
   const size = selected ? 23 : 16
@@ -97,13 +65,13 @@ export function MappedBookingsMapCard({
   const [searchValue, setSearchValue] = React.useState("")
   const deferredSearch = React.useDeferredValue(searchValue)
   const [loading, setLoading] = React.useState(false)
-  const [report, setReport] = React.useState<MappedBookingsReport>(EMPTY_REPORT)
+  const [vehicles, setVehicles] = React.useState<VehicleActivity[]>([])
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [mapError, setMapError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (!merchantId) {
-      setReport(EMPTY_REPORT)
+      setVehicles([])
       setLoadError(null)
       return
     }
@@ -114,25 +82,28 @@ export function MappedBookingsMapCard({
       setLoading(true)
       setLoadError(null)
 
-      const response = await getMappedBookings(
-        {
-          merchant_id: merchantId,
-          search: deferredSearch.trim() || undefined,
-        },
-        accessToken
-      )
+      const response = await listAllVehiclesCheck(accessToken, {
+        merchant_id: merchantId,
+        plate_number: deferredSearch.trim() || undefined,
+        page: 1,
+        per_page: 500,
+      })
 
       if (!active) return
 
       if (isApiErrorResponse(response)) {
         setLoadError(response.message)
-        setReport(EMPTY_REPORT)
-        toast.error(response.message || "Failed to load mapped bookings.")
+        setVehicles([])
+        toast.error(response.message || "Failed to load vehicles in transit.")
         setLoading(false)
         return
       }
 
-      setReport(response)
+      setVehicles(
+        (response.data ?? []).filter(
+          (activity) => activity.monitoring?.status === "in_transit"
+        )
+      )
       setLoading(false)
     }
 
@@ -182,46 +153,43 @@ export function MappedBookingsMapCard({
     markersRef.current.forEach((entry) => entry.marker.setMap(null))
     markersRef.current = []
 
-    const points = report.data.filter(
+    const points = vehicles.filter(
       (item) =>
         typeof item.latitude === "number" && typeof item.longitude === "number"
     )
 
     markersRef.current = points.map((item) => {
-      const config = getStatusConfig(item.status)
+      const vehicleId = item.vehicle?.vehicle_id ?? item.vehicle_id ?? item.activity_id ?? "unknown-vehicle"
+      const plateNumber = item.vehicle?.plate_number ?? item.vehicle?.ref_code ?? vehicleId
+      const shipmentId = item.shipment?.shipment_id
       const marker = new google.maps.Marker({
         map: mapInstanceRef.current!,
         position: {
           lat: item.latitude!,
           lng: item.longitude!,
         },
-        title: item.merchant_order_ref ?? item.booking_id,
+        title: plateNumber,
       })
 
       const entry: MarkerEntry = {
-        bookingId: item.booking_id,
-        shipmentId: item.shipment_id ?? undefined,
+        vehicleId,
+        shipmentId,
         marker,
-        color: config.color,
       }
 
-      marker.setIcon(getMarkerIcon(config.color, item.shipment_id === selectedShipmentId))
+      marker.setIcon(getMarkerIcon(IN_TRANSIT_COLOR, shipmentId === selectedShipmentId))
 
       marker.addListener("click", () => {
-        if (!item.shipment_id) {
-          toast.error("This booking is not linked to a shipment.")
-          return
-        }
-        onSelectShipment?.(item.shipment_id)
+        if (shipmentId) onSelectShipment?.(shipmentId)
       })
 
       const details = [
         `<div style="min-width:180px">`,
-        `<div style="font-weight:600">${item.merchant_order_ref ?? item.booking_id}</div>`,
-        `<div style="margin-top:4px">Status: ${getStatusConfig(item.status).label}</div>`,
-        item.vehicle_label ? `<div>Vehicle: ${item.vehicle_label}</div>` : "",
-        item.driver_name ? `<div>Driver: ${item.driver_name}</div>` : "",
-        `<div style="margin-top:4px;color:#6b7280">${formatUpdatedAt(item.updated_at)}</div>`,
+        `<div style="font-weight:600">${plateNumber}</div>`,
+        `<div style="margin-top:4px">Status: In transit</div>`,
+        item.driver?.name ? `<div>Driver: ${item.driver.name}</div>` : "",
+        item.shipment?.merchant_order_ref ? `<div>Shipment: ${item.shipment.merchant_order_ref}</div>` : "",
+        `<div style="margin-top:4px;color:#6b7280">${formatUpdatedAt(item.occurred_at ?? item.created_at)}</div>`,
         `</div>`,
       ].join("")
       const infoWindow = new google.maps.InfoWindow({ content: details })
@@ -261,12 +229,12 @@ export function MappedBookingsMapCard({
       markersRef.current.forEach((entry) => entry.marker.setMap(null))
       markersRef.current = []
     }
-  }, [onSelectShipment, report.data, selectedShipmentId])
+  }, [onSelectShipment, selectedShipmentId, vehicles])
 
   React.useEffect(() => {
     markersRef.current.forEach((entry) => {
       entry.marker.setIcon(
-        getMarkerIcon(entry.color, entry.shipmentId === selectedShipmentId)
+        getMarkerIcon(IN_TRANSIT_COLOR, entry.shipmentId === selectedShipmentId)
       )
 
       if (
@@ -285,25 +253,16 @@ export function MappedBookingsMapCard({
     })
   }, [selectedShipmentId])
 
-  const countsByStatus = report.meta?.counts_by_status ?? {}
-  const summaryRows = Object.entries(countsByStatus)
-    .sort(([left], [right]) => {
-      if (left === "in_transit") return -1
-      if (right === "in_transit") return 1
-      return left.localeCompare(right)
-    })
-    .map(([status, count]) => ({
-      status,
-      count,
-      ...getStatusConfig(status),
-    }))
+  const mappedVehicleCount = vehicles.filter(
+    (vehicle) => typeof vehicle.latitude === "number" && typeof vehicle.longitude === "number"
+  ).length
 
   return (
     <Card className="p-0!">
       <CardHeader className="gap-3 p-3 pb-0">
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <CardTitle>Live bookings map</CardTitle>
+            <CardTitle>Vehicles in transit</CardTitle>
           </div>
           <div className="flex items-center gap-2 md:max-w-md w-1/3">
             <div className="relative flex-1">
@@ -331,7 +290,7 @@ export function MappedBookingsMapCard({
       <CardContent className="p-0!">
         {!merchantId ? (
           <div className="flex h-[320px] items-center justify-center text-sm text-muted-foreground">
-            Select a merchant to view live bookings on the map.
+            Select a merchant to view vehicles in transit on the map.
           </div>
         ) : mapError ? (
           <div className="flex h-[320px] items-center justify-center text-sm text-destructive">
@@ -346,32 +305,18 @@ export function MappedBookingsMapCard({
             <div className="relative overflow-hidden rounded-xl bg-muted/20">
               <div ref={mapRef} className="h-[330px] w-full" />
               <div className="absolute p-1 px-3 rounded-full top-1 right-1 z-50 bg-white text-xs text-black">
-                {loading ? "Loading map data..." : `${report.meta?.total ?? 0} mapped bookings`}
+                {loading ? "Loading map data..." : `${mappedVehicleCount} of ${vehicles.length} vehicles mapped`}
               </div>
               <div className="pointer-events-none absolute  bottom-0 p-3">
                 <div className="pointer-events-auto rounded-xl  bg-background/95 p-3 shadow-lg backdrop-blur">
-                  {summaryRows.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {summaryRows.map((item) => (
-                        <div
-                          key={item.status}
-                          className={cn(
-                            "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
-                          )}
-                        >
-                          <span
-                            className="h-2.5 w-2.5 rounded-full"
-                            style={{ backgroundColor: item.color }}
-                          />
-                          <span>
-                            {item.label} - {item.count}
-                          </span>
-                        </div>
-                      ))}
+                  {vehicles.length > 0 ? (
+                    <div className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: IN_TRANSIT_COLOR }} />
+                      <span>In transit - {vehicles.length}</span>
                     </div>
                   ) : (
                     <div className="text-xs text-muted-foreground">
-                      No active bookings matched the current filters.
+                      No vehicles in transit matched the current filters.
                     </div>
                   )}
                 </div>
