@@ -134,6 +134,7 @@ Route::prefix('v1')->group(function () {
         Route::get('reports/document-coverage', [ReportController::class, 'documentCoverage']);
         Route::get('reports/shipments-by-location', [ReportController::class, 'shipmentsByLocation']);
         Route::get('reports/vehicles-daily-kpi', [ReportController::class, 'vehiclesDailyKpi']);
+        Route::get('reports/vehicles-daily-kpi/entries', [ReportController::class, 'vehiclesDailyKpiEntries']);
         Route::get('reports/shipments_full_report', [ReportController::class, 'shipmentsFullReport']);
 
         Route::get('quotes', [QuoteController::class, 'index'])->middleware('merchant.context');

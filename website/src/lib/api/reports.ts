@@ -333,6 +333,43 @@ export type VehiclesDailyKpiReportResponse = {
   error?: unknown
 }
 
+export type VehicleDailyKpiEntry = {
+  entry_type: "activity" | "run" | "shipment"
+  entry_id: string
+  reference: string
+  occurred_at?: string | null
+  status?: string | null
+  speed_kph?: number | null
+  speed_limit_kph?: number | null
+  location?: string | null
+  run_id?: string | null
+  shipment_id?: string | null
+  shipment_reference?: string | null
+  driver?: string | null
+  shipment_count?: number
+  invoice_number?: string | null
+}
+
+export type VehiclesDailyKpiEntriesResponse = {
+  success: boolean
+  data: VehicleDailyKpiEntry[]
+  meta?: {
+    request_id?: string
+    current_page: number
+    per_page: number
+    total: number
+    last_page: number
+    vehicle_id: string
+    registration: string
+    date: string
+    date_label: string
+    metric: keyof VehicleDailyKpiMetrics
+    metric_label: string
+    timezone: string
+  }
+  error?: unknown
+}
+
 export async function getCreatedOverTime(
   dateRange: string,
   token?: string | null,
@@ -429,6 +466,25 @@ export async function getVehiclesDailyKpiReport(
   token?: string | null
 ) {
   return apiFetch<VehiclesDailyKpiReportResponse>("/api/v1/reports/vehicles-daily-kpi", {
+    token,
+    params,
+  })
+}
+
+export async function getVehiclesDailyKpiEntries(
+  params: {
+    merchant_id?: string
+    vehicle_id: string
+    year: number
+    month: number
+    day: number
+    metric: keyof VehicleDailyKpiMetrics
+    page?: number
+    per_page?: number
+  },
+  token?: string | null
+) {
+  return apiFetch<VehiclesDailyKpiEntriesResponse>("/api/v1/reports/vehicles-daily-kpi/entries", {
     token,
     params,
   })

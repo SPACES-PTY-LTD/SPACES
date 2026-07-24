@@ -10,6 +10,7 @@ use App\Http\Requests\FleetStatusReportRequest;
 use App\Http\Requests\MappedBookingsReportRequest;
 use App\Http\Requests\MissingDocumentsReportRequest;
 use App\Http\Requests\ShipmentsByLocationReportRequest;
+use App\Http\Requests\VehiclesDailyKpiEntriesRequest;
 use App\Http\Requests\VehiclesDailyKpiReportRequest;
 use App\Http\Resources\LocationResource;
 use App\Http\Resources\MappedBookingReportResource;
@@ -81,6 +82,47 @@ class ReportController extends Controller
             ]);
 
             return $this->apiError($e, 'VEHICLES_DAILY_KPI_FAILED', 'Unable to generate vehicles daily KPI report.');
+        }
+    }
+
+    public function vehiclesDailyKpiEntries(
+        VehiclesDailyKpiEntriesRequest $request,
+        VehiclesDailyKpiReportService $service
+    ) {
+        try {
+            $validated = $request->validated();
+            $environment = $request->attributes->get('merchant_environment');
+            $merchantQuery = $this->applyMerchantScope(Merchant::query(), $environment, $request->user());
+
+            if (! empty($validated['merchant_id'])) {
+                $merchantQuery->where('uuid', $validated['merchant_id']);
+            } elseif ($environment) {
+                $merchantQuery->whereKey($environment->merchant_id);
+            }
+
+            $merchant = $merchantQuery->firstOrFail();
+            $vehicle = Vehicle::query()
+                ->where('merchant_id', $merchant->id)
+                ->where('uuid', $validated['vehicle_id'])
+                ->firstOrFail();
+            $report = $service->entries(
+                $merchant,
+                $vehicle,
+                (int) $validated['year'],
+                (int) $validated['month'],
+                (int) $validated['day'],
+                $validated['metric'],
+                (int) ($validated['per_page'] ?? 25)
+            );
+
+            return ApiResponse::success($report['data'], $report['meta']);
+        } catch (Throwable $e) {
+            Log::error('Vehicles daily KPI entries failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->apiError($e, 'VEHICLES_DAILY_KPI_ENTRIES_FAILED', 'Unable to load vehicles daily KPI entries.');
         }
     }
 

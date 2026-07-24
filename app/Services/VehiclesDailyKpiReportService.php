@@ -10,9 +10,19 @@ use App\Models\Vehicle;
 use App\Models\VehicleActivity;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 class VehiclesDailyKpiReportService
 {
+    private const KPI_LABELS = [
+        'speed_violations' => 'Speed Violation > 80km/hr (Over Speed)',
+        'runs' => 'Runs',
+        'shipments' => 'Shipments',
+        'total_stops' => 'Total Stops',
+        'unknown_location_stops' => 'Stops at Unknown Locations',
+        'invoiced_shipments' => 'Invoiced Shipments',
+    ];
+
     private const KPI_KEYS = [
         'speed_violations',
         'runs',
@@ -115,6 +125,129 @@ class VehiclesDailyKpiReportService
                 'timezone' => $timezone,
             ],
         ];
+    }
+
+    public function entries(
+        Merchant $merchant,
+        Vehicle $vehicle,
+        int $year,
+        int $month,
+        int $day,
+        string $metric,
+        int $perPage = 25
+    ): array {
+        [$selectedDate, $from, $to, $timezone] = $this->dayRange($merchant, $year, $month, $day);
+
+        if (in_array($metric, ['speed_violations', 'total_stops', 'unknown_location_stops'], true)) {
+            $query = VehicleActivity::query()
+                ->with(['location', 'run.driver.user', 'shipment'])
+                ->where('merchant_id', $merchant->id)
+                ->where('vehicle_id', $vehicle->id)
+                ->whereBetween('occurred_at', [$from, $to])
+                ->when($metric === 'speed_violations', fn ($builder) => $builder
+                    ->where('event_type', VehicleActivity::EVENT_SPEEDING)
+                    ->where('speed_kph', '>', 80))
+                ->when($metric !== 'speed_violations', fn ($builder) => $builder
+                    ->where('event_type', VehicleActivity::EVENT_STOPPED))
+                ->when($metric === 'unknown_location_stops', fn ($builder) => $builder->whereNull('location_id'))
+                ->orderBy('occurred_at');
+            $paginator = $query->paginate($perPage);
+            $data = $paginator->getCollection()->map(fn (VehicleActivity $activity) => [
+                'entry_type' => 'activity',
+                'entry_id' => $activity->uuid,
+                'reference' => $activity->uuid,
+                'occurred_at' => $activity->occurred_at?->toIso8601String(),
+                'status' => $activity->event_type,
+                'speed_kph' => $activity->speed_kph !== null ? (float) $activity->speed_kph : null,
+                'speed_limit_kph' => $activity->speed_limit_kph !== null ? (float) $activity->speed_limit_kph : null,
+                'location' => $activity->location?->name ?? $activity->location?->code,
+                'run_id' => $activity->run?->uuid,
+                'shipment_id' => $activity->shipment?->uuid,
+                'shipment_reference' => $activity->shipment?->merchant_order_ref,
+            ])->values()->all();
+        } elseif ($metric === 'runs') {
+            $paginator = Run::query()
+                ->with('driver.user')
+                ->withCount(['runShipments' => fn ($builder) => $builder->where('status', '!=', RunShipment::STATUS_REMOVED)])
+                ->where('merchant_id', $merchant->id)
+                ->where('vehicle_id', $vehicle->id)
+                ->whereBetween('started_at', [$from, $to])
+                ->orderBy('started_at')
+                ->paginate($perPage);
+            $data = $paginator->getCollection()->map(fn (Run $run) => [
+                'entry_type' => 'run',
+                'entry_id' => $run->uuid,
+                'reference' => $run->uuid,
+                'occurred_at' => $run->started_at?->toIso8601String(),
+                'status' => $run->status,
+                'driver' => $run->driver?->user?->name ?? $run->driver?->user?->email,
+                'shipment_count' => (int) $run->run_shipments_count,
+            ])->values()->all();
+        } else {
+            $dateColumn = $metric === 'invoiced_shipments' ? 'invoiced_at' : 'created_at';
+            $paginator = Shipment::query()
+                ->with(['runShipments' => fn ($builder) => $builder
+                    ->where('status', '!=', RunShipment::STATUS_REMOVED)
+                    ->whereHas('run', fn ($runQuery) => $runQuery
+                        ->where('vehicle_id', $vehicle->id)
+                        ->whereNull('deleted_at'))
+                    ->with('run')])
+                ->where('merchant_id', $merchant->id)
+                ->whereBetween($dateColumn, [$from, $to])
+                ->whereHas('runShipments', fn ($builder) => $builder
+                    ->where('status', '!=', RunShipment::STATUS_REMOVED)
+                    ->whereHas('run', fn ($runQuery) => $runQuery
+                        ->where('vehicle_id', $vehicle->id)
+                        ->whereNull('deleted_at')))
+                ->orderBy($dateColumn)
+                ->paginate($perPage);
+            $data = $paginator->getCollection()->map(function (Shipment $shipment) use ($dateColumn) {
+                $run = $shipment->runShipments->first()?->run;
+
+                return [
+                    'entry_type' => 'shipment',
+                    'entry_id' => $shipment->uuid,
+                    'reference' => $shipment->merchant_order_ref ?: $shipment->uuid,
+                    'occurred_at' => $shipment->{$dateColumn}?->toIso8601String(),
+                    'status' => $shipment->status,
+                    'invoice_number' => $shipment->invoice_number,
+                    'run_id' => $run?->uuid,
+                ];
+            })->values()->all();
+        }
+
+        return [
+            'data' => $data,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'last_page' => $paginator->lastPage(),
+                'vehicle_id' => $vehicle->uuid,
+                'registration' => $vehicle->plate_number ?: ($vehicle->ref_code ?: $vehicle->uuid),
+                'date' => $selectedDate->toDateString(),
+                'date_label' => $selectedDate->translatedFormat('j F Y'),
+                'metric' => $metric,
+                'metric_label' => self::KPI_LABELS[$metric],
+                'timezone' => $timezone,
+            ],
+        ];
+    }
+
+    private function dayRange(Merchant $merchant, int $year, int $month, int $day): array
+    {
+        $timezone = $merchant->timezone ?: config('app.timezone', 'UTC');
+        try {
+            $selectedDate = Carbon::createSafe($year, $month, $day, 0, 0, 0, $timezone);
+        } catch (\Throwable) {
+            throw ValidationException::withMessages(['day' => 'The selected date is invalid.']);
+        }
+
+        if ($selectedDate->isAfter(now($timezone)->startOfDay())) {
+            throw ValidationException::withMessages(['day' => 'The selected date cannot be in the future.']);
+        }
+
+        return [$selectedDate, $selectedDate->copy()->utc(), $selectedDate->copy()->addDay()->utc(), $timezone];
     }
 
     private function addShipmentCounts(

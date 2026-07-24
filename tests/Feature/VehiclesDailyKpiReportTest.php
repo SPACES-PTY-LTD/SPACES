@@ -74,6 +74,23 @@ class VehiclesDailyKpiReportTest extends TestCase
         $this->assertSame(1, $row['days']['3']['invoiced_shipments']);
         $this->assertNotNull(collect($response->json('data'))->firstWhere('vehicle_id', $emptyVehicle->uuid));
 
+        $token = $user->createToken('entries')->plainTextToken;
+        foreach ([
+            ['speed_violations', 2, 2],
+            ['runs', 2, 1],
+            ['shipments', 2, 1],
+            ['total_stops', 2, 1],
+            ['unknown_location_stops', 2, 1],
+            ['invoiced_shipments', 3, 1],
+        ] as [$metric, $day, $total]) {
+            $this->withToken($token)
+                ->getJson("/api/v1/reports/vehicles-daily-kpi/entries?merchant_id={$merchant->uuid}&vehicle_id={$vehicle->uuid}&year=2026&month=7&day={$day}&metric={$metric}")
+                ->assertOk()
+                ->assertJsonPath('meta.metric', $metric)
+                ->assertJsonPath('meta.total', $total)
+                ->assertJsonCount($total, 'data');
+        }
+
         Carbon::setTestNow();
     }
 
@@ -108,6 +125,28 @@ class VehiclesDailyKpiReportTest extends TestCase
         $this->withToken($user->createToken('test')->plainTextToken)
             ->getJson("/api/v1/reports/vehicles-daily-kpi?merchant_id={$otherMerchant->uuid}&year=2026&month=1")
             ->assertNotFound();
+    }
+
+    public function test_entries_reject_invalid_and_future_dates(): void
+    {
+        Carbon::setTestNow('2026-07-24 12:00:00');
+        [$user, $merchant, $account] = $this->merchantContext();
+        $vehicle = $this->vehicle($account, $merchant, 'DATES');
+        $token = $user->createToken('test')->plainTextToken;
+
+        $this->withToken($token)
+            ->getJson("/api/v1/reports/vehicles-daily-kpi/entries?merchant_id={$merchant->uuid}&vehicle_id={$vehicle->uuid}&year=2026&month=2&day=30&metric=runs")
+            ->assertStatus(422);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/reports/vehicles-daily-kpi/entries?merchant_id={$merchant->uuid}&vehicle_id={$vehicle->uuid}&year=2026&month=7&day=25&metric=runs")
+            ->assertStatus(422);
+
+        $this->withToken($token)
+            ->getJson("/api/v1/reports/vehicles-daily-kpi/entries?merchant_id={$merchant->uuid}&vehicle_id={$vehicle->uuid}&year=2026&month=7&day=24&metric=invalid")
+            ->assertStatus(422);
+
+        Carbon::setTestNow();
     }
 
     private function merchantContext(string $timezone = 'UTC'): array

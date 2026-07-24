@@ -56,6 +56,8 @@ export default async function VehiclesDailyKpiPage({ searchParams }: PageProps) 
           daysInMonth={meta?.days_in_month ?? new Date(year, month, 0).getDate()}
           currentLocalDate={meta?.current_local_date ?? `${current.year}-${String(current.month).padStart(2, "0")}-01`}
           availableYears={meta?.available_years?.length ? meta.available_years : [current.year]}
+          accessToken={session.accessToken}
+          merchantId={session.selected_merchant?.merchant_id}
         />
       )}
     </div>

@@ -27,6 +27,7 @@ Add new entries at the top (newest first).
 
 ### API Changes
 - Added `GET /api/v1/reports/vehicles-daily-kpi` with merchant, year, month, and data-only filters.
+- Added `GET /api/v1/reports/vehicles-daily-kpi/entries` for paginated vehicle/day KPI drill-down records.
 - The response includes daily speeding, run, shipment, stop, unknown-location stop, and invoiced-shipment counts plus month metadata and available years.
 
 ### Database Changes
@@ -36,6 +37,8 @@ Add new entries at the top (newest first).
 - Admins can open `/admin/logistics/analytics/vehicles-daily-kpi` from the Analytics menu, select any non-future month, and optionally hide vehicles with no data.
 - The report includes all non-deleted vehicles and leaves zero-value table cells blank.
 - The data-only filter accepts boolean query values serialized as either `1`/`0` or `true`/`false`.
+- The frozen vehicle and KPI columns gain an edge shadow while the daily columns are horizontally scrolled.
+- Non-zero KPI values open an on-demand modal showing the exact activities, runs, or shipments behind the count.
 
 ### Breaking Changes
 - None.
