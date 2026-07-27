@@ -13,7 +13,10 @@ use Throwable;
 
 class AuthService
 {
+    public const ACCESS_TTL_SECONDS = 60 * 60;
+
     private const REFRESH_TTL_DAYS = 30;
+
     private const ADMIN_LOGIN_ROLES = ['user', 'super_admin'];
 
     public function register(array $data): array
@@ -21,7 +24,7 @@ class AuthService
         Log::info('AuthService register started', [
             'email' => $data['email'] ?? null,
             'name' => $data['name'] ?? null,
-            'has_telephone' => array_key_exists('telephone', $data) && !empty($data['telephone']),
+            'has_telephone' => array_key_exists('telephone', $data) && ! empty($data['telephone']),
         ]);
 
         try {
@@ -79,12 +82,12 @@ class AuthService
     public function login(array $data): ?array
     {
         $user = User::where('email', $data['email'])->first();
-        if (!$user || !Hash::check($data['password'], $user->password)) {
+        if (! $user || ! Hash::check($data['password'], $user->password)) {
             return null;
         }
 
         $loginContext = $data['login_context'] ?? null;
-        if ($loginContext === 'admin' && !in_array($user->role, self::ADMIN_LOGIN_ROLES, true)) {
+        if ($loginContext === 'admin' && ! in_array($user->role, self::ADMIN_LOGIN_ROLES, true)) {
             return null;
         }
 
@@ -93,10 +96,15 @@ class AuthService
         }
 
         $user->forceFill(['last_login_at' => now()])->save();
-        $token = $user->createToken('api')->plainTextToken;
+        $token = $this->createAccessToken($user);
         $refreshToken = $this->createRefreshToken($user, ['type' => 'login']);
 
-        return ['user' => $user, 'token' => $token, 'refresh_token' => $refreshToken];
+        return [
+            'user' => $user,
+            'token' => $token,
+            'refresh_token' => $refreshToken,
+            'expires_in' => self::ACCESS_TTL_SECONDS,
+        ];
     }
 
     public function logout(User $user, string $tokenId): void
@@ -110,7 +118,7 @@ class AuthService
         $tokenHash = hash('sha256', $refreshToken);
         $record = RefreshToken::where('token_hash', $tokenHash)->first();
 
-        if (!$record || $record->revoked_at || $record->expires_at->isPast()) {
+        if (! $record || $record->revoked_at || $record->expires_at->isPast()) {
             return null;
         }
 
@@ -120,10 +128,24 @@ class AuthService
         ]);
 
         $user = $record->user;
-        $accessToken = $user->createToken('api')->plainTextToken;
+        $accessToken = $this->createAccessToken($user);
         $newRefresh = $this->createRefreshToken($user, ['type' => 'refresh']);
 
-        return ['user' => $user, 'token' => $accessToken, 'refresh_token' => $newRefresh];
+        return [
+            'user' => $user,
+            'token' => $accessToken,
+            'refresh_token' => $newRefresh,
+            'expires_in' => self::ACCESS_TTL_SECONDS,
+        ];
+    }
+
+    private function createAccessToken(User $user): string
+    {
+        return $user->createToken(
+            'api',
+            ['*'],
+            now()->addSeconds(self::ACCESS_TTL_SECONDS)
+        )->plainTextToken;
     }
 
     private function createRefreshToken(User $user, array $meta = []): string

@@ -55,6 +55,7 @@ class AuthController extends Controller
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
             ]);
+
             return $this->apiError($e, 'REGISTER_FAILED', 'Unable to register.', Response::HTTP_BAD_REQUEST);
         }
     }
@@ -63,17 +64,19 @@ class AuthController extends Controller
     {
         try {
             $result = $authService->login($request->validated());
-            if (!$result) {
+            if (! $result) {
                 return ApiResponse::error('INVALID_CREDENTIALS', 'Invalid credentials.', [], Response::HTTP_UNAUTHORIZED);
             }
 
             return ApiResponse::success([
                 'token' => $result['token'],
                 'refresh_token' => $result['refresh_token'],
+                'expires_in' => $result['expires_in'],
                 'user' => new UserResource($result['user']),
             ]);
         } catch (Throwable $e) {
             Log::error('Login failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'LOGIN_FAILED', 'Unable to login.', Response::HTTP_BAD_REQUEST);
         }
     }
@@ -82,17 +85,19 @@ class AuthController extends Controller
     {
         try {
             $result = $authService->refresh($request->validated()['refresh_token']);
-            if (!$result) {
+            if (! $result) {
                 return ApiResponse::error('INVALID_REFRESH', 'Invalid refresh token.', [], Response::HTTP_UNAUTHORIZED);
             }
 
             return ApiResponse::success([
                 'token' => $result['token'],
                 'refresh_token' => $result['refresh_token'],
+                'expires_in' => $result['expires_in'],
                 'user' => new UserResource($result['user']),
             ]);
         } catch (Throwable $e) {
             Log::error('Refresh failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'REFRESH_FAILED', 'Unable to refresh token.', Response::HTTP_BAD_REQUEST);
         }
     }
@@ -108,6 +113,7 @@ class AuthController extends Controller
             return ApiResponse::success(['message' => 'Logged out']);
         } catch (Throwable $e) {
             Log::error('Logout failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
             return $this->apiError($e, 'LOGOUT_FAILED', 'Unable to logout.', Response::HTTP_BAD_REQUEST);
         }
     }

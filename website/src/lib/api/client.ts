@@ -250,10 +250,27 @@ async function performBrowserTokenRefresh(
     ])
 
   const session = await auth.getSession()
+  const storedTokens = getStoredAuthTokens()
+
+  // getSession() can refresh and rotate the token through NextAuth. If it did,
+  // use that result instead of submitting the now-revoked browser token again.
+  if (
+    session?.accessToken &&
+    session.accessToken !== storedTokens.accessToken
+  ) {
+    await updateStoredSession({
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+      accessTokenExpiresAt: session.accessTokenExpiresAt,
+      authError: session.authError,
+    })
+    return session.accessToken
+  }
+
   const refreshToken =
-    providedRefreshToken ??
-    getStoredAuthTokens().refreshToken ??
     session?.refreshToken ??
+    storedTokens.refreshToken ??
+    providedRefreshToken ??
     null
 
   if (!refreshToken) {

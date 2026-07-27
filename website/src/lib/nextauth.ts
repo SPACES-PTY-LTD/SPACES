@@ -10,6 +10,15 @@ const API_BASE_URL =
 
 const ACCESS_TOKEN_REFRESH_BUFFER_MS = 30 * 1000
 const DEFAULT_ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000
+const REFRESH_RESULT_CACHE_MS = 10 * 1000
+
+type RefreshResult = {
+  token: JWT
+  cachedUntil: number
+}
+
+const refreshRequests = new Map<string, Promise<JWT>>()
+const refreshResults = new Map<string, RefreshResult>()
 
 type AuthPayload = LoginResponse & {
   expires_in?: number
@@ -19,7 +28,7 @@ function resolveAccessTokenExpiresAt(expiresIn?: number | null): number {
   return Date.now() + (expiresIn ?? DEFAULT_ACCESS_TOKEN_TTL_MS / 1000) * 1000
 }
 
-async function refreshAccessToken(token: JWT): Promise<JWT> {
+async function performAccessTokenRefresh(token: JWT): Promise<JWT> {
   if (!token.refreshToken) {
     return {
       ...token,
@@ -67,6 +76,41 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
       ...token,
       authError: "RefreshAccessTokenError",
     }
+  }
+}
+
+async function refreshAccessToken(token: JWT): Promise<JWT> {
+  const refreshToken = String(token.refreshToken ?? "")
+  if (!refreshToken) {
+    return { ...token, authError: "RefreshAccessTokenError" }
+  }
+
+  const cached = refreshResults.get(refreshToken)
+  if (cached && cached.cachedUntil > Date.now()) {
+    return { ...token, ...cached.token }
+  }
+  refreshResults.delete(refreshToken)
+
+  const existingRequest = refreshRequests.get(refreshToken)
+  if (existingRequest) {
+    return existingRequest
+  }
+
+  const request = performAccessTokenRefresh(token).then((result) => {
+    if (!result.authError) {
+      refreshResults.set(refreshToken, {
+        token: result,
+        cachedUntil: Date.now() + REFRESH_RESULT_CACHE_MS,
+      })
+    }
+    return result
+  })
+  refreshRequests.set(refreshToken, request)
+
+  try {
+    return await request
+  } finally {
+    refreshRequests.delete(refreshToken)
   }
 }
 

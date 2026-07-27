@@ -19,6 +19,8 @@ use Illuminate\Support\Facades\DB;
 
 class AutoRunLifecycleService
 {
+    private const TRANSACTION_ATTEMPTS = 5;
+
     private const AUTOMATION_EVENT_ENTRY = 'entry';
 
     private const AUTOMATION_EVENT_EXIT = 'exit';
@@ -181,7 +183,7 @@ class AutoRunLifecycleService
             );
 
             return true;
-        });
+        }, self::TRANSACTION_ATTEMPTS);
     }
 
     public function processVehicleLocationExit(
@@ -225,7 +227,7 @@ class AutoRunLifecycleService
             );
 
             return true;
-        });
+        }, self::TRANSACTION_ATTEMPTS);
     }
 
     private function exitActiveVisit(

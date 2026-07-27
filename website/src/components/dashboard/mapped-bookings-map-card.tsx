@@ -23,13 +23,21 @@ const fallbackCenter: LatLngLiteral = { lat: -26.2041, lng: 28.0473 }
 const defaultZoom = 10
 const selectedMarkerZoom = 14
 
-const IN_TRANSIT_COLOR = "#06b6d4"
+const IN_TRANSIT_COLOR = "#f97316"
+
+const GREYSCALE_MAP_STYLES: google.maps.MapTypeStyle[] = [
+  {
+    featureType: "all",
+    elementType: "all",
+    stylers: [{ saturation: -100 }],
+  },
+]
 
 function getMarkerIcon(color: string, selected: boolean) {
-  const size = selected ? 23 : 16
+  const size = selected ? 32 : 24
   const markerSvg = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 54">
-    <path d="M22 3C11.5 3 3 11.5 3 22c0 14.4 16.1 28.8 17.9 30.4a1.7 1.7 0 0 0 2.2 0C24.9 50.8 41 36.4 41 22 41 11.5 32.5 3 22 3z" fill="${color}" />
+    <path d="M22 3C11.5 3 3 11.5 3 22c0 14.4 16.1 28.8 17.9 30.4a1.7 1.7 0 0 0 2.2 0C24.9 50.8 41 36.4 41 22 41 11.5 32.5 3 22 3z" fill="${color}" stroke="#9a3412" stroke-width="3" />
     <circle cx="22" cy="22" r="10" fill="#ffffff" />
   </svg>
   `
@@ -130,6 +138,7 @@ export function MappedBookingsMapCard({
             mapTypeControl: false,
             streetViewControl: false,
             fullscreenControl: false,
+            styles: GREYSCALE_MAP_STYLES,
           })
         }
 

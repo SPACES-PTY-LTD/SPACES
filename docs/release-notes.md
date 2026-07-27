@@ -23,6 +23,75 @@ Add new entries at the top (newest first).
 ## 2026-07-27 | Version: unreleased
 
 ### Summary
+- Reduced vehicle-location tracking failures caused by concurrent geofence lifecycle updates.
+
+### API Changes
+- None.
+
+### Database Changes
+- Added a composite `vehicle_activity` index for open location-visit lookups by merchant, vehicle, event type, exit state, and entry time.
+
+### Behavior Changes
+- Geofence lifecycle transactions now retry MySQL deadlock victims up to five times before failing the tracking job.
+- Open-visit row locks use a narrower indexed lookup to reduce lock contention.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/AutoRunLifecycleServiceTest.php tests/Feature/TrackVehicleLocationsJobTest.php`
+- `vendor/bin/pint --test app/Services/AutoRunLifecycleService.php database/migrations/2026_07_27_000001_add_open_visit_lookup_index_to_vehicle_activity_table.php`
+- `git diff --check`
+
+## 2026-07-27 | Version: unreleased
+
+### Summary
+- Improved the visibility of vehicle markers on the dashboard's Vehicles in transit map.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The Vehicles in transit map now uses a greyscale basemap with larger orange markers and a darker outline for stronger contrast.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/components/dashboard/mapped-bookings-map-card.tsx`
+- `git diff --check`
+
+## 2026-07-27 | Version: unreleased
+
+### Summary
+- Fixed admin sessions being signed out when access-token refresh requests overlapped after a period of inactivity.
+
+### API Changes
+- Login and refresh responses now include `expires_in: 3600`, and newly issued admin access tokens expire after the matching one-hour lifetime.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Concurrent NextAuth session checks now share and briefly cache one rotated-token result instead of consuming the same single-use refresh token multiple times.
+- Browser retries use a token already refreshed by NextAuth instead of retrying with the revoked browser copy.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/AuthTest.php`
+- `vendor/bin/pint --test app/Services/AuthService.php app/Http/Controllers/Api/V1/AuthController.php tests/Feature/AuthTest.php`
+- `cd website && npm run lint -- src/lib/nextauth.ts src/lib/api/client.ts`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-07-27 | Version: unreleased
+
+### Summary
 - Added searchable Runs index and read-only run detail pages for operational, route, shipment, driver, vehicle, and safety review.
 
 ### API Changes

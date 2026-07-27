@@ -34,7 +34,23 @@ class AuthTest extends TestCase
         ]);
 
         $login->assertStatus(200);
+        $login->assertJsonPath('data.expires_in', 3600);
+        $this->assertNotEmpty($login->json('data.refresh_token'));
         $token = $login->json('data.token');
+
+        $refresh = $this->postJson('/api/v1/auth/refresh', [
+            'refresh_token' => $login->json('data.refresh_token'),
+        ]);
+
+        $refresh->assertOk()
+            ->assertJsonPath('data.expires_in', 3600);
+        $this->assertNotSame($login->json('data.refresh_token'), $refresh->json('data.refresh_token'));
+
+        $this->postJson('/api/v1/auth/refresh', [
+            'refresh_token' => $login->json('data.refresh_token'),
+        ])->assertUnauthorized();
+
+        $token = $refresh->json('data.token');
 
         $logout = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/v1/auth/logout');
