@@ -3,16 +3,17 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\Booking;
 use App\Models\Driver;
 use App\Models\DriverVehicle;
 use App\Models\Location;
 use App\Models\Merchant;
-use App\Models\Booking;
 use App\Models\Run;
 use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\VehicleActivity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -518,6 +519,115 @@ class RunApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.run_id', $matchingRun->uuid);
+    }
+
+    public function test_run_list_filters_by_status_and_effective_run_date(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+
+        $matchingRun = Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_COMPLETED,
+            'started_at' => '2026-07-20 08:00:00',
+            'completed_at' => '2026-07-20 10:00:00',
+        ]);
+        Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_COMPLETED,
+            'started_at' => '2026-07-10 08:00:00',
+            'completed_at' => '2026-07-10 10:00:00',
+        ]);
+        Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'status' => Run::STATUS_DRAFT,
+            'planned_start_at' => '2026-07-20 08:00:00',
+        ]);
+
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->getJson('/api/v1/runs?status=completed&from=2026-07-15&to=2026-07-25')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.run_id', $matchingRun->uuid);
+    }
+
+    public function test_run_detail_returns_gps_stats_actual_stops_and_speeding_safety(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        $driver = $this->createDriver($merchant);
+        $vehicle = $this->createVehicle($merchant);
+        $shipment = $this->createShipment($merchant, 'ORDER-RUN-DETAIL', 'delivered');
+        $run = Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'driver_id' => $driver->id,
+            'vehicle_id' => $vehicle->id,
+            'status' => Run::STATUS_COMPLETED,
+            'started_at' => '2026-07-20 08:00:00',
+            'completed_at' => '2026-07-20 10:00:00',
+        ]);
+        RunShipment::create([
+            'run_id' => $run->id,
+            'shipment_id' => $shipment->id,
+            'status' => RunShipment::STATUS_DONE,
+            'sequence' => 1,
+        ]);
+
+        VehicleActivity::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'run_id' => $run->id,
+            'event_type' => VehicleActivity::EVENT_MOVING,
+            'occurred_at' => '2026-07-20 08:10:00',
+            'latitude' => 0,
+            'longitude' => 0,
+            'speed_kph' => 40,
+        ]);
+        VehicleActivity::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'run_id' => $run->id,
+            'event_type' => VehicleActivity::EVENT_STOPPED,
+            'occurred_at' => '2026-07-20 09:00:00',
+            'latitude' => 0,
+            'longitude' => 0.1,
+            'speed_kph' => 0,
+        ]);
+        VehicleActivity::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'run_id' => $run->id,
+            'event_type' => VehicleActivity::EVENT_SPEEDING,
+            'occurred_at' => '2026-07-20 09:10:00',
+            'latitude' => 0,
+            'longitude' => 0.1,
+            'speed_kph' => 95,
+            'speed_limit_kph' => 80,
+        ]);
+
+        $response = $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->getJson("/api/v1/runs/{$run->uuid}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.duration_seconds', 7200)
+            ->assertJsonPath('data.distance_source', 'gps')
+            ->assertJsonPath('data.stats.shipment_count', 1)
+            ->assertJsonPath('data.stats.completed_shipments', 1)
+            ->assertJsonPath('data.stats.stop_count', 1)
+            ->assertJsonPath('data.stats.average_moving_speed_kph', 67.5)
+            ->assertJsonPath('data.safety.speeding_event_count', 1)
+            ->assertJsonPath('data.safety.worst_speed_exceedance_kph', 15)
+            ->assertJsonCount(3, 'data.track_points')
+            ->assertJsonCount(1, 'data.actual_stops')
+            ->assertJsonPath('data.origin.name', 'Pickup ORDER-RUN-DETAIL')
+            ->assertJsonPath('data.destination.name', 'Dropoff ORDER-RUN-DETAIL');
+
+        $this->assertEqualsWithDelta(11.12, $response->json('data.distance_km'), 0.02);
     }
 
     private function createMerchantContext(?string $email = null): array

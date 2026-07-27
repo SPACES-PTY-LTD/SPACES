@@ -20,6 +20,57 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-07-27 | Version: unreleased
+
+### Summary
+- Added searchable Runs index and read-only run detail pages for operational, route, shipment, driver, vehicle, and safety review.
+
+### API Changes
+- Extended `GET /api/v1/runs` with additive `status`, `from`, and `to` filters.
+- Enriched run responses with GPS/odometer distance and source, detailed driver and vehicle fields, shipment locations, actual track points and stops, operational stats, and speeding safety metrics.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Admins can open `/admin/logistics/shipments/runs` from the Shipments menu and review all run statuses by default.
+- Run details plot the recorded GPS trail and actual stop events, distinguish odometer and GPS-derived distance, and show missing telemetry as unavailable rather than zero.
+- Run origin and destination fall back to the first attached shipment pickup and last attached shipment drop-off when explicit run endpoints are absent.
+- Completed run duration now uses the absolute elapsed time between start and completion timestamps.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/RunApiTest.php`
+- `vendor/bin/pint --test app/Services/RunService.php app/Http/Resources/RunResource.php tests/Feature/RunApiTest.php`
+- `npm run lint -- src/app/admin/logistics/shipments/runs/page.tsx src/app/admin/logistics/shipments/runs/[runId]/page.tsx src/components/runs/run-actual-map.tsx src/lib/api/runs.ts src/lib/routes/admin.ts src/lib/navigation.ts src/lib/types.ts`
+- `npm run build`
+- `git diff --check`
+
+## 2026-07-27 | Version: unreleased
+
+### Summary
+- Added daily distance and operating-time totals to the Vehicles Daily KPI report.
+
+### API Changes
+- `GET /api/v1/reports/vehicles-daily-kpi` now includes `total_km_travelled` and `total_operating_hours` for each vehicle/day.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/analytics/vehicles-daily-kpi` now displays total kilometres travelled and total operating hours, calculated from completed runs with the required odometer or timestamp readings.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/VehiclesDailyKpiReportTest.php`
+- `vendor/bin/pint --test app/Services/VehiclesDailyKpiReportService.php tests/Feature/VehiclesDailyKpiReportTest.php`
+- `cd website && npm run lint -- src/app/admin/logistics/analytics/vehicles-daily-kpi/vehicles-daily-kpi-report.tsx src/lib/api/reports.ts`
+- `git diff --check`
+
 ## 2026-07-24 | Version: unreleased
 
 ### Summary

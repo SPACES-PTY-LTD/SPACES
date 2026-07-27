@@ -16,6 +16,8 @@ class VehiclesDailyKpiReportService
 {
     private const KPI_LABELS = [
         'speed_violations' => 'Speed Violation > 80km/hr (Over Speed)',
+        'total_km_travelled' => 'Total kms travelled',
+        'total_operating_hours' => 'Total operating hours',
         'runs' => 'Runs',
         'shipments' => 'Shipments',
         'known_location_stops' => 'Stops at known Locations',
@@ -25,6 +27,8 @@ class VehiclesDailyKpiReportService
 
     private const KPI_KEYS = [
         'speed_violations',
+        'total_km_travelled',
+        'total_operating_hours',
         'runs',
         'shipments',
         'known_location_stops',
@@ -99,11 +103,32 @@ class VehiclesDailyKpiReportService
             ->where('merchant_id', $merchant->id)
             ->whereIn('vehicle_id', $vehicles->pluck('id'))
             ->whereBetween('started_at', [$from, $to])
-            ->get(['id', 'vehicle_id', 'started_at']);
+            ->get([
+                'id',
+                'vehicle_id',
+                'started_at',
+                'completed_at',
+                'odometer_start_km',
+                'odometer_end_km',
+            ]);
 
         foreach ($runs as $run) {
             $day = (string) $run->started_at->copy()->setTimezone($timezone)->day;
             $rows[$run->vehicle_id]['days'][$day]['runs']++;
+
+            if ($run->odometer_start_km !== null && $run->odometer_end_km !== null) {
+                $rows[$run->vehicle_id]['days'][$day]['total_km_travelled'] += max(
+                    0,
+                    $run->odometer_end_km - $run->odometer_start_km
+                );
+            }
+
+            if ($run->completed_at !== null) {
+                $rows[$run->vehicle_id]['days'][$day]['total_operating_hours'] += max(
+                    0,
+                    $run->started_at->diffInSeconds($run->completed_at, false) / 3600
+                );
+            }
         }
 
         $this->addShipmentCounts($rows, $vehicles->pluck('id'), $merchant->id, $from, $to, $timezone, 'created_at', 'shipments');

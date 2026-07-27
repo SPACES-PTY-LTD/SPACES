@@ -423,6 +423,39 @@ export interface RunShipment {
   pickup_stop_order?: number
   dropoff_stop_order?: number
   total_parcel_count?: number | null
+  pickup_location?: Location | null
+  dropoff_location?: Location | null
+}
+
+export interface RunTrackPoint {
+  activity_id: UUID
+  event_type?: string | null
+  occurred_at?: string | null
+  latitude: number
+  longitude: number
+  speed_kph?: number | null
+  speed_limit_kph?: number | null
+}
+
+export interface RunStats {
+  duration_seconds?: number | null
+  distance_km?: number | null
+  distance_source?: "odometer" | "gps" | null
+  shipment_count: number
+  completed_shipments: number
+  failed_shipments: number
+  pending_shipments: number
+  completion_percentage?: number | null
+  stop_count: number
+  average_moving_speed_kph?: number | null
+  maximum_speed_kph?: number | null
+}
+
+export interface RunSafety {
+  speeding_event_count: number
+  maximum_speed_kph?: number | null
+  worst_speed_exceedance_kph?: number | null
+  speeding_events: ShipmentStop[]
 }
 
 export interface Run {
@@ -437,11 +470,17 @@ export interface Run {
   odometer_start_km?: number | null
   odometer_end_km?: number | null
   odometer_distance_km?: number | null
+  distance_km?: number | null
+  distance_source?: "odometer" | "gps" | null
   service_area?: string | null
   notes?: string | null
   origin?: Location | null
   latest_location?: Location | null
   stops?: ShipmentStop[]
+  track_points?: RunTrackPoint[]
+  actual_stops?: ShipmentStop[]
+  stats?: RunStats
+  safety?: RunSafety
   route?: {
     route_id?: UUID
     title?: string | null
@@ -453,10 +492,25 @@ export interface Run {
   driver?: {
     driver_id: UUID
     name: string
+    email?: string | null
+    telephone?: string | null
+    is_active?: boolean | null
+    intergration_id?: string | null
   } | null
   vehicle?: {
     vehicle_id: UUID
     plate_number?: string | null
+    ref_code?: string | null
+    make?: string | null
+    model?: string | null
+    year?: number | null
+    color?: string | null
+    odometer?: number | null
+    is_active?: boolean | null
+    type?: {
+      vehicle_type_id?: UUID
+      title?: string | null
+    } | null
   } | null
   shipment_count?: number
   terminal_count?: number

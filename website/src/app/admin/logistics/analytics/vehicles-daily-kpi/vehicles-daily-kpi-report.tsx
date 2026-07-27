@@ -32,12 +32,19 @@ const MONTHS = [
 
 const KPI_ROWS = [
   ["speed_violations", "Speed Violation > 80km/hr (Over Speed)"],
+  ["total_km_travelled", "Total kms travelled"],
+  ["total_operating_hours", "Total operating hours"],
   ["runs", "Runs"],
   ["shipments", "Shipments"],
   ["known_location_stops", "Stops at known Locations"],
   ["unknown_location_stops", "Stops at Unknown Locations"],
   ["invoiced_shipments", "Invoiced Shipments"],
 ] as const
+
+const MEASUREMENT_KPIS = new Set<keyof VehicleDailyKpiMetrics>([
+  "total_km_travelled",
+  "total_operating_hours",
+])
 
 type Props = {
   rows: VehicleDailyKpiRow[]
@@ -228,9 +235,10 @@ export function VehiclesDailyKpiReport({
                 </th>
                 {Array.from({ length: daysInMonth }, (_, index) => {
                   const value = vehicle.days[String(index + 1)]?.[key] ?? 0
+                  const displayValue = MEASUREMENT_KPIS.has(key) ? value.toFixed(2) : value
                   return (
                     <td key={index + 1} className="h-8 min-w-10 border-b border-r px-2 text-center tabular-nums">
-                      {value > 0 ? (
+                      {value > 0 && !MEASUREMENT_KPIS.has(key) ? (
                         <button
                           type="button"
                           className="font-medium text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -243,9 +251,9 @@ export function VehiclesDailyKpiReport({
                           })}
                           aria-label={`View ${value} ${label} entries for ${vehicle.registration} on day ${index + 1}`}
                         >
-                          {value}
+                          {displayValue}
                         </button>
-                      ) : ""}
+                      ) : value > 0 ? displayValue : ""}
                     </td>
                   )
                 })}

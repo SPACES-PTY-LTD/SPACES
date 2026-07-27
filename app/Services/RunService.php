@@ -32,7 +32,7 @@ class RunService
                 'merchant',
                 'environment',
                 'driver.user',
-                'vehicle',
+                'vehicle.vehicleType',
                 'latestLocationStop.location',
                 'vehicleActivities.merchant',
                 'vehicleActivities.vehicle.lastDriver.user',
@@ -43,6 +43,8 @@ class RunService
                 'originLocation',
                 'destinationLocation',
                 'runShipments.shipment.parcels',
+                'runShipments.shipment.pickupLocation',
+                'runShipments.shipment.dropoffLocation',
                 'deliveryNoteImports.shipments',
             ]);
 
@@ -72,11 +74,32 @@ class RunService
         }
 
         if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            $statuses = array_filter(
+                is_array($filters['status']) ? $filters['status'] : explode(',', (string) $filters['status']),
+                fn (string $status) => in_array($status, [
+                    Run::STATUS_DRAFT,
+                    Run::STATUS_DISPATCHED,
+                    Run::STATUS_IN_PROGRESS,
+                    Run::STATUS_COMPLETED,
+                    Run::STATUS_CANCELLED,
+                ], true)
+            );
+
+            if ($statuses !== []) {
+                $query->whereIn('status', $statuses);
+            }
         }
 
         if (! empty($filters['date'])) {
             $query->whereDate('planned_start_at', $filters['date']);
+        }
+
+        if (! empty($filters['from'])) {
+            $query->whereRaw('DATE(COALESCE(started_at, planned_start_at, created_at)) >= ?', [$filters['from']]);
+        }
+
+        if (! empty($filters['to'])) {
+            $query->whereRaw('DATE(COALESCE(started_at, planned_start_at, created_at)) <= ?', [$filters['to']]);
         }
 
         if (! empty($filters['search'])) {
@@ -519,7 +542,7 @@ class RunService
             'merchant',
             'environment',
             'driver.user',
-            'vehicle',
+            'vehicle.vehicleType',
             'latestLocationStop.location',
             'vehicleActivities.merchant',
             'vehicleActivities.vehicle.lastDriver.user',
@@ -529,7 +552,9 @@ class RunService
             'route.routeStops.location',
             'originLocation',
             'destinationLocation',
-            'runShipments.shipment',
+            'runShipments.shipment.parcels',
+            'runShipments.shipment.pickupLocation',
+            'runShipments.shipment.dropoffLocation',
             'deliveryNoteImports.shipments',
         ]);
     }

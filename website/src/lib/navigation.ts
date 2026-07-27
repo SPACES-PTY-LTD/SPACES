@@ -69,6 +69,11 @@ export const adminNavGroups: NavGroup[] = [
             href: AdminLinks.reportsShipments,
             icon: ClipboardCheck,
           },
+          {
+            title: "Runs",
+            href: AdminLinks.runs,
+            icon: Truck,
+          },
           // {
           //   title: "Bookings",
           //   href: AdminLinks.bookings,

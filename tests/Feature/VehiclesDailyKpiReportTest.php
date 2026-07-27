@@ -55,6 +55,9 @@ class VehiclesDailyKpiReportTest extends TestCase
             'vehicle_id' => $vehicle->id,
             'status' => Run::STATUS_COMPLETED,
             'started_at' => '2026-07-02 11:00:00',
+            'completed_at' => '2026-07-02 13:30:00',
+            'odometer_start_km' => 1200,
+            'odometer_end_km' => 1275,
         ]);
         $shipment = Shipment::create([
             'uuid' => (string) Str::uuid(),
@@ -83,6 +86,8 @@ class VehiclesDailyKpiReportTest extends TestCase
         $row = collect($response->json('data'))->firstWhere('vehicle_id', $vehicle->uuid);
         $this->assertSame(2, $row['days']['2']['speed_violations']);
         $this->assertSame(1, $row['days']['2']['runs']);
+        $this->assertSame(75, $row['days']['2']['total_km_travelled']);
+        $this->assertSame(2.5, $row['days']['2']['total_operating_hours']);
         $this->assertSame(1, $row['days']['2']['shipments']);
         $this->assertSame(1, $row['days']['2']['known_location_stops']);
         $this->assertArrayNotHasKey('total_stops', $row['days']['2']);

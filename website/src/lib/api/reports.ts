@@ -304,6 +304,8 @@ export type ShipmentsByLocationReportResponse = {
 
 export type VehicleDailyKpiMetrics = {
   speed_violations: number
+  total_km_travelled: number
+  total_operating_hours: number
   runs: number
   shipments: number
   known_location_stops: number
