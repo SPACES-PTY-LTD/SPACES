@@ -2,11 +2,12 @@
 
 import * as React from "react"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 import { ShipmentDialogContent } from "@/components/dashboard/shipment-dialog-content"
 
 export function ShipmentMapDialog({
@@ -23,23 +24,24 @@ export function ShipmentMapDialog({
   onOpenChange: (open: boolean) => void
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="z-[2147483647] max-h-[92vh] overflow-y-auto sm:max-w-5xl"
-        overlayClassName="z-[2147483647]"
-      >
-        <DialogTitle className="sr-only">Shipment details</DialogTitle>
-        <DialogDescription className="sr-only">
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent side="right" className="z-[2147483647] sm:w-[min(96vw,1100px)]">
+        <DrawerHeader className="sr-only">
+          <DrawerTitle>Shipment details</DrawerTitle>
+          <DrawerDescription>
           Shipment detail, tracking, and label management.
-        </DialogDescription>
-        {shipmentId ? (
-          <ShipmentDialogContent
-            shipmentId={shipmentId}
-            accessToken={accessToken}
-            merchantId={merchantId}
-          />
-        ) : null}
-      </DialogContent>
-    </Dialog>
+          </DrawerDescription>
+        </DrawerHeader>
+        <div className="flex-1 overflow-y-auto p-4 pt-10">
+          {shipmentId ? (
+            <ShipmentDialogContent
+              shipmentId={shipmentId}
+              accessToken={accessToken}
+              merchantId={merchantId}
+            />
+          ) : null}
+        </div>
+      </DrawerContent>
+    </Drawer>
   )
 }

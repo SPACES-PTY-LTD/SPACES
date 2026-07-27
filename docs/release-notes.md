@@ -47,6 +47,7 @@ Add new entries at the top (newest first).
 
 ### Summary
 - Improved the visibility of vehicle markers on the dashboard's Vehicles in transit map.
+- Added richer vehicle marker details and moved shipment detail viewing into a drawer.
 
 ### API Changes
 - None.
@@ -56,12 +57,15 @@ Add new entries at the top (newest first).
 
 ### Behavior Changes
 - The Vehicles in transit map now uses a greyscale basemap with larger orange markers and a darker outline for stronger contrast.
+- Vehicle marker popups now show the vehicle, shipment status, driver, route, speed, and last update when available.
+- The popup's View shipment action opens shipment details in a right-side drawer without leaving the dashboard.
 
 ### Breaking Changes
 - None.
 
 ### Verification
-- `cd website && npm run lint -- src/components/dashboard/mapped-bookings-map-card.tsx`
+- `cd website && npm run lint -- src/components/dashboard/mapped-bookings-map-card.tsx src/components/dashboard/shipment-map-dialog.tsx`
+- `cd website && npm run build`
 - `git diff --check`
 
 ## 2026-07-27 | Version: unreleased

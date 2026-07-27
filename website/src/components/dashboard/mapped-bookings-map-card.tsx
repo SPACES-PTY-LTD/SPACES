@@ -56,6 +56,20 @@ function formatUpdatedAt(value?: string | null) {
   return parsed.toLocaleString()
 }
 
+function formatStatus(value?: string | null) {
+  if (!value) return "In transit"
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;")
+}
+
 export function MappedBookingsMapCard({
   accessToken,
   merchantId,
@@ -70,6 +84,7 @@ export function MappedBookingsMapCard({
   const mapRef = React.useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = React.useRef<google.maps.Map | null>(null)
   const markersRef = React.useRef<MarkerEntry[]>([])
+  const activeInfoWindowRef = React.useRef<google.maps.InfoWindow | null>(null)
   const [searchValue, setSearchValue] = React.useState("")
   const deferredSearch = React.useDeferredValue(searchValue)
   const [loading, setLoading] = React.useState(false)
@@ -161,6 +176,8 @@ export function MappedBookingsMapCard({
 
     markersRef.current.forEach((entry) => entry.marker.setMap(null))
     markersRef.current = []
+    activeInfoWindowRef.current?.close()
+    activeInfoWindowRef.current = null
 
     const points = vehicles.filter(
       (item) =>
@@ -171,6 +188,10 @@ export function MappedBookingsMapCard({
       const vehicleId = item.vehicle?.vehicle_id ?? item.vehicle_id ?? item.activity_id ?? "unknown-vehicle"
       const plateNumber = item.vehicle?.plate_number ?? item.vehicle?.ref_code ?? vehicleId
       const shipmentId = item.shipment?.shipment_id
+      const vehicleDescription = [item.vehicle?.make, item.vehicle?.model].filter(Boolean).join(" ")
+      const driverName = item.driver?.name ?? item.vehicle?.last_driver?.name
+      const pickupName = item.shipment?.pickup_location?.name ?? item.shipment?.pickup_location?.company
+      const dropoffName = item.shipment?.dropoff_location?.name ?? item.shipment?.dropoff_location?.company
       const marker = new google.maps.Marker({
         map: mapInstanceRef.current!,
         position: {
@@ -188,26 +209,32 @@ export function MappedBookingsMapCard({
 
       marker.setIcon(getMarkerIcon(IN_TRANSIT_COLOR, shipmentId === selectedShipmentId))
 
-      marker.addListener("click", () => {
+      const details = document.createElement("div")
+      details.style.cssText = "min-width:240px;max-width:310px;padding:4px 2px;color:#111827;font-size:13px;line-height:1.45"
+      details.innerHTML = [
+        `<div style="font-size:15px;font-weight:700">${escapeHtml(plateNumber)}</div>`,
+        vehicleDescription ? `<div style="color:#6b7280">${escapeHtml(vehicleDescription)}</div>` : "",
+        `<div style="height:1px;background:#e5e7eb;margin:9px 0"></div>`,
+        item.shipment?.merchant_order_ref ? `<div><strong>Shipment:</strong> ${escapeHtml(item.shipment.merchant_order_ref)}</div>` : "",
+        `<div><strong>Status:</strong> ${escapeHtml(formatStatus(item.shipment?.status))}</div>`,
+        driverName ? `<div><strong>Driver:</strong> ${escapeHtml(driverName)}</div>` : "",
+        pickupName ? `<div style="margin-top:6px"><strong>From:</strong> ${escapeHtml(pickupName)}</div>` : "",
+        dropoffName ? `<div><strong>To:</strong> ${escapeHtml(dropoffName)}</div>` : "",
+        typeof item.speed_kph === "number" ? `<div style="margin-top:6px"><strong>Speed:</strong> ${Math.round(item.speed_kph)} km/h</div>` : "",
+        `<div style="margin-top:8px;color:#6b7280">Last update: ${escapeHtml(formatUpdatedAt(item.occurred_at ?? item.created_at))}</div>`,
+        shipmentId ? `<button type="button" data-view-shipment style="width:100%;margin-top:10px;padding:7px 12px;border:0;border-radius:6px;background:#f97316;color:#fff;font-weight:600;cursor:pointer">View shipment</button>` : "",
+      ].join("")
+
+      details.querySelector<HTMLButtonElement>("[data-view-shipment]")?.addEventListener("click", () => {
         if (shipmentId) onSelectShipment?.(shipmentId)
       })
 
-      const details = [
-        `<div style="min-width:180px">`,
-        `<div style="font-weight:600">${plateNumber}</div>`,
-        `<div style="margin-top:4px">Status: In transit</div>`,
-        item.driver?.name ? `<div>Driver: ${item.driver.name}</div>` : "",
-        item.shipment?.merchant_order_ref ? `<div>Shipment: ${item.shipment.merchant_order_ref}</div>` : "",
-        `<div style="margin-top:4px;color:#6b7280">${formatUpdatedAt(item.occurred_at ?? item.created_at)}</div>`,
-        `</div>`,
-      ].join("")
       const infoWindow = new google.maps.InfoWindow({ content: details })
 
-      marker.addListener("mouseover", () => {
+      marker.addListener("click", () => {
+        activeInfoWindowRef.current?.close()
+        activeInfoWindowRef.current = infoWindow
         infoWindow.open({ anchor: marker, map: mapInstanceRef.current })
-      })
-      marker.addListener("mouseout", () => {
-        infoWindow.close()
       })
 
       return entry
@@ -237,6 +264,8 @@ export function MappedBookingsMapCard({
     return () => {
       markersRef.current.forEach((entry) => entry.marker.setMap(null))
       markersRef.current = []
+      activeInfoWindowRef.current?.close()
+      activeInfoWindowRef.current = null
     }
   }, [onSelectShipment, selectedShipmentId, vehicles])
 
