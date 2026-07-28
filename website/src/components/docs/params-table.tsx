@@ -1,4 +1,5 @@
 import type { EndpointField } from "@/lib/docs/api-reference"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 type ParamsTableProps = {
   title: string
@@ -13,7 +14,7 @@ export function ParamsTable({ title, fields }: ParamsTableProps) {
   return (
     <section className="space-y-3">
       <h3 className="text-base font-semibold tracking-tight text-zinc-900">{title}</h3>
-      <div className="max-w-full w-full overflow-x-auto rounded-xl border border-zinc-200/80 bg-white ">
+      <ScrollArea className="w-full rounded-xl border border-zinc-200/80 bg-white">
         <table className="min-w-[560px] w-max text-left text-sm sm:w-full">
           <thead className="bg-zinc-50 text-zinc-500">
             <tr>
@@ -36,7 +37,8 @@ export function ParamsTable({ title, fields }: ParamsTableProps) {
             ))}
           </tbody>
         </table>
-      </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
     </section>
   )
 }

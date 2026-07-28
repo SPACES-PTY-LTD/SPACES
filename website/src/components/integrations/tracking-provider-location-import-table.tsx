@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { TrackingProviderLocationPreview } from "@/lib/types"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 type LocationFilters = {
   search: string
@@ -188,7 +189,7 @@ export function TrackingProviderLocationImportTable({
       </div>
 
       <div className="rounded-md border">
-        <div className="max-h-[420px] overflow-auto">
+        <ScrollArea className="h-[420px]">
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
@@ -252,7 +253,7 @@ export function TrackingProviderLocationImportTable({
               )}
             </TableBody>
           </Table>
-        </div>
+        </ScrollArea>
       </div>
     </div>
   )

@@ -23,6 +23,30 @@ Add new entries at the top (newest first).
 ## 2026-07-27 | Version: unreleased
 
 ### Summary
+- Standardized data-table overflow scrolling with the shadcn Scroll Area component.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Shared data tables now use styled shadcn horizontal scrollbars instead of native overflow containers.
+- Fixed-height integration import tables and the Vehicles Daily KPI report now use shadcn Scroll Areas for vertical and horizontal scrolling.
+- API documentation parameter tables use the same styled horizontal scrollbar behavior.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/components/ui/table.tsx src/components/ui/scroll-area.tsx src/components/common/data-table.tsx src/components/integrations/tracking-provider-vehicle-import-table.tsx src/components/integrations/tracking-provider-location-import-table.tsx src/components/integrations/tracking-provider-driver-import-table.tsx src/components/docs/params-table.tsx src/app/admin/logistics/analytics/vehicles-daily-kpi/vehicles-daily-kpi-report.tsx src/app/admin/logistics/shipments/runs/[runId]/page.tsx`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-07-27 | Version: unreleased
+
+### Summary
 - Reduced vehicle-location tracking failures caused by concurrent geofence lifecycle updates.
 
 ### API Changes

@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { TrackingProviderVehiclePreview, VehicleType } from "@/lib/types"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 type VehicleFilters = {
   search: string
@@ -153,7 +154,7 @@ export function TrackingProviderVehicleImportTable({
       </div>
 
       <div className="rounded-md border">
-        <div className="max-h-[420px] overflow-auto">
+        <ScrollArea className="h-[420px]">
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
@@ -230,7 +231,7 @@ export function TrackingProviderVehicleImportTable({
               )}
             </TableBody>
           </Table>
-        </div>
+        </ScrollArea>
       </div>
     </div>
   )

@@ -24,6 +24,7 @@ import {
 import { AdminRoute } from "@/lib/routes/admin"
 import { LocationMapDialog } from "@/components/dashboard/location-map-dialog"
 import Link from "next/link"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -201,9 +202,9 @@ export function VehiclesDailyKpiReport({
         {isPending ? <span className="text-sm text-muted-foreground">Loading…</span> : null}
       </div>
 
-      <div
-        className="overflow-x-auto rounded-lg border bg-card"
-        onScroll={(event) => setIsHorizontallyScrolled(event.currentTarget.scrollLeft > 0)}
+      <ScrollArea
+        className="w-full rounded-lg border bg-card"
+        onViewportScroll={(event) => setIsHorizontallyScrolled(event.currentTarget.scrollLeft > 0)}
       >
         <table className="w-max min-w-full border-collapse text-sm">
           <thead>
@@ -264,7 +265,8 @@ export function VehiclesDailyKpiReport({
             ) : null}
           </tbody>
         </table>
-      </div>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
 
       <Dialog open={Boolean(drilldown)} onOpenChange={(open) => { if (!open) setDrilldown(null) }}>
         <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-5xl">
@@ -276,7 +278,7 @@ export function VehiclesDailyKpiReport({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="overflow-auto rounded-md border">
+          <ScrollArea className="h-[min(60vh,520px)] rounded-md border">
             {drilldownLoading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading entries…</div> : null}
             {drilldownError ? <div className="p-8 text-center text-sm text-destructive">{drilldownError}</div> : null}
             {!drilldownLoading && !drilldownError && drilldownResponse?.data.length === 0 ? (
@@ -345,7 +347,8 @@ export function VehiclesDailyKpiReport({
                 </tbody>
               </table>
             ) : null}
-          </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
 
           <DialogFooter className="items-center justify-between sm:justify-between">
             <span className="text-sm text-muted-foreground">

@@ -997,8 +997,7 @@ export function DataTable<T extends Record<string, unknown>>({
           </div>
         ) : null}
         
-        <div className="overflow-x">
-
+        <div>
             <Table className={cn(width ? `table-fixed` : "table-auto")} style={width ? { minWidth:width } : undefined}>
               <TableHeader className="bg-muted/30">
                 <TableRow>

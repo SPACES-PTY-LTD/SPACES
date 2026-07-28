@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import type { TrackingProviderDriverPreview } from "@/lib/types"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 type DriverFilters = {
   search: string
@@ -173,7 +174,7 @@ export function TrackingProviderDriverImportTable({
       </div>
 
       <div className="rounded-md border">
-        <div className="max-h-[420px] overflow-auto">
+        <ScrollArea className="h-[420px]">
           <Table>
             <TableHeader className="bg-muted/30">
               <TableRow>
@@ -236,7 +237,7 @@ export function TrackingProviderDriverImportTable({
               )}
             </TableBody>
           </Table>
-        </div>
+        </ScrollArea>
       </div>
     </div>
   )

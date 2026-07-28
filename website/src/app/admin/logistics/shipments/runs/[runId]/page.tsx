@@ -114,7 +114,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
 
       <Card>
         <CardHeader><CardTitle>Shipments</CardTitle></CardHeader>
-        <CardContent className="overflow-x-auto">
+        <CardContent>
           <Table>
             <TableHeader><TableRow><TableHead>Reference</TableHead><TableHead>Sequence</TableHead><TableHead>Pickup</TableHead><TableHead>Drop-off</TableHead><TableHead>Parcels</TableHead><TableHead>Shipment status</TableHead><TableHead>Run status</TableHead></TableRow></TableHeader>
             <TableBody>
@@ -143,7 +143,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
               <Stat label="Maximum speed" value={speed(safety?.maximum_speed_kph)} />
               <Stat label="Worst exceedance" value={speed(safety?.worst_speed_exceedance_kph)} />
             </div>
-            <div className="overflow-x-auto">
+            <div>
               <Table>
                 <TableHeader><TableRow><TableHead>Time</TableHead><TableHead>Speed</TableHead><TableHead>Limit</TableHead><TableHead>Location</TableHead></TableRow></TableHeader>
                 <TableBody>
