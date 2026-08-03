@@ -26,9 +26,7 @@ class DataPurgeService
         'activity_logs',
     ];
 
-    public function __construct(private ActivityLogService $activityLogService)
-    {
-    }
+    public function __construct(private ActivityLogService $activityLogService) {}
 
     public static function allowedTypes(): array
     {
@@ -76,7 +74,7 @@ class DataPurgeService
 
     private function assertPreconditions(Merchant $merchant, array $types): void
     {
-        if (in_array('locations', $types, true) && !in_array('shipments', $types, true)) {
+        if (in_array('locations', $types, true) && ! in_array('shipments', $types, true)) {
             $hasShipments = DB::table('shipments')
                 ->where('merchant_id', $merchant->id)
                 ->exists();
@@ -221,7 +219,7 @@ class DataPurgeService
             ->pluck('driver_id')
             ->all();
 
-        if (!empty($protectedDriverIds)) {
+        if (! empty($protectedDriverIds)) {
             $driverIds = array_values(array_diff($driverIds, $protectedDriverIds));
         }
 
@@ -239,20 +237,36 @@ class DataPurgeService
 
     private function purgeVehicles(Merchant $merchant): array
     {
+        $merchantVehicleIds = DB::table('vehicles')
+            ->where('merchant_id', $merchant->id)
+            ->pluck('id')
+            ->all();
+
         $runVehicleIds = DB::table('runs')
             ->where('merchant_id', $merchant->id)
             ->whereNotNull('vehicle_id')
             ->pluck('vehicle_id')
             ->all();
 
-        $driverVehicleIds = DB::table('driver_vehicles')
+        $merchantDriverVehicleIds = DB::table('driver_vehicles')
+            ->join('drivers', 'drivers.id', '=', 'driver_vehicles.driver_id')
+            ->where('drivers.merchant_id', $merchant->id)
+            ->pluck('driver_vehicles.vehicle_id')
+            ->all();
+
+        $carrierDriverVehicleIds = DB::table('driver_vehicles')
             ->join('drivers', 'drivers.id', '=', 'driver_vehicles.driver_id')
             ->join('carriers', 'carriers.id', '=', 'drivers.carrier_id')
             ->where('carriers.merchant_id', $merchant->id)
             ->pluck('driver_vehicles.vehicle_id')
             ->all();
 
-        $vehicleIds = array_values(array_unique(array_merge($runVehicleIds, $driverVehicleIds)));
+        $vehicleIds = array_values(array_unique(array_merge(
+            $merchantVehicleIds,
+            $runVehicleIds,
+            $merchantDriverVehicleIds,
+            $carrierDriverVehicleIds,
+        )));
         if (empty($vehicleIds)) {
             return ['deleted_rows' => 0, 'tables' => []];
         }
@@ -263,7 +277,7 @@ class DataPurgeService
             ->pluck('vehicle_id')
             ->all();
 
-        if (!empty($protectedVehicleIds)) {
+        if (! empty($protectedVehicleIds)) {
             $vehicleIds = array_values(array_diff($vehicleIds, $protectedVehicleIds));
         }
 

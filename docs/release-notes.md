@@ -20,6 +20,29 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-08-03 | Version: unreleased
+
+### Summary
+- Fixed merchant data purges failing to remove unassigned vehicles.
+
+### API Changes
+- `POST /api/v1/merchants/{merchant_uuid}/purge-data` now discovers vehicles from their direct merchant ownership in addition to run, merchant-driver, and carrier-driver associations.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Purging the `vehicles` data type now permanently deletes vehicles whose `merchant_id` matches the selected merchant, even when they have no run or driver assignment.
+- Vehicles owned by other merchants remain protected.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `/opt/homebrew/bin/php artisan test tests/Feature/DataPurgeControllerTest.php`
+- `/opt/homebrew/bin/php vendor/bin/pint --test app/Services/DataPurgeService.php tests/Feature/DataPurgeControllerTest.php`
+- `git diff --check`
+
 ## 2026-07-27 | Version: unreleased
 
 ### Summary
