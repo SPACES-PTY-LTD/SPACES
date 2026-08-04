@@ -74,7 +74,7 @@ export default async function AdminDashboardPage() {
     {
       label: "In-transit bookings",
       value: formatter.format(stats.in_transit_bookings),
-      href: withAdminQuery(AdminLinks.bookings, { status: "in_transit" }),
+      href: withAdminQuery(AdminLinks.shipments, { status: "in_transit" }),
     },
     {
       label: "Delivered shipments",

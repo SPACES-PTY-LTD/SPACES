@@ -13,6 +13,7 @@ type BookingsPageProps = {
     page?: string | string[]
     sort_by?: string | string[]
     sort_dir?: string | string[]
+    status?: string | string[]
   }>
 }
 
@@ -43,6 +44,7 @@ export default async function BookingsPage({ searchParams }: BookingsPageProps) 
   const rawPage = Array.isArray(params.page) ? params.page[0] : params.page
   const rawSortBy = Array.isArray(params.sort_by) ? params.sort_by[0] : params.sort_by
   const rawSortDir = Array.isArray(params.sort_dir) ? params.sort_dir[0] : params.sort_dir
+  const status = Array.isArray(params.status) ? params.status[0] : params.status
   const parsedPage = rawPage ? Number.parseInt(rawPage, 10) : 1
   const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1
   const sortBy = normalizeSortBy(rawSortBy)
@@ -67,6 +69,7 @@ export default async function BookingsPage({ searchParams }: BookingsPageProps) 
         page,
         sort_by: sortBy,
         sort_dir: sortDir,
+        status: status || undefined,
       })
     : null
   const isError = response ? isApiErrorResponse(response) : false

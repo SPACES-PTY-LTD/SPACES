@@ -43,6 +43,7 @@ export async function listBookings(
     page?: number
     sort_by?: string
     sort_dir?: "asc" | "desc"
+    status?: string
   }
 ) {
   let url = "/api/v1/bookings"

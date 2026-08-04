@@ -23,6 +23,30 @@ Add new entries at the top (newest first).
 ## 2026-08-04 | Version: unreleased
 
 ### Summary
+- Fixed the bookings page status query filter being ignored.
+- Updated the dashboard's in-transit KPI to open the filtered shipment list.
+
+### API Changes
+- Booking list requests from the website now forward the `status` query parameter to the existing bookings API.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Visiting `/admin/logistics/shipments/bookings?status=in_transit` now lists only in-transit bookings.
+- Selecting the dashboard's In-transit bookings KPI now opens `/admin/logistics/shipments?status=in_transit`.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/app/admin/page.tsx src/app/admin/logistics/shipments/bookings/page.tsx src/lib/api/bookings.ts`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-04 | Version: unreleased
+
+### Summary
 - Added password-confirmed permanent merchant deletion from the admin settings area.
 
 ### API Changes
