@@ -116,6 +116,21 @@ export async function deleteVehicle(
   })
 }
 
+export async function bulkDeleteVehicles(
+  vehicleIds: string[],
+  merchantId?: string | null,
+  token?: string | null
+) {
+  return apiFetch<ApiEnvelope<{ deleted_count: number }>>("/api/v1/vehicles/bulk", {
+    method: "DELETE",
+    body: {
+      vehicle_ids: vehicleIds,
+      merchant_id: merchantId || undefined,
+    },
+    token,
+  })
+}
+
 export async function importVehiclesCsv(
   payload: { merchant_id: string; file: File },
   token?: string | null

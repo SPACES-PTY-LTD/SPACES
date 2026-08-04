@@ -278,6 +278,7 @@ Route::prefix('v1')->group(function () {
             Route::patch('vehicles/{vehicle_uuid}/maintenance', [VehicleController::class, 'updateMaintenance']);
             Route::patch('vehicles/{vehicle_uuid}/tags', [VehicleController::class, 'syncTags']);
             Route::patch('vehicles/{vehicle_uuid}', [VehicleController::class, 'update']);
+            Route::delete('vehicles/bulk', [VehicleController::class, 'bulkDestroy']);
             Route::delete('vehicles/{vehicle_uuid}', [VehicleController::class, 'destroy']);
 
             Route::get('routes', [RouteController::class, 'index'])->middleware('merchant.context');

@@ -11,6 +11,7 @@ use App\Models\VehicleType;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -374,6 +375,43 @@ class VehicleService
             ]
         );
         $vehicle->delete();
+    }
+
+    public function deleteVehicles(User $user, array $vehicleUuids, ?string $merchantUuid = null): int
+    {
+        return DB::transaction(function () use ($user, $vehicleUuids, $merchantUuid) {
+            $filters = $merchantUuid ? ['merchant_id' => $merchantUuid] : [];
+            $vehicles = $this->buildScopedVehicleQuery($user, $filters)
+                ->whereIn('vehicles.uuid', $vehicleUuids)
+                ->lockForUpdate()
+                ->get();
+
+            if ($vehicles->count() !== count($vehicleUuids)) {
+                throw ValidationException::withMessages([
+                    'vehicle_ids' => 'One or more selected vehicles could not be found.',
+                ]);
+            }
+
+            foreach ($vehicles as $vehicle) {
+                $this->activityLogService->log(
+                    action: 'deleted',
+                    entityType: 'vehicle',
+                    entity: $vehicle,
+                    actor: $user,
+                    accountId: $vehicle->account_id,
+                    merchantId: $vehicle->merchant_id,
+                    title: 'Vehicle deleted',
+                    metadata: [
+                        'plate_number' => $vehicle->plate_number,
+                        'make' => $vehicle->make,
+                        'model' => $vehicle->model,
+                    ]
+                );
+                $vehicle->delete();
+            }
+
+            return $vehicles->count();
+        });
     }
 
     public function importVehicles(User $user, array $data): array

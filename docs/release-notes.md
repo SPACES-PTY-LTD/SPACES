@@ -20,6 +20,55 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-08-04 | Version: unreleased
+
+### Summary
+- Added an idempotent seeder for the standard vehicle, driver, and shipment file types used by every merchant.
+
+### API Changes
+- None.
+
+### Database Changes
+- Added `MerchantFileTypeSeeder` to insert 16 default merchant-scoped file types without changing existing merchant configurations.
+
+### Behavior Changes
+- Running `MerchantFileTypeSeeder`, directly or through `DatabaseSeeder`, adds any missing standard file types to every non-deleted merchant.
+- Existing file types, including soft-deleted records, are treated as existing and are not duplicated, restored, or overwritten.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/MerchantFileTypeSeederTest.php`
+- `vendor/bin/pint --test database/seeders/MerchantFileTypeSeeder.php tests/Feature/MerchantFileTypeSeederTest.php`
+- `php -l database/seeders/DatabaseSeeder.php`
+- `git diff --check`
+
+## 2026-08-03 | Version: unreleased
+
+### Summary
+- Added bulk deletion for selected vehicles in the admin logistics vehicle list.
+
+### API Changes
+- Added `DELETE /api/v1/vehicles/bulk` to atomically delete a merchant-scoped list of vehicle UUIDs.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/vehicles` now shows a destructive `Delete selected` action after one or more vehicles are selected.
+- Bulk deletion requires confirmation, supports all filtered-result selection, records the existing vehicle deletion activity for every vehicle, and leaves all vehicles untouched if any submitted vehicle is outside the authorized merchant scope.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/VehicleBulkDeleteTest.php`
+- `vendor/bin/pint --test app/Http/Controllers/Api/V1/VehicleController.php app/Http/Requests/BulkDeleteVehiclesRequest.php app/Services/VehicleService.php tests/Feature/VehicleBulkDeleteTest.php`
+- `cd website && npm run lint -- src/components/vehicles/vehicles-table.tsx src/lib/api/vehicles.ts`
+- `cd website && npm run build` (passes with pre-existing unused-variable warnings in unrelated files)
+- `git diff --check`
+
 ## 2026-08-03 | Version: unreleased
 
 ### Summary

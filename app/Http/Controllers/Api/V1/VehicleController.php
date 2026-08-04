@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\BulkDeleteVehiclesRequest;
 use App\Http\Requests\ImportVehiclesRequest;
 use App\Http\Requests\StoreVehicleRequest;
 use App\Http\Requests\SyncTagsRequest;
@@ -22,6 +23,7 @@ class VehicleController extends Controller
     {
         try {
             $vehicles = $service->listVehicles($request->user(), $request->all());
+
             return ApiResponse::paginated($vehicles, VehicleResource::collection($vehicles));
         } catch (Throwable $e) {
             Log::error('Vehicle list failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
@@ -79,6 +81,23 @@ class VehicleController extends Controller
             Log::error('Vehicle delete failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
 
             return $this->apiError($e, 'VEHICLE_DELETE_FAILED', 'Unable to delete vehicle.');
+        }
+    }
+
+    public function bulkDestroy(BulkDeleteVehiclesRequest $request, VehicleService $service)
+    {
+        try {
+            $deletedCount = $service->deleteVehicles(
+                $request->user(),
+                $request->validated('vehicle_ids'),
+                $request->validated('merchant_id')
+            );
+
+            return ApiResponse::success(['deleted_count' => $deletedCount]);
+        } catch (Throwable $e) {
+            Log::error('Vehicle bulk delete failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+
+            return $this->apiError($e, 'VEHICLE_BULK_DELETE_FAILED', 'Unable to delete the selected vehicles.');
         }
     }
 

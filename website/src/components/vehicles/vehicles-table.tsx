@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { isApiErrorResponse } from "@/lib/api/client"
-import { listVehicles, updateVehicle } from "@/lib/api/vehicles"
+import { bulkDeleteVehicles, listVehicles, updateVehicle } from "@/lib/api/vehicles"
 import type { Tag, VehicleType } from "@/lib/types"
 
 type VehiclesTableRow = {
@@ -286,6 +286,110 @@ function BulkUpdateVehicleTypeAction({
   )
 }
 
+function BulkDeleteVehiclesAction({
+  selection,
+  accessToken,
+  merchantId,
+}: {
+  selection: DataTableSelectionState<VehiclesTableRow>
+  accessToken?: string
+  merchantId?: string | null
+}) {
+  const router = useRouter()
+  const [open, setOpen] = React.useState(false)
+  const [submitting, setSubmitting] = React.useState(false)
+
+  const handleDelete = React.useCallback(async () => {
+    setSubmitting(true)
+
+    try {
+      const vehicleIds = await resolveSelectedVehicleIds({
+        selection,
+        accessToken,
+        merchantId,
+      })
+
+      if (vehicleIds.length === 0) {
+        toast.error("No vehicles selected.")
+        return
+      }
+
+      const response = await bulkDeleteVehicles(
+        vehicleIds,
+        merchantId,
+        accessToken
+      )
+
+      if (isApiErrorResponse(response)) {
+        toast.error(response.message || "Failed to delete the selected vehicles.")
+        return
+      }
+
+      const deletedCount = response.data.deleted_count
+      toast.success(
+        deletedCount === 1
+          ? "Vehicle deleted."
+          : `${deletedCount} vehicles deleted.`
+      )
+      selection.clearSelection()
+      setOpen(false)
+      router.refresh()
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete the selected vehicles."
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }, [accessToken, merchantId, router, selection])
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="destructive"
+        size="sm"
+        onClick={() => setOpen(true)}
+      >
+        Delete selected
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete selected vehicles?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove {selection.selectedCount === 1
+                ? "the selected vehicle"
+                : `${selection.selectedCount} selected vehicles`}. This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={submitting}
+            >
+              {submitting ? "Deleting..." : "Delete vehicles"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
 export function VehiclesTable({
   accessToken,
   merchantId,
@@ -340,6 +444,11 @@ export function VehiclesTable({
               accessToken={accessToken}
               merchantId={merchantId}
               vehicleTypes={vehicleTypes}
+            />
+            <BulkDeleteVehiclesAction
+              selection={selection}
+              accessToken={accessToken}
+              merchantId={merchantId}
             />
           </>
         ),

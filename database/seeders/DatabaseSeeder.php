@@ -375,5 +375,7 @@ class DatabaseSeeder extends Seeder
                 ? $this->command?->info('Seeded cancel reason: ' . $reason['code'])
                 : $this->command?->info('Cancel reason already exists: ' . $reason['code']);
         }
+
+        $this->call(MerchantFileTypeSeeder::class);
     }
 }
