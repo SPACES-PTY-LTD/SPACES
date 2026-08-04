@@ -35,19 +35,7 @@ class DataPurgeService
 
     public function purge(User $user, Merchant $merchant, array $types): array
     {
-        $requestedTypes = array_values(array_unique($types));
-        $orderedTypes = array_values(array_intersect(self::EXECUTION_ORDER, $requestedTypes));
-
-        $this->assertPreconditions($merchant, $requestedTypes);
-
-        $results = DB::transaction(function () use ($merchant, $orderedTypes) {
-            $results = [];
-            foreach ($orderedTypes as $type) {
-                $results[$type] = $this->purgeByType($merchant, $type);
-            }
-
-            return $results;
-        });
+        $result = $this->purgeWithoutActivityLog($merchant, $types);
 
         $this->activityLogService->log(
             action: 'purged',
@@ -58,11 +46,36 @@ class DataPurgeService
             merchantId: $merchant->id,
             title: 'Merchant data purged',
             metadata: [
-                'requested_types' => $requestedTypes,
-                'processed_types' => $orderedTypes,
-                'results' => $results,
+                'requested_types' => $result['requested_types'],
+                'processed_types' => $result['processed_types'],
+                'results' => $result['results'],
             ]
         );
+
+        return $result;
+    }
+
+    public function purgeAllWithoutActivityLog(Merchant $merchant): array
+    {
+        return $this->purgeWithoutActivityLog($merchant, self::allowedTypes());
+    }
+
+    public function purgeWithoutActivityLog(Merchant $merchant, array $types): array
+    {
+        $requestedTypes = array_values(array_unique($types));
+        $orderedTypes = array_values(array_intersect(self::EXECUTION_ORDER, $requestedTypes));
+
+        $this->assertPreconditions($merchant, $requestedTypes);
+
+        $results = DB::transaction(function () use ($merchant, $orderedTypes) {
+            $resourceIds = $this->resourceIdsForMerchant($merchant);
+            $results = [];
+            foreach ($orderedTypes as $type) {
+                $results[$type] = $this->purgeByType($merchant, $type, $resourceIds);
+            }
+
+            return $results;
+        });
 
         return [
             'merchant_uuid' => $merchant->uuid,
@@ -87,15 +100,15 @@ class DataPurgeService
         }
     }
 
-    private function purgeByType(Merchant $merchant, string $type): array
+    private function purgeByType(Merchant $merchant, string $type, array $resourceIds): array
     {
         return match ($type) {
             'shipments' => $this->purgeShipments($merchant),
             'runs' => $this->purgeRuns($merchant),
             'vehicle_activity' => $this->purgeVehicleActivity($merchant),
             'routes' => $this->purgeRoutes($merchant),
-            'drivers' => $this->purgeDrivers($merchant),
-            'vehicles' => $this->purgeVehicles($merchant),
+            'drivers' => $this->purgeDrivers($merchant, $resourceIds['drivers']),
+            'vehicles' => $this->purgeVehicles($merchant, $resourceIds['vehicles']),
             'locations' => $this->purgeLocations($merchant),
             'location_types' => $this->purgeLocationTypes($merchant),
             'merchant_integrations' => $this->purgeMerchantIntegrations($merchant),
@@ -188,36 +201,13 @@ class DataPurgeService
         return ['deleted_rows' => array_sum($tables), 'tables' => $tables];
     }
 
-    private function purgeDrivers(Merchant $merchant): array
+    private function purgeDrivers(Merchant $merchant, array $driverIds): array
     {
-        $merchantDriverIds = DB::table('drivers')
-            ->where('drivers.merchant_id', $merchant->id)
-            ->pluck('drivers.id')
-            ->all();
-
-        $carrierDriverIds = DB::table('drivers')
-            ->join('carriers', 'carriers.id', '=', 'drivers.carrier_id')
-            ->whereNull('drivers.merchant_id')
-            ->where('carriers.merchant_id', $merchant->id)
-            ->pluck('drivers.id')
-            ->all();
-
-        $runDriverIds = DB::table('runs')
-            ->where('merchant_id', $merchant->id)
-            ->whereNotNull('driver_id')
-            ->pluck('driver_id')
-            ->all();
-
-        $driverIds = array_values(array_unique(array_merge($merchantDriverIds, $carrierDriverIds, $runDriverIds)));
         if (empty($driverIds)) {
             return ['deleted_rows' => 0, 'tables' => []];
         }
 
-        $protectedDriverIds = DB::table('runs')
-            ->whereIn('driver_id', $driverIds)
-            ->where('merchant_id', '!=', $merchant->id)
-            ->pluck('driver_id')
-            ->all();
+        $protectedDriverIds = $this->protectedDriverIds($merchant, $driverIds);
 
         if (! empty($protectedDriverIds)) {
             $driverIds = array_values(array_diff($driverIds, $protectedDriverIds));
@@ -235,47 +225,13 @@ class DataPurgeService
         return ['deleted_rows' => array_sum($tables), 'tables' => $tables];
     }
 
-    private function purgeVehicles(Merchant $merchant): array
+    private function purgeVehicles(Merchant $merchant, array $vehicleIds): array
     {
-        $merchantVehicleIds = DB::table('vehicles')
-            ->where('merchant_id', $merchant->id)
-            ->pluck('id')
-            ->all();
-
-        $runVehicleIds = DB::table('runs')
-            ->where('merchant_id', $merchant->id)
-            ->whereNotNull('vehicle_id')
-            ->pluck('vehicle_id')
-            ->all();
-
-        $merchantDriverVehicleIds = DB::table('driver_vehicles')
-            ->join('drivers', 'drivers.id', '=', 'driver_vehicles.driver_id')
-            ->where('drivers.merchant_id', $merchant->id)
-            ->pluck('driver_vehicles.vehicle_id')
-            ->all();
-
-        $carrierDriverVehicleIds = DB::table('driver_vehicles')
-            ->join('drivers', 'drivers.id', '=', 'driver_vehicles.driver_id')
-            ->join('carriers', 'carriers.id', '=', 'drivers.carrier_id')
-            ->where('carriers.merchant_id', $merchant->id)
-            ->pluck('driver_vehicles.vehicle_id')
-            ->all();
-
-        $vehicleIds = array_values(array_unique(array_merge(
-            $merchantVehicleIds,
-            $runVehicleIds,
-            $merchantDriverVehicleIds,
-            $carrierDriverVehicleIds,
-        )));
         if (empty($vehicleIds)) {
             return ['deleted_rows' => 0, 'tables' => []];
         }
 
-        $protectedVehicleIds = DB::table('runs')
-            ->whereIn('vehicle_id', $vehicleIds)
-            ->where('merchant_id', '!=', $merchant->id)
-            ->pluck('vehicle_id')
-            ->all();
+        $protectedVehicleIds = $this->protectedVehicleIds($merchant, $vehicleIds);
 
         if (! empty($protectedVehicleIds)) {
             $vehicleIds = array_values(array_diff($vehicleIds, $protectedVehicleIds));
@@ -380,5 +336,132 @@ class DataPurgeService
             ->delete();
 
         return ['deleted_rows' => $deleted, 'tables' => ['activity_logs' => $deleted]];
+    }
+
+    private function resourceIdsForMerchant(Merchant $merchant): array
+    {
+        $merchantDriverIds = DB::table('drivers')
+            ->where('drivers.merchant_id', $merchant->id)
+            ->pluck('drivers.id')
+            ->all();
+        $carrierDriverIds = DB::table('drivers')
+            ->join('carriers', 'carriers.id', '=', 'drivers.carrier_id')
+            ->where('carriers.merchant_id', $merchant->id)
+            ->pluck('drivers.id')
+            ->all();
+        $runDriverIds = DB::table('runs')
+            ->where('merchant_id', $merchant->id)
+            ->whereNotNull('driver_id')
+            ->pluck('driver_id')
+            ->all();
+
+        $driverIds = array_values(array_unique(array_merge(
+            $merchantDriverIds,
+            $carrierDriverIds,
+            $runDriverIds,
+        )));
+
+        $merchantVehicleIds = DB::table('vehicles')
+            ->where('merchant_id', $merchant->id)
+            ->pluck('id')
+            ->all();
+        $runVehicleIds = DB::table('runs')
+            ->where('merchant_id', $merchant->id)
+            ->whereNotNull('vehicle_id')
+            ->pluck('vehicle_id')
+            ->all();
+        $driverVehicleIds = empty($driverIds)
+            ? []
+            : DB::table('driver_vehicles')
+                ->whereIn('driver_id', $driverIds)
+                ->whereNotNull('vehicle_id')
+                ->pluck('vehicle_id')
+                ->all();
+
+        return [
+            'drivers' => $driverIds,
+            'vehicles' => array_values(array_unique(array_merge(
+                $merchantVehicleIds,
+                $runVehicleIds,
+                $driverVehicleIds,
+            ))),
+        ];
+    }
+
+    private function protectedDriverIds(Merchant $merchant, array $driverIds): array
+    {
+        $runIds = DB::table('runs')
+            ->whereIn('driver_id', $driverIds)
+            ->where('merchant_id', '!=', $merchant->id)
+            ->pluck('driver_id')
+            ->all();
+        $bookingIds = DB::table('bookings')
+            ->join('shipments', 'shipments.id', '=', 'bookings.shipment_id')
+            ->whereIn('bookings.current_driver_id', $driverIds)
+            ->where('shipments.merchant_id', '!=', $merchant->id)
+            ->pluck('bookings.current_driver_id')
+            ->all();
+        $offerIds = DB::table('delivery_offers')
+            ->whereIn('driver_id', $driverIds)
+            ->where('merchant_id', '!=', $merchant->id)
+            ->pluck('driver_id')
+            ->all();
+        $otherOwnedIds = DB::table('drivers')
+            ->whereIn('id', $driverIds)
+            ->whereNotNull('merchant_id')
+            ->where('merchant_id', '!=', $merchant->id)
+            ->pluck('id')
+            ->all();
+
+        return array_values(array_unique(array_merge($runIds, $bookingIds, $offerIds, $otherOwnedIds)));
+    }
+
+    private function protectedVehicleIds(Merchant $merchant, array $vehicleIds): array
+    {
+        $runIds = DB::table('runs')
+            ->whereIn('vehicle_id', $vehicleIds)
+            ->where('merchant_id', '!=', $merchant->id)
+            ->pluck('vehicle_id')
+            ->all();
+        $activityIds = DB::table('vehicle_activity')
+            ->whereIn('vehicle_id', $vehicleIds)
+            ->where('merchant_id', '!=', $merchant->id)
+            ->pluck('vehicle_id')
+            ->all();
+        $otherDriverIds = DB::table('driver_vehicles')
+            ->join('drivers', 'drivers.id', '=', 'driver_vehicles.driver_id')
+            ->whereIn('driver_vehicles.vehicle_id', $vehicleIds)
+            ->whereNotNull('drivers.merchant_id')
+            ->where('drivers.merchant_id', '!=', $merchant->id)
+            ->pluck('driver_vehicles.vehicle_id')
+            ->all();
+        $linkedDriverIds = DB::table('driver_vehicles')
+            ->whereIn('vehicle_id', $vehicleIds)
+            ->pluck('driver_id')
+            ->all();
+        $protectedLinkedDriverIds = empty($linkedDriverIds)
+            ? []
+            : $this->protectedDriverIds($merchant, $linkedDriverIds);
+        $protectedLinkedVehicleIds = empty($protectedLinkedDriverIds)
+            ? []
+            : DB::table('driver_vehicles')
+                ->whereIn('driver_id', $protectedLinkedDriverIds)
+                ->whereIn('vehicle_id', $vehicleIds)
+                ->pluck('vehicle_id')
+                ->all();
+        $otherOwnedIds = DB::table('vehicles')
+            ->whereIn('id', $vehicleIds)
+            ->whereNotNull('merchant_id')
+            ->where('merchant_id', '!=', $merchant->id)
+            ->pluck('id')
+            ->all();
+
+        return array_values(array_unique(array_merge(
+            $runIds,
+            $activityIds,
+            $otherDriverIds,
+            $protectedLinkedVehicleIds,
+            $otherOwnedIds,
+        )));
     }
 }

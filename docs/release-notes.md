@@ -23,6 +23,33 @@ Add new entries at the top (newest first).
 ## 2026-08-04 | Version: unreleased
 
 ### Summary
+- Added password-confirmed permanent merchant deletion from the admin settings area.
+
+### API Changes
+- `DELETE /api/v1/merchants/{merchant_uuid}` now requires a `password` body field and returns the deleted merchant UUID plus the next accessible merchant.
+- The endpoint returns `INVALID_PASSWORD` for incorrect credentials and `LAST_MERCHANT_REQUIRED` when no replacement merchant is available.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Account holders can delete the selected merchant from `/admin/settings/delete-merchant` after confirming their password.
+- Merchant deletion now runs every merchant data-purge category, permanently removes remaining merchant-owned records and uploaded files, preserves resources still referenced by another merchant, updates the last-accessed merchant, and refreshes the website merchant menu.
+- The user's final merchant cannot be deleted, and successful deletion continues to the first remaining merchant dashboard.
+
+### Breaking Changes
+- Existing callers of `DELETE /api/v1/merchants/{merchant_uuid}` must now provide the authenticated user's password.
+
+### Verification
+- `php artisan test tests/Feature/MerchantDeletionTest.php tests/Feature/DataPurgeControllerTest.php`
+- `vendor/bin/pint --test app/Http/Controllers/Api/V1/MerchantController.php app/Http/Requests/DeleteMerchantRequest.php app/Jobs/DeleteMerchantFilesJob.php app/Services/DataPurgeService.php app/Services/MerchantService.php tests/Feature/MerchantDeletionTest.php`
+- `cd website && npm run lint -- src/app/admin/settings/delete-merchant/page.tsx src/components/settings/delete-merchant-manager.tsx src/components/layout/admin-shell.tsx src/components/layout/admin-nav.tsx src/lib/api/merchants.ts src/lib/auth.ts src/lib/navigation.ts src/lib/routes/admin.ts`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-04 | Version: unreleased
+
+### Summary
 - Added an idempotent seeder for the standard vehicle, driver, and shipment file types used by every merchant.
 
 ### API Changes

@@ -377,6 +377,12 @@ export const adminNavGroups: NavGroup[] = [
             icon: Trash2,
             roles: ["user"],
           },
+          {
+            title: "Delete Merchant",
+            href: AdminLinks.settingsDeleteMerchant,
+            icon: Trash2,
+            roles: ["user"],
+          },
           // {
           //   title: "Merchants",
           //   href: AdminLinks.merchants,

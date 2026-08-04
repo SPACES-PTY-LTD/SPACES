@@ -21,9 +21,11 @@ import type { Role } from "@/lib/types"
 export function AdminNav({
   role,
   canManageMerchantUsers = false,
+  canDeleteMerchant = false,
 }: {
   role: Role
   canManageMerchantUsers?: boolean
+  canDeleteMerchant?: boolean
 }) {
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
@@ -34,10 +36,15 @@ export function AdminNav({
         ...item,
         subItems: item.subItems?.filter(
           (subItem) =>
-            subItem.href !== AdminLinks.users || role === "super_admin" || canManageMerchantUsers
+            (subItem.href !== AdminLinks.users || role === "super_admin" || canManageMerchantUsers) &&
+            (subItem.href !== AdminLinks.settingsDeleteMerchant || canDeleteMerchant)
         ),
       }))
-      .filter((item) => item.href !== AdminLinks.users || role === "super_admin" || canManageMerchantUsers),
+      .filter(
+        (item) =>
+          (item.href !== AdminLinks.users || role === "super_admin" || canManageMerchantUsers) &&
+          (item.href !== AdminLinks.settingsDeleteMerchant || canDeleteMerchant)
+      ),
   })).filter((group) => group.items.length > 0)
 
   const isPathActive = (href: string) => {

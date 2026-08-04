@@ -2,22 +2,26 @@
 
 namespace App\Services;
 
-use App\Models\Merchant;
+use App\Jobs\DeleteMerchantFilesJob;
 use App\Models\LocationType;
+use App\Models\Merchant;
 use App\Models\User;
 use App\Support\MerchantAccess;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator as Paginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 
 class MerchantService
 {
+    public function __construct(private DataPurgeService $dataPurgeService) {}
+
     public function createMerchant(User $user, array $data): Merchant
     {
         return DB::transaction(function () use ($user, $data) {
@@ -57,7 +61,7 @@ class MerchantService
         $query = Merchant::query();
 
         if ($user->role !== 'super_admin') {
-            if (MerchantAccess::canCreateMerchants($user) && !empty($user->account_id)) {
+            if (MerchantAccess::canCreateMerchants($user) && ! empty($user->account_id)) {
                 $query->where('account_id', $user->account_id);
             } else {
                 $query->where(function (Builder $builder) use ($user) {
@@ -68,15 +72,15 @@ class MerchantService
                         ->orWhere('owner_user_id', $user->id);
                 });
             }
-        } elseif (!empty($filters['with_trashed'])) {
+        } elseif (! empty($filters['with_trashed'])) {
             $query->withTrashed();
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['q'])) {
+        if (! empty($filters['q'])) {
             $q = $filters['q'];
             $query->where(function (Builder $builder) use ($q) {
                 $builder->where('name', 'like', "%{$q}%")
@@ -108,9 +112,76 @@ class MerchantService
         return $merchant;
     }
 
-    public function deleteMerchant(Merchant $merchant): void
+    public function deleteMerchant(User $user, Merchant $merchant): Merchant
     {
-        $merchant->delete();
+        return DB::transaction(function () use ($user, $merchant) {
+            $merchant = Merchant::query()->whereKey($merchant->id)->lockForUpdate()->firstOrFail();
+            $nextMerchant = $this->nextAccessibleMerchant($user, $merchant);
+
+            if (! $nextMerchant) {
+                throw new ConflictHttpException('Create another merchant before deleting this one.');
+            }
+
+            $storedFiles = $this->storedFilesForMerchant($merchant);
+
+            $this->dataPurgeService->purgeAllWithoutActivityLog($merchant);
+
+            DB::table('carriers')->where('merchant_id', $merchant->id)->delete();
+            DB::table('drivers')->where('merchant_id', $merchant->id)->update(['merchant_id' => null]);
+            DB::table('vehicles')->where('merchant_id', $merchant->id)->update(['merchant_id' => null]);
+            DB::table('merchant_user')->where('merchant_id', $merchant->id)->delete();
+
+            $merchant->forceDelete();
+
+            if ($user->role === 'user') {
+                $user->forceFill([
+                    'last_accessed_merchant_id' => $nextMerchant->id,
+                ])->save();
+            }
+
+            if ($storedFiles !== []) {
+                DeleteMerchantFilesJob::dispatch($storedFiles)->afterCommit();
+            }
+
+            return $nextMerchant->fresh()->load('owner');
+        });
+    }
+
+    private function nextAccessibleMerchant(User $user, Merchant $merchant): ?Merchant
+    {
+        $query = Merchant::query()->whereKeyNot($merchant->id);
+        $accessibleMerchantIds = MerchantAccess::accessibleMerchantIds($user);
+
+        if ($accessibleMerchantIds !== null) {
+            $query->whereIn('id', $accessibleMerchantIds);
+        }
+
+        return $query->orderByDesc('created_at')->first();
+    }
+
+    private function storedFilesForMerchant(Merchant $merchant): array
+    {
+        $files = collect();
+
+        if (! empty($merchant->logo_path)) {
+            $files->push(['disk' => 's3', 'path' => $merchant->logo_path]);
+        }
+
+        $files = $files
+            ->concat(DB::table('entity_files')
+                ->where('merchant_id', $merchant->id)
+                ->get(['disk', 'path'])
+                ->map(fn ($file) => ['disk' => $file->disk, 'path' => $file->path]))
+            ->concat(DB::table('delivery_note_imports')
+                ->where('merchant_id', $merchant->id)
+                ->get(['disk', 'path'])
+                ->map(fn ($file) => ['disk' => $file->disk, 'path' => $file->path]));
+
+        return $files
+            ->filter(fn (array $file) => ! empty($file['disk']) && ! empty($file['path']))
+            ->unique(fn (array $file) => $file['disk'].'|'.$file['path'])
+            ->values()
+            ->all();
     }
 
     public function updateMerchantSettings(Merchant $merchant, array $data): Merchant
@@ -139,7 +210,7 @@ class MerchantService
 
         $disk->putFileAs(dirname($path), $logo, basename($path), ['visibility' => 'public']);
 
-        if (!empty($merchant->logo_path) && $merchant->logo_path !== $path) {
+        if (! empty($merchant->logo_path) && $merchant->logo_path !== $path) {
             $disk->delete($merchant->logo_path);
         }
 
@@ -218,11 +289,12 @@ class MerchantService
             ->get()
             ->map(function (User $user) {
                 $user->setAttribute('effective_role', MerchantAccess::normalizeRole($user->pivot->role ?? null));
+
                 return $user;
             });
 
         $accountHolder = $merchant->account?->owner;
-        if ($accountHolder && !$members->contains(fn (User $user) => (int) $user->id === (int) $accountHolder->id)) {
+        if ($accountHolder && ! $members->contains(fn (User $user) => (int) $user->id === (int) $accountHolder->id)) {
             $accountHolder->setRelation('pivot', null);
             $accountHolder->setAttribute('effective_role', MerchantAccess::ROLE_ACCOUNT_HOLDER);
             $members->prepend($accountHolder);

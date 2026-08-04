@@ -205,14 +205,31 @@ export async function uploadMerchantLogo(
   return response.data
 }
 
+export type DeleteMerchantResponse = {
+  message: string
+  deleted_merchant_id: string
+  next_merchant: Merchant
+}
+
 export async function deleteMerchant(
   merchantId: string,
+  payload: { password: string },
   token?: string | null
 ) {
-  return apiFetch<void>(`/api/v1/merchants/${merchantId}`, {
+  const response = await apiFetch<ApiEnvelope<DeleteMerchantResponse>>(
+    `/api/v1/merchants/${merchantId}`,
+    {
     method: "DELETE",
+    body: payload,
     token,
-  })
+    }
+  )
+
+  if (isApiErrorResponse(response)) {
+    return response
+  }
+
+  return response.data
 }
 
 export async function listMerchantMembers(

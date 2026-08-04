@@ -85,3 +85,15 @@ export async function requireMerchantUserManagement(): Promise<Session> {
   }
   return session
 }
+
+export async function requireMerchantDeletion(): Promise<Session> {
+  const session = await requireAuth()
+  if (
+    session.user.role !== "user" ||
+    !session.selected_merchant?.access?.permissions.can_delete_merchant
+  ) {
+    redirect(AdminLinks.settings)
+  }
+
+  return session
+}

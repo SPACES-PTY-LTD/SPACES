@@ -28,6 +28,7 @@ export const AdminLinks = {
   powerfleetOrganizations: `${ADMIN_BASE}/tools/powerfleet-organizations`,
   settingsCompliance: `${ADMIN_BASE}/settings/compliance`,
   settingsDeleteData: `${ADMIN_BASE}/settings/delete-data`,
+  settingsDeleteMerchant: `${ADMIN_BASE}/settings/delete-merchant`,
   settingsEnvironments: `${ADMIN_BASE}/settings/environments`,
   settingsFileTypes: `${ADMIN_BASE}/settings/file-types`,
   settingsIntegrations: `${ADMIN_BASE}/settings/integrations`,

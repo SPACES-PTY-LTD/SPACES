@@ -73,7 +73,10 @@ export function AdminShell({
   const selectedMerchant = activeSession.selected_merchant ?? merchants[0]
   const canManageMerchantUsers =
     activeSession.user.role === "super_admin" ||
-    Boolean(activeSession.selected_merchant?.access?.permissions.can_manage_users)
+    Boolean(selectedMerchant?.access?.permissions.can_manage_users)
+  const canDeleteMerchant = Boolean(
+    selectedMerchant?.access?.permissions.can_delete_merchant
+  )
 
   React.useEffect(() => {
     if (activeSession.user?.role !== "user") return
@@ -209,6 +212,7 @@ export function AdminShell({
           <AdminNav
             role={activeSession.user.role}
             canManageMerchantUsers={canManageMerchantUsers}
+            canDeleteMerchant={canDeleteMerchant}
           />
         </SidebarContent>
         <SidebarFooter>
