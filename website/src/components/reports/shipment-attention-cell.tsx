@@ -45,8 +45,8 @@ export function ShipmentAttentionCell({ initialNow, ...input }: ShipmentAttentio
   if (alerts.length === 0) return "-"
 
   return (
-    <TooltipProvider>
-      <div className="flex items-center gap-1.5">
+    <TooltipProvider delayDuration={75} skipDelayDuration={100}>
+      <div className="flex items-center gap-0.5">
         {alerts.map((alert) => {
           const Icon = icons[alert.code]
           return (
@@ -56,13 +56,13 @@ export function ShipmentAttentionCell({ initialNow, ...input }: ShipmentAttentio
                   type="button"
                   aria-label={alert.tooltip}
                   className={cn(
-                    "inline-flex rounded-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2",
+                    "inline-flex size-8 shrink-0 cursor-help items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2",
                     alert.tone === "danger"
                       ? "text-red-600 hover:text-red-700 focus-visible:ring-red-600"
                       : "text-amber-600 hover:text-amber-700 focus-visible:ring-amber-600"
                   )}
                 >
-                  <Icon className="size-4" aria-hidden="true" />
+                  <Icon className="size-[18px]" aria-hidden="true" />
                 </button>
               </TooltipTrigger>
               <TooltipContent sideOffset={8} className="max-w-72 text-left leading-relaxed">

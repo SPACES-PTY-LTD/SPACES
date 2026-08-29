@@ -219,7 +219,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         data={rows}
         meta={tableMeta}
         loading_error={loadingError}
-        width="4320px"
+        width="4360px"
         stickyColumns={{ leading: 3 }}
         serverSearchParam="search"
         filters={[
@@ -365,7 +365,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         columns={[
           { key: "shipment_number", label: "Shipment Number", link: "shipment_href" , className: "w-[220px]"},
           { key: "shipment_status", label: "Shipment Status", type: "status" , className: "w-[150px]"},
-          { key: "attention", label: "Attention", type: "shipment_attention", className: "w-[120px]" },
+          { key: "attention", label: "Attention", type: "shipment_attention", className: "w-[160px]" },
           { key: "date_created", label: "Date Created", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm", className: "w-[150px]" },
           { key: "collection_date", label: "Collection Date", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm" , className: "w-[150px]"},
           { key: "delivery_note_number", label: "Delivery Note", type: "delivery_note_number" },

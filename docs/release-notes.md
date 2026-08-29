@@ -23,6 +23,30 @@ Add new entries at the top (newest first).
 ## 2026-08-30 | Version: unreleased
 
 ### Summary
+- Increased the reliable hover and focus area for shipment Attention tooltips.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Each Attention icon now uses a 32-by-32-pixel interactive target with a shorter tooltip delay, while retaining its compact visual icon size.
+- The sticky Attention column is wider so up to four alert targets remain separated and easy to hover.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/components/reports/shipment-attention-cell.tsx src/app/admin/logistics/shipments/reports/shipments_report/page.tsx`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-30 | Version: unreleased
+
+### Summary
 - Fixed the admin feedback inbox failing to render in production.
 
 ### API Changes
