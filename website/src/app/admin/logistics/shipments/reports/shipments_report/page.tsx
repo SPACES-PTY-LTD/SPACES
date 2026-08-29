@@ -1,7 +1,6 @@
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import Link from "next/link"
 import { ExportableDataTable } from "@/components/common/exportable-data-table"
-import { ShipmentDwellTimeCell } from "@/components/reports/shipment-dwell-time-cell"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { isApiErrorResponse } from "@/lib/api/client"
@@ -178,24 +177,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
       to_location_display: formatLocation(item.to_location),
       from_total_time: fromDwell.durationLabel,
       to_total_time: toDwell.durationLabel,
-      from_total_time_cell: (
-        <ShipmentDwellTimeCell
-          enteredAt={item.from_time_in}
-          exitedAt={item.from_time_out}
-          expectedWaitingTime={item.from_location?.expected_waiting_time}
-          initialNow={initialNow}
-          shipmentHref={shipmentHref}
-        />
-      ),
-      to_total_time_cell: (
-        <ShipmentDwellTimeCell
-          enteredAt={item.to_time_in}
-          exitedAt={item.to_time_out}
-          expectedWaitingTime={item.to_location?.expected_waiting_time}
-          initialNow={initialNow}
-          shipmentHref={shipmentHref}
-        />
-      ),
+      report_now: initialNow,
       run_total_time: formatSeconds(item.run_duration_seconds),
       run_odometer_start_display: formatKm(item.run_odometer_start_km),
       run_odometer_end_display: formatKm(item.run_odometer_end_km),
@@ -396,10 +378,34 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           { key: "to_location_display", label: "To Location", link: "to_location_href", className: " w-[350px]" },
           { key: "from_time_in", label: "From Time In", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
           { key: "from_time_out", label: "From Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
-          { key: "from_total_time_cell", label: "From Total Time", className: "w-[170px]" },
+          {
+            key: "from_total_time",
+            label: "From Total Time",
+            type: "dwell_time",
+            link: "shipment_href",
+            className: "w-[170px]",
+            dwellTime: {
+              enteredAtKey: "from_time_in",
+              exitedAtKey: "from_time_out",
+              expectedWaitingTimeKey: "from_location.expected_waiting_time",
+              initialNowKey: "report_now",
+            },
+          },
           { key: "to_time_in", label: "To Time In", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
           { key: "to_time_out", label: "To Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
-          { key: "to_total_time_cell", label: "To Total Time", className: "w-[170px]" },
+          {
+            key: "to_total_time",
+            label: "To Total Time",
+            type: "dwell_time",
+            link: "shipment_href",
+            className: "w-[170px]",
+            dwellTime: {
+              enteredAtKey: "to_time_in",
+              exitedAtKey: "to_time_out",
+              expectedWaitingTimeKey: "to_location.expected_waiting_time",
+              initialNowKey: "report_now",
+            },
+          },
           { key: "odometer_at_collection_display", label: "Pickup Odometer", className: "w-[150px]" },
           { key: "odometer_at_delivery_display", label: "Delivery Odometer", className: "w-[160px]" },
           { key: "total_km_from_collection_display", label: "Shipment KM", className: "w-[140px]" },

@@ -23,6 +23,29 @@ Add new entries at the top (newest first).
 ## 2026-08-29 | Version: unreleased
 
 ### Summary
+- Fixed shipment-report total-time cells rendering `[object Object]` instead of their duration and over-wait alert.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The shared DataTable now renders dwell-time columns from serializable row fields on the client, preserving live timers, shipment links, red over-wait alerts, search, and CSV values.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/components/common/data-table.tsx src/app/admin/logistics/shipments/reports/shipments_report/page.tsx src/components/reports/shipment-dwell-time-cell.tsx`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-29 | Version: unreleased
+
+### Summary
 - Renamed location waiting targets to expected waiting time and added live over-wait alerts to the shipment report.
 
 ### API Changes

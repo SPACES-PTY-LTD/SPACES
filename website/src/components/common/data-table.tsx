@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { StatusBadge } from "@/components/common/status-badge"
+import { ShipmentDwellTimeCell } from "@/components/reports/shipment-dwell-time-cell"
 import { UpdateDeliveryNoteDialog } from "@/components/shipments/update-delivery-note-dialog"
 import { UpdateInvoiceNumberDialog } from "@/components/shipments/update-invoice-number-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -53,11 +54,17 @@ export type Column<T> = {
   key: keyof T | string
   label: string
   className?: string
-  type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number"
+  type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time"
   size?: "sm" | "md" | "lg"
   format?: string
   customValue?: (row: T) => React.ReactNode
   link?: keyof T | string
+  dwellTime?: {
+    enteredAtKey: keyof T | string
+    exitedAtKey: keyof T | string
+    expectedWaitingTimeKey: keyof T | string
+    initialNowKey: keyof T | string
+  }
 }
 
 export type Filter<T> = {
@@ -355,6 +362,32 @@ export function DataTable<T extends Record<string, unknown>>({
     if (["string", "number", "boolean"].includes(typeof value)) return value as React.ReactNode
     return String(value)
   }, [])
+
+  const renderDwellTimeValue = React.useCallback(
+    (row: T, column: Column<T>): React.ReactNode => {
+      const config = column.dwellTime
+      if (!config) return renderValue(getDisplayValue(row, column))
+
+      const enteredAt = getValue(row, config.enteredAtKey)
+      const exitedAt = getValue(row, config.exitedAtKey)
+      const expectedWaitingTime = getValue(row, config.expectedWaitingTimeKey)
+      const initialNow = getValue(row, config.initialNowKey)
+      const shipmentHref = column.link ? getValue(row, column.link) : undefined
+
+      return (
+        <ShipmentDwellTimeCell
+          enteredAt={typeof enteredAt === "string" ? enteredAt : null}
+          exitedAt={typeof exitedAt === "string" ? exitedAt : null}
+          expectedWaitingTime={
+            typeof expectedWaitingTime === "number" ? expectedWaitingTime : null
+          }
+          initialNow={typeof initialNow === "string" ? initialNow : ""}
+          shipmentHref={typeof shipmentHref === "string" ? shipmentHref : undefined}
+        />
+      )
+    },
+    [getDisplayValue, renderValue]
+  )
 
   const renderTagsValue = React.useCallback((row: T, column: Column<T>): React.ReactNode => {
     const rawValue = getCellValue(row, column.key)
@@ -1241,6 +1274,8 @@ export function DataTable<T extends Record<string, unknown>>({
                               invoiceNumber={String(getCellValue(row, column.key) ?? "")}
                               deliveryNoteNumber={String(getValue(row, "delivery_note_number") ?? "")}
                             />
+                          ) : column.type === "dwell_time" ? (
+                            renderDwellTimeValue(row, column)
                           ) : (
                             (() => {
                               const value = getDisplayValue(row, column)
