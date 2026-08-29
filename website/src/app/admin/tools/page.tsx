@@ -1,8 +1,9 @@
 import Link from "next/link"
-import { KeyRound, Network, Route } from "lucide-react"
+import { KeyRound, MessageSquareText, Network, Route } from "lucide-react"
 import { PageHeader } from "@/components/layout/page-header"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AdminLinks } from "@/lib/routes/admin"
+import { canReviewFeedback, requireAuth } from "@/lib/auth"
 
 const tools = [
   {
@@ -23,9 +24,20 @@ const tools = [
     href: AdminLinks.powerfleetOrganizations,
     icon: Network,
   },
+  {
+    title: "Feedback",
+    description: "Review user feedback, continue conversations, and track each request through resolution.",
+    href: AdminLinks.feedback,
+    icon: MessageSquareText,
+    feedbackReview: true,
+  },
 ]
 
 export default async function AdminToolsPage() {
+  const session = await requireAuth()
+  const canReview = canReviewFeedback(session)
+  const visibleTools = tools.filter((tool) => tool.feedbackReview ? canReview : true)
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -34,7 +46,7 @@ export default async function AdminToolsPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-2">
-        {tools.map((tool) => {
+        {visibleTools.map((tool) => {
           const Icon = tool.icon
 
           return (

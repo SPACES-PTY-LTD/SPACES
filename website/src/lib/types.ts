@@ -1,5 +1,40 @@
 export type Role = "super_admin" | "user"
 export type UUID = string
+
+export type FeedbackCategory = "bug" | "feature_request" | "general"
+export type FeedbackStatus = "open" | "in_progress" | "needs_info" | "resolved" | "closed"
+
+export interface FeedbackPerson {
+  user_id: UUID
+  name: string
+  email?: string
+}
+
+export interface FeedbackMessage {
+  message_id: UUID
+  author_type: "submitter" | "reviewer"
+  body: string
+  sender: FeedbackPerson | null
+  created_at: string | null
+}
+
+export interface Feedback {
+  feedback_id: UUID
+  category: FeedbackCategory
+  status: FeedbackStatus
+  page_path: string
+  submitter: FeedbackPerson | null
+  merchant: { merchant_id: UUID; name: string } | null
+  assignee: FeedbackPerson | null
+  status_updated_by?: Pick<FeedbackPerson, "user_id" | "name"> | null
+  status_updated_at?: string | null
+  message_preview: string | null
+  message_count: number
+  unread: boolean
+  messages?: FeedbackMessage[]
+  created_at: string | null
+  updated_at: string | null
+}
 export type MerchantAccessRole =
   | "account_holder"
   | "member"

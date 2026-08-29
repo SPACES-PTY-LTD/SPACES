@@ -23,6 +23,7 @@ import {
   Trash2,
   FileText,
   Network,
+  MessageSquareText,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import type { Role } from "@/lib/types"
@@ -260,8 +261,14 @@ export const adminNavGroups: NavGroup[] = [
         title: "Tools",
         href: AdminLinks.tools,
         icon: Plug,
-        roles: ["super_admin"],
+        roles: ["user", "super_admin"],
         subItems: [
+          {
+            title: "Feedback",
+            href: AdminLinks.feedback,
+            icon: MessageSquareText,
+            roles: ["user", "super_admin"],
+          },
           {
             title: "Powerfleet Authentication Check",
             href: AdminLinks.powerfleetAuthenticationCheck,

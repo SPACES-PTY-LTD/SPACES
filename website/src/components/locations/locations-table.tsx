@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -24,6 +25,8 @@ import {
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listLocations, updateLocation } from "@/lib/api/locations"
 import type { LocationType, Tag } from "@/lib/types"
+
+const MAX_EXPECTED_WAITING_TIME = 4_294_967_295
 
 type LocationsTableRow = {
   location_id?: string
@@ -275,6 +278,173 @@ function BulkUpdateLocationTypeAction({
   )
 }
 
+function BulkUpdateExpectedWaitingTimeAction({
+  selection,
+  accessToken,
+  merchantId,
+}: {
+  selection: DataTableSelectionState<LocationsTableRow>
+  accessToken?: string
+  merchantId?: string | null
+}) {
+  const router = useRouter()
+  const [open, setOpen] = React.useState(false)
+  const [submitting, setSubmitting] = React.useState(false)
+  const [expectedWaitingTime, setExpectedWaitingTime] = React.useState("")
+
+  React.useEffect(() => {
+    if (!open) {
+      setExpectedWaitingTime("")
+    }
+  }, [open])
+
+  const applyExpectedWaitingTime = React.useCallback(async (
+    minutes: number | null
+  ) => {
+    setSubmitting(true)
+
+    try {
+      const locationIds = await resolveSelectedLocationIds({
+        selection,
+        accessToken,
+        merchantId,
+      })
+
+      if (locationIds.length === 0) {
+        toast.error("No locations selected.")
+        return
+      }
+
+      const results = await Promise.allSettled(
+        locationIds.map((locationId) =>
+          updateLocation(
+            locationId,
+            {
+              merchant_id: merchantId ?? undefined,
+              expected_waiting_time: minutes,
+            },
+            accessToken
+          )
+        )
+      )
+
+      const failureMessage = getSettledErrorMessage(
+        results,
+        "Failed to update the expected waiting time for some locations."
+      )
+
+      if (failureMessage) {
+        toast.error(failureMessage)
+        return
+      }
+
+      toast.success(
+        locationIds.length === 1
+          ? minutes === null
+            ? "Expected waiting time cleared."
+            : "Expected waiting time updated."
+          : minutes === null
+            ? `Cleared expected waiting time for ${locationIds.length} locations.`
+            : `Updated expected waiting time for ${locationIds.length} locations.`
+      )
+      selection.clearSelection()
+      setOpen(false)
+      router.refresh()
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update locations."
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }, [accessToken, merchantId, router, selection])
+
+  const handleSubmit = React.useCallback(() => {
+    if (!/^\d+$/.test(expectedWaitingTime)) {
+      toast.error("Enter an expected waiting time in whole minutes.")
+      return
+    }
+
+    const minutes = Number(expectedWaitingTime)
+    if (!Number.isSafeInteger(minutes) || minutes > MAX_EXPECTED_WAITING_TIME) {
+      toast.error(
+        `Expected waiting time must be between 0 and ${MAX_EXPECTED_WAITING_TIME.toLocaleString()} minutes.`
+      )
+      return
+    }
+
+    void applyExpectedWaitingTime(minutes)
+  }, [applyExpectedWaitingTime, expectedWaitingTime])
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+      >
+        Update expected waiting time
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update expected waiting time</DialogTitle>
+            <DialogDescription>
+              Set the expected waiting time for{" "}
+              {selection.selectedCount === 1
+                ? "the selected location."
+                : `${selection.selectedCount} selected locations.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label
+              htmlFor="bulk-expected-waiting-time"
+              className="text-sm font-medium"
+            >
+              Expected waiting time (minutes)
+            </label>
+            <Input
+              id="bulk-expected-waiting-time"
+              type="number"
+              min={0}
+              max={MAX_EXPECTED_WAITING_TIME}
+              step={1}
+              inputMode="numeric"
+              placeholder="Minutes"
+              value={expectedWaitingTime}
+              onChange={(event) => setExpectedWaitingTime(event.target.value)}
+              disabled={submitting}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void applyExpectedWaitingTime(null)}
+              disabled={submitting}
+            >
+              Clear waiting time
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? "Updating..." : "Update"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
 export function LocationsTable({
   accessToken,
   merchantId,
@@ -322,6 +492,11 @@ export function LocationsTable({
               accessToken={accessToken}
               merchantId={merchantId}
               locationTypes={locationTypes}
+            />
+            <BulkUpdateExpectedWaitingTimeAction
+              selection={selection}
+              accessToken={accessToken}
+              merchantId={merchantId}
             />
           </>
         ),

@@ -1,4 +1,8 @@
 import { formatDurationMinutes, resolveDwellTime } from "@/lib/dwell-time"
+import {
+  resolveShipmentAttention,
+  summarizeShipmentAttention,
+} from "@/lib/shipment-attention"
 
 export type CsvValue = string | number | boolean | null | undefined
 export type CsvRow = Record<string, CsvValue>
@@ -127,31 +131,61 @@ export function mapLogisticsCsvRows(resource: LogisticsExportResource, records: 
 
 
   if (resource === "shipment-report") {
-    return records.map((row) => ({
-      ...pick(row, [
-        "shipment_id", "vehicle_id", "driver_id", "run_id", "date_created", "collection_date",
-        "shipment_number", "delivery_note_number", "invoice_number", "shipment_status",
-        "truck_plate_number", "driver", "shipment_type", "from_time_in", "from_time_to",
-        "from_time_out", "to_time_in", "to_time_out", "run_started_at", "run_completed_at",
-        "run_duration_seconds", "run_odometer_start_km", "run_odometer_end_km",
-        "run_odometer_distance_km", "odometer_at_collection", "odometer_at_delivery",
-        "total_km_from_collection", "delivered_volume",
-      ]),
-      ...address(row, "from_location"),
-      ...address(row, "to_location"),
-      from_location_display: scalar(row.from_location_display ?? value(row, "from_location.full_address") ?? value(row, "from_location.name")),
-      to_location_display: scalar(row.to_location_display ?? value(row, "to_location.full_address") ?? value(row, "to_location.name")),
-      from_total_time: scalar(
-        row.from_time_in && !row.from_time_out
-          ? dwellDuration(row.from_time_in, row.from_time_out)
-          : row.from_total_time ?? dwellDuration(row.from_time_in, row.from_time_out)
-      ),
-      to_total_time: scalar(
-        row.to_time_in && !row.to_time_out
-          ? dwellDuration(row.to_time_in, row.to_time_out)
-          : row.to_total_time ?? dwellDuration(row.to_time_in, row.to_time_out)
-      ),
-    }))
+    return records.map((row) => {
+      const numberValue = (path: string) => {
+        const raw = value(row, path)
+        return typeof raw === "number" && Number.isFinite(raw) ? raw : null
+      }
+      const stringValue = (path: string) => {
+        const raw = value(row, path)
+        return typeof raw === "string" ? raw : null
+      }
+      const attention = resolveShipmentAttention({
+        shipmentStatus: stringValue("shipment_status"),
+        collectedAt: stringValue("collected_at"),
+        deliveredAt: stringValue("delivered_at"),
+        speedingAlertCount: numberValue("speeding_alert_count"),
+        speedingHighestSpeedKph: numberValue("speeding_highest_speed_kph"),
+        speedingMaxOverLimitKph: numberValue("speeding_max_over_limit_kph"),
+        speedingLatestAt: stringValue("speeding_latest_at"),
+        pickupEnteredAt: stringValue("from_time_in"),
+        pickupExitedAt: stringValue("from_time_out"),
+        pickupExpectedWaitingTime: numberValue("from_location.expected_waiting_time"),
+        dropoffEnteredAt: stringValue("to_time_in"),
+        dropoffExitedAt: stringValue("to_time_out"),
+        dropoffExpectedWaitingTime: numberValue("to_location.expected_waiting_time"),
+        now: new Date(),
+      })
+
+      return {
+        ...pick(row, [
+          "shipment_id", "vehicle_id", "driver_id", "run_id", "date_created", "collection_date",
+          "shipment_number", "delivery_note_number", "invoice_number", "shipment_status",
+          "truck_plate_number", "driver", "shipment_type", "from_time_in", "from_time_to",
+          "from_time_out", "to_time_in", "to_time_out", "run_started_at", "run_completed_at",
+          "run_duration_seconds", "run_odometer_start_km", "run_odometer_end_km",
+          "run_odometer_distance_km", "odometer_at_collection", "odometer_at_delivery",
+          "total_km_from_collection", "collected_at", "delivered_at", "speeding_alert_count",
+          "speeding_highest_speed_kph", "speeding_max_over_limit_kph", "speeding_latest_at",
+          "delivered_volume",
+        ]),
+        attention_alerts: summarizeShipmentAttention(attention),
+        ...address(row, "from_location"),
+        ...address(row, "to_location"),
+        from_location_display: scalar(row.from_location_display ?? value(row, "from_location.full_address") ?? value(row, "from_location.name")),
+        to_location_display: scalar(row.to_location_display ?? value(row, "to_location.full_address") ?? value(row, "to_location.name")),
+        from_total_time: scalar(
+          row.from_time_in && !row.from_time_out
+            ? dwellDuration(row.from_time_in, row.from_time_out)
+            : row.from_total_time ?? dwellDuration(row.from_time_in, row.from_time_out)
+        ),
+        to_total_time: scalar(
+          row.to_time_in && !row.to_time_out
+            ? dwellDuration(row.to_time_in, row.to_time_out)
+            : row.to_total_time ?? dwellDuration(row.to_time_in, row.to_time_out)
+        ),
+      }
+    })
   }
 
   const fields: Record<Exclude<LogisticsExportResource, "drivers" | "shipments" | "routes" | "shipment-report">, string[]> = {

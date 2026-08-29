@@ -65,6 +65,7 @@ export type ShipmentsFullReportSortBy =
 
 export type ShipmentsFullReportParams = {
   merchant_id?: string
+  search?: string
   date_created?: string
   created_from?: string
   created_to?: string
@@ -92,6 +93,7 @@ export type ShipmentFullReportRow = {
   collection_date?: string
   shipment_number?: string
   delivery_note_number?: string
+  invoice_number?: string
   truck_plate_number?: string
   run_started_at?: string
   run_completed_at?: string
@@ -112,6 +114,12 @@ export type ShipmentFullReportRow = {
   odometer_at_collection?: number | null
   odometer_at_delivery?: number | null
   total_km_from_collection?: string | number | null
+  collected_at?: string | null
+  delivered_at?: string | null
+  speeding_alert_count?: number
+  speeding_highest_speed_kph?: number | null
+  speeding_max_over_limit_kph?: number | null
+  speeding_latest_at?: string | null
   shipment_status?: string
   delivered_volume?: string
 }

@@ -22,10 +22,14 @@ export function AdminNav({
   role,
   canManageMerchantUsers = false,
   canDeleteMerchant = false,
+  canReviewFeedback = false,
+  feedbackUnreadCount = 0,
 }: {
   role: Role
   canManageMerchantUsers?: boolean
   canDeleteMerchant?: boolean
+  canReviewFeedback?: boolean
+  feedbackUnreadCount?: number
 }) {
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
@@ -37,12 +41,14 @@ export function AdminNav({
         subItems: item.subItems?.filter(
           (subItem) =>
             (subItem.href !== AdminLinks.users || role === "super_admin" || canManageMerchantUsers) &&
+            (subItem.href !== AdminLinks.feedback || canReviewFeedback) &&
             (subItem.href !== AdminLinks.settingsDeleteMerchant || canDeleteMerchant)
         ),
       }))
       .filter(
         (item) =>
           (item.href !== AdminLinks.users || role === "super_admin" || canManageMerchantUsers) &&
+          (item.href !== AdminLinks.tools || role === "super_admin" || canReviewFeedback) &&
           (item.href !== AdminLinks.settingsDeleteMerchant || canDeleteMerchant)
       ),
   })).filter((group) => group.items.length > 0)
@@ -97,6 +103,11 @@ export function AdminNav({
                               <SidebarMenuSubButton asChild isActive={subActive}>
                                 <Link href={subItem.href} onClick={handleNavClick}>
                                   <span>{subItem.title}</span>
+                                  {subItem.href === AdminLinks.feedback && feedbackUnreadCount > 0 ? (
+                                    <span className="ml-auto rounded-full bg-destructive px-1.5 text-[10px] font-semibold text-destructive-foreground">
+                                      {feedbackUnreadCount > 99 ? "99+" : feedbackUnreadCount}
+                                    </span>
+                                  ) : null}
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>

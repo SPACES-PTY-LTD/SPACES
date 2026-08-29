@@ -23,6 +23,7 @@ export const AdminLinks = {
   settingsAccount: `${ADMIN_BASE}/settings/account`,
   setup: `${ADMIN_BASE}/setup`,
   tools: `${ADMIN_BASE}/tools`,
+  feedback: `${ADMIN_BASE}/tools/feedback`,
   autorunTest: `${ADMIN_BASE}/tools/autoruntest`,
   powerfleetAuthenticationCheck: `${ADMIN_BASE}/tools/powerfleet-authentication-check`,
   powerfleetOrganizations: `${ADMIN_BASE}/tools/powerfleet-organizations`,
@@ -73,6 +74,7 @@ export const AdminLinks = {
 } as const
 
 export const AdminRoute = {
+  feedbackDetails: (feedbackId: AdminRouteParam) => `${AdminLinks.feedback}/${feedbackId}`,
   activityLogDetails: (activityId: AdminRouteParam) => `${AdminLinks.activityLog}/${activityId}`,
   bookingDetails: (bookingId: AdminRouteParam) => `${AdminLinks.bookings}/${bookingId}`,
   cancelReasonDetails: (cancelReasonId: AdminRouteParam) => `${AdminLinks.cancelReasons}/${cancelReasonId}`,

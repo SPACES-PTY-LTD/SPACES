@@ -26,6 +26,7 @@ use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\VehicleActivity;
 use App\Services\ShipmentVisitIntervalService;
 use App\Services\VehiclesDailyKpiReportService;
 use App\Services\VehicleService;
@@ -208,6 +209,30 @@ class ReportController extends Controller
                 $query->whereDate('shipments.collection_date', $request->get('collection_date'));
             }
 
+            $search = trim((string) $request->get('search', ''));
+            if ($search !== '') {
+                $likeSearch = '%'.$search.'%';
+                $query->where(function (Builder $builder) use ($likeSearch) {
+                    $builder
+                        ->where('shipments.merchant_order_ref', 'like', $likeSearch)
+                        ->orWhere('shipments.delivery_note_number', 'like', $likeSearch)
+                        ->orWhere('shipments.invoice_number', 'like', $likeSearch)
+                        ->orWhere('shipments.status', 'like', $likeSearch)
+                        ->orWhere('shipments.service_type', 'like', $likeSearch)
+                        ->orWhere('report_vehicles.plate_number', 'like', $likeSearch)
+                        ->orWhere('report_driver_users.name', 'like', $likeSearch)
+                        ->orWhere('report_driver_users.email', 'like', $likeSearch)
+                        ->orWhere('report_pickup_locations.name', 'like', $likeSearch)
+                        ->orWhere('report_pickup_locations.code', 'like', $likeSearch)
+                        ->orWhere('report_pickup_locations.company', 'like', $likeSearch)
+                        ->orWhere('report_pickup_locations.city', 'like', $likeSearch)
+                        ->orWhere('report_dropoff_locations.name', 'like', $likeSearch)
+                        ->orWhere('report_dropoff_locations.code', 'like', $likeSearch)
+                        ->orWhere('report_dropoff_locations.company', 'like', $likeSearch)
+                        ->orWhere('report_dropoff_locations.city', 'like', $likeSearch);
+                });
+            }
+
             if (! empty($request->get('shipment_number'))) {
                 $query->where('shipments.merchant_order_ref', 'like', '%'.$request->get('shipment_number').'%');
             }
@@ -291,8 +316,13 @@ class ReportController extends Controller
             $perPage = min((int) ($request->get('per_page', 50)), 200);
             $shipments = $query->paginate($perPage);
             $visitIntervals = $visitIntervalService->resolveForShipments($shipments->getCollection());
+            $reportNow = now();
+            $speedingSummaries = $this->resolveShipmentSpeedingSummaries(
+                $shipments->getCollection(),
+                $reportNow
+            );
 
-            $rows = $shipments->getCollection()->map(function (Shipment $shipment) use ($visitIntervals, $request) {
+            $rows = $shipments->getCollection()->map(function (Shipment $shipment) use ($visitIntervals, $request, $speedingSummaries) {
                 $runShipments = $shipment->relationLoaded('runShipments')
                     ? $shipment->getRelation('runShipments')
                     : $shipment->runShipments()
@@ -314,6 +344,7 @@ class ReportController extends Controller
 
                 $fromVisit = $visitIntervals[$shipment->id]['pickup'] ?? null;
                 $toVisit = $visitIntervals[$shipment->id]['dropoff'] ?? null;
+                $speeding = $speedingSummaries[$shipment->id] ?? null;
 
                 return [
                     'date_created' => optional($shipment->created_at)?->toIso8601String(),
@@ -321,6 +352,7 @@ class ReportController extends Controller
                     'shipment_number' => $shipment->merchant_order_ref,
                     'shipment_id' => $shipment->uuid,
                     'delivery_note_number' => $shipment->delivery_note_number,
+                    'invoice_number' => $shipment->invoice_number,
                     'truck_plate_number' => $run?->vehicle?->plate_number,
                     'vehicle_id' => $run?->vehicle?->uuid,
                     'run_id' => $run?->uuid,
@@ -353,6 +385,12 @@ class ReportController extends Controller
                     'odometer_at_collection' => $booking?->odometer_at_collection,
                     'odometer_at_delivery' => $booking?->odometer_at_delivery,
                     'total_km_from_collection' => $booking?->total_km_from_collection,
+                    'collected_at' => optional($booking?->collected_at)?->toIso8601String(),
+                    'delivered_at' => optional($booking?->delivered_at)?->toIso8601String(),
+                    'speeding_alert_count' => $speeding['count'] ?? 0,
+                    'speeding_highest_speed_kph' => $speeding['highest_speed_kph'] ?? null,
+                    'speeding_max_over_limit_kph' => $speeding['max_over_limit_kph'] ?? null,
+                    'speeding_latest_at' => $speeding['latest_at'] ?? null,
                     'shipment_status' => $shipment->status,
                     'delivered_volume' => $shipment->status === 'delivered'
                         ? $this->formatDeliveredVolume($shipment)
@@ -376,6 +414,117 @@ class ReportController extends Controller
 
             return $this->apiError($e, 'REPORTS_FAILED', 'Unable to generate report.');
         }
+    }
+
+    /**
+     * Aggregate speeding events for each shipment's actual transit window without
+     * issuing one query per report row.
+     *
+     * @return array<int, array{count: int, highest_speed_kph: float|null, max_over_limit_kph: float|null, latest_at: string|null}>
+     */
+    private function resolveShipmentSpeedingSummaries(
+        \Illuminate\Support\Collection $shipments,
+        \Carbon\CarbonInterface $reportNow
+    ): array {
+        $terminalStatuses = ['delivered', 'cancelled', 'failed', 'offer_failed'];
+        $contexts = [];
+        $vehicleWindows = [];
+
+        foreach ($shipments as $shipment) {
+            $runShipment = $shipment->runShipments?->first();
+            $vehicleId = $runShipment?->run?->vehicle_id;
+            $collectedAt = $shipment->booking?->collected_at;
+            $deliveredAt = $shipment->booking?->delivered_at;
+
+            if (! $vehicleId || ! $collectedAt) {
+                continue;
+            }
+
+            if (! $deliveredAt && in_array($shipment->status, $terminalStatuses, true)) {
+                continue;
+            }
+
+            $windowEnd = $deliveredAt ?? $reportNow;
+            if ($windowEnd->lt($collectedAt)) {
+                continue;
+            }
+
+            $contexts[$shipment->id] = [
+                'vehicle_id' => (int) $vehicleId,
+                'start' => $collectedAt,
+                'end' => $windowEnd,
+            ];
+
+            if (! isset($vehicleWindows[$vehicleId])) {
+                $vehicleWindows[$vehicleId] = [
+                    'start' => $collectedAt,
+                    'end' => $windowEnd,
+                ];
+
+                continue;
+            }
+
+            if ($collectedAt->lt($vehicleWindows[$vehicleId]['start'])) {
+                $vehicleWindows[$vehicleId]['start'] = $collectedAt;
+            }
+            if ($windowEnd->gt($vehicleWindows[$vehicleId]['end'])) {
+                $vehicleWindows[$vehicleId]['end'] = $windowEnd;
+            }
+        }
+
+        if ($contexts === []) {
+            return [];
+        }
+
+        $events = VehicleActivity::query()
+            ->where('event_type', VehicleActivity::EVENT_SPEEDING)
+            ->where(function (Builder $query) use ($vehicleWindows) {
+                foreach ($vehicleWindows as $vehicleId => $window) {
+                    $query->orWhere(function (Builder $vehicleQuery) use ($vehicleId, $window) {
+                        $vehicleQuery
+                            ->where('vehicle_id', $vehicleId)
+                            ->whereBetween('occurred_at', [$window['start'], $window['end']]);
+                    });
+                }
+            })
+            ->orderBy('occurred_at')
+            ->get(['vehicle_id', 'occurred_at', 'speed_kph', 'speed_limit_kph'])
+            ->groupBy('vehicle_id');
+
+        $summaries = [];
+        foreach ($contexts as $shipmentId => $context) {
+            $summary = [
+                'count' => 0,
+                'highest_speed_kph' => null,
+                'max_over_limit_kph' => null,
+                'latest_at' => null,
+            ];
+
+            foreach ($events->get($context['vehicle_id'], collect()) as $event) {
+                if (! $event->occurred_at || $event->occurred_at->lt($context['start']) || $event->occurred_at->gt($context['end'])) {
+                    continue;
+                }
+
+                $speed = $event->speed_kph !== null ? (float) $event->speed_kph : null;
+                $limit = $event->speed_limit_kph !== null ? (float) $event->speed_limit_kph : null;
+                $overLimit = $speed !== null && $limit !== null ? max(0, $speed - $limit) : null;
+
+                $summary['count']++;
+                $summary['highest_speed_kph'] = $speed === null
+                    ? $summary['highest_speed_kph']
+                    : max($summary['highest_speed_kph'] ?? $speed, $speed);
+                $summary['max_over_limit_kph'] = $overLimit === null
+                    ? $summary['max_over_limit_kph']
+                    : max($summary['max_over_limit_kph'] ?? $overLimit, $overLimit);
+                $summary['latest_at'] = $event->occurred_at->toIso8601String();
+            }
+
+            if ($summary['count'] > 0) {
+                $summaries[$shipmentId] = $summary;
+            }
+        }
+
+        return $summaries;
     }
 
     public function createdOverTime(CreatedOverTimeReportRequest $request)

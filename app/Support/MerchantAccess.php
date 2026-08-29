@@ -10,9 +10,13 @@ use Illuminate\Database\Eloquent\Builder;
 class MerchantAccess
 {
     public const ROLE_ACCOUNT_HOLDER = 'account_holder';
+
     public const ROLE_MEMBER = 'member';
+
     public const ROLE_MODIFIER = 'modifier';
+
     public const ROLE_BILLER = 'biller';
+
     public const ROLE_RESOURCE_VIEWER = 'resource_viewer';
 
     public const ASSIGNABLE_ROLES = [
@@ -172,7 +176,7 @@ class MerchantAccess
             return null;
         }
 
-        if (self::canCreateMerchants($user) && !empty($user->account_id)) {
+        if (self::canCreateMerchants($user) && ! empty($user->account_id)) {
             return Merchant::query()
                 ->where('account_id', $user->account_id)
                 ->pluck('id')
@@ -184,6 +188,41 @@ class MerchantAccess
         $ownedMerchantIds = $user->ownedMerchants()->pluck('id')->map(static fn ($id) => (int) $id)->all();
 
         return array_values(array_unique(array_merge($membershipIds, $ownedMerchantIds)));
+    }
+
+    public static function manageableMerchantIds(User $user): ?array
+    {
+        if (self::isSuperAdmin($user)) {
+            return null;
+        }
+
+        if (! empty($user->account_id) && (int) self::accountOwnerId((int) $user->account_id) === (int) $user->id) {
+            return Merchant::query()
+                ->where('account_id', $user->account_id)
+                ->pluck('id')
+                ->map(static fn ($id) => (int) $id)
+                ->all();
+        }
+
+        return Merchant::query()
+            ->where(function (Builder $query) use ($user) {
+                $query->where('owner_user_id', $user->id)
+                    ->orWhereHas('users', function (Builder $membershipQuery) use ($user) {
+                        $membershipQuery
+                            ->where('users.id', $user->id)
+                            ->whereIn('merchant_user.role', [self::ROLE_MEMBER, 'admin', 'owner']);
+                    });
+            })
+            ->pluck('id')
+            ->map(static fn ($id) => (int) $id)
+            ->all();
+    }
+
+    public static function canReviewFeedback(User $user): bool
+    {
+        $merchantIds = self::manageableMerchantIds($user);
+
+        return $merchantIds === null || $merchantIds !== [];
     }
 
     public static function scopeToMerchants(Builder $query, User $user, string $column = 'merchant_id'): Builder

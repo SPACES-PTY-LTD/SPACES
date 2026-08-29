@@ -14,12 +14,26 @@ const dwellTime = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
 )
 
-const csvSource = await readFile(new URL("../src/lib/csv-export.ts", import.meta.url), "utf8")
-const csvWithoutDwellImport = csvSource.replace(
-  'import { formatDurationMinutes, resolveDwellTime } from "@/lib/dwell-time"',
+const attentionSource = await readFile(new URL("../src/lib/shipment-attention.ts", import.meta.url), "utf8")
+const attentionWithoutDwellImport = attentionSource.replace(
+  /import \{[\s\S]*?\} from "@\/lib\/dwell-time"\n/,
   ""
 )
-const compiledCsv = ts.transpileModule(`${source}\n${csvWithoutDwellImport}`, {
+const compiledAttention = ts.transpileModule(`${source}\n${attentionWithoutDwellImport}`, {
+  compilerOptions: {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.ES2022,
+  },
+}).outputText
+const shipmentAttention = await import(
+  `data:text/javascript;base64,${Buffer.from(compiledAttention).toString("base64")}`
+)
+
+const csvSource = await readFile(new URL("../src/lib/csv-export.ts", import.meta.url), "utf8")
+const csvWithoutLocalImports = csvSource
+  .replace('import { formatDurationMinutes, resolveDwellTime } from "@/lib/dwell-time"', "")
+  .replace(/import \{[\s\S]*?\} from "@\/lib\/shipment-attention"\n/, "")
+const compiledCsv = ts.transpileModule(`${source}\n${attentionWithoutDwellImport}\n${csvWithoutLocalImports}`, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
     target: ts.ScriptTarget.ES2022,
@@ -81,6 +95,62 @@ test("minute wording is singular and plural", () => {
   assert.equal(dwellTime.formatMinuteCount(2), "2 minutes")
 })
 
+test("shipment attention alerts only after the exact six-hour boundary", () => {
+  const collectedAt = "2026-08-29T08:00:00.000Z"
+  const base = {
+    shipmentStatus: "in_transit",
+    collectedAt,
+  }
+
+  assert.equal(shipmentAttention.resolveShipmentAttention({
+    ...base,
+    now: "2026-08-29T14:00:00.000Z",
+  }).some((alert) => alert.code === "undelivered_over_6_hours"), false)
+
+  assert.equal(shipmentAttention.resolveShipmentAttention({
+    ...base,
+    now: "2026-08-29T14:00:01.000Z",
+  }).some((alert) => alert.code === "undelivered_over_6_hours"), true)
+})
+
+test("terminal or delivered shipments do not show the undelivered alert", () => {
+  for (const input of [
+    { shipmentStatus: "delivered", collectedAt: at(0) },
+    { shipmentStatus: "in_transit", collectedAt: at(0), deliveredAt: at(1) },
+    { shipmentStatus: "failed", collectedAt: at(0) },
+  ]) {
+    assert.equal(shipmentAttention.resolveShipmentAttention({
+      ...input,
+      now: "2026-08-30T08:00:00.000Z",
+    }).some((alert) => alert.code === "undelivered_over_6_hours"), false)
+  }
+})
+
+test("shipment attention keeps speeding, pickup, and drop-off alert order", () => {
+  const alerts = shipmentAttention.resolveShipmentAttention({
+    shipmentStatus: "delivered",
+    speedingAlertCount: 2,
+    speedingHighestSpeedKph: 112,
+    speedingMaxOverLimitKph: 22,
+    speedingLatestAt: "2026-08-29T09:00:00.000Z",
+    pickupEnteredAt: at(0),
+    pickupExitedAt: at(20),
+    pickupExpectedWaitingTime: 10,
+    dropoffEnteredAt: at(30),
+    dropoffExitedAt: at(50),
+    dropoffExpectedWaitingTime: 15,
+    now: at(50),
+  })
+
+  assert.deepEqual(alerts.map((alert) => alert.code), [
+    "speeding",
+    "pickup_dwell_over_expected",
+    "dropoff_dwell_over_expected",
+  ])
+  assert.match(alerts[0].tooltip, /2 speeding alerts/)
+  assert.match(alerts[0].tooltip, /112 km\/h/)
+})
+
 test("location CSV uses only the expected waiting-time heading", () => {
   const [row] = csvExport.mapLogisticsCsvRows("locations", [
     { location_id: "location-1", expected_waiting_time: 15 },
@@ -118,4 +188,21 @@ test("shipment report CSV refreshes open dwell duration at export time", () => {
 
   assert.notEqual(row.from_total_time, "stale value")
   assert.match(row.from_total_time, /^(?:< 1 min|\d+ min|\d+ hr(?: \d+ min)?)$/)
+})
+
+test("shipment report CSV exports readable attention text", () => {
+  const [row] = csvExport.mapLogisticsCsvRows("shipment-report", [{
+    shipment_id: "shipment-alert",
+    shipment_status: "delivered",
+    speeding_alert_count: 1,
+    speeding_highest_speed_kph: 105,
+    speeding_max_over_limit_kph: 15,
+    speeding_latest_at: "2026-08-29T09:00:00.000Z",
+    from_time_in: at(0),
+    from_time_out: at(20),
+    from_location: { expected_waiting_time: 10 },
+  }])
+
+  assert.match(row.attention_alerts, /1 speeding alert during transit/)
+  assert.match(row.attention_alerts, /Pickup dwell was 20 min/)
 })

@@ -93,7 +93,7 @@ function formatKm(value?: string | number | null) {
 
 export default async function ShipmentsReportPage({ searchParams }: ShipmentsReportPageProps) {
   const params = (await searchParams) ?? {}
-  const dateCreated = getSingleValue(params.date_created)
+  const search = getSingleValue(params.search)
   const createdFrom = getSingleValue(params.created_from)
   const createdTo = getSingleValue(params.created_to)
   const collectionDate = getSingleValue(params.collection_date)
@@ -125,7 +125,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
     ? await getShipmentsFullReport(
         {
           merchant_id: merchantId,
-          date_created: normalizeDate(dateCreated),
+          search: normalizeText(search),
           created_from: normalizeDate(createdFrom),
           created_to: normalizeDate(createdTo),
           collection_date: normalizeDate(collectionDate),
@@ -219,29 +219,16 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         data={rows}
         meta={tableMeta}
         loading_error={loadingError}
-        width="4200px"
-        stickyColumns={{ leading: 2 }}
+        width="4320px"
+        stickyColumns={{ leading: 3 }}
+        serverSearchParam="search"
         filters={[
           {
-            key: "date_created",
-            label: "Date created",
-            type: "date",
-            value: dateCreated,
-            url_param_name: "date_created",
-          },
-          {
-            key: "created_from",
-            label: "Created from",
-            type: "date",
-            value: createdFrom,
-            url_param_name: "created_from",
-          },
-          {
-            key: "created_to",
-            label: "Created to",
-            type: "date",
-            value: createdTo,
-            url_param_name: "created_to",
+            key: "created_date_range",
+            label: "Created date range",
+            type: "date_range",
+            from_param_name: "created_from",
+            to_param_name: "created_to",
           },
           {
             key: "collection_date",
@@ -324,10 +311,18 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           {
             key: "shipment_status",
             label: "Shipment status",
-            type: "text",
             value: shipmentStatus,
             url_param_name: "shipment_status",
-            placeholder: "delivered",
+            options: [
+              { label: "Draft", value: "draft" },
+              { label: "Quoted", value: "quoted" },
+              { label: "Booked", value: "booked" },
+              { label: "In Transit", value: "in_transit" },
+              { label: "Delivered", value: "delivered" },
+              { label: "Cancelled", value: "cancelled" },
+              { label: "Failed", value: "failed" },
+              { label: "Driver Offer Failed", value: "offer_failed" },
+            ],
           },
           {
             key: "per_page",
@@ -370,6 +365,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         columns={[
           { key: "shipment_number", label: "Shipment Number", link: "shipment_href" , className: "w-[220px]"},
           { key: "shipment_status", label: "Shipment Status", type: "status" , className: "w-[150px]"},
+          { key: "attention", label: "Attention", type: "shipment_attention", className: "w-[120px]" },
           { key: "date_created", label: "Date Created", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm", className: "w-[150px]" },
           { key: "collection_date", label: "Collection Date", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm" , className: "w-[150px]"},
           { key: "delivery_note_number", label: "Delivery Note", type: "delivery_note_number" },

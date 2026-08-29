@@ -20,6 +20,139 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-08-30 | Version: unreleased
+
+### Summary
+- Added a consolidated Attention column to the shipment report for delivery delays, speeding, and excessive pickup/drop-off dwell.
+
+### API Changes
+- `GET /api/v1/reports/shipments_full_report` now returns actual `collected_at` and `delivered_at` timestamps plus speeding count, highest speed, maximum amount over the limit, and latest speeding time for each shipment's transit window.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The sticky Attention column shows accessible, tooltip-backed icons when an active collected shipment remains undelivered for more than six hours, its report vehicle speeds during transit, or its pickup/drop-off dwell exceeds the location's expected waiting time.
+- Open delivery and dwell timing alerts refresh every minute, while completed dwell and speeding exceptions remain visible historically.
+- Shipment report CSV exports include readable attention summaries and their underlying delivery/speeding values.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/ShipmentsFullReportTest.php`
+- `vendor/bin/pint --test app/Http/Controllers/Api/V1/ReportController.php tests/Feature/ShipmentsFullReportTest.php`
+- `cd website && node --test tests/dwell-time.test.mjs`
+- `cd website && npm run lint -- src/components/common/data-table.tsx src/components/reports/shipment-attention-cell.tsx src/app/admin/logistics/shipments/reports/shipments_report/page.tsx src/lib/api/reports.ts src/lib/csv-export.ts src/lib/shipment-attention.ts`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-30 | Version: unreleased
+
+### Summary
+- Added an admin-wide feedback widget and a permission-scoped feedback conversation tool.
+
+### API Changes
+- Added authenticated requester endpoints for submitting, listing, reading, replying to, and counting unread feedback under `/api/v1/feedback`.
+- Added reviewer endpoints for manageable-merchant inboxes, status/assignment updates, replies, read receipts, and unread counts under `/api/v1/admin/feedback`.
+
+### Database Changes
+- Added `feedback`, `feedback_messages`, and `feedback_read_receipts` tables for workflow state, public conversations, assignment, page context, and per-user unread tracking.
+
+### Behavior Changes
+- Every `/admin` page now shows a black, fully rounded **Give feedback** button with categorized submission and **My feedback** conversation views.
+- Super admins and merchant account holders/member-level admins can review authorized feedback at `/admin/tools/feedback`, reply publicly, self-assign threads, and use Open, In progress, Needs info, Resolved, or Closed statuses.
+- Submitter replies move Needs info to In progress and reopen Closed feedback as Open; reply emails are queued to the submitter or assigned reviewer and failures do not roll back messages.
+- Multi-role API middleware now evaluates every declared role parameter, so `role:user,super_admin` correctly permits both roles.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/FeedbackTest.php`
+- `cd website && npm run lint -- src/components/feedback/feedback-widget.tsx src/components/feedback/feedback-review-panel.tsx src/components/layout/admin-shell.tsx src/components/layout/admin-nav.tsx src/components/common/status-badge.tsx src/app/admin/tools/page.tsx src/app/admin/tools/feedback/page.tsx 'src/app/admin/tools/feedback/[feedbackId]/page.tsx' src/lib/api/feedback.ts src/lib/auth.ts src/lib/navigation.ts src/lib/routes/admin.ts src/lib/types.ts`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-29 | Version: unreleased
+
+### Summary
+- Corrected invoice data and search behavior in the shipment report.
+
+### API Changes
+- `GET /api/v1/reports/shipments_full_report` now returns `invoice_number` for every report row.
+- The endpoint now accepts `search` and applies it before pagination across shipment references, delivery and invoice numbers, status, service type, vehicle plate, driver identity, and pickup/drop-off location details.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Invoice Number cells and CSV exports now receive the stored invoice value instead of appearing empty.
+- Shipment report search is debounced, stored in the URL, and reloads matching results from the endpoint instead of filtering only the current page.
+- Selecting all filtered rows for CSV export preserves the server-side search term.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/ShipmentsFullReportTest.php`
+- `vendor/bin/pint --test app/Http/Controllers/Api/V1/ReportController.php tests/Feature/ShipmentsFullReportTest.php`
+- `cd website && npm run lint -- src/components/common/data-table.tsx src/components/common/csv-export-action.tsx src/app/admin/logistics/shipments/reports/shipments_report/page.tsx src/lib/api/reports.ts`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-29 | Version: unreleased
+
+### Summary
+- Improved shipment report date and status filters.
+
+### API Changes
+- None. The created-date range continues to use the existing `created_from` and `created_to` report parameters.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The shipment report now presents one two-month created-date range picker instead of separate exact-date, start-date, and end-date controls.
+- Applying or clearing the range updates both URL parameters together and resets pagination.
+- Shipment status is now an exact dropdown containing every status supported by the shipment database enum.
+
+### Breaking Changes
+- None. The report endpoint still supports its existing date and status query parameters.
+
+### Verification
+- `cd website && npm run lint -- src/components/common/date-range-picker.tsx src/components/common/data-table.tsx src/app/admin/logistics/shipments/reports/shipments_report/page.tsx`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-29 | Version: unreleased
+
+### Summary
+- Added a bulk action for updating location expected waiting times.
+
+### API Changes
+- None. The action uses the existing location update endpoint.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/locations` now lets admins select visible locations or all filtered results and apply one expected waiting time in whole minutes to the full selection.
+- The bulk dialog accepts zero, can explicitly clear the value, and enforces the same unsigned integer range as the location API.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/components/locations/locations-table.tsx`
+- `cd website && npx tsc --noEmit`
+- `php artisan test tests/Feature/LocationExpectedWaitingTimeTest.php`
+- `git diff --check`
+
 ## 2026-08-29 | Version: unreleased
 
 ### Summary

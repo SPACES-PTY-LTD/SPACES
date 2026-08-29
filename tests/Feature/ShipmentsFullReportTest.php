@@ -68,6 +68,45 @@ class ShipmentsFullReportTest extends TestCase
             ->assertJsonPath('data.0.shipment_number', 'ORDER-SELECTED');
     }
 
+    public function test_report_returns_invoice_number_and_searches_all_filtered_rows_before_pagination(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+
+        $pickup = $this->createLocation($account->id, $merchant->id, 'Search Depot', 'SEARCH-DEPOT', 'Cape Town');
+        $dropoff = $this->createLocation($account->id, $merchant->id, 'Search Store', 'SEARCH-STORE', 'Cape Town');
+        $matchingShipmentUuid = $this->createShipment(
+            $account->id,
+            $merchant->id,
+            'OLDER-MATCHING-SHIPMENT',
+            $pickup,
+            $dropoff
+        );
+        DB::table('shipments')
+            ->where('uuid', $matchingShipmentUuid)
+            ->update(['invoice_number' => 'INV-SEARCH-9001']);
+
+        $this->createShipment(
+            $account->id,
+            $merchant->id,
+            'NEWER-NON-MATCHING-SHIPMENT',
+            $pickup,
+            $dropoff
+        );
+
+        $response = $this->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/reports/shipments_full_report?'.http_build_query([
+                'merchant_id' => $merchant->uuid,
+                'search' => 'INV-SEARCH-9001',
+                'per_page' => 1,
+            ]));
+
+        $response->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.shipment_id', $matchingShipmentUuid)
+            ->assertJsonPath('data.0.invoice_number', 'INV-SEARCH-9001');
+    }
+
     public function test_report_filters_shipments_by_pickup_or_dropoff_location_tag(): void
     {
         [$user, $merchant, $account] = $this->createMerchantContext();
@@ -247,6 +286,58 @@ class ShipmentsFullReportTest extends TestCase
             ->assertJsonPath('data.0.to_time_out', '2026-08-29T09:28:00+00:00');
     }
 
+    public function test_report_returns_actual_delivery_timestamps_and_batched_speeding_summaries_for_each_transit_window(): void
+    {
+        Carbon::setTestNow('2026-08-30 12:00:00');
+        [$user, $merchant, $account] = $this->createMerchantContext();
+
+        $location = $this->createLocation($account->id, $merchant->id, 'Speed Depot', 'SPEED-DEPOT', 'Cape Town');
+        $vehicle = $this->createVehicle($account->id, $merchant->id, 'SPEED-1');
+        $otherVehicle = $this->createVehicle($account->id, $merchant->id, 'SPEED-2');
+
+        $activeUuid = $this->createShipment($account->id, $merchant->id, 'ACTIVE-SPEED', $location, $location);
+        $completedUuid = $this->createShipment($account->id, $merchant->id, 'COMPLETED-SPEED', $location, $location);
+        $terminalWithoutEndUuid = $this->createShipment($account->id, $merchant->id, 'NO-END-SPEED', $location, $location);
+        $activeId = (int) DB::table('shipments')->where('uuid', $activeUuid)->value('id');
+        $completedId = (int) DB::table('shipments')->where('uuid', $completedUuid)->value('id');
+        $terminalWithoutEndId = (int) DB::table('shipments')->where('uuid', $terminalWithoutEndUuid)->value('id');
+
+        DB::table('shipments')->where('id', $activeId)->update(['status' => 'in_transit']);
+        DB::table('shipments')->whereIn('id', [$completedId, $terminalWithoutEndId])->update(['status' => 'delivered']);
+        $this->attachShipmentToRun($account->id, $merchant->id, $activeId, $vehicle);
+        $this->attachShipmentToRun($account->id, $merchant->id, $completedId, $vehicle);
+        $this->attachShipmentToRun($account->id, $merchant->id, $terminalWithoutEndId, $vehicle);
+
+        $this->createBooking($account->id, $merchant->id, $activeId, 'in_transit', '2026-08-30 08:00:00');
+        $this->createBooking($account->id, $merchant->id, $completedId, 'delivered', '2026-08-30 09:30:00', '2026-08-30 10:30:00');
+        $this->createBooking($account->id, $merchant->id, $terminalWithoutEndId, 'delivered', '2026-08-30 08:00:00');
+
+        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 07:59:00', 140, 80);
+        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 09:00:00', 110, 80);
+        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 10:00:00', 120, 100);
+        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 11:00:00', 130, 100);
+        $this->createSpeedingActivity($account->id, $merchant->id, $otherVehicle, '2026-08-30 10:00:00', 160, 80);
+
+        $response = $this->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid)
+            ->assertOk();
+
+        $rows = collect($response->json('data'))->keyBy('shipment_id');
+        $this->assertSame('2026-08-30T08:00:00+00:00', $rows[$activeUuid]['collected_at']);
+        $this->assertNull($rows[$activeUuid]['delivered_at']);
+        $this->assertSame(3, $rows[$activeUuid]['speeding_alert_count']);
+        $this->assertSame(130, (int) $rows[$activeUuid]['speeding_highest_speed_kph']);
+        $this->assertSame(30, (int) $rows[$activeUuid]['speeding_max_over_limit_kph']);
+        $this->assertSame('2026-08-30T11:00:00+00:00', $rows[$activeUuid]['speeding_latest_at']);
+
+        $this->assertSame('2026-08-30T10:30:00+00:00', $rows[$completedUuid]['delivered_at']);
+        $this->assertSame(1, $rows[$completedUuid]['speeding_alert_count']);
+        $this->assertSame(120, (int) $rows[$completedUuid]['speeding_highest_speed_kph']);
+        $this->assertSame(0, $rows[$terminalWithoutEndUuid]['speeding_alert_count']);
+
+        Carbon::setTestNow();
+    }
+
     private function createMerchantContext(): array
     {
         $user = User::factory()->create();
@@ -358,6 +449,53 @@ class ShipmentsFullReportTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
             'deleted_at' => null,
+        ]);
+    }
+
+    private function createBooking(
+        int $accountId,
+        int $merchantId,
+        int $shipmentId,
+        string $status,
+        string $collectedAt,
+        ?string $deliveredAt = null
+    ): void {
+        DB::table('bookings')->insert([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $accountId,
+            'merchant_id' => $merchantId,
+            'shipment_id' => $shipmentId,
+            'quote_option_id' => null,
+            'status' => $status,
+            'carrier_code' => 'internal',
+            'booked_at' => $collectedAt,
+            'collected_at' => $collectedAt,
+            'delivered_at' => $deliveredAt,
+            'created_at' => now(),
+            'updated_at' => now(),
+            'deleted_at' => null,
+        ]);
+    }
+
+    private function createSpeedingActivity(
+        int $accountId,
+        int $merchantId,
+        int $vehicleId,
+        string $occurredAt,
+        float $speedKph,
+        float $speedLimitKph
+    ): void {
+        DB::table('vehicle_activity')->insert([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $accountId,
+            'merchant_id' => $merchantId,
+            'vehicle_id' => $vehicleId,
+            'event_type' => VehicleActivity::EVENT_SPEEDING,
+            'occurred_at' => $occurredAt,
+            'speed_kph' => $speedKph,
+            'speed_limit_kph' => $speedLimitKph,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 

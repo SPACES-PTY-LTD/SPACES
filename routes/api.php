@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\AdminCarrierController;
 use App\Http\Controllers\Api\V1\AdminController;
 use App\Http\Controllers\Api\V1\AdminDriverAssignmentController;
 use App\Http\Controllers\Api\V1\AdminDriverVehicleController;
+use App\Http\Controllers\Api\V1\AdminFeedbackController;
 use App\Http\Controllers\Api\V1\AdminTrackingProviderController;
 use App\Http\Controllers\Api\V1\AdminTrackingProviderFormFieldController;
 use App\Http\Controllers\Api\V1\AdminTrackingProviderOptionController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\Api\V1\DriverPresenceController;
 use App\Http\Controllers\Api\V1\DriverShipmentController;
 use App\Http\Controllers\Api\V1\DriverVehicleController;
 use App\Http\Controllers\Api\V1\EntityFileController;
+use App\Http\Controllers\Api\V1\FeedbackController;
 use App\Http\Controllers\Api\V1\FileTypeController;
 use App\Http\Controllers\Api\V1\LocationController;
 use App\Http\Controllers\Api\V1\LocationTypeController;
@@ -109,6 +111,22 @@ Route::prefix('v1')->group(function () {
         Route::delete('webhooks/subscriptions/{subscription_uuid}', [WebhookSubscriptionController::class, 'destroy']);
         Route::post('webhooks/subscriptions/{subscription_uuid}/test', [WebhookSubscriptionController::class, 'test']);
         Route::post('admin/tools/autorun-test', [AdminAutorunTestController::class, 'store']);
+
+        Route::middleware('role:user,super_admin')->group(function () {
+            Route::post('feedback', [FeedbackController::class, 'store']);
+            Route::get('feedback/mine', [FeedbackController::class, 'mine']);
+            Route::get('feedback/unread-count', [FeedbackController::class, 'unreadCount']);
+            Route::get('feedback/{feedback_uuid}', [FeedbackController::class, 'show']);
+            Route::post('feedback/{feedback_uuid}/replies', [FeedbackController::class, 'reply']);
+            Route::post('feedback/{feedback_uuid}/read', [FeedbackController::class, 'markRead']);
+
+            Route::get('admin/feedback', [AdminFeedbackController::class, 'index']);
+            Route::get('admin/feedback/unread-count', [AdminFeedbackController::class, 'unreadCount']);
+            Route::get('admin/feedback/{feedback_uuid}', [AdminFeedbackController::class, 'show']);
+            Route::patch('admin/feedback/{feedback_uuid}', [AdminFeedbackController::class, 'update']);
+            Route::post('admin/feedback/{feedback_uuid}/replies', [AdminFeedbackController::class, 'reply']);
+            Route::post('admin/feedback/{feedback_uuid}/read', [AdminFeedbackController::class, 'markRead']);
+        });
 
         Route::middleware('role:super_admin')->prefix('admin')->group(function () {
             Route::get('users', [AdminController::class, 'users']);

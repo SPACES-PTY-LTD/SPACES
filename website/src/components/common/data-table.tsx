@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { DatePicker } from "@/components/common/date-picker"
+import { DateRangePicker } from "@/components/common/date-range-picker"
 import {
   DataTableComboboxFilter,
   type DataTableComboboxResource,
@@ -32,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { StatusBadge } from "@/components/common/status-badge"
+import { ShipmentAttentionCell } from "@/components/reports/shipment-attention-cell"
 import { ShipmentDwellTimeCell } from "@/components/reports/shipment-dwell-time-cell"
 import { UpdateDeliveryNoteDialog } from "@/components/shipments/update-delivery-note-dialog"
 import { UpdateInvoiceNumberDialog } from "@/components/shipments/update-invoice-number-dialog"
@@ -58,7 +60,7 @@ export type Column<T> = {
   key: keyof T | string
   label: string
   className?: string
-  type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time"
+  type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time" | "shipment_attention"
   size?: "sm" | "md" | "lg"
   format?: string
   customValue?: (row: T) => React.ReactNode
@@ -88,6 +90,13 @@ export type Filter<T> = FilterBase<T> & (
       type?: "select" | "date" | "text"
       resource?: never
       options?: { label: string; value: string }[]
+    }
+  | {
+      type: "date_range"
+      resource?: never
+      options?: never
+      from_param_name: string
+      to_param_name: string
     }
 )
 
@@ -267,6 +276,7 @@ export function DataTable<T extends Record<string, unknown>>({
   sortKeyMap,
   sortByParam = "sort_by",
   sortDirParam = "sort_dir",
+  serverSearchParam,
   stickyColumns,
   accessToken,
   merchantId,
@@ -293,6 +303,7 @@ export function DataTable<T extends Record<string, unknown>>({
   sortKeyMap?: Record<string, string>
   sortByParam?: string
   sortDirParam?: string
+  serverSearchParam?: string
   accessToken?: string | null
   merchantId?: string | null
   /**
@@ -320,6 +331,9 @@ export function DataTable<T extends Record<string, unknown>>({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const searchParamSignature = searchParams.toString()
+  const serverSearchValue = serverSearchParam
+    ? searchParams.get(serverSearchParam) ?? ""
+    : ""
   const visibleFilters = React.useMemo(
     () =>
       (filters ?? []).filter(
@@ -407,6 +421,39 @@ export function DataTable<T extends Record<string, unknown>>({
       )
     },
     [getDisplayValue, renderValue]
+  )
+
+  const renderShipmentAttentionValue = React.useCallback(
+    (row: T): React.ReactNode => {
+      const stringValue = (key: string) => {
+        const raw = getValue(row, key)
+        return typeof raw === "string" ? raw : null
+      }
+      const numberValue = (key: string) => {
+        const raw = getValue(row, key)
+        return typeof raw === "number" && Number.isFinite(raw) ? raw : null
+      }
+
+      return (
+        <ShipmentAttentionCell
+          shipmentStatus={stringValue("shipment_status")}
+          collectedAt={stringValue("collected_at")}
+          deliveredAt={stringValue("delivered_at")}
+          speedingAlertCount={numberValue("speeding_alert_count")}
+          speedingHighestSpeedKph={numberValue("speeding_highest_speed_kph")}
+          speedingMaxOverLimitKph={numberValue("speeding_max_over_limit_kph")}
+          speedingLatestAt={stringValue("speeding_latest_at")}
+          pickupEnteredAt={stringValue("from_time_in")}
+          pickupExitedAt={stringValue("from_time_out")}
+          pickupExpectedWaitingTime={numberValue("from_location.expected_waiting_time")}
+          dropoffEnteredAt={stringValue("to_time_in")}
+          dropoffExitedAt={stringValue("to_time_out")}
+          dropoffExpectedWaitingTime={numberValue("to_location.expected_waiting_time")}
+          initialNow={stringValue("report_now") ?? new Date().toISOString()}
+        />
+      )
+    },
+    []
   )
 
   const renderTagsValue = React.useCallback((row: T, column: Column<T>): React.ReactNode => {
@@ -499,6 +546,13 @@ export function DataTable<T extends Record<string, unknown>>({
 
   React.useEffect(() => {
     const hasActiveUrlFilter = visibleFilters.some((filter) => {
+      if (filter.type === "date_range") {
+        return Boolean(
+          searchParams.get(filter.from_param_name)?.trim() ||
+          searchParams.get(filter.to_param_name)?.trim()
+        )
+      }
+
       if (!filter.url_param_name) {
         return false
       }
@@ -507,14 +561,38 @@ export function DataTable<T extends Record<string, unknown>>({
       return value !== null && value.trim() !== ""
     })
 
-    if (hasActiveUrlFilter) {
+    if (hasActiveUrlFilter || serverSearchValue.trim()) {
       setShowFilters(true)
     }
-  }, [searchParams, visibleFilters])
+  }, [searchParams, serverSearchValue, visibleFilters])
+
+  React.useEffect(() => {
+    if (!serverSearchParam) return
+    setQuery(serverSearchValue)
+  }, [serverSearchParam, serverSearchValue])
+
+  React.useEffect(() => {
+    if (!serverSearchParam || query === serverSearchValue) return
+
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (query.trim()) {
+        params.set(serverSearchParam, query.trim())
+      } else {
+        params.delete(serverSearchParam)
+      }
+      params.delete("page")
+
+      const queryString = params.toString()
+      router.replace(queryString ? `${pathname}?${queryString}` : pathname)
+    }, 300)
+
+    return () => window.clearTimeout(timeout)
+  }, [pathname, query, router, searchParams, serverSearchParam, serverSearchValue])
 
   const filtered = React.useMemo(() => {
     let result = [...data]
-    if (query && searchKeys?.length) {
+    if (!serverSearchParam && query && searchKeys?.length) {
       const lowered = query.toLowerCase()
       result = result.filter((row) =>
         searchKeys.some((key) =>
@@ -529,7 +607,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
     if (visibleFilters.length) {
       visibleFilters.forEach((filter) => {
-        if (filter.url_param_name) {
+        if (filter.type === "date_range" || filter.url_param_name) {
           return
         }
 
@@ -552,7 +630,7 @@ export function DataTable<T extends Record<string, unknown>>({
     }
 
     return result
-  }, [data, query, searchKeys, visibleFilters, getFilterValue, getDisplayValue, columnsByKey])
+  }, [data, query, searchKeys, serverSearchParam, visibleFilters, getFilterValue, getDisplayValue, columnsByKey])
 
   const rows = filtered
   const parsedLastPage = Number(meta?.last_page)
@@ -810,6 +888,25 @@ export function DataTable<T extends Record<string, unknown>>({
     [pathname, router, searchParams]
   )
 
+  const updateFilterParams = React.useCallback(
+    (updates: Record<string, string>) => {
+      const params = new URLSearchParams(searchParams.toString())
+
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value) {
+          params.set(key, value)
+        } else {
+          params.delete(key)
+        }
+      })
+      params.delete("page")
+
+      const queryString = params.toString()
+      router.push(queryString ? `${pathname}?${queryString}` : pathname)
+    },
+    [pathname, router, searchParams]
+  )
+
   const isViewActive = React.useCallback(
     (view: DataTableView) => {
       const rawHref = view.href ?? view.link
@@ -978,9 +1075,10 @@ export function DataTable<T extends Record<string, unknown>>({
             )}
 
 
-            {show_filters && searchKeys?.length ? (
+            {show_filters && (searchKeys?.length || serverSearchParam) ? (
               <Input
-                placeholder="Search"
+                placeholder={serverSearchParam ? "Search all report results" : "Search"}
+                aria-label={serverSearchParam ? "Search all report results" : "Search table"}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 className="max-w-sm"
@@ -1002,6 +1100,34 @@ export function DataTable<T extends Record<string, unknown>>({
           <div className="border-b px-3 py-2">
             <div className="flex flex-wrap gap-2 items-center space-x-2">
               {visibleFilters.map((filter) => {
+                if (filter.type === "date_range") {
+                  const from = parseFilterDate(
+                    searchParams.get(filter.from_param_name) ?? undefined
+                  )
+                  const to = parseFilterDate(
+                    searchParams.get(filter.to_param_name) ?? undefined
+                  )
+
+                  return (
+                    <DateRangePicker
+                      key={String(filter.key)}
+                      value={from || to ? { from, to } : undefined}
+                      onChange={(range) =>
+                        updateFilterParams({
+                          [filter.from_param_name]: range?.from
+                            ? format(range.from, "yyyy-MM-dd")
+                            : "",
+                          [filter.to_param_name]: range?.to
+                            ? format(range.to, "yyyy-MM-dd")
+                            : "",
+                        })
+                      }
+                      className="h-8 text-sm"
+                      placeholder={filter.placeholder ?? filter.label}
+                    />
+                  )
+                }
+
                 if (filter.type === "combobox") {
                   return (
                     <DataTableComboboxFilter
@@ -1312,6 +1438,8 @@ export function DataTable<T extends Record<string, unknown>>({
                             />
                           ) : column.type === "dwell_time" ? (
                             renderDwellTimeValue(row, column)
+                          ) : column.type === "shipment_attention" ? (
+                            renderShipmentAttentionValue(row)
                           ) : (
                             (() => {
                               const value = getDisplayValue(row, column)

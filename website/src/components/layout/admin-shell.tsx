@@ -39,6 +39,7 @@ import { Check, ChevronDown, EllipsisVertical, Settings, Truck, UserCircle2 } fr
 import { CreateMerchantDialog } from "@/components/merchants/create-merchant-dialog"
 import { Button } from "../ui/button"
 import { updateLastAccessedMerchant } from "@/lib/api/merchants"
+import { FeedbackWidget } from "@/components/feedback/feedback-widget"
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Spaces Digital"
 
@@ -77,6 +78,10 @@ export function AdminShell({
   const canDeleteMerchant = Boolean(
     selectedMerchant?.access?.permissions.can_delete_merchant
   )
+  const canReviewFeedback =
+    activeSession.user.role === "super_admin" ||
+    merchants.some((merchant) => Boolean(merchant.access?.permissions.can_manage_users))
+  const [feedbackUnreadCount, setFeedbackUnreadCount] = React.useState(0)
 
   React.useEffect(() => {
     if (activeSession.user?.role !== "user") return
@@ -213,6 +218,8 @@ export function AdminShell({
             role={activeSession.user.role}
             canManageMerchantUsers={canManageMerchantUsers}
             canDeleteMerchant={canDeleteMerchant}
+            canReviewFeedback={canReviewFeedback}
+            feedbackUnreadCount={feedbackUnreadCount}
           />
         </SidebarContent>
         <SidebarFooter>
@@ -278,6 +285,12 @@ export function AdminShell({
           {children}
         </main>
       </SidebarInset>
+      <FeedbackWidget
+        accessToken={activeSession.accessToken}
+        merchantId={selectedMerchant?.merchant_id ?? null}
+        canReviewFeedback={canReviewFeedback}
+        onReviewerUnreadChange={setFeedbackUnreadCount}
+      />
       <Toaster richColors position="top-right" />
     </SidebarProvider>
   )

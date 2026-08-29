@@ -54,6 +54,7 @@ async function fetchPage(
     case "shipment-report":
       return getShipmentsFullReport({
         ...common,
+        search: param(query, "search"),
         date_created: param(query, "date_created"), created_from: param(query, "created_from"),
         created_to: param(query, "created_to"), collection_date: param(query, "collection_date"),
         shipment_number: param(query, "shipment_number"), delivery_note_number: param(query, "delivery_note_number"),

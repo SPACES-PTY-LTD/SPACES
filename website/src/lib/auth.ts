@@ -78,6 +78,25 @@ export function canManageSelectedMerchantUsers(session: Session): boolean {
   return Boolean(session.selected_merchant?.access?.permissions.can_manage_users)
 }
 
+export function canReviewFeedback(session: Session): boolean {
+  if (session.user.role === "super_admin") {
+    return true
+  }
+
+  return (session.merchants ?? []).some(
+    (merchant) => merchant.access?.permissions.can_manage_users
+  )
+}
+
+export async function requireFeedbackReview(): Promise<Session> {
+  const session = await requireAuth()
+  if (!canReviewFeedback(session)) {
+    redirect(AdminLinks.dashboard)
+  }
+
+  return session
+}
+
 export async function requireMerchantUserManagement(): Promise<Session> {
   const session = await requireAuth()
   if (!canManageSelectedMerchantUsers(session)) {
