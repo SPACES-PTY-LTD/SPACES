@@ -263,12 +263,12 @@ export const adminNavGroups: NavGroup[] = [
         icon: Plug,
         roles: ["user", "super_admin"],
         subItems: [
-          {
-            title: "Feedback",
-            href: AdminLinks.feedback,
-            icon: MessageSquareText,
-            roles: ["user", "super_admin"],
-          },
+          // {
+          //   title: "Feedback",
+          //   href: AdminLinks.feedback,
+          //   icon: MessageSquareText,
+          //   roles: ["super_admin"],
+          // },
           {
             title: "Powerfleet Authentication Check",
             href: AdminLinks.powerfleetAuthenticationCheck,
