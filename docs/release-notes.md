@@ -23,6 +23,50 @@ Add new entries at the top (newest first).
 ## 2026-08-29 | Version: unreleased
 
 ### Summary
+- Tightened the shipment dwell-time alert tooltip width.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Shipment dwell-time alerts now use a narrower tooltip so wrapped messages do not leave excessive empty space.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/components/reports/shipment-dwell-time-cell.tsx`
+- `git diff --check`
+
+## 2026-08-29 | Version: unreleased
+
+### Summary
+- Fixed the select-all checkbox being clipped by the first frozen DataTable column.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Selectable DataTables now reserve a consistent frozen selection-column width, and the select-all header stays above adjacent frozen headers.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/components/common/data-table.tsx`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-29 | Version: unreleased
+
+### Summary
 - Fixed shipment-report total-time cells rendering `[object Object]` instead of their duration and over-wait alert.
 
 ### API Changes

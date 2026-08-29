@@ -79,7 +79,7 @@ export function ShipmentDwellTimeCell({
               <AlertTriangle className="size-4" aria-hidden="true" />
             </button>
           </TooltipTrigger>
-          <TooltipContent sideOffset={8} className="max-w-xs text-left leading-relaxed">
+          <TooltipContent sideOffset={8} className="max-w-64 text-left leading-relaxed">
             {tooltip}
           </TooltipContent>
         </Tooltip>

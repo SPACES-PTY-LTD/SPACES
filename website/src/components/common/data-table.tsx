@@ -124,6 +124,8 @@ export type DataTableStickyColumns = {
   leading: number
 }
 
+const SELECTION_COLUMN_CLASS = "w-10 min-w-10 max-w-10 px-3"
+
 function DeliveryNoteNumberCell<T extends Record<string, unknown>>({
   row,
   displayValue,
@@ -1111,9 +1113,9 @@ export function DataTable<T extends Record<string, unknown>>({
                     <TableHead
                       ref={(node) => registerFrozenHeaderCell("selection", node)}
                       className={cn(
-                        "w-4",
+                        SELECTION_COLUMN_CLASS,
                         stickyLeadingColumnCount > 0 &&
-                          "sticky top-0 left-0 z-30 bg-muted"
+                          "sticky top-0 left-0 z-40 bg-muted"
                       )}
                     >
                       <input
@@ -1220,6 +1222,7 @@ export function DataTable<T extends Record<string, unknown>>({
                         {selection ? (
                           <TableCell
                             className={cn(
+                              SELECTION_COLUMN_CLASS,
                               stickyLeadingColumnCount > 0 &&
                                 "sticky left-0 z-20 bg-background group-hover/data-table-row:bg-muted group-data-[state=selected]/data-table-row:bg-muted"
                             )}
