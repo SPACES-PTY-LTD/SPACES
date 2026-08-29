@@ -173,8 +173,8 @@ class ShipmentsFullReportTest extends TestCase
     {
         [$user, $merchant, $account] = $this->createMerchantContext();
 
-        $pickup = $this->createLocation($account->id, $merchant->id, 'Warehouse A', 'PICKUP-A', 'Cape Town');
-        $dropoff = $this->createLocation($account->id, $merchant->id, 'Store A', 'STORE-A', 'Cape Town');
+        $pickup = $this->createLocation($account->id, $merchant->id, 'Warehouse A', 'PICKUP-A', 'Cape Town', 20);
+        $dropoff = $this->createLocation($account->id, $merchant->id, 'Store A', 'STORE-A', 'Cape Town', 0);
         $vehicle = $this->createVehicle($account->id, $merchant->id, 'REPORT-INTERVALS');
         $shipmentUuid = $this->createShipment(
             $account->id,
@@ -236,10 +236,13 @@ class ShipmentsFullReportTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.0.from_vehicle_activity.event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+            ->assertJsonPath('data.0.from_location.expected_waiting_time', 20)
+            ->assertJsonMissingPath('data.0.from_location.estimated_waiting_time')
             ->assertJsonPath('data.0.from_time_in', '2026-08-29T08:00:00+00:00')
             ->assertJsonPath('data.0.from_time_out', '2026-08-29T08:35:00+00:00')
             ->assertJsonPath('data.0.from_time_to', '2026-08-29T08:35:00+00:00')
             ->assertJsonPath('data.0.to_vehicle_activity.event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+            ->assertJsonPath('data.0.to_location.expected_waiting_time', 0)
             ->assertJsonPath('data.0.to_time_in', '2026-08-29T09:10:00+00:00')
             ->assertJsonPath('data.0.to_time_out', '2026-08-29T09:28:00+00:00');
     }
@@ -267,8 +270,14 @@ class ShipmentsFullReportTest extends TestCase
         ];
     }
 
-    private function createLocation(int $accountId, int $merchantId, string $name, string $code, string $city): int
-    {
+    private function createLocation(
+        int $accountId,
+        int $merchantId,
+        string $name,
+        string $code,
+        string $city,
+        ?int $expectedWaitingTime = null
+    ): int {
         return DB::table('locations')->insertGetId([
             'uuid' => (string) Str::uuid(),
             'account_id' => $accountId,
@@ -285,6 +294,7 @@ class ShipmentsFullReportTest extends TestCase
             'first_name' => null,
             'last_name' => null,
             'phone' => null,
+            'expected_waiting_time' => $expectedWaitingTime,
             'province' => 'Western Cape',
             'post_code' => '8000',
             'latitude' => null,

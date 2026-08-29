@@ -33,7 +33,7 @@ type LocationsTableRow = {
   type?: string
   tags?: Tag[]
   city?: string
-  estimated_waiting_time?: number | null
+  expected_waiting_time?: number | null
   href?: string
 }
 
@@ -298,11 +298,11 @@ export function LocationsTable({
         { key: "tags", label: "Tags", type: "tags" },
         { key: "city", label: "City", link: "href" },
         {
-          key: "estimated_waiting_time",
-          label: "Estimated Waiting Time",
+          key: "expected_waiting_time",
+          label: "Expected Waiting Time",
           customValue: (row) =>
-            row.estimated_waiting_time != null
-              ? `${row.estimated_waiting_time} min`
+            row.expected_waiting_time != null
+              ? `${row.expected_waiting_time} min`
               : "Not set",
         },
       ]}
@@ -333,7 +333,7 @@ export function LocationsTable({
         "company",
         "type",
         "city",
-        "estimated_waiting_time",
+        "expected_waiting_time",
       ]}
     />
   )

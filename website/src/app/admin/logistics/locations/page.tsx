@@ -37,7 +37,7 @@ function normalizeSortBy(value: string) {
     "company",
     "city",
     "type",
-    "estimated_waiting_time",
+    "expected_waiting_time",
   ])
   return allowed.has(value) ? value : "created_at"
 }

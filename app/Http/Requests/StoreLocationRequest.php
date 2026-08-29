@@ -27,7 +27,7 @@ class StoreLocationRequest extends BaseRequest
             'last_name' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
-            'estimated_waiting_time' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
+            'expected_waiting_time' => ['nullable', 'integer', 'min:0', 'max:4294967295'],
             'province' => ['required', 'string', 'max:255'],
             'post_code' => ['required', 'string', 'max:20'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],

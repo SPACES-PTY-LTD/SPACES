@@ -1,6 +1,7 @@
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import Link from "next/link"
 import { ExportableDataTable } from "@/components/common/exportable-data-table"
+import { ShipmentDwellTimeCell } from "@/components/reports/shipment-dwell-time-cell"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { isApiErrorResponse } from "@/lib/api/client"
@@ -12,6 +13,7 @@ import {
 import { listTags } from "@/lib/api/tags"
 import { requireAuth } from "@/lib/auth"
 import { normalizeTableMeta } from "@/lib/table"
+import { formatDurationMinutes, resolveDwellTime } from "@/lib/dwell-time"
 import type { Location } from "@/lib/types"
 
 type ShipmentsReportPageProps = {
@@ -78,35 +80,9 @@ function formatLocation(location?: Location | null) {
   return value
 }
 
-function parseDate(value?: string | null): Date | null {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-function minutesBetween(start?: string | null, end?: string | null): number | null {
-  const startDate = parseDate(start)
-  const endDate = parseDate(end)
-  if (!startDate || !endDate) return null
-
-  const diff = (endDate.getTime() - startDate.getTime()) / 60000
-  return diff >= 0 ? diff : null
-}
-
-function formatDuration(value: number | null) {
-  if (value === null) return "-"
-
-  const hours = Math.floor(value / 60)
-  const minutes = Math.round(value % 60)
-
-  if (hours === 0) return `${minutes} min`
-  if (minutes === 0) return `${hours} hr`
-  return `${hours} hr ${minutes} min`
-}
-
 function formatSeconds(value?: number | null) {
   if (typeof value !== "number") return "-"
-  return formatDuration(Math.floor(value / 60))
+  return formatDurationMinutes(value / 60)
 }
 
 function formatKm(value?: string | number | null) {
@@ -178,29 +154,66 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
     ? errorResponse?.message ?? null
     : "Select a merchant to view the shipments report."
   const reportRows: ShipmentFullReportRow[] = successResponse?.data ?? []
-  const rows = reportRows.map((item) => ({
-    ...item,
-    from_location_display: formatLocation(item.from_location),
-    to_location_display: formatLocation(item.to_location),
-    from_total_time: formatDuration(minutesBetween(item.from_time_in, item.from_time_out)),
-    to_total_time: formatDuration(minutesBetween(item.to_time_in, item.to_time_out)),
-    run_total_time: formatSeconds(item.run_duration_seconds),
-    run_odometer_start_display: formatKm(item.run_odometer_start_km),
-    run_odometer_end_display: formatKm(item.run_odometer_end_km),
-    run_odometer_distance_display: formatKm(item.run_odometer_distance_km),
-    odometer_at_collection_display: formatKm(item.odometer_at_collection),
-    odometer_at_delivery_display: formatKm(item.odometer_at_delivery),
-    total_km_from_collection_display: formatKm(item.total_km_from_collection),
-    shipment_href: item.shipment_id ? AdminRoute.shipmentDetails(item.shipment_id) : "",
-    vehicle_href: item.vehicle_id ? AdminRoute.vehicleDetails(item.vehicle_id) : "",
-    driver_href: item.driver_id ? AdminRoute.driverDetails(item.driver_id) : "",
-    from_location_href: item.from_location?.location_id
-      ? AdminRoute.locationDetails(item.from_location.location_id)
-      : "",
-    to_location_href: item.to_location?.location_id
-      ? AdminRoute.locationDetails(item.to_location.location_id)
-      : "",
-  }))
+  const initialNow = new Date().toISOString()
+  const rows = reportRows.map((item) => {
+    const shipmentHref = item.shipment_id
+      ? AdminRoute.shipmentDetails(item.shipment_id)
+      : ""
+    const fromDwell = resolveDwellTime({
+      enteredAt: item.from_time_in,
+      exitedAt: item.from_time_out,
+      now: initialNow,
+      expectedWaitingTime: item.from_location?.expected_waiting_time,
+    })
+    const toDwell = resolveDwellTime({
+      enteredAt: item.to_time_in,
+      exitedAt: item.to_time_out,
+      now: initialNow,
+      expectedWaitingTime: item.to_location?.expected_waiting_time,
+    })
+
+    return {
+      ...item,
+      from_location_display: formatLocation(item.from_location),
+      to_location_display: formatLocation(item.to_location),
+      from_total_time: fromDwell.durationLabel,
+      to_total_time: toDwell.durationLabel,
+      from_total_time_cell: (
+        <ShipmentDwellTimeCell
+          enteredAt={item.from_time_in}
+          exitedAt={item.from_time_out}
+          expectedWaitingTime={item.from_location?.expected_waiting_time}
+          initialNow={initialNow}
+          shipmentHref={shipmentHref}
+        />
+      ),
+      to_total_time_cell: (
+        <ShipmentDwellTimeCell
+          enteredAt={item.to_time_in}
+          exitedAt={item.to_time_out}
+          expectedWaitingTime={item.to_location?.expected_waiting_time}
+          initialNow={initialNow}
+          shipmentHref={shipmentHref}
+        />
+      ),
+      run_total_time: formatSeconds(item.run_duration_seconds),
+      run_odometer_start_display: formatKm(item.run_odometer_start_km),
+      run_odometer_end_display: formatKm(item.run_odometer_end_km),
+      run_odometer_distance_display: formatKm(item.run_odometer_distance_km),
+      odometer_at_collection_display: formatKm(item.odometer_at_collection),
+      odometer_at_delivery_display: formatKm(item.odometer_at_delivery),
+      total_km_from_collection_display: formatKm(item.total_km_from_collection),
+      shipment_href: shipmentHref,
+      vehicle_href: item.vehicle_id ? AdminRoute.vehicleDetails(item.vehicle_id) : "",
+      driver_href: item.driver_id ? AdminRoute.driverDetails(item.driver_id) : "",
+      from_location_href: item.from_location?.location_id
+        ? AdminRoute.locationDetails(item.from_location.location_id)
+        : "",
+      to_location_href: item.to_location?.location_id
+        ? AdminRoute.locationDetails(item.to_location.location_id)
+        : "",
+    }
+  })
   const tableMeta = successResponse ? normalizeTableMeta(successResponse.meta) : undefined
 
   return (
@@ -366,6 +379,8 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           "delivered_volume",
           "from_location_display",
           "to_location_display",
+          "from_total_time",
+          "to_total_time",
         ]}
         columns={[
           { key: "shipment_number", label: "Shipment Number", link: "shipment_href" , className: "w-[220px]"},
@@ -381,10 +396,10 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           { key: "to_location_display", label: "To Location", link: "to_location_href", className: " w-[350px]" },
           { key: "from_time_in", label: "From Time In", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
           { key: "from_time_out", label: "From Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
-          { key: "from_total_time", label: "From Total Time", className: "w-[140px]", link: "shipment_href" },
+          { key: "from_total_time_cell", label: "From Total Time", className: "w-[170px]" },
           { key: "to_time_in", label: "To Time In", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
           { key: "to_time_out", label: "To Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
-          { key: "to_total_time", label: "To Total Time", className: "w-[140px]", link: "shipment_href" },
+          { key: "to_total_time_cell", label: "To Total Time", className: "w-[170px]" },
           { key: "odometer_at_collection_display", label: "Pickup Odometer", className: "w-[150px]" },
           { key: "odometer_at_delivery_display", label: "Delivery Odometer", className: "w-[160px]" },
           { key: "total_km_from_collection_display", label: "Shipment KM", className: "w-[140px]" },

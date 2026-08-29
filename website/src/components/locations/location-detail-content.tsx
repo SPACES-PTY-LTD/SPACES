@@ -141,10 +141,10 @@ export async function LocationDetailContent({
     { label: "Country", value: location.country },
     { label: "Phone", value: location.phone },
     {
-      label: "Estimated Waiting Time",
+      label: "Expected Waiting Time",
       value:
-        location.estimated_waiting_time != null
-          ? `${location.estimated_waiting_time} min`
+        location.expected_waiting_time != null
+          ? `${location.expected_waiting_time} min`
           : "Not set",
     },
     { label: "First name", value: location.first_name },

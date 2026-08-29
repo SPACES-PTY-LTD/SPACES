@@ -32,7 +32,7 @@ class LocationService
             'company' => 'locations.company',
             'city' => 'locations.city',
             'type' => 'location_types.title',
-            'estimated_waiting_time' => 'locations.estimated_waiting_time',
+            'expected_waiting_time' => 'locations.expected_waiting_time',
         ];
         $sortBy = (string) ($filters['sort_by'] ?? 'created_at');
         $sortColumn = $sortableColumns[$sortBy] ?? $sortableColumns['created_at'];
@@ -203,7 +203,7 @@ class LocationService
             'last_name' => $data['last_name'] ?? null,
             'phone' => $data['phone'] ?? null,
             'email' => $data['email'] ?? null,
-            'estimated_waiting_time' => $data['estimated_waiting_time'] ?? null,
+            'expected_waiting_time' => $data['expected_waiting_time'] ?? null,
             'province' => $data['province'],
             'post_code' => $data['post_code'],
             'latitude' => $data['latitude'] ?? null,
@@ -264,7 +264,7 @@ class LocationService
             'last_name',
             'phone',
             'email',
-            'estimated_waiting_time',
+            'expected_waiting_time',
             'province',
             'post_code',
             'latitude',
@@ -306,7 +306,7 @@ class LocationService
             'last_name',
             'phone',
             'email',
-            'estimated_waiting_time',
+            'expected_waiting_time',
             'province',
             'post_code',
             'latitude',

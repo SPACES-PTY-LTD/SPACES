@@ -711,7 +711,7 @@ export interface Location {
   last_name?: string | null
   phone?: string | null
   email?: string | null
-  estimated_waiting_time?: number | null
+  expected_waiting_time?: number | null
   province?: string | null
   post_code?: string | null
   latitude?: number | null

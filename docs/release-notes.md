@@ -23,29 +23,33 @@ Add new entries at the top (newest first).
 ## 2026-08-29 | Version: unreleased
 
 ### Summary
-- Added a configurable estimated waiting time, in minutes, to logistics locations.
+- Renamed location waiting targets to expected waiting time and added live over-wait alerts to the shipment report.
 
 ### API Changes
-- Location create, update, list, and detail responses now accept or expose the nullable integer `estimated_waiting_time` field.
-- Location lists can be sorted by `estimated_waiting_time`.
+- Location create, update, list, and detail responses now use the nullable integer `expected_waiting_time` field exclusively.
+- Location lists can be sorted by `expected_waiting_time`.
+- Shipment report pickup/drop-off locations expose their expected waiting times through the existing nested location resources.
 
 ### Database Changes
-- Added the nullable unsigned integer `locations.estimated_waiting_time` column.
+- Added a reversible migration that renames `locations.estimated_waiting_time` to `locations.expected_waiting_time` without changing stored null, zero, or positive values.
 
 ### Behavior Changes
-- Location create/edit forms now accept an optional non-negative whole-number estimate in minutes.
-- Location detail pages always display `Estimated Waiting Time`, using `Not set` when no estimate is available.
-- The locations DataTable displays the estimate in minutes, uses `Not set` for empty values, supports sorting by the field, and includes it in CSV exports.
+- Location create/edit forms, details, DataTable sorting, and CSV exports now consistently use `Expected Waiting Time` terminology.
+- Shipment report pickup and drop-off totals show a keyboard-accessible red alert when exact elapsed dwell exceeds the location's expected waiting time.
+- Open visits use the current time and update once per minute; null thresholds do not alert, zero remains active, and equality does not alert.
+- Duration formatting is shared across completed/live report cells and CSV output, preventing malformed 60-minute remainders.
 
 ### Breaking Changes
-- None.
+- The location API request, response, sort, TypeScript, and CSV field changed from `estimated_waiting_time` to `expected_waiting_time` with no compatibility alias.
 
 ### Verification
-- `php artisan test tests/Feature/LocationEstimatedWaitingTimeTest.php tests/Feature/LocationGeofenceUpdateTest.php tests/Feature/LocationIndexFiltersTest.php`
-- `vendor/bin/pint --test app/Http/Requests/StoreLocationRequest.php app/Http/Requests/UpdateLocationRequest.php app/Http/Requests/ListLocationsRequest.php database/migrations/2026_08_29_000001_add_estimated_waiting_time_to_locations_table.php tests/Feature/LocationEstimatedWaitingTimeTest.php`
-- `cd website && npm run lint -- src/app/admin/logistics/locations/page.tsx src/components/locations/location-detail-content.tsx src/components/locations/location-dialog.tsx src/components/locations/locations-table.tsx src/lib/api/locations.ts src/lib/csv-export.ts src/lib/types.ts`
+- `php artisan test tests/Feature/LocationExpectedWaitingTimeTest.php tests/Feature/LocationWaitingTimeMigrationTest.php tests/Feature/ShipmentsFullReportTest.php tests/Feature/LocationGeofenceUpdateTest.php tests/Feature/LocationIndexFiltersTest.php`
+- `vendor/bin/pint --test app/Http/Requests/ListLocationsRequest.php app/Http/Requests/StoreLocationRequest.php app/Http/Requests/UpdateLocationRequest.php database/migrations/2026_08_29_000002_rename_estimated_waiting_time_to_expected_waiting_time_on_locations_table.php tests/Feature/LocationExpectedWaitingTimeTest.php tests/Feature/LocationWaitingTimeMigrationTest.php tests/Feature/ShipmentsFullReportTest.php`
+- `cd website && node --test tests/dwell-time.test.mjs`
+- `cd website && npm run lint -- src/app/admin/logistics/locations/page.tsx src/app/admin/logistics/shipments/reports/shipments_report/page.tsx src/components/locations/location-detail-content.tsx src/components/locations/location-dialog.tsx src/components/locations/locations-table.tsx src/components/reports/shipment-dwell-time-cell.tsx src/lib/api/locations.ts src/lib/csv-export.ts src/lib/dwell-time.ts src/lib/types.ts tests/dwell-time.test.mjs`
 - `cd website && npx tsc --noEmit`
 - `cd website && npm run build`
+- Source searches confirming the old identifier remains only in the historical/rename migrations, breaking-contract tests, and release-note explanation.
 - `git diff --check`
 
 ## 2026-08-29 | Version: unreleased

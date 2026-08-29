@@ -31,7 +31,7 @@ class Location extends Model
         'last_name',
         'phone',
         'email',
-        'estimated_waiting_time',
+        'expected_waiting_time',
         'province',
         'post_code',
         'latitude',
@@ -48,7 +48,7 @@ class Location extends Model
         'latitude' => 'decimal:7',
         'longitude' => 'decimal:7',
         'location_type_id' => 'integer',
-        'estimated_waiting_time' => 'integer',
+        'expected_waiting_time' => 'integer',
         'metadata' => 'array',
         'imported_at' => 'datetime',
     ];

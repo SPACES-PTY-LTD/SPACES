@@ -37,7 +37,7 @@ class LocationResource extends JsonResource
             'last_name' => $this->last_name,
             'phone' => $this->phone,
             'email' => $this->email,
-            'estimated_waiting_time' => $this->estimated_waiting_time,
+            'expected_waiting_time' => $this->expected_waiting_time,
             'province' => $this->province,
             'post_code' => $this->post_code,
             'latitude' => $this->latitude,

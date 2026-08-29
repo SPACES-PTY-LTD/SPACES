@@ -1,3 +1,5 @@
+import { formatDurationMinutes, resolveDwellTime } from "@/lib/dwell-time"
+
 export type CsvValue = string | number | boolean | null | undefined
 export type CsvRow = Record<string, CsvValue>
 
@@ -49,12 +51,16 @@ const address = (row: Record<string, unknown>, prefix: string) => pick(row, [
   prefix + ".email", prefix + ".latitude", prefix + ".longitude",
 ])
 
-const minutesBetween = (start: unknown, end: unknown) => {
-  if (typeof start !== "string" || typeof end !== "string") return ""
-  const milliseconds = new Date(end).getTime() - new Date(start).getTime()
-  if (!Number.isFinite(milliseconds) || milliseconds < 0) return ""
-  const minutes = Math.round(milliseconds / 60000)
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+const dwellDuration = (start: unknown, end: unknown) => {
+  if (typeof start !== "string") return ""
+  const dwell = resolveDwellTime({
+    enteredAt: start,
+    exitedAt: typeof end === "string" && end ? end : null,
+    now: new Date(),
+  })
+  return dwell.elapsedMinutes === null
+    ? ""
+    : formatDurationMinutes(dwell.elapsedMinutes)
 }
 
 export type LogisticsExportResource =
@@ -135,8 +141,16 @@ export function mapLogisticsCsvRows(resource: LogisticsExportResource, records: 
       ...address(row, "to_location"),
       from_location_display: scalar(row.from_location_display ?? value(row, "from_location.full_address") ?? value(row, "from_location.name")),
       to_location_display: scalar(row.to_location_display ?? value(row, "to_location.full_address") ?? value(row, "to_location.name")),
-      from_total_time: scalar(row.from_total_time ?? minutesBetween(row.from_time_in, row.from_time_out)),
-      to_total_time: scalar(row.to_total_time ?? minutesBetween(row.to_time_in, row.to_time_out)),
+      from_total_time: scalar(
+        row.from_time_in && !row.from_time_out
+          ? dwellDuration(row.from_time_in, row.from_time_out)
+          : row.from_total_time ?? dwellDuration(row.from_time_in, row.from_time_out)
+      ),
+      to_total_time: scalar(
+        row.to_time_in && !row.to_time_out
+          ? dwellDuration(row.to_time_in, row.to_time_out)
+          : row.to_total_time ?? dwellDuration(row.to_time_in, row.to_time_out)
+      ),
     }))
   }
 
@@ -149,7 +163,7 @@ export function mapLogisticsCsvRows(resource: LogisticsExportResource, records: 
       "maintenance_mode_at", "maintenance_expected_resolved_at", "maintenance_description",
       "imported_at", "created_at", "updated_at",
     ],
-    locations: ["location_id", "merchant_id", "environment_id", "name", "code", "company", "full_address", "address_line_1", "address_line_2", "town", "city", "province", "post_code", "country", "first_name", "last_name", "phone", "email", "estimated_waiting_time", "latitude", "longitude", "google_place_id", "location_type_id", "type.title", "type.slug", "intergration_id", "imported_at", "created_at", "updated_at"],
+    locations: ["location_id", "merchant_id", "environment_id", "name", "code", "company", "full_address", "address_line_1", "address_line_2", "town", "city", "province", "post_code", "country", "first_name", "last_name", "phone", "email", "expected_waiting_time", "latitude", "longitude", "google_place_id", "location_type_id", "type.title", "type.slug", "intergration_id", "imported_at", "created_at", "updated_at"],
     "vehicle-activities": [
       "activity_id", "merchant.merchant_id", "merchant.name", "event_type", "occurred_at",
       "entered_at", "exited_at", "vehicle.vehicle_id", "vehicle.plate_number", "vehicle.ref_code",

@@ -45,7 +45,7 @@ type FormState = {
   firstName: string
   lastName: string
   phone: string
-  estimatedWaitingTime: string
+  expectedWaitingTime: string
   province: string
   postCode: string
   latitude: string
@@ -54,7 +54,7 @@ type FormState = {
   polygonBounds: string
 }
 
-const MAX_ESTIMATED_WAITING_TIME = 4_294_967_295
+const MAX_EXPECTED_WAITING_TIME = 4_294_967_295
 
 function parseNumber(value: string) {
   const trimmed = value.trim()
@@ -114,8 +114,8 @@ export function LocationDialog({
     firstName: location?.first_name ?? initialValues?.first_name ?? "",
     lastName: location?.last_name ?? initialValues?.last_name ?? "",
     phone: location?.phone ?? initialValues?.phone ?? "",
-    estimatedWaitingTime: String(
-      location?.estimated_waiting_time ?? initialValues?.estimated_waiting_time ?? ""
+    expectedWaitingTime: String(
+      location?.expected_waiting_time ?? initialValues?.expected_waiting_time ?? ""
     ),
     province: location?.province ?? initialValues?.province ?? "",
     postCode: location?.post_code ?? initialValues?.post_code ?? "",
@@ -144,8 +144,8 @@ export function LocationDialog({
       firstName: location?.first_name ?? initialValues?.first_name ?? "",
       lastName: location?.last_name ?? initialValues?.last_name ?? "",
       phone: location?.phone ?? initialValues?.phone ?? "",
-      estimatedWaitingTime: String(
-        location?.estimated_waiting_time ?? initialValues?.estimated_waiting_time ?? ""
+      expectedWaitingTime: String(
+        location?.expected_waiting_time ?? initialValues?.expected_waiting_time ?? ""
       ),
       province: location?.province ?? initialValues?.province ?? "",
       postCode: location?.post_code ?? initialValues?.post_code ?? "",
@@ -267,17 +267,17 @@ export function LocationDialog({
       toast.error("Location type is required.")
       return
     }
-    const estimatedWaitingTimeInput = values.estimatedWaitingTime.trim()
-    const estimatedWaitingTime = parseNumber(estimatedWaitingTimeInput)
+    const expectedWaitingTimeInput = values.expectedWaitingTime.trim()
+    const expectedWaitingTime = parseNumber(expectedWaitingTimeInput)
     if (
-      estimatedWaitingTimeInput &&
-      (estimatedWaitingTime === null ||
-        !Number.isInteger(estimatedWaitingTime) ||
-        estimatedWaitingTime < 0 ||
-        estimatedWaitingTime > MAX_ESTIMATED_WAITING_TIME)
+      expectedWaitingTimeInput &&
+      (expectedWaitingTime === null ||
+        !Number.isInteger(expectedWaitingTime) ||
+        expectedWaitingTime < 0 ||
+        expectedWaitingTime > MAX_EXPECTED_WAITING_TIME)
     ) {
       toast.error(
-        "Estimated waiting time must be a non-negative whole number within the supported range."
+        "Expected waiting time must be a non-negative whole number within the supported range."
       )
       return
     }
@@ -303,7 +303,7 @@ export function LocationDialog({
         first_name: values.firstName || null,
         last_name: values.lastName || null,
         phone: values.phone || null,
-        estimated_waiting_time: estimatedWaitingTime,
+        expected_waiting_time: expectedWaitingTime,
         province: values.province || null,
         post_code: values.postCode || null,
         latitude: parseNumber(values.latitude),
@@ -490,22 +490,22 @@ export function LocationDialog({
           </div>
           <div className="space-y-2">
             <label className="text-xs text-muted-foreground">
-              Estimated Waiting Time
+              Expected Waiting Time
             </label>
             <Input
               type="number"
               min={0}
-              max={MAX_ESTIMATED_WAITING_TIME}
+              max={MAX_EXPECTED_WAITING_TIME}
               step={1}
               inputMode="numeric"
               placeholder="Minutes"
-              value={values.estimatedWaitingTime}
+              value={values.expectedWaitingTime}
               onChange={(event) =>
-                updateValue("estimatedWaitingTime", event.target.value)
+                updateValue("expectedWaitingTime", event.target.value)
               }
             />
             <p className="text-xs text-muted-foreground">
-              Optional estimate in minutes.
+              Optional expected waiting time in minutes.
             </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
