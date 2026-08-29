@@ -225,6 +225,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         meta={tableMeta}
         loading_error={loadingError}
         width="4200px"
+        stickyColumns={{ leading: 2 }}
         filters={[
           {
             key: "date_created",
@@ -367,10 +368,10 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           "to_location_display",
         ]}
         columns={[
+          { key: "shipment_number", label: "Shipment Number", link: "shipment_href" , className: "w-[250px]"},
+          { key: "shipment_status", label: "Shipment Status", type: "status" },
           { key: "date_created", label: "Date Created", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm", className: "w-[150px]" },
           { key: "collection_date", label: "Collection Date", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm" , className: "w-[150px]"},
-          { key: "shipment_status", label: "Shipment Status", type: "status" },
-          { key: "shipment_number", label: "Shipment Number", link: "shipment_href" , className: "w-[250px]"},
           { key: "delivery_note_number", label: "Delivery Note", type: "delivery_note_number" },
           { key: "invoice_number", label: "Invoice Number", type: "invoice_number" },
           { key: "truck_plate_number", label: "Truck Plate Number", link: "vehicle_href", className: "w-[250px]" },
@@ -378,12 +379,12 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           { key: "shipment_type", label: "Shipment Type", link: "shipment_href" },
           { key: "from_location_display", label: "From Location", link: "from_location_href", className: "w-[350px]" },
           { key: "to_location_display", label: "To Location", link: "to_location_href", className: " w-[350px]" },
-          { key: "from_time_in", label: "From Time In", type: "date_time", format: "YYYY-MM-DD HH:mm" },
-          { key: "from_time_out", label: "From Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm" },
-          { key: "from_total_time", label: "From Total Time", className: "w-[140px]" },
-          { key: "to_time_in", label: "To Time In", type: "date_time", format: "YYYY-MM-DD HH:mm" },
-          { key: "to_time_out", label: "To Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm" },
-          { key: "to_total_time", label: "To Total Time", className: "w-[140px]" },
+          { key: "from_time_in", label: "From Time In", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
+          { key: "from_time_out", label: "From Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
+          { key: "from_total_time", label: "From Total Time", className: "w-[140px]", link: "shipment_href" },
+          { key: "to_time_in", label: "To Time In", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
+          { key: "to_time_out", label: "To Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm", link: "shipment_href" },
+          { key: "to_total_time", label: "To Total Time", className: "w-[140px]", link: "shipment_href" },
           { key: "odometer_at_collection_display", label: "Pickup Odometer", className: "w-[150px]" },
           { key: "odometer_at_delivery_display", label: "Delivery Odometer", className: "w-[160px]" },
           { key: "total_km_from_collection_display", label: "Shipment KM", className: "w-[140px]" },

@@ -23,6 +23,30 @@ Add new entries at the top (newest first).
 ## 2026-08-29 | Version: unreleased
 
 ### Summary
+- Added reusable frozen leading columns to the shared website data table and enabled them for the shipments report.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/shipments/reports/shipments_report` now keeps its first two data columns visible while scrolling horizontally.
+- Shared `DataTable` and `ExportableDataTable` usages can opt in with `stickyColumns={{ leading: number }}`; selection checkboxes are frozen automatically and do not count toward the requested data-column total.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/components/common/data-table.tsx src/components/common/exportable-data-table.tsx src/components/ui/table.tsx src/app/admin/logistics/shipments/reports/shipments_report/page.tsx`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-29 | Version: unreleased
+
+### Summary
 - Fixed shipment report pickup and drop-off dwell intervals showing identical timestamps and zero-minute durations.
 
 ### API Changes

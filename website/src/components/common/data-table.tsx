@@ -112,6 +112,11 @@ export type DataTableView = {
   ignoreParams?: string[]
 }
 
+export type DataTableStickyColumns = {
+  /** Number of leading data columns to keep visible during horizontal scrolling. */
+  leading: number
+}
+
 function DeliveryNoteNumberCell<T extends Record<string, unknown>>({
   row,
   displayValue,
@@ -239,6 +244,7 @@ export function DataTable<T extends Record<string, unknown>>({
   sortKeyMap,
   sortByParam = "sort_by",
   sortDirParam = "sort_dir",
+  stickyColumns,
 }: {
   data: T[]
   columns: Column<T>[]
@@ -262,6 +268,12 @@ export function DataTable<T extends Record<string, unknown>>({
   sortKeyMap?: Record<string, string>
   sortByParam?: string
   sortDirParam?: string
+  /**
+   * Freezes leading data columns during horizontal scrolling. When row
+   * selection is enabled, its checkbox column is frozen automatically and is
+   * not included in the leading count.
+   */
+  stickyColumns?: DataTableStickyColumns
 }) {
   const [query, setQuery] = React.useState("");
   const [show_filters, setShowFilters] = React.useState(false)
@@ -273,6 +285,10 @@ export function DataTable<T extends Record<string, unknown>>({
   )
   const [selectionMode, setSelectionMode] =
     React.useState<DataTableSelectionMode>("visible")
+  const frozenHeaderCells = React.useRef(
+    new Map<number | "selection", HTMLTableCellElement>()
+  )
+  const [stickyColumnOffsets, setStickyColumnOffsets] = React.useState<number[]>([])
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -585,6 +601,63 @@ export function DataTable<T extends Record<string, unknown>>({
   }, [sortableColumns])
   const tableColumnCount =
     columns.length + (rowActions?.length ? 1 : 0) + (selection ? 1 : 0)
+  const stickyLeadingColumnCount = Math.min(
+    columns.length,
+    Math.max(0, Math.floor(stickyColumns?.leading ?? 0))
+  )
+
+  const registerFrozenHeaderCell = React.useCallback(
+    (key: number | "selection", node: HTMLTableCellElement | null) => {
+      if (node) {
+        frozenHeaderCells.current.set(key, node)
+      } else {
+        frozenHeaderCells.current.delete(key)
+      }
+    },
+    []
+  )
+
+  React.useLayoutEffect(() => {
+    if (stickyLeadingColumnCount === 0) {
+      setStickyColumnOffsets([])
+      return
+    }
+
+    const updateOffsets = () => {
+      let left = selection
+        ? (frozenHeaderCells.current.get("selection")?.getBoundingClientRect().width ?? 0)
+        : 0
+      const nextOffsets: number[] = []
+
+      for (let index = 0; index < stickyLeadingColumnCount; index += 1) {
+        nextOffsets[index] = left
+        left += frozenHeaderCells.current.get(index)?.getBoundingClientRect().width ?? 0
+      }
+
+      setStickyColumnOffsets((currentOffsets) =>
+        currentOffsets.length === nextOffsets.length &&
+        currentOffsets.every((offset, index) => offset === nextOffsets[index])
+          ? currentOffsets
+          : nextOffsets
+      )
+    }
+
+    updateOffsets()
+
+    if (typeof ResizeObserver === "undefined") return
+
+    const observer = new ResizeObserver(updateOffsets)
+    if (selection) {
+      const selectionHeader = frozenHeaderCells.current.get("selection")
+      if (selectionHeader) observer.observe(selectionHeader)
+    }
+    for (let index = 0; index < stickyLeadingColumnCount; index += 1) {
+      const header = frozenHeaderCells.current.get(index)
+      if (header) observer.observe(header)
+    }
+
+    return () => observer.disconnect()
+  }, [selection, stickyLeadingColumnCount])
 
   React.useEffect(() => {
     clearSelection()
@@ -1002,7 +1075,14 @@ export function DataTable<T extends Record<string, unknown>>({
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   {selection ? (
-                    <TableHead className="w-4">
+                    <TableHead
+                      ref={(node) => registerFrozenHeaderCell("selection", node)}
+                      className={cn(
+                        "w-4",
+                        stickyLeadingColumnCount > 0 &&
+                          "sticky top-0 left-0 z-30 bg-muted"
+                      )}
+                    >
                       <input
                         type="checkbox"
                         checked={allVisibleSelected}
@@ -1020,11 +1100,23 @@ export function DataTable<T extends Record<string, unknown>>({
                       />
                     </TableHead>
                   ) : null}
-                  {columns.map((column) => (
+                  {columns.map((column, columnIndex) => (
                     <TableHead
                       key={String(column.key)}
+                      ref={
+                        columnIndex < stickyLeadingColumnCount
+                          ? (node) => registerFrozenHeaderCell(columnIndex, node)
+                          : undefined
+                      }
+                      style={
+                        columnIndex < stickyLeadingColumnCount
+                          ? { left: stickyColumnOffsets[columnIndex] ?? 0 }
+                          : undefined
+                      }
                       className={cn(
                         "sticky top-0",
+                        columnIndex < stickyLeadingColumnCount && "z-30 bg-muted",
+                        columnIndex === stickyLeadingColumnCount - 1 && "border-r shadow-sm",
                         column.className
                       )}
                     >
@@ -1089,9 +1181,15 @@ export function DataTable<T extends Record<string, unknown>>({
                       <TableRow
                         key={rowSelectionId || rowIndex}
                         data-state={isSelected ? "selected" : undefined}
+                        className="group/data-table-row"
                       >
                         {selection ? (
-                          <TableCell>
+                          <TableCell
+                            className={cn(
+                              stickyLeadingColumnCount > 0 &&
+                                "sticky left-0 z-20 bg-background group-hover/data-table-row:bg-muted/50 group-data-[state=selected]/data-table-row:bg-muted"
+                            )}
+                          >
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -1106,9 +1204,19 @@ export function DataTable<T extends Record<string, unknown>>({
                             />
                           </TableCell>
                         ) : null}
-                        {columns.map((column) => (
+                        {columns.map((column, columnIndex) => (
                           <TableCell
                             key={String(column.key)}
+                            style={
+                              columnIndex < stickyLeadingColumnCount
+                                ? { left: stickyColumnOffsets[columnIndex] ?? 0 }
+                                : undefined
+                            }
+                            className={cn(
+                              columnIndex < stickyLeadingColumnCount &&
+                                "sticky z-10 bg-background group-hover/data-table-row:bg-muted/50 group-data-[state=selected]/data-table-row:bg-muted",
+                              columnIndex === stickyLeadingColumnCount - 1 && "border-r shadow-sm"
+                            )}
                           >
                           {column.type === "status" ? (
                             <StatusBadge
