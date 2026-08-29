@@ -1187,7 +1187,7 @@ export function DataTable<T extends Record<string, unknown>>({
                           <TableCell
                             className={cn(
                               stickyLeadingColumnCount > 0 &&
-                                "sticky left-0 z-20 bg-background group-hover/data-table-row:bg-muted/50 group-data-[state=selected]/data-table-row:bg-muted"
+                                "sticky left-0 z-20 bg-background group-hover/data-table-row:bg-muted group-data-[state=selected]/data-table-row:bg-muted"
                             )}
                           >
                             <input
@@ -1214,7 +1214,7 @@ export function DataTable<T extends Record<string, unknown>>({
                             }
                             className={cn(
                               columnIndex < stickyLeadingColumnCount &&
-                                "sticky z-10 bg-background group-hover/data-table-row:bg-muted/50 group-data-[state=selected]/data-table-row:bg-muted",
+                                "sticky z-10 bg-background group-hover/data-table-row:bg-muted group-data-[state=selected]/data-table-row:bg-muted",
                               columnIndex === stickyLeadingColumnCount - 1 && "border-r shadow-sm"
                             )}
                           >

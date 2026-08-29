@@ -34,6 +34,7 @@ Add new entries at the top (newest first).
 ### Behavior Changes
 - `/admin/logistics/shipments/reports/shipments_report` now keeps its first two data columns visible while scrolling horizontally.
 - Shared `DataTable` and `ExportableDataTable` usages can opt in with `stickyColumns={{ leading: number }}`; selection checkboxes are frozen automatically and do not count toward the requested data-column total.
+- Frozen body cells use fully opaque default, hover, and selected backgrounds so horizontally scrolling content cannot show through them.
 
 ### Breaking Changes
 - None.
