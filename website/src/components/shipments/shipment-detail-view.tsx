@@ -9,13 +9,76 @@ import { ShipmentStopsOverview } from "@/components/shipments/shipment-stops-ove
 import { EntityFilesSection } from "@/components/files/entity-files-section"
 import { DeliveryNoteImportList } from "@/components/files/delivery-note-import-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { getLocationLabel } from "@/lib/address"
-import type { Location, Shipment } from "@/lib/types"
+import type { Location, Shipment, ShipmentLocationVisitInterval } from "@/lib/types"
 import type { ShipmentQuoteFormValues } from "@/components/shipments/shipment-quote-dialog"
 
 function formatDateTime(value?: string | null) {
   if (!value) return "-"
   return moment(value).format("YYYY-MM-DD HH:mm")
+}
+
+function formatVisitDuration(interval?: ShipmentLocationVisitInterval | null) {
+  if (!interval?.entered_at) return "-"
+  if (!interval.exited_at) return "In progress"
+  if (typeof interval.duration_seconds !== "number") return "-"
+  if (interval.duration_seconds > 0 && interval.duration_seconds < 60) {
+    return "< 1 min"
+  }
+
+  const totalMinutes = Math.round(interval.duration_seconds / 60)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+
+  if (hours === 0) return `${minutes} min`
+  if (minutes === 0) return `${hours} hr`
+  return `${hours} hr ${minutes} min`
+}
+
+function VisitDurationValue({
+  label,
+  interval,
+}: {
+  label: string
+  interval?: ShipmentLocationVisitInterval | null
+}) {
+  const duration = formatVisitDuration(interval)
+  const entryTime = interval?.entered_at
+    ? formatDateTime(interval.entered_at)
+    : "Not available"
+  const exitTime = interval?.exited_at
+    ? formatDateTime(interval.exited_at)
+    : interval?.entered_at
+      ? "In progress"
+      : "Not available"
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="cursor-help font-medium underline decoration-dotted underline-offset-4"
+            aria-label={`${label}: ${duration}`}
+          >
+            {duration}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="left" sideOffset={8}>
+          <div className="space-y-1">
+            <div>Entry time: {entryTime}</div>
+            <div>Exit time: {exitTime}</div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }
 
 function hasParcelValue(value?: string | number | null) {
@@ -167,12 +230,26 @@ export function ShipmentDetailView({
                 </span>
               </div>
               <div className="flex items-center justify-between">
+                <span>Total Time at Pickup Location</span>
+                <VisitDurationValue
+                  label="Total Time at Pickup Location"
+                  interval={shipment.location_visit_intervals?.pickup}
+                />
+              </div>
+              <div className="flex items-center justify-between">
                 <span>Dropoff</span>
                 <span className="font-medium">
                   {getLocationLabel(
                     shipment.dropoff_location ?? shipment.dropoff_address
                   )}
                 </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Total Time at Dropoff Location</span>
+                <VisitDurationValue
+                  label="Total Time at Dropoff Location"
+                  interval={shipment.location_visit_intervals?.dropoff}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <span>Merchant Order Ref</span>

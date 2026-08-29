@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Http\Resources\Concerns\FormatsMerchantTimestamps;
+use App\Models\VehicleActivity;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -28,6 +29,14 @@ class ShipmentResource extends JsonResource
         $totalParcelCount = $parcels->count();
         $scannedParcelCount = $parcels->filter(fn ($parcel) => $parcel->picked_up_scanned_at !== null)->count();
         $booking = $this->relationLoaded('booking') ? $this->booking : null;
+        $hasLocationVisitIntervals = $this->relationLoaded('pickupVisitActivity')
+            || $this->relationLoaded('dropoffVisitActivity');
+        $pickupVisitActivity = $this->relationLoaded('pickupVisitActivity')
+            ? $this->pickupVisitActivity
+            : null;
+        $dropoffVisitActivity = $this->relationLoaded('dropoffVisitActivity')
+            ? $this->dropoffVisitActivity
+            : null;
 
         return [
             'shipment_id' => $this->uuid,
@@ -65,6 +74,10 @@ class ShipmentResource extends JsonResource
                 'odometer_at_delivery' => $booking->odometer_at_delivery,
                 'total_km_from_collection' => $booking->total_km_from_collection,
             ] : null,
+            'location_visit_intervals' => $this->when($hasLocationVisitIntervals, [
+                'pickup' => $this->formatLocationVisitInterval($pickupVisitActivity, $request),
+                'dropoff' => $this->formatLocationVisitInterval($dropoffVisitActivity, $request),
+            ]),
             'driver' => $driver ? [
                 'driver_id' => $driver->uuid,
                 'name' => $driverUser?->name,
@@ -89,6 +102,26 @@ class ShipmentResource extends JsonResource
             'offers' => DeliveryOfferResource::collection($this->whenLoaded('deliveryOffers')),
             'created_at' => $this->formatDateForMerchantTimezone($this->created_at, $request),
             'delivery_note_imports' => DeliveryNoteImportResource::collection($this->whenLoaded('deliveryNoteImports')),
+        ];
+    }
+
+    private function formatLocationVisitInterval(?VehicleActivity $activity, Request $request): ?array
+    {
+        if (! $activity) {
+            return null;
+        }
+
+        $enteredAt = $activity->entered_at;
+        $exitedAt = $activity->exited_at;
+        $durationSeconds = $enteredAt && $exitedAt && $exitedAt->greaterThanOrEqualTo($enteredAt)
+            ? (int) $enteredAt->diffInSeconds($exitedAt)
+            : null;
+
+        return [
+            'entered_at' => $this->formatDateForMerchantTimezone($enteredAt, $request),
+            'exited_at' => $this->formatDateForMerchantTimezone($exitedAt, $request),
+            'duration_seconds' => $durationSeconds,
+            'source_event_type' => $activity->event_type,
         ];
     }
 }

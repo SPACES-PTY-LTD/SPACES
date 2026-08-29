@@ -23,6 +23,33 @@ Add new entries at the top (newest first).
 ## 2026-08-29 | Version: unreleased
 
 ### Summary
+- Added pickup and dropoff location dwell times to the shipment Details tab.
+
+### API Changes
+- `GET /api/v1/shipments/{shipment_uuid}` now includes optional `location_visit_intervals.pickup` and `location_visit_intervals.dropoff` values with `entered_at`, `exited_at`, `duration_seconds`, and `source_event_type`.
+- Shipment details and the full shipment report now share the same resolver that prefers real `entered_location` activities matched by shipment/location or run/location, with shipment-stage activities retained as a legacy fallback.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Every shipment Details tab now displays `Total Time at Pickup Location` and `Total Time at Dropoff Location`.
+- Hovering or focusing either total shows its entry and exit timestamps; an open visit displays `In progress`, and unavailable visit data displays `-` with unavailable timestamps.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/ShipmentQuoteTest.php tests/Feature/ShipmentsFullReportTest.php`
+- `vendor/bin/pint --test app/Services/ShipmentVisitIntervalService.php app/Http/Controllers/Api/V1/ShipmentController.php app/Http/Controllers/Api/V1/ReportController.php app/Http/Resources/ShipmentResource.php tests/Feature/ShipmentQuoteTest.php tests/Feature/ShipmentsFullReportTest.php`
+- `cd website && npm run lint -- src/components/shipments/shipment-detail-view.tsx src/lib/types.ts`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-29 | Version: unreleased
+
+### Summary
 - Added reusable frozen leading columns to the shared website data table and enabled them for the shipments report.
 
 ### API Changes
@@ -35,6 +62,7 @@ Add new entries at the top (newest first).
 - `/admin/logistics/shipments/reports/shipments_report` now keeps its first two data columns visible while scrolling horizontally.
 - Shared `DataTable` and `ExportableDataTable` usages can opt in with `stickyColumns={{ leading: number }}`; selection checkboxes are frozen automatically and do not count toward the requested data-column total.
 - Frozen body cells use fully opaque default, hover, and selected backgrounds so horizontally scrolling content cannot show through them.
+- The last frozen column uses a stronger directional edge shadow so scrolling columns clearly appear to pass underneath it in default, hover, and selected states.
 
 ### Breaking Changes
 - None.

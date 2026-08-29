@@ -1116,7 +1116,8 @@ export function DataTable<T extends Record<string, unknown>>({
                       className={cn(
                         "sticky top-0",
                         columnIndex < stickyLeadingColumnCount && "z-30 bg-muted",
-                        columnIndex === stickyLeadingColumnCount - 1 && "border-r shadow-sm",
+                        columnIndex === stickyLeadingColumnCount - 1 &&
+                          "border-r border-border shadow-[8px_0_12px_-5px_rgba(0,0,0,0.4)]",
                         column.className
                       )}
                     >
@@ -1215,7 +1216,8 @@ export function DataTable<T extends Record<string, unknown>>({
                             className={cn(
                               columnIndex < stickyLeadingColumnCount &&
                                 "sticky z-10 bg-background group-hover/data-table-row:bg-muted group-data-[state=selected]/data-table-row:bg-muted",
-                              columnIndex === stickyLeadingColumnCount - 1 && "border-r shadow-sm"
+                              columnIndex === stickyLeadingColumnCount - 1 &&
+                                "border-r border-border shadow-[8px_0_12px_-5px_rgba(0,0,0,0.4)]"
                             )}
                           >
                           {column.type === "status" ? (

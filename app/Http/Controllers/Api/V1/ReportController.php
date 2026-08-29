@@ -26,13 +26,12 @@ use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
-use App\Models\VehicleActivity;
+use App\Services\ShipmentVisitIntervalService;
 use App\Services\VehiclesDailyKpiReportService;
 use App\Services\VehicleService;
 use App\Support\ApiResponse;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
@@ -126,7 +125,7 @@ class ReportController extends Controller
         }
     }
 
-    public function shipmentsFullReport(Request $request)
+    public function shipmentsFullReport(Request $request, ShipmentVisitIntervalService $visitIntervalService)
     {
         try {
             $environment = $request->attributes->get('merchant_environment');
@@ -291,10 +290,9 @@ class ReportController extends Controller
 
             $perPage = min((int) ($request->get('per_page', 50)), 200);
             $shipments = $query->paginate($perPage);
-            $stageActivityMap = $this->buildShipmentStageActivityMap($shipments, $request);
-            $visitMap = $this->buildShipmentLocationVisitMap($shipments, $request);
+            $visitIntervals = $visitIntervalService->resolveForShipments($shipments->getCollection());
 
-            $rows = $shipments->getCollection()->map(function (Shipment $shipment) use ($stageActivityMap, $visitMap, $request) {
+            $rows = $shipments->getCollection()->map(function (Shipment $shipment) use ($visitIntervals, $request) {
                 $runShipments = $shipment->relationLoaded('runShipments')
                     ? $shipment->getRelation('runShipments')
                     : $shipment->runShipments()
@@ -314,12 +312,8 @@ class ReportController extends Controller
                     ? max(0, $run->completed_at->diffInSeconds($run->started_at))
                     : null;
 
-                $fromVisit = $visitMap['shipment:'.$shipment->id.':'.$shipment->pickup_location_id]
-                    ?? ($run ? ($visitMap['run:'.$run->id.':'.$shipment->pickup_location_id] ?? null) : null)
-                    ?? ($stageActivityMap[$shipment->id.':'.VehicleActivity::EVENT_SHIPMENT_COLLECTION] ?? null);
-                $toVisit = $visitMap['shipment:'.$shipment->id.':'.$shipment->dropoff_location_id]
-                    ?? ($run ? ($visitMap['run:'.$run->id.':'.$shipment->dropoff_location_id] ?? null) : null)
-                    ?? ($stageActivityMap[$shipment->id.':'.VehicleActivity::EVENT_SHIPMENT_DELIVERY] ?? null);
+                $fromVisit = $visitIntervals[$shipment->id]['pickup'] ?? null;
+                $toVisit = $visitIntervals[$shipment->id]['dropoff'] ?? null;
 
                 return [
                     'date_created' => optional($shipment->created_at)?->toIso8601String(),
@@ -342,16 +336,20 @@ class ReportController extends Controller
                     'from_location' => $shipment->pickupLocation
                         ? (new LocationResource($shipment->pickupLocation))->toArray($request)
                         : null,
-                    'from_vehicle_activity' => $fromVisit['activity'] ?? null,
-                    'from_time_in' => $fromVisit['time_in'] ?? null,
-                    'from_time_to' => $fromVisit['time_out'] ?? null,
-                    'from_time_out' => $fromVisit['time_out'] ?? null,
+                    'from_vehicle_activity' => $fromVisit
+                        ? (new VehicleActivityResource($fromVisit))->toArray($request)
+                        : null,
+                    'from_time_in' => $fromVisit?->entered_at?->toIso8601String(),
+                    'from_time_to' => $fromVisit?->exited_at?->toIso8601String(),
+                    'from_time_out' => $fromVisit?->exited_at?->toIso8601String(),
                     'to_location' => $shipment->dropoffLocation
                         ? (new LocationResource($shipment->dropoffLocation))->toArray($request)
                         : null,
-                    'to_vehicle_activity' => $toVisit['activity'] ?? null,
-                    'to_time_in' => $toVisit['time_in'] ?? null,
-                    'to_time_out' => $toVisit['time_out'] ?? null,
+                    'to_vehicle_activity' => $toVisit
+                        ? (new VehicleActivityResource($toVisit))->toArray($request)
+                        : null,
+                    'to_time_in' => $toVisit?->entered_at?->toIso8601String(),
+                    'to_time_out' => $toVisit?->exited_at?->toIso8601String(),
                     'odometer_at_collection' => $booking?->odometer_at_collection,
                     'odometer_at_delivery' => $booking?->odometer_at_delivery,
                     'total_km_from_collection' => $booking?->total_km_from_collection,
@@ -1566,105 +1564,6 @@ class ReportController extends Controller
         }
 
         return $query;
-    }
-
-    private function buildShipmentLocationVisitMap(LengthAwarePaginator $shipments, Request $request): array
-    {
-        $shipmentIds = $shipments->getCollection()->pluck('id')->filter()->values();
-        if ($shipmentIds->isEmpty()) {
-            return [];
-        }
-
-        $runIds = $shipments->getCollection()
-            ->flatMap(function (Shipment $shipment) {
-                return $shipment->relationLoaded('runShipments')
-                    ? $shipment->getRelation('runShipments')->pluck('run_id')
-                    : collect();
-            })
-            ->filter()
-            ->unique()
-            ->values();
-        $locationIds = $shipments->getCollection()
-            ->flatMap(fn (Shipment $shipment) => [
-                $shipment->pickup_location_id,
-                $shipment->dropoff_location_id,
-            ])
-            ->filter()
-            ->unique()
-            ->values();
-
-        $visits = VehicleActivity::query()
-            ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
-            ->whereIn('location_id', $locationIds)
-            ->where(function (Builder $builder) use ($shipmentIds, $runIds) {
-                $builder->whereIn('shipment_id', $shipmentIds);
-
-                if ($runIds->isNotEmpty()) {
-                    $builder->orWhereIn('run_id', $runIds);
-                }
-            })
-            ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment'])
-            ->orderByDesc('id')
-            ->get();
-
-        $map = [];
-        foreach ($visits as $visit) {
-            $interval = [
-                'activity' => (new VehicleActivityResource($visit))->toArray($request),
-                'time_in' => $visit->entered_at ? Carbon::parse($visit->entered_at)->toIso8601String() : null,
-                'time_out' => $visit->exited_at ? Carbon::parse($visit->exited_at)->toIso8601String() : null,
-            ];
-
-            if ($visit->shipment_id) {
-                $shipmentKey = 'shipment:'.$visit->shipment_id.':'.$visit->location_id;
-                $map[$shipmentKey] ??= $interval;
-            }
-
-            if ($visit->run_id) {
-                $runKey = 'run:'.$visit->run_id.':'.$visit->location_id;
-                $map[$runKey] ??= $interval;
-            }
-        }
-
-        return $map;
-    }
-
-    private function buildShipmentStageActivityMap(LengthAwarePaginator $shipments, Request $request): array
-    {
-        $shipmentIds = $shipments->getCollection()->pluck('id')->filter()->values();
-        if ($shipmentIds->isEmpty()) {
-            return [];
-        }
-
-        $latestStageSub = VehicleActivity::query()
-            ->selectRaw('shipment_id, event_type, MAX(id) as latest_activity_id')
-            ->whereIn('shipment_id', $shipmentIds)
-            ->whereIn('event_type', [
-                VehicleActivity::EVENT_SHIPMENT_COLLECTION,
-                VehicleActivity::EVENT_SHIPMENT_DELIVERY,
-            ])
-            ->groupBy('shipment_id', 'event_type')
-            ->toBase();
-
-        $activities = VehicleActivity::query()
-            ->select('vehicle_activity.*')
-            ->joinSub($latestStageSub, 'latest_shipment_stage_activity', function ($join) {
-                $join->on('latest_shipment_stage_activity.latest_activity_id', '=', 'vehicle_activity.id');
-            })
-            ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment'])
-            ->get();
-
-        $map = [];
-        foreach ($activities as $activity) {
-            $key = $activity->shipment_id.':'.$activity->event_type;
-            $map[$key] = [
-                'activity' => (new VehicleActivityResource($activity))->toArray($request),
-                'time_in' => $activity->entered_at ? Carbon::parse($activity->entered_at)->toIso8601String() : null,
-                'time_out' => $activity->exited_at ? Carbon::parse($activity->exited_at)->toIso8601String() : null,
-            ];
-        }
-
-        return $map;
     }
 
     private function formatDeliveredVolume(Shipment $shipment): ?string

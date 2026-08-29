@@ -4,9 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Driver;
-use App\Models\Merchant;
 use App\Models\Location;
+use App\Models\Merchant;
 use App\Models\Run;
+use App\Models\RunShipment;
+use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleActivity;
@@ -214,6 +216,118 @@ class ShipmentQuoteTest extends TestCase
             ->assertJsonCount(2, 'data.stops')
             ->assertJsonPath('data.stops.0.event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
             ->assertJsonPath('data.stops.1.event_type', VehicleActivity::EVENT_SHIPMENT_DELIVERY);
+    }
+
+    public function test_shipment_show_returns_real_pickup_and_dropoff_visit_intervals(): void
+    {
+        $user = User::factory()->create();
+        $merchant = $this->createMerchantForUser($user);
+        $pickup = $this->createLocation($merchant, 'Pickup');
+        $dropoff = $this->createLocation($merchant, 'Dropoff');
+        $vehicle = Vehicle::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'plate_number' => 'VISIT-TIMES',
+            'is_active' => true,
+        ]);
+        $run = Run::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'status' => Run::STATUS_COMPLETED,
+        ]);
+        $shipment = Shipment::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'merchant_order_ref' => 'VISIT-INTERVALS',
+            'status' => 'delivered',
+            'pickup_location_id' => $pickup->id,
+            'dropoff_location_id' => $dropoff->id,
+        ]);
+        RunShipment::create([
+            'run_id' => $run->id,
+            'shipment_id' => $shipment->id,
+            'status' => RunShipment::STATUS_DONE,
+        ]);
+
+        VehicleActivity::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'location_id' => $pickup->id,
+            'run_id' => $run->id,
+            'event_type' => VehicleActivity::EVENT_ENTERED_LOCATION,
+            'occurred_at' => '2026-08-29 08:00:00',
+            'entered_at' => '2026-08-29 08:00:00',
+            'exited_at' => '2026-08-29 08:35:00',
+        ]);
+        VehicleActivity::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'shipment_id' => $shipment->id,
+            'location_id' => $pickup->id,
+            'run_id' => $run->id,
+            'event_type' => VehicleActivity::EVENT_SHIPMENT_COLLECTION,
+            'occurred_at' => '2026-08-29 08:00:01',
+            'entered_at' => '2026-08-29 08:00:01',
+            'exited_at' => '2026-08-29 08:00:01',
+        ]);
+        VehicleActivity::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'shipment_id' => $shipment->id,
+            'location_id' => $dropoff->id,
+            'run_id' => $run->id,
+            'event_type' => VehicleActivity::EVENT_ENTERED_LOCATION,
+            'occurred_at' => '2026-08-29 09:10:00',
+            'entered_at' => '2026-08-29 09:10:00',
+            'exited_at' => '2026-08-29 09:28:00',
+        ]);
+        VehicleActivity::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'shipment_id' => $shipment->id,
+            'location_id' => $dropoff->id,
+            'run_id' => $run->id,
+            'event_type' => VehicleActivity::EVENT_SHIPMENT_DELIVERY,
+            'occurred_at' => '2026-08-29 09:28:00',
+            'entered_at' => '2026-08-29 09:28:00',
+            'exited_at' => '2026-08-29 09:28:00',
+        ]);
+
+        $response = $this->withApiToken($user)->getJson("/api/v1/shipments/{$shipment->uuid}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.location_visit_intervals.pickup.source_event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+            ->assertJsonPath('data.location_visit_intervals.pickup.entered_at', '2026-08-29T08:00:00+00:00')
+            ->assertJsonPath('data.location_visit_intervals.pickup.exited_at', '2026-08-29T08:35:00+00:00')
+            ->assertJsonPath('data.location_visit_intervals.pickup.duration_seconds', 2100)
+            ->assertJsonPath('data.location_visit_intervals.dropoff.source_event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+            ->assertJsonPath('data.location_visit_intervals.dropoff.entered_at', '2026-08-29T09:10:00+00:00')
+            ->assertJsonPath('data.location_visit_intervals.dropoff.exited_at', '2026-08-29T09:28:00+00:00')
+            ->assertJsonPath('data.location_visit_intervals.dropoff.duration_seconds', 1080);
+
+        VehicleActivity::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'shipment_id' => $shipment->id,
+            'location_id' => $dropoff->id,
+            'run_id' => $run->id,
+            'event_type' => VehicleActivity::EVENT_ENTERED_LOCATION,
+            'occurred_at' => '2026-08-29 10:00:00',
+            'entered_at' => '2026-08-29 10:00:00',
+            'exited_at' => null,
+        ]);
+
+        $inProgressResponse = $this->withApiToken($user)->getJson("/api/v1/shipments/{$shipment->uuid}");
+        $inProgressResponse->assertOk()
+            ->assertJsonPath('data.location_visit_intervals.dropoff.entered_at', '2026-08-29T10:00:00+00:00')
+            ->assertJsonPath('data.location_visit_intervals.dropoff.exited_at', null)
+            ->assertJsonPath('data.location_visit_intervals.dropoff.duration_seconds', null);
     }
 
     public function test_shipment_list_uses_latest_activity_vehicle_and_driver_when_current_run_is_missing(): void

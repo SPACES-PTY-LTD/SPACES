@@ -214,6 +214,10 @@ export interface Shipment {
     odometer_at_delivery?: number | null
     total_km_from_collection?: string | number | null
   } | null
+  location_visit_intervals?: {
+    pickup?: ShipmentLocationVisitInterval | null
+    dropoff?: ShipmentLocationVisitInterval | null
+  }
   driver?: {
     driver_id: UUID
     name: string
@@ -232,6 +236,13 @@ export interface Shipment {
   files?: EntityFile[]
   delivery_note_imports?: DeliveryNoteImport[]
   created_at?: string
+}
+
+export interface ShipmentLocationVisitInterval {
+  entered_at?: string | null
+  exited_at?: string | null
+  duration_seconds?: number | null
+  source_event_type?: string | null
 }
 
 export interface ShipmentParcel {

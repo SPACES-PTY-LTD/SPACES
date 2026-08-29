@@ -12,10 +12,12 @@ use App\Http\Resources\BookingResource;
 use App\Http\Resources\ShipmentResource;
 use App\Http\Resources\TrackingEventResource;
 use App\Models\Merchant;
+use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Services\BookingService;
 use App\Services\RunService;
 use App\Services\ShipmentService;
+use App\Services\ShipmentVisitIntervalService;
 use App\Services\TrackingService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
@@ -170,7 +172,7 @@ class ShipmentController extends Controller
         }
     }
 
-    public function show(string $shipment_uuid)
+    public function show(string $shipment_uuid, ShipmentVisitIntervalService $visitIntervalService)
     {
         try {
             $shipment = Shipment::with([
@@ -181,6 +183,10 @@ class ShipmentController extends Controller
                 'requestedVehicleType',
                 'currentRunShipment.run.driver.user',
                 'currentRunShipment.run.vehicle.lastDriver.user',
+                'runShipments' => function ($builder) {
+                    $builder->where('status', '!=', RunShipment::STATUS_REMOVED)
+                        ->orderByDesc('id');
+                },
                 'vehicleActivities.merchant',
                 'vehicleActivities.vehicle.lastDriver.user',
                 'vehicleActivities.location',
@@ -209,6 +215,11 @@ class ShipmentController extends Controller
                     'deliveryOffers.shipment.requestedVehicleType',
                 ]);
             }
+
+            $visitIntervals = $visitIntervalService->resolveForShipments(collect([$shipment]));
+            $shipmentIntervals = $visitIntervals[$shipment->id] ?? [];
+            $shipment->setRelation('pickupVisitActivity', $shipmentIntervals['pickup'] ?? null);
+            $shipment->setRelation('dropoffVisitActivity', $shipmentIntervals['dropoff'] ?? null);
 
             return ApiResponse::success(new ShipmentResource($shipment));
         } catch (Throwable $e) {
