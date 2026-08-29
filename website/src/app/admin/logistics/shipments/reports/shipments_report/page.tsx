@@ -379,7 +379,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           { key: "from_location_display", label: "From Location", link: "from_location_href", className: "w-[350px]" },
           { key: "to_location_display", label: "To Location", link: "to_location_href", className: " w-[350px]" },
           { key: "from_time_in", label: "From Time In", type: "date_time", format: "YYYY-MM-DD HH:mm" },
-          { key: "from_time_to", label: "From Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm" },
+          { key: "from_time_out", label: "From Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "from_total_time", label: "From Total Time", className: "w-[140px]" },
           { key: "to_time_in", label: "To Time In", type: "date_time", format: "YYYY-MM-DD HH:mm" },
           { key: "to_time_out", label: "To Time Out", type: "date_time", format: "YYYY-MM-DD HH:mm" },

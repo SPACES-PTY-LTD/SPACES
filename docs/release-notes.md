@@ -20,6 +20,31 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-08-29 | Version: unreleased
+
+### Summary
+- Fixed shipment report pickup and drop-off dwell intervals showing identical timestamps and zero-minute durations.
+
+### API Changes
+- `GET /api/v1/reports/shipments_full_report` now prefers recorded `entered_location` visit intervals matched by shipment/location or run/location, with shipment stage activities retained as a fallback for legacy records.
+- The legacy `from_time_to` response alias remains available and continues to mirror the canonical `from_time_out` value.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/logistics/shipments/reports/shipments_report` now displays and calculates pickup and drop-off dwell times from the real geofence entry/exit interval when one was recorded.
+- The pickup `From Time Out` column now reads the canonical `from_time_out` API field used by the duration calculation.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/ShipmentsFullReportTest.php`
+- `vendor/bin/pint --test app/Http/Controllers/Api/V1/ReportController.php tests/Feature/ShipmentsFullReportTest.php`
+- `cd website && npm run lint -- src/app/admin/logistics/shipments/reports/shipments_report/page.tsx src/lib/api/reports.ts src/lib/csv-export.ts`
+- `git diff --check`
+
 ## 2026-08-04 | Version: unreleased
 
 ### Summary

@@ -5,9 +5,10 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\Merchant;
 use App\Models\User;
+use App\Models\VehicleActivity;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -58,7 +59,7 @@ class ShipmentsFullReportTest extends TestCase
         );
 
         $response = $this->withHeaders($this->authHeaders($user))
-            ->getJson('/api/v1/reports/shipments_full_report?merchant_id=' . $merchant->uuid);
+            ->getJson('/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid);
 
         $response->assertOk()
             ->assertJsonPath('meta.total', 1)
@@ -103,7 +104,7 @@ class ShipmentsFullReportTest extends TestCase
         );
 
         $response = $this->withHeaders($this->authHeaders($user))
-            ->getJson('/api/v1/reports/shipments_full_report?' . http_build_query([
+            ->getJson('/api/v1/reports/shipments_full_report?'.http_build_query([
                 'merchant_id' => $merchant->uuid,
                 'location_tag_id' => $tagUuid,
                 'per_page' => 10,
@@ -156,7 +157,7 @@ class ShipmentsFullReportTest extends TestCase
         );
 
         $response = $this->withHeaders($this->authHeaders($user))
-            ->getJson('/api/v1/reports/shipments_full_report?' . http_build_query([
+            ->getJson('/api/v1/reports/shipments_full_report?'.http_build_query([
                 'merchant_id' => $merchant->uuid,
                 'vehicle_tag_id' => $tagUuid,
                 'per_page' => 10,
@@ -166,6 +167,81 @@ class ShipmentsFullReportTest extends TestCase
             ->assertJsonPath('meta.total', 1)
             ->assertJsonFragment(['shipment_id' => $matchingShipmentUuid])
             ->assertJsonMissing(['shipment_id' => $nonMatchShipmentUuid]);
+    }
+
+    public function test_report_prefers_real_location_visit_intervals_over_zero_length_stage_activities(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+
+        $pickup = $this->createLocation($account->id, $merchant->id, 'Warehouse A', 'PICKUP-A', 'Cape Town');
+        $dropoff = $this->createLocation($account->id, $merchant->id, 'Store A', 'STORE-A', 'Cape Town');
+        $vehicle = $this->createVehicle($account->id, $merchant->id, 'REPORT-INTERVALS');
+        $shipmentUuid = $this->createShipment(
+            $account->id,
+            $merchant->id,
+            'REPORT-INTERVALS',
+            $pickup,
+            $dropoff
+        );
+        $shipmentId = (int) DB::table('shipments')->where('uuid', $shipmentUuid)->value('id');
+        $runId = $this->attachShipmentToRun($account->id, $merchant->id, $shipmentId, $vehicle);
+
+        $this->createVehicleActivity(
+            $account->id,
+            $merchant->id,
+            $vehicle,
+            $pickup,
+            $runId,
+            null,
+            VehicleActivity::EVENT_ENTERED_LOCATION,
+            '2026-08-29 08:00:00',
+            '2026-08-29 08:35:00'
+        );
+        $this->createVehicleActivity(
+            $account->id,
+            $merchant->id,
+            $vehicle,
+            $pickup,
+            $runId,
+            $shipmentId,
+            VehicleActivity::EVENT_SHIPMENT_COLLECTION,
+            '2026-08-29 08:00:01',
+            '2026-08-29 08:00:01'
+        );
+        $this->createVehicleActivity(
+            $account->id,
+            $merchant->id,
+            $vehicle,
+            $dropoff,
+            $runId,
+            $shipmentId,
+            VehicleActivity::EVENT_ENTERED_LOCATION,
+            '2026-08-29 09:10:00',
+            '2026-08-29 09:28:00'
+        );
+        $this->createVehicleActivity(
+            $account->id,
+            $merchant->id,
+            $vehicle,
+            $dropoff,
+            $runId,
+            $shipmentId,
+            VehicleActivity::EVENT_SHIPMENT_DELIVERY,
+            '2026-08-29 09:28:00',
+            '2026-08-29 09:28:00'
+        );
+
+        $response = $this->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid);
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.from_vehicle_activity.event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+            ->assertJsonPath('data.0.from_time_in', '2026-08-29T08:00:00+00:00')
+            ->assertJsonPath('data.0.from_time_out', '2026-08-29T08:35:00+00:00')
+            ->assertJsonPath('data.0.from_time_to', '2026-08-29T08:35:00+00:00')
+            ->assertJsonPath('data.0.to_vehicle_activity.event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+            ->assertJsonPath('data.0.to_time_in', '2026-08-29T09:10:00+00:00')
+            ->assertJsonPath('data.0.to_time_out', '2026-08-29T09:28:00+00:00');
     }
 
     private function createMerchantContext(): array
@@ -186,7 +262,7 @@ class ShipmentsFullReportTest extends TestCase
     private function authHeaders(User $user): array
     {
         return [
-            'Authorization' => 'Bearer ' . $user->createToken('test-token')->plainTextToken,
+            'Authorization' => 'Bearer '.$user->createToken('test-token')->plainTextToken,
             'Accept' => 'application/json',
         ];
     }
@@ -226,8 +302,7 @@ class ShipmentsFullReportTest extends TestCase
         string $orderRef,
         int $pickupLocationId,
         int $dropoffLocationId
-    ): string
-    {
+    ): string {
         $uuid = (string) Str::uuid();
         $createdAt = Carbon::now();
 
@@ -298,7 +373,7 @@ class ShipmentsFullReportTest extends TestCase
         ]);
     }
 
-    private function attachShipmentToRun(int $accountId, int $merchantId, int $shipmentId, int $vehicleId): void
+    private function attachShipmentToRun(int $accountId, int $merchantId, int $shipmentId, int $vehicleId): int
     {
         $runId = DB::table('runs')->insertGetId([
             'uuid' => (string) Str::uuid(),
@@ -317,6 +392,36 @@ class ShipmentsFullReportTest extends TestCase
             'shipment_id' => $shipmentId,
             'sequence' => 1,
             'status' => 'active',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return $runId;
+    }
+
+    private function createVehicleActivity(
+        int $accountId,
+        int $merchantId,
+        int $vehicleId,
+        int $locationId,
+        int $runId,
+        ?int $shipmentId,
+        string $eventType,
+        string $enteredAt,
+        string $exitedAt
+    ): void {
+        DB::table('vehicle_activity')->insert([
+            'uuid' => (string) Str::uuid(),
+            'account_id' => $accountId,
+            'merchant_id' => $merchantId,
+            'vehicle_id' => $vehicleId,
+            'location_id' => $locationId,
+            'run_id' => $runId,
+            'shipment_id' => $shipmentId,
+            'event_type' => $eventType,
+            'occurred_at' => $enteredAt,
+            'entered_at' => $enteredAt,
+            'exited_at' => $exitedAt,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

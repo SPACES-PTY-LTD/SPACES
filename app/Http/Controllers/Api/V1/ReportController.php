@@ -314,10 +314,12 @@ class ReportController extends Controller
                     ? max(0, $run->completed_at->diffInSeconds($run->started_at))
                     : null;
 
-                $fromVisit = $stageActivityMap[$shipment->id.':'.VehicleActivity::EVENT_SHIPMENT_COLLECTION]
-                    ?? ($visitMap[$shipment->id.':'.$shipment->pickup_location_id] ?? null);
-                $toVisit = $stageActivityMap[$shipment->id.':'.VehicleActivity::EVENT_SHIPMENT_DELIVERY]
-                    ?? ($visitMap[$shipment->id.':'.$shipment->dropoff_location_id] ?? null);
+                $fromVisit = $visitMap['shipment:'.$shipment->id.':'.$shipment->pickup_location_id]
+                    ?? ($run ? ($visitMap['run:'.$run->id.':'.$shipment->pickup_location_id] ?? null) : null)
+                    ?? ($stageActivityMap[$shipment->id.':'.VehicleActivity::EVENT_SHIPMENT_COLLECTION] ?? null);
+                $toVisit = $visitMap['shipment:'.$shipment->id.':'.$shipment->dropoff_location_id]
+                    ?? ($run ? ($visitMap['run:'.$run->id.':'.$shipment->dropoff_location_id] ?? null) : null)
+                    ?? ($stageActivityMap[$shipment->id.':'.VehicleActivity::EVENT_SHIPMENT_DELIVERY] ?? null);
 
                 return [
                     'date_created' => optional($shipment->created_at)?->toIso8601String(),
@@ -1573,30 +1575,55 @@ class ReportController extends Controller
             return [];
         }
 
-        $latestVisitSub = VehicleActivity::query()
-            ->selectRaw('shipment_id, location_id, MAX(id) as latest_visit_id')
-            ->whereIn('shipment_id', $shipmentIds)
-            ->whereNotNull('location_id')
-            ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
-            ->groupBy('shipment_id', 'location_id')
-            ->toBase();
+        $runIds = $shipments->getCollection()
+            ->flatMap(function (Shipment $shipment) {
+                return $shipment->relationLoaded('runShipments')
+                    ? $shipment->getRelation('runShipments')->pluck('run_id')
+                    : collect();
+            })
+            ->filter()
+            ->unique()
+            ->values();
+        $locationIds = $shipments->getCollection()
+            ->flatMap(fn (Shipment $shipment) => [
+                $shipment->pickup_location_id,
+                $shipment->dropoff_location_id,
+            ])
+            ->filter()
+            ->unique()
+            ->values();
 
         $visits = VehicleActivity::query()
-            ->select('vehicle_activity.*')
-            ->joinSub($latestVisitSub, 'latest_location_visit', function ($join) {
-                $join->on('latest_location_visit.latest_visit_id', '=', 'vehicle_activity.id');
+            ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
+            ->whereIn('location_id', $locationIds)
+            ->where(function (Builder $builder) use ($shipmentIds, $runIds) {
+                $builder->whereIn('shipment_id', $shipmentIds);
+
+                if ($runIds->isNotEmpty()) {
+                    $builder->orWhereIn('run_id', $runIds);
+                }
             })
             ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment'])
+            ->orderByDesc('id')
             ->get();
 
         $map = [];
         foreach ($visits as $visit) {
-            $key = $visit->shipment_id.':'.$visit->location_id;
-            $map[$key] = [
+            $interval = [
                 'activity' => (new VehicleActivityResource($visit))->toArray($request),
                 'time_in' => $visit->entered_at ? Carbon::parse($visit->entered_at)->toIso8601String() : null,
                 'time_out' => $visit->exited_at ? Carbon::parse($visit->exited_at)->toIso8601String() : null,
             ];
+
+            if ($visit->shipment_id) {
+                $shipmentKey = 'shipment:'.$visit->shipment_id.':'.$visit->location_id;
+                $map[$shipmentKey] ??= $interval;
+            }
+
+            if ($visit->run_id) {
+                $runKey = 'run:'.$visit->run_id.':'.$visit->location_id;
+                $map[$runKey] ??= $interval;
+            }
         }
 
         return $map;
