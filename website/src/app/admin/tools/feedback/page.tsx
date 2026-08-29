@@ -44,7 +44,8 @@ export default async function FeedbackInboxPage({ searchParams }: PageProps) {
   const isError = isApiErrorResponse(response)
   const rows = isError ? [] : (response.data ?? []).map((feedback) => ({
     ...feedback,
-    unread_display: feedback.unread ? "New" : "",
+    unread_display: feedback.unread ? "● New" : "",
+    category_display: feedback.category.replace(/_/g, " "),
     sender_display: feedback.submitter ? `${feedback.submitter.name} (${feedback.submitter.email ?? ""})` : "Deleted user",
     merchant_display: feedback.merchant?.name ?? "Platform",
     assignee_display: feedback.assignee?.name ?? "Unassigned",
@@ -63,9 +64,9 @@ export default async function FeedbackInboxPage({ searchParams }: PageProps) {
         loading_error={isError ? response.message : null}
         emptyMessage="No feedback matches these filters."
         columns={[
-          { key: "unread_display", label: "", customValue: (row) => row.unread ? <span className="inline-block size-2 rounded-full bg-red-600" aria-label="Unread" /> : null },
+          { key: "unread_display", label: "" },
           { key: "status", label: "Status", type: "status" },
-          { key: "category", label: "Category", customValue: (row) => String(row.category).replace(/_/g, " ") },
+          { key: "category_display", label: "Category" },
           { key: "message_preview", label: "Latest message", className: "max-w-sm truncate" },
           { key: "sender_display", label: "Sent by" },
           { key: "merchant_display", label: "Merchant" },

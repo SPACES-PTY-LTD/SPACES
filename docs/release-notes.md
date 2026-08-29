@@ -23,6 +23,30 @@ Add new entries at the top (newest first).
 ## 2026-08-30 | Version: unreleased
 
 ### Summary
+- Fixed the admin feedback inbox failing to render in production.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- `/admin/tools/feedback` now passes only serializable column definitions and precomputed display values from its server component into the client-side DataTable.
+- Unread and category columns continue to render without crossing the Next.js server/client function boundary.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/app/admin/tools/feedback/page.tsx`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-30 | Version: unreleased
+
+### Summary
 - Added a consolidated Attention column to the shipment report for delivery delays, speeding, and excessive pickup/drop-off dwell.
 
 ### API Changes
