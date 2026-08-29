@@ -261,7 +261,7 @@ export const adminNavGroups: NavGroup[] = [
         title: "Tools",
         href: AdminLinks.tools,
         icon: Plug,
-        roles: ["user", "super_admin"],
+        roles: [ "super_admin"],
         subItems: [
           // {
           //   title: "Feedback",
