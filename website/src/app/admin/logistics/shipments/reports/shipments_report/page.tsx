@@ -368,8 +368,8 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           "to_location_display",
         ]}
         columns={[
-          { key: "shipment_number", label: "Shipment Number", link: "shipment_href" , className: "w-[250px]"},
-          { key: "shipment_status", label: "Shipment Status", type: "status" },
+          { key: "shipment_number", label: "Shipment Number", link: "shipment_href" , className: "w-[220px]"},
+          { key: "shipment_status", label: "Shipment Status", type: "status" , className: "w-[150px]"},
           { key: "date_created", label: "Date Created", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm", className: "w-[150px]" },
           { key: "collection_date", label: "Collection Date", link: "shipment_href", type: "date_time", format: "YYYY-MM-DD HH:mm" , className: "w-[150px]"},
           { key: "delivery_note_number", label: "Delivery Note", type: "delivery_note_number" },
