@@ -33,6 +33,7 @@ type LocationsTableRow = {
   type?: string
   tags?: Tag[]
   city?: string
+  estimated_waiting_time?: number | null
   href?: string
 }
 
@@ -296,6 +297,14 @@ export function LocationsTable({
         { key: "type", label: "Type", link: "href" },
         { key: "tags", label: "Tags", type: "tags" },
         { key: "city", label: "City", link: "href" },
+        {
+          key: "estimated_waiting_time",
+          label: "Estimated Waiting Time",
+          customValue: (row) =>
+            row.estimated_waiting_time != null
+              ? `${row.estimated_waiting_time} min`
+              : "Not set",
+        },
       ]}
       rowActions={[
         { label: "View", hrefKey: "href" },
@@ -318,7 +327,14 @@ export function LocationsTable({
         ),
       }}
       enableSorting
-      sortableColumns={["name", "code", "company", "type", "city"]}
+      sortableColumns={[
+        "name",
+        "code",
+        "company",
+        "type",
+        "city",
+        "estimated_waiting_time",
+      ]}
     />
   )
 }

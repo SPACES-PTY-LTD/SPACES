@@ -23,6 +23,34 @@ Add new entries at the top (newest first).
 ## 2026-08-29 | Version: unreleased
 
 ### Summary
+- Added a configurable estimated waiting time, in minutes, to logistics locations.
+
+### API Changes
+- Location create, update, list, and detail responses now accept or expose the nullable integer `estimated_waiting_time` field.
+- Location lists can be sorted by `estimated_waiting_time`.
+
+### Database Changes
+- Added the nullable unsigned integer `locations.estimated_waiting_time` column.
+
+### Behavior Changes
+- Location create/edit forms now accept an optional non-negative whole-number estimate in minutes.
+- Location detail pages always display `Estimated Waiting Time`, using `Not set` when no estimate is available.
+- The locations DataTable displays the estimate in minutes, uses `Not set` for empty values, supports sorting by the field, and includes it in CSV exports.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/LocationEstimatedWaitingTimeTest.php tests/Feature/LocationGeofenceUpdateTest.php tests/Feature/LocationIndexFiltersTest.php`
+- `vendor/bin/pint --test app/Http/Requests/StoreLocationRequest.php app/Http/Requests/UpdateLocationRequest.php app/Http/Requests/ListLocationsRequest.php database/migrations/2026_08_29_000001_add_estimated_waiting_time_to_locations_table.php tests/Feature/LocationEstimatedWaitingTimeTest.php`
+- `cd website && npm run lint -- src/app/admin/logistics/locations/page.tsx src/components/locations/location-detail-content.tsx src/components/locations/location-dialog.tsx src/components/locations/locations-table.tsx src/lib/api/locations.ts src/lib/csv-export.ts src/lib/types.ts`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-29 | Version: unreleased
+
+### Summary
 - Added pickup and dropoff location dwell times to the shipment Details tab.
 
 ### API Changes

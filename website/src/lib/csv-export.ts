@@ -149,7 +149,7 @@ export function mapLogisticsCsvRows(resource: LogisticsExportResource, records: 
       "maintenance_mode_at", "maintenance_expected_resolved_at", "maintenance_description",
       "imported_at", "created_at", "updated_at",
     ],
-    locations: ["location_id", "merchant_id", "environment_id", "name", "code", "company", "full_address", "address_line_1", "address_line_2", "town", "city", "province", "post_code", "country", "first_name", "last_name", "phone", "email", "latitude", "longitude", "google_place_id", "location_type_id", "type.title", "type.slug", "intergration_id", "imported_at", "created_at", "updated_at"],
+    locations: ["location_id", "merchant_id", "environment_id", "name", "code", "company", "full_address", "address_line_1", "address_line_2", "town", "city", "province", "post_code", "country", "first_name", "last_name", "phone", "email", "estimated_waiting_time", "latitude", "longitude", "google_place_id", "location_type_id", "type.title", "type.slug", "intergration_id", "imported_at", "created_at", "updated_at"],
     "vehicle-activities": [
       "activity_id", "merchant.merchant_id", "merchant.name", "event_type", "occurred_at",
       "entered_at", "exited_at", "vehicle.vehicle_id", "vehicle.plate_number", "vehicle.ref_code",

@@ -26,6 +26,7 @@ class UpdateLocationRequest extends BaseRequest
             'last_name' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
+            'estimated_waiting_time' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:4294967295'],
             'province' => ['nullable', 'string', 'max:255'],
             'post_code' => ['nullable', 'string', 'max:20'],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],

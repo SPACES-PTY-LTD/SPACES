@@ -45,6 +45,7 @@ type FormState = {
   firstName: string
   lastName: string
   phone: string
+  estimatedWaitingTime: string
   province: string
   postCode: string
   latitude: string
@@ -52,6 +53,8 @@ type FormState = {
   googlePlaceId: string
   polygonBounds: string
 }
+
+const MAX_ESTIMATED_WAITING_TIME = 4_294_967_295
 
 function parseNumber(value: string) {
   const trimmed = value.trim()
@@ -111,6 +114,9 @@ export function LocationDialog({
     firstName: location?.first_name ?? initialValues?.first_name ?? "",
     lastName: location?.last_name ?? initialValues?.last_name ?? "",
     phone: location?.phone ?? initialValues?.phone ?? "",
+    estimatedWaitingTime: String(
+      location?.estimated_waiting_time ?? initialValues?.estimated_waiting_time ?? ""
+    ),
     province: location?.province ?? initialValues?.province ?? "",
     postCode: location?.post_code ?? initialValues?.post_code ?? "",
     latitude: String(location?.latitude ?? initialValues?.latitude ?? ""),
@@ -138,6 +144,9 @@ export function LocationDialog({
       firstName: location?.first_name ?? initialValues?.first_name ?? "",
       lastName: location?.last_name ?? initialValues?.last_name ?? "",
       phone: location?.phone ?? initialValues?.phone ?? "",
+      estimatedWaitingTime: String(
+        location?.estimated_waiting_time ?? initialValues?.estimated_waiting_time ?? ""
+      ),
       province: location?.province ?? initialValues?.province ?? "",
       postCode: location?.post_code ?? initialValues?.post_code ?? "",
       latitude: String(location?.latitude ?? initialValues?.latitude ?? ""),
@@ -258,6 +267,20 @@ export function LocationDialog({
       toast.error("Location type is required.")
       return
     }
+    const estimatedWaitingTimeInput = values.estimatedWaitingTime.trim()
+    const estimatedWaitingTime = parseNumber(estimatedWaitingTimeInput)
+    if (
+      estimatedWaitingTimeInput &&
+      (estimatedWaitingTime === null ||
+        !Number.isInteger(estimatedWaitingTime) ||
+        estimatedWaitingTime < 0 ||
+        estimatedWaitingTime > MAX_ESTIMATED_WAITING_TIME)
+    ) {
+      toast.error(
+        "Estimated waiting time must be a non-negative whole number within the supported range."
+      )
+      return
+    }
     setLoading(true)
     try {
       const polygonBounds = parsePolygonBounds(values.polygonBounds)
@@ -280,6 +303,7 @@ export function LocationDialog({
         first_name: values.firstName || null,
         last_name: values.lastName || null,
         phone: values.phone || null,
+        estimated_waiting_time: estimatedWaitingTime,
         province: values.province || null,
         post_code: values.postCode || null,
         latitude: parseNumber(values.latitude),
@@ -463,6 +487,26 @@ export function LocationDialog({
                 onChange={(event) => updateValue("phone", event.target.value)}
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs text-muted-foreground">
+              Estimated Waiting Time
+            </label>
+            <Input
+              type="number"
+              min={0}
+              max={MAX_ESTIMATED_WAITING_TIME}
+              step={1}
+              inputMode="numeric"
+              placeholder="Minutes"
+              value={values.estimatedWaitingTime}
+              onChange={(event) =>
+                updateValue("estimatedWaitingTime", event.target.value)
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional estimate in minutes.
+            </p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">

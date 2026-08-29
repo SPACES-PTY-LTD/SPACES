@@ -140,6 +140,13 @@ export async function LocationDetailContent({
     { label: "Postal code", value: location.post_code },
     { label: "Country", value: location.country },
     { label: "Phone", value: location.phone },
+    {
+      label: "Estimated Waiting Time",
+      value:
+        location.estimated_waiting_time != null
+          ? `${location.estimated_waiting_time} min`
+          : "Not set",
+    },
     { label: "First name", value: location.first_name },
     { label: "Last name", value: location.last_name },
     { label: "Latitude", value: location.latitude },

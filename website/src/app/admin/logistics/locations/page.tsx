@@ -30,7 +30,15 @@ function toPositiveInt(value: string, fallback: number) {
 }
 
 function normalizeSortBy(value: string) {
-  const allowed = new Set(["created_at", "name", "code", "company", "city", "type"])
+  const allowed = new Set([
+    "created_at",
+    "name",
+    "code",
+    "company",
+    "city",
+    "type",
+    "estimated_waiting_time",
+  ])
   return allowed.has(value) ? value : "created_at"
 }
 

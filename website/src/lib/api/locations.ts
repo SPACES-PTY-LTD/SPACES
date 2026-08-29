@@ -17,6 +17,7 @@ export type LocationPayload = {
   first_name?: string | null
   last_name?: string | null
   phone?: string | null
+  estimated_waiting_time?: number | null
   province?: string | null
   post_code?: string | null
   latitude?: number | null
