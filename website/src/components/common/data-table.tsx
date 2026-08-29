@@ -13,6 +13,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { DatePicker } from "@/components/common/date-picker"
 import {
+  DataTableComboboxFilter,
+  type DataTableComboboxResource,
+} from "@/components/common/data-table-combobox-filter"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -67,15 +71,25 @@ export type Column<T> = {
   }
 }
 
-export type Filter<T> = {
+type FilterBase<T> = {
   key: keyof T | string
   label: string
   value?: string
   url_param_name?: string
-  type?: "select" | "date" | "text"
   placeholder?: string
-  options?: { label: string; value: string }[]
 }
+
+export type Filter<T> = FilterBase<T> & (
+  | {
+      type: "combobox"
+      resource: DataTableComboboxResource
+    }
+  | {
+      type?: "select" | "date" | "text"
+      resource?: never
+      options?: { label: string; value: string }[]
+    }
+)
 
 export type RowAction<T> = {
   label: string
@@ -254,6 +268,8 @@ export function DataTable<T extends Record<string, unknown>>({
   sortByParam = "sort_by",
   sortDirParam = "sort_dir",
   stickyColumns,
+  accessToken,
+  merchantId,
 }: {
   data: T[]
   columns: Column<T>[]
@@ -277,6 +293,8 @@ export function DataTable<T extends Record<string, unknown>>({
   sortKeyMap?: Record<string, string>
   sortByParam?: string
   sortDirParam?: string
+  accessToken?: string | null
+  merchantId?: string | null
   /**
    * Freezes leading data columns during horizontal scrolling. When row
    * selection is enabled, its checkbox column is frozen automatically and is
@@ -984,6 +1002,21 @@ export function DataTable<T extends Record<string, unknown>>({
           <div className="border-b px-3 py-2">
             <div className="flex flex-wrap gap-2 items-center space-x-2">
               {visibleFilters.map((filter) => {
+                if (filter.type === "combobox") {
+                  return (
+                    <DataTableComboboxFilter
+                      key={String(filter.key)}
+                      label={filter.label}
+                      value={getFilterValue(filter)}
+                      onValueChange={(value) => updateFilterParam(filter, value)}
+                      resource={filter.resource}
+                      accessToken={accessToken}
+                      merchantId={merchantId}
+                      placeholder={filter.placeholder}
+                    />
+                  )
+                }
+
                 if (filter.type === "date") {
                   return (
                     <DatePicker

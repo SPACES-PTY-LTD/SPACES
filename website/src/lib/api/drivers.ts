@@ -16,6 +16,7 @@ export async function listDrivers(
     search?: string
     sort_by?: string
     sort_dir?: "asc" | "desc"
+    sort_direction?: "asc" | "desc"
   }
 ) {
   return apiFetch<ApiListResponse<Driver>>("/api/v1/drivers", { token, params })

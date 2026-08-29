@@ -23,6 +23,32 @@ Add new entries at the top (newest first).
 ## 2026-08-29 | Version: unreleased
 
 ### Summary
+- Added reusable endpoint-backed combobox filters to DataTables.
+
+### API Changes
+- None. The new filters use the existing location and driver list, search, and detail endpoints.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The shipment report driver, from-location, and to-location filters now load readable options when opened and search the selected merchant's records after a 250 ms debounce.
+- Combobox selections remain UUID-backed URL filters, support keyboard selection and clearing, and restore readable labels after a refresh.
+- Driver results include both active and inactive drivers so historical shipments remain filterable.
+
+### Breaking Changes
+- None. Existing DataTable select, date, and text filters are unchanged.
+
+### Verification
+- `cd website && npm run lint -- src/components/common/data-table-combobox-filter.tsx src/components/common/data-table.tsx src/components/common/exportable-data-table.tsx src/app/admin/logistics/shipments/reports/shipments_report/page.tsx src/lib/api/drivers.ts`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `php artisan test tests/Feature/LocationIndexFiltersTest.php tests/Feature/DriverIndexTest.php tests/Feature/ShipmentsFullReportTest.php`
+- `git diff --check`
+
+## 2026-08-29 | Version: unreleased
+
+### Summary
 - Improved the shipment dwell-time alert presentation.
 
 ### API Changes

@@ -20,6 +20,8 @@ export function ExportableDataTable({
   return (
     <DataTable
       {...tableProps}
+      accessToken={accessToken}
+      merchantId={merchantId}
       selection={{
         idKey,
         label,
