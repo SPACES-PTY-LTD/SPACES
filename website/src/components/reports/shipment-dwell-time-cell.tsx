@@ -51,10 +51,14 @@ export function ShipmentDwellTimeCell({
   const duration = shipmentHref ? (
     <Link
       href={shipmentHref}
-      className="text-primary underline-offset-4 hover:underline"
+      className={dwell.isOverExpected
+        ? "text-red-600 underline-offset-4 hover:text-red-700 hover:underline"
+        : "text-primary underline-offset-4 hover:underline"}
     >
       {dwell.durationLabel}
     </Link>
+  ) : dwell.isOverExpected ? (
+    <span className="text-red-600">{dwell.durationLabel}</span>
   ) : (
     dwell.durationLabel
   )
@@ -76,7 +80,10 @@ export function ShipmentDwellTimeCell({
               aria-label={tooltip}
               className="inline-flex rounded-sm text-red-600 outline-none transition-colors hover:text-red-700 focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
             >
-              <AlertTriangle className="size-4" aria-hidden="true" />
+              <AlertTriangle
+                className="size-4 fill-[#DC2626] stroke-[#DC2626] [&>path:not(:first-child)]:stroke-white"
+                aria-hidden="true"
+              />
             </button>
           </TooltipTrigger>
           <TooltipContent sideOffset={8} className="max-w-64 text-left leading-relaxed">

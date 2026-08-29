@@ -23,7 +23,7 @@ Add new entries at the top (newest first).
 ## 2026-08-29 | Version: unreleased
 
 ### Summary
-- Tightened the shipment dwell-time alert tooltip width.
+- Improved the shipment dwell-time alert presentation.
 
 ### API Changes
 - None.
@@ -33,6 +33,8 @@ Add new entries at the top (newest first).
 
 ### Behavior Changes
 - Shipment dwell-time alerts now use a narrower tooltip so wrapped messages do not leave excessive empty space.
+- The alert indicator now uses a solid red triangle with a contrasting white exclamation mark.
+- Durations that exceed the expected waiting time now display in red alongside the alert indicator.
 
 ### Breaking Changes
 - None.
