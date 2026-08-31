@@ -127,6 +127,7 @@ export function ShipmentSpeedingAlertsDialog({
   const mapRef = React.useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = React.useRef<google.maps.Map | null>(null)
   const markersRef = React.useRef<MarkerEntry[]>([])
+  const selectedAlertKeyRef = React.useRef<string | null>(null)
   const [loadingMap, setLoadingMap] = React.useState(false)
   const [mapError, setMapError] = React.useState<string | null>(null)
   const [selectedAlertKey, setSelectedAlertKey] = React.useState<string | null>(null)
@@ -168,6 +169,8 @@ export function ShipmentSpeedingAlertsDialog({
     }
 
     let cancelled = false
+    let resizeObserver: ResizeObserver | null = null
+    let resizeFrame: number | null = null
     setLoadingMap(true)
     setMapError(null)
 
@@ -198,20 +201,48 @@ export function ShipmentSpeedingAlertsDialog({
             sequence: alert.sequence,
           }
           marker.addListener("click", () => setSelectedAlertKey(alert.alertKey))
-          updateMarkerAppearance(entry, alert.alertKey === selectedAlertKey)
+          updateMarkerAppearance(
+            entry,
+            alert.alertKey === selectedAlertKeyRef.current
+          )
           return entry
         })
 
-        if (mappedAlerts.length === 1) {
-          mapInstanceRef.current.setCenter(mappedAlerts[0].position!)
-          mapInstanceRef.current.setZoom(singleAlertZoom)
-        } else {
+        const map = mapInstanceRef.current
+        const fitAlerts = () => {
+          if (mappedAlerts.length === 1) {
+            map.setCenter(mappedAlerts[0].position!)
+            map.setZoom(singleAlertZoom)
+            return
+          }
+
           const bounds = new google.maps.LatLngBounds()
           mappedAlerts.forEach((alert) => bounds.extend(alert.position!))
-          mapInstanceRef.current.fitBounds(bounds)
+          map.fitBounds(bounds)
         }
 
-        setLoadingMap(false)
+        const refreshMapSize = () => {
+          google.maps.event.trigger(map, "resize")
+          fitAlerts()
+        }
+
+        resizeFrame = window.requestAnimationFrame(() => {
+          resizeFrame = window.requestAnimationFrame(() => {
+            if (cancelled) return
+            refreshMapSize()
+            setLoadingMap(false)
+          })
+        })
+
+        resizeObserver = new ResizeObserver(() => {
+          if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame)
+          resizeFrame = window.requestAnimationFrame(() => {
+            if (cancelled) return
+            refreshMapSize()
+            setLoadingMap(false)
+          })
+        })
+        resizeObserver.observe(mapRef.current)
       })
       .catch((error) => {
         if (cancelled) return
@@ -223,6 +254,8 @@ export function ShipmentSpeedingAlertsDialog({
 
     return () => {
       cancelled = true
+      resizeObserver?.disconnect()
+      if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame)
       markersRef.current.forEach((entry) => entry.marker.setMap(null))
       markersRef.current = []
       mapInstanceRef.current = null
@@ -230,6 +263,7 @@ export function ShipmentSpeedingAlertsDialog({
   }, [mappedAlerts, open])
 
   React.useEffect(() => {
+    selectedAlertKeyRef.current = selectedAlertKey
     markersRef.current.forEach((entry) => {
       updateMarkerAppearance(entry, entry.alertKey === selectedAlertKey)
     })
@@ -249,8 +283,8 @@ export function ShipmentSpeedingAlertsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-5xl">
-        <DialogHeader className="border-b px-6 py-5 pr-14">
+      <DialogContent className="flex h-[92dvh] max-h-[calc(100dvh-2rem)] min-h-0 flex-col gap-0 overflow-hidden p-0 sm:h-[88dvh] sm:max-w-5xl">
+        <DialogHeader className="shrink-0 border-b px-6 py-5 pr-14">
           <DialogTitle>Speeding alerts</DialogTitle>
           <DialogDescription>
             {context ? `${context}. ` : ""}
@@ -258,8 +292,8 @@ export function ShipmentSpeedingAlertsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 overflow-y-auto p-6">
-          <div className="relative h-[360px] overflow-hidden rounded-lg border bg-muted/30">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-6">
+          <div className="relative h-[360px] shrink-0 overflow-hidden rounded-lg border bg-muted/30">
             {mappedAlerts.length > 0 ? (
               <div ref={mapRef} className="h-full w-full" />
             ) : (

@@ -23,6 +23,35 @@ Add new entries at the top (newest first).
 ## 2026-08-31 | Version: unreleased
 
 ### Summary
+- Added shipment speeding-alert map and detail dialogs to the shipments report.
+
+### API Changes
+- `GET /api/v1/reports/shipments_full_report` now includes a `speeding_alerts` array for each row, containing the matching transit-window activity ID, timestamp, coordinates, speed, speed limit, and amount over the limit.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Clicking the speeding icon in the shipment report Attention column now opens a dialog with every speeding alert attributed to that shipment.
+- Alerts with coordinates appear as numbered markers on a Google map; selecting a marker or table row keeps the map and table selection synchronized.
+- A scrollable table below the map lists time, speed, limit, overage, coordinates, and a Google Maps link for every alert.
+- The dialog uses constrained flex sizing so its map and table remain vertically scrollable on smaller viewports.
+- The map now waits for the open dialog to have measurable dimensions and refits when its container resizes, preventing blank or incorrectly sized maps.
+
+### Breaking Changes
+- None. Existing speeding summary fields remain unchanged.
+
+### Verification
+- `php artisan test tests/Feature/ShipmentsFullReportTest.php`
+- `vendor/bin/pint --test app/Http/Controllers/Api/V1/ReportController.php tests/Feature/ShipmentsFullReportTest.php`
+- `cd website && npm run lint -- src/components/reports/shipment-attention-cell.tsx src/components/reports/shipment-speeding-alerts-dialog.tsx src/components/common/data-table.tsx src/lib/api/reports.ts`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-31 | Version: unreleased
+
+### Summary
 - Added requester-controlled soft deletion for submitted feedback.
 
 ### API Changes
