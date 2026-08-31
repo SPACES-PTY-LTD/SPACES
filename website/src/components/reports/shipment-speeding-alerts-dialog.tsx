@@ -124,10 +124,10 @@ export function ShipmentSpeedingAlertsDialog({
   shipmentNumber,
   vehiclePlateNumber,
 }: ShipmentSpeedingAlertsDialogProps) {
-  const mapRef = React.useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = React.useRef<google.maps.Map | null>(null)
   const markersRef = React.useRef<MarkerEntry[]>([])
   const selectedAlertKeyRef = React.useRef<string | null>(null)
+  const [mapElement, setMapElement] = React.useState<HTMLDivElement | null>(null)
   const [loadingMap, setLoadingMap] = React.useState(false)
   const [mapError, setMapError] = React.useState<string | null>(null)
   const [selectedAlertKey, setSelectedAlertKey] = React.useState<string | null>(null)
@@ -163,7 +163,7 @@ export function ShipmentSpeedingAlertsDialog({
   }, [open, orderedAlerts])
 
   React.useEffect(() => {
-    if (!open || !mapRef.current || mappedAlerts.length === 0) {
+    if (!open || !mapElement || mappedAlerts.length === 0) {
       setLoadingMap(false)
       return
     }
@@ -176,10 +176,10 @@ export function ShipmentSpeedingAlertsDialog({
 
     loadGoogleMaps([])
       .then(() => {
-        if (cancelled || !mapRef.current) return
+        if (cancelled) return
 
         if (!mapInstanceRef.current) {
-          mapInstanceRef.current = new google.maps.Map(mapRef.current, {
+          mapInstanceRef.current = new google.maps.Map(mapElement, {
             center: fallbackCenter,
             zoom: defaultZoom,
             mapTypeControl: true,
@@ -242,7 +242,7 @@ export function ShipmentSpeedingAlertsDialog({
             setLoadingMap(false)
           })
         })
-        resizeObserver.observe(mapRef.current)
+        resizeObserver.observe(mapElement)
       })
       .catch((error) => {
         if (cancelled) return
@@ -260,7 +260,7 @@ export function ShipmentSpeedingAlertsDialog({
       markersRef.current = []
       mapInstanceRef.current = null
     }
-  }, [mappedAlerts, open])
+  }, [mapElement, mappedAlerts, open])
 
   React.useEffect(() => {
     selectedAlertKeyRef.current = selectedAlertKey
@@ -295,7 +295,7 @@ export function ShipmentSpeedingAlertsDialog({
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-6">
           <div className="relative h-[360px] shrink-0 overflow-hidden rounded-lg border bg-muted/30">
             {mappedAlerts.length > 0 ? (
-              <div ref={mapRef} className="h-full w-full" />
+              <div ref={setMapElement} className="h-full w-full" />
             ) : (
               <div className="flex h-full items-center justify-center p-6 text-center text-sm text-muted-foreground">
                 No coordinates are available for these speeding alerts.

@@ -36,7 +36,7 @@ Add new entries at the top (newest first).
 - Alerts with coordinates appear as numbered markers on a Google map; selecting a marker or table row keeps the map and table selection synchronized.
 - A scrollable table below the map lists time, speed, limit, overage, coordinates, and a Google Maps link for every alert.
 - The dialog uses constrained flex sizing so its map and table remain vertically scrollable on smaller viewports.
-- The map now waits for the open dialog to have measurable dimensions and refits when its container resizes, preventing blank or incorrectly sized maps.
+- Map initialization now starts when the portaled dialog container is mounted, then refits when that container resizes, preventing blank or incorrectly sized maps.
 
 ### Breaking Changes
 - None. Existing speeding summary fields remain unchanged.
