@@ -20,6 +20,54 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-08-31 | Version: unreleased
+
+### Summary
+- Added requester-controlled soft deletion for submitted feedback.
+
+### API Changes
+- Added `DELETE /api/v1/feedback/{feedback_uuid}` for deleting feedback owned by the authenticated submitter.
+
+### Database Changes
+- Added nullable `deleted_at` to `feedback`; related messages and read receipts remain stored when a feedback thread is soft deleted.
+
+### Behavior Changes
+- The **My feedback** conversation view now includes a confirmed Delete action.
+- Deleted feedback disappears from requester and reviewer lists and can no longer be viewed or replied to through normal endpoints.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/FeedbackTest.php`
+- `cd website && npm run lint -- src/components/feedback/feedback-widget.tsx src/lib/api/feedback.ts`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-08-31 | Version: unreleased
+
+### Summary
+- Updated shipment waiting-time tooltip terminology.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Pickup and drop-off waiting-time alerts now say `total time` instead of `dwell` in UI tooltips and readable CSV attention text.
+
+### Breaking Changes
+- None. Internal alert identifiers and dwell-time calculation names are unchanged.
+
+### Verification
+- `cd website && node --test tests/dwell-time.test.mjs`
+- `cd website && npm run lint -- src/lib/shipment-attention.ts tests/dwell-time.test.mjs`
+- `cd website && npx tsc --noEmit`
+- `git diff --check`
+
 ## 2026-08-30 | Version: unreleased
 
 ### Summary

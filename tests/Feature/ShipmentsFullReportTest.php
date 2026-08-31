@@ -312,11 +312,11 @@ class ShipmentsFullReportTest extends TestCase
         $this->createBooking($account->id, $merchant->id, $completedId, 'delivered', '2026-08-30 09:30:00', '2026-08-30 10:30:00');
         $this->createBooking($account->id, $merchant->id, $terminalWithoutEndId, 'delivered', '2026-08-30 08:00:00');
 
-        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 07:59:00', 140, 80);
-        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 09:00:00', 110, 80);
-        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 10:00:00', 120, 100);
-        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 11:00:00', 130, 100);
-        $this->createSpeedingActivity($account->id, $merchant->id, $otherVehicle, '2026-08-30 10:00:00', 160, 80);
+        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 07:59:00', 140, 80, -33.9000, 18.4000);
+        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 09:00:00', 110, 80, -33.9100, 18.4100);
+        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 10:00:00', 120, 100, -33.9200, 18.4200);
+        $this->createSpeedingActivity($account->id, $merchant->id, $vehicle, '2026-08-30 11:00:00', 130, 100, -33.9300, 18.4300);
+        $this->createSpeedingActivity($account->id, $merchant->id, $otherVehicle, '2026-08-30 10:00:00', 160, 80, -34.0000, 18.5000);
 
         $response = $this->withHeaders($this->authHeaders($user))
             ->getJson('/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid)
@@ -329,11 +329,21 @@ class ShipmentsFullReportTest extends TestCase
         $this->assertSame(130, (int) $rows[$activeUuid]['speeding_highest_speed_kph']);
         $this->assertSame(30, (int) $rows[$activeUuid]['speeding_max_over_limit_kph']);
         $this->assertSame('2026-08-30T11:00:00+00:00', $rows[$activeUuid]['speeding_latest_at']);
+        $this->assertCount(3, $rows[$activeUuid]['speeding_alerts']);
+        $this->assertSame('2026-08-30T09:00:00+00:00', $rows[$activeUuid]['speeding_alerts'][0]['occurred_at']);
+        $this->assertSame(110, (int) $rows[$activeUuid]['speeding_alerts'][0]['speed_kph']);
+        $this->assertSame(80, (int) $rows[$activeUuid]['speeding_alerts'][0]['speed_limit_kph']);
+        $this->assertSame(30, (int) $rows[$activeUuid]['speeding_alerts'][0]['over_limit_kph']);
+        $this->assertSame(-33.91, $rows[$activeUuid]['speeding_alerts'][0]['latitude']);
+        $this->assertSame(18.41, $rows[$activeUuid]['speeding_alerts'][0]['longitude']);
 
         $this->assertSame('2026-08-30T10:30:00+00:00', $rows[$completedUuid]['delivered_at']);
         $this->assertSame(1, $rows[$completedUuid]['speeding_alert_count']);
         $this->assertSame(120, (int) $rows[$completedUuid]['speeding_highest_speed_kph']);
+        $this->assertCount(1, $rows[$completedUuid]['speeding_alerts']);
+        $this->assertSame('2026-08-30T10:00:00+00:00', $rows[$completedUuid]['speeding_alerts'][0]['occurred_at']);
         $this->assertSame(0, $rows[$terminalWithoutEndUuid]['speeding_alert_count']);
+        $this->assertSame([], $rows[$terminalWithoutEndUuid]['speeding_alerts']);
 
         Carbon::setTestNow();
     }
@@ -483,7 +493,9 @@ class ShipmentsFullReportTest extends TestCase
         int $vehicleId,
         string $occurredAt,
         float $speedKph,
-        float $speedLimitKph
+        float $speedLimitKph,
+        ?float $latitude = null,
+        ?float $longitude = null
     ): void {
         DB::table('vehicle_activity')->insert([
             'uuid' => (string) Str::uuid(),
@@ -492,6 +504,8 @@ class ShipmentsFullReportTest extends TestCase
             'vehicle_id' => $vehicleId,
             'event_type' => VehicleActivity::EVENT_SPEEDING,
             'occurred_at' => $occurredAt,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
             'speed_kph' => $speedKph,
             'speed_limit_kph' => $speedLimitKph,
             'created_at' => now(),

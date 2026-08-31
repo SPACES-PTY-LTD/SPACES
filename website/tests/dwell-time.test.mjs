@@ -204,5 +204,5 @@ test("shipment report CSV exports readable attention text", () => {
   }])
 
   assert.match(row.attention_alerts, /1 speeding alert during transit/)
-  assert.match(row.attention_alerts, /Pickup dwell was 20 min/)
+  assert.match(row.attention_alerts, /Pickup total time was 20 min/)
 })

@@ -69,6 +69,17 @@ class FeedbackController extends Controller
         }
     }
 
+    public function destroy(string $feedback_uuid, Request $request, FeedbackService $service)
+    {
+        try {
+            $service->deleteMine($request->user(), $feedback_uuid);
+
+            return ApiResponse::success(['message' => 'Feedback deleted.']);
+        } catch (Throwable $e) {
+            return $this->apiError($e, 'FEEDBACK_DELETE_FAILED', 'Unable to delete feedback.');
+        }
+    }
+
     public function unreadCount(Request $request, FeedbackService $service)
     {
         return ApiResponse::success(['count' => $service->unreadMineCount($request->user())]);

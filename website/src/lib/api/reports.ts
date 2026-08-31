@@ -120,8 +120,19 @@ export type ShipmentFullReportRow = {
   speeding_highest_speed_kph?: number | null
   speeding_max_over_limit_kph?: number | null
   speeding_latest_at?: string | null
+  speeding_alerts?: ShipmentSpeedingAlert[]
   shipment_status?: string
   delivered_volume?: string
+}
+
+export type ShipmentSpeedingAlert = {
+  activity_id: string
+  occurred_at: string
+  latitude?: number | null
+  longitude?: number | null
+  speed_kph?: number | null
+  speed_limit_kph?: number | null
+  over_limit_kph?: number | null
 }
 
 export type ShipmentsFullReportResponse = {

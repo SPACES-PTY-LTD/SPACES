@@ -433,6 +433,7 @@ export function DataTable<T extends Record<string, unknown>>({
         const raw = getValue(row, key)
         return typeof raw === "number" && Number.isFinite(raw) ? raw : null
       }
+      const speedingAlerts = getValue(row, "speeding_alerts")
 
       return (
         <ShipmentAttentionCell
@@ -443,6 +444,9 @@ export function DataTable<T extends Record<string, unknown>>({
           speedingHighestSpeedKph={numberValue("speeding_highest_speed_kph")}
           speedingMaxOverLimitKph={numberValue("speeding_max_over_limit_kph")}
           speedingLatestAt={stringValue("speeding_latest_at")}
+          speedingAlerts={Array.isArray(speedingAlerts) ? speedingAlerts : []}
+          shipmentNumber={stringValue("shipment_number")}
+          vehiclePlateNumber={stringValue("truck_plate_number")}
           pickupEnteredAt={stringValue("from_time_in")}
           pickupExitedAt={stringValue("from_time_out")}
           pickupExpectedWaitingTime={numberValue("from_location.expected_waiting_time")}

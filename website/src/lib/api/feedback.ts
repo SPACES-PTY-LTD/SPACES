@@ -43,6 +43,13 @@ export function getMyFeedback(feedbackId: string, token?: string | null) {
   return apiFetch<ApiEnvelope<Feedback>>(`/api/v1/feedback/${feedbackId}`, { token })
 }
 
+export function deleteMyFeedback(feedbackId: string, token?: string | null) {
+  return apiFetch<ApiEnvelope<{ message: string }>>(`/api/v1/feedback/${feedbackId}`, {
+    method: "DELETE",
+    token,
+  })
+}
+
 export function replyToMyFeedback(feedbackId: string, message: string, token?: string | null) {
   return apiFetch<ApiEnvelope<Feedback>>(`/api/v1/feedback/${feedbackId}/replies`, {
     method: "POST",

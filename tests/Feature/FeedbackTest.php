@@ -8,6 +8,7 @@ use App\Models\Feedback;
 use App\Models\Merchant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
@@ -189,5 +190,29 @@ class FeedbackTest extends TestCase
             'merchant_id' => $merchant->uuid,
             'search' => 'compact dashboard',
         ]))->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_submitter_can_soft_delete_their_feedback_without_deleting_messages(): void
+    {
+        [$submitter, $account, $merchant] = $this->accountContext();
+        $otherUser = User::factory()->create(['account_id' => $account->id]);
+        $feedbackId = $this->submit($submitter, $merchant)->json('data.feedback_id');
+        $feedback = Feedback::query()->where('uuid', $feedbackId)->firstOrFail();
+        $messageCount = DB::table('feedback_messages')->where('feedback_id', $feedback->id)->count();
+
+        $this->apiFor($otherUser)->deleteJson('/api/v1/feedback/'.$feedbackId)->assertNotFound();
+
+        $this->apiFor($submitter)->deleteJson('/api/v1/feedback/'.$feedbackId)
+            ->assertOk()
+            ->assertJsonPath('data.message', 'Feedback deleted.');
+
+        $this->assertSoftDeleted('feedback', ['uuid' => $feedbackId]);
+        $this->assertSame(
+            $messageCount,
+            DB::table('feedback_messages')->where('feedback_id', $feedback->id)->count()
+        );
+        $this->apiFor($submitter)->getJson('/api/v1/feedback/mine')->assertJsonCount(0, 'data');
+        $this->apiFor($submitter)->getJson('/api/v1/admin/feedback')->assertJsonCount(0, 'data');
+        $this->apiFor($submitter)->getJson('/api/v1/feedback/'.$feedbackId)->assertNotFound();
     }
 }

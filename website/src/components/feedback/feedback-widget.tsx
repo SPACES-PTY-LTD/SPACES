@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import { format, parseISO } from "date-fns"
-import { MessageSquareText, Send, ArrowLeft, Loader2 } from "lucide-react"
-import { usePathname, useSearchParams } from "next/navigation"
+import { MessageSquareText, Send, ArrowLeft, Loader2, Trash2 } from "lucide-react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -22,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { StatusBadge } from "@/components/common/status-badge"
 import {
   createFeedback,
+  deleteMyFeedback,
   getAdminFeedbackUnreadCount,
   getMyFeedback,
   getMyFeedbackUnreadCount,
@@ -57,6 +59,7 @@ export function FeedbackWidget({
   onReviewerUnreadChange?: (count: number) => void
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const searchParams = useSearchParams()
   const linkedFeedbackId = searchParams.get("feedback_id")
   const [open, setOpen] = React.useState(false)
@@ -70,6 +73,8 @@ export function FeedbackWidget({
   const [threads, setThreads] = React.useState<Feedback[]>([])
   const [selectedThread, setSelectedThread] = React.useState<Feedback | null>(null)
   const [unreadCount, setUnreadCount] = React.useState(0)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)
+  const [deleting, setDeleting] = React.useState(false)
 
   const refreshCounts = React.useCallback(async () => {
     const mine = await getMyFeedbackUnreadCount(accessToken)
@@ -177,6 +182,27 @@ export function FeedbackWidget({
     await refreshCounts()
   }
 
+  async function handleDelete() {
+    if (!selectedThread) return
+    setDeleting(true)
+    const response = await deleteMyFeedback(selectedThread.feedback_id, accessToken)
+    setDeleting(false)
+    if (isApiErrorResponse(response)) {
+      toast.error(response.message || "Unable to delete feedback.")
+      return
+    }
+
+    setDeleteConfirmOpen(false)
+    setSelectedThread(null)
+    const nextSearchParams = new URLSearchParams(searchParams.toString())
+    nextSearchParams.delete("feedback_id")
+    const nextQuery = nextSearchParams.toString()
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname)
+    toast.success("Feedback deleted.")
+    await loadThreads()
+    await refreshCounts()
+  }
+
   return (
     <>
       <Button
@@ -217,6 +243,16 @@ export function FeedbackWidget({
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">{selectedThread.page_path}</p>
                 </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                >
+                  <Trash2 className="size-4" />
+                  Delete
+                </Button>
               </div>
 
               {loadingThread ? (
@@ -330,6 +366,26 @@ export function FeedbackWidget({
               </TabsContent>
             </Tabs>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete this feedback?</DialogTitle>
+            <DialogDescription>
+              It will be removed from My feedback and the reviewer inbox. This action cannot be undone from the app.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={() => void handleDelete()} disabled={deleting}>
+              {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
+              Delete feedback
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

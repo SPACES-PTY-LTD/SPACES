@@ -65,6 +65,15 @@ class FeedbackService
         return $this->loadDetail($feedback, $user, 'submitter');
     }
 
+    public function deleteMine(User $user, string $uuid): void
+    {
+        Feedback::query()
+            ->where('submitted_by_user_id', $user->id)
+            ->where('uuid', $uuid)
+            ->firstOrFail()
+            ->delete();
+    }
+
     public function listForReview(User $user, array $filters): LengthAwarePaginator
     {
         $query = $this->reviewerQuery($user)->orderByDesc('updated_at');

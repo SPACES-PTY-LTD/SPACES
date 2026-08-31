@@ -77,7 +77,7 @@ function dwellAlert(
       ? "pickup_dwell_over_expected"
       : "dropoff_dwell_over_expected",
     tone: "danger",
-    tooltip: `${label} dwell ${tense} ${formatDurationMinutes(dwell.elapsedMinutes)}, ${formatMinuteCount(dwell.overageMinutes)} over the expected waiting time of ${formatMinuteCount(expectedWaitingTime as number)}.`,
+    tooltip: `${label} total time ${tense} ${formatDurationMinutes(dwell.elapsedMinutes)}, ${formatMinuteCount(dwell.overageMinutes)} over the expected waiting time of ${formatMinuteCount(expectedWaitingTime as number)}.`,
   }
 }
 

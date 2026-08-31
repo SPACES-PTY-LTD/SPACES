@@ -391,6 +391,7 @@ class ReportController extends Controller
                     'speeding_highest_speed_kph' => $speeding['highest_speed_kph'] ?? null,
                     'speeding_max_over_limit_kph' => $speeding['max_over_limit_kph'] ?? null,
                     'speeding_latest_at' => $speeding['latest_at'] ?? null,
+                    'speeding_alerts' => $speeding['alerts'] ?? [],
                     'shipment_status' => $shipment->status,
                     'delivered_volume' => $shipment->status === 'delivered'
                         ? $this->formatDeliveredVolume($shipment)
@@ -420,7 +421,7 @@ class ReportController extends Controller
      * Aggregate speeding events for each shipment's actual transit window without
      * issuing one query per report row.
      *
-     * @return array<int, array{count: int, highest_speed_kph: float|null, max_over_limit_kph: float|null, latest_at: string|null}>
+     * @return array<int, array{count: int, highest_speed_kph: float|null, max_over_limit_kph: float|null, latest_at: string|null, alerts: array<int, array{activity_id: string, occurred_at: string, latitude: float|null, longitude: float|null, speed_kph: float|null, speed_limit_kph: float|null, over_limit_kph: float|null}>}>
      */
     private function resolveShipmentSpeedingSummaries(
         \Illuminate\Support\Collection $shipments,
@@ -488,7 +489,15 @@ class ReportController extends Controller
                 }
             })
             ->orderBy('occurred_at')
-            ->get(['vehicle_id', 'occurred_at', 'speed_kph', 'speed_limit_kph'])
+            ->get([
+                'uuid',
+                'vehicle_id',
+                'occurred_at',
+                'latitude',
+                'longitude',
+                'speed_kph',
+                'speed_limit_kph',
+            ])
             ->groupBy('vehicle_id');
 
         $summaries = [];
@@ -498,6 +507,7 @@ class ReportController extends Controller
                 'highest_speed_kph' => null,
                 'max_over_limit_kph' => null,
                 'latest_at' => null,
+                'alerts' => [],
             ];
 
             foreach ($events->get($context['vehicle_id'], collect()) as $event) {
@@ -517,6 +527,15 @@ class ReportController extends Controller
                     ? $summary['max_over_limit_kph']
                     : max($summary['max_over_limit_kph'] ?? $overLimit, $overLimit);
                 $summary['latest_at'] = $event->occurred_at->toIso8601String();
+                $summary['alerts'][] = [
+                    'activity_id' => $event->uuid,
+                    'occurred_at' => $event->occurred_at->toIso8601String(),
+                    'latitude' => $event->latitude !== null ? (float) $event->latitude : null,
+                    'longitude' => $event->longitude !== null ? (float) $event->longitude : null,
+                    'speed_kph' => $speed,
+                    'speed_limit_kph' => $limit,
+                    'over_limit_kph' => $overLimit,
+                ];
             }
 
             if ($summary['count'] > 0) {
