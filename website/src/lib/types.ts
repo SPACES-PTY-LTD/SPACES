@@ -469,6 +469,11 @@ export interface RunShipment {
   pickup_stop_order?: number
   dropoff_stop_order?: number
   total_parcel_count?: number | null
+  odometer_at_collection?: number | null
+  odometer_at_delivery?: number | null
+  total_km_from_collection?: string | number | null
+  collected_at?: string | null
+  delivered_at?: string | null
   pickup_location?: Location | null
   dropoff_location?: Location | null
 }

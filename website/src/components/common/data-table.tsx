@@ -35,6 +35,7 @@ import {
 import { StatusBadge } from "@/components/common/status-badge"
 import { ShipmentAttentionCell } from "@/components/reports/shipment-attention-cell"
 import { ShipmentDwellTimeCell } from "@/components/reports/shipment-dwell-time-cell"
+import { RunDistanceCell } from "@/components/reports/run-distance-cell"
 import { UpdateDeliveryNoteDialog } from "@/components/shipments/update-delivery-note-dialog"
 import { UpdateInvoiceNumberDialog } from "@/components/shipments/update-invoice-number-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -60,7 +61,7 @@ export type Column<T> = {
   key: keyof T | string
   label: string
   className?: string
-  type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time" | "shipment_attention"
+  type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time" | "shipment_attention" | "run_distance"
   size?: "sm" | "md" | "lg"
   format?: string
   customValue?: (row: T) => React.ReactNode
@@ -1444,6 +1445,12 @@ export function DataTable<T extends Record<string, unknown>>({
                             renderDwellTimeValue(row, column)
                           ) : column.type === "shipment_attention" ? (
                             renderShipmentAttentionValue(row)
+                          ) : column.type === "run_distance" ? (
+                            <RunDistanceCell
+                              runId={String(getValue(row, "run_id") ?? "") || null}
+                              displayValue={renderValue(getDisplayValue(row, column))}
+                              accessToken={accessToken}
+                            />
                           ) : (
                             (() => {
                               const value = getDisplayValue(row, column)

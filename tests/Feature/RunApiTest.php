@@ -574,6 +574,19 @@ class RunApiTest extends TestCase
             'status' => RunShipment::STATUS_DONE,
             'sequence' => 1,
         ]);
+        Booking::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'shipment_id' => $shipment->id,
+            'status' => 'delivered',
+            'carrier_code' => 'internal',
+            'booked_at' => '2026-07-20 07:30:00',
+            'collected_at' => '2026-07-20 08:15:00',
+            'delivered_at' => '2026-07-20 09:45:00',
+            'odometer_at_collection' => 2000,
+            'odometer_at_delivery' => 2075,
+            'total_km_from_collection' => 75,
+        ]);
 
         VehicleActivity::create([
             'account_id' => $merchant->account_id,
@@ -625,7 +638,12 @@ class RunApiTest extends TestCase
             ->assertJsonCount(3, 'data.track_points')
             ->assertJsonCount(1, 'data.actual_stops')
             ->assertJsonPath('data.origin.name', 'Pickup ORDER-RUN-DETAIL')
-            ->assertJsonPath('data.destination.name', 'Dropoff ORDER-RUN-DETAIL');
+            ->assertJsonPath('data.destination.name', 'Dropoff ORDER-RUN-DETAIL')
+            ->assertJsonPath('data.shipments.0.odometer_at_collection', 2000)
+            ->assertJsonPath('data.shipments.0.odometer_at_delivery', 2075)
+            ->assertJsonPath('data.shipments.0.total_km_from_collection', '75.00')
+            ->assertJsonPath('data.shipments.0.collected_at', '2026-07-20T08:15:00+00:00')
+            ->assertJsonPath('data.shipments.0.delivered_at', '2026-07-20T09:45:00+00:00');
 
         $this->assertEqualsWithDelta(11.12, $response->json('data.distance_km'), 0.02);
     }

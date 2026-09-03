@@ -160,7 +160,7 @@ class RunResource extends JsonResource
                     return $runShipment->sequence ?? PHP_INT_MAX;
                 })
                 ->values()
-                ->map(function ($runShipment) {
+                ->map(function ($runShipment) use ($request) {
                     return [
                         'shipment_id' => optional($runShipment->shipment)->uuid,
                         'merchant_order_ref' => optional($runShipment->shipment)->merchant_order_ref,
@@ -172,6 +172,17 @@ class RunResource extends JsonResource
                         'total_parcel_count' => $runShipment->shipment?->relationLoaded('parcels')
                             ? $runShipment->shipment->parcels->count()
                             : null,
+                        'odometer_at_collection' => $runShipment->shipment?->booking?->odometer_at_collection,
+                        'odometer_at_delivery' => $runShipment->shipment?->booking?->odometer_at_delivery,
+                        'total_km_from_collection' => $runShipment->shipment?->booking?->total_km_from_collection,
+                        'collected_at' => $this->formatDateForMerchantTimezone(
+                            $runShipment->shipment?->booking?->collected_at,
+                            $request
+                        ),
+                        'delivered_at' => $this->formatDateForMerchantTimezone(
+                            $runShipment->shipment?->booking?->delivered_at,
+                            $request
+                        ),
                         'pickup_location' => $runShipment->shipment?->pickupLocation
                             ? LocationResource::make($runShipment->shipment->pickupLocation)
                             : null,

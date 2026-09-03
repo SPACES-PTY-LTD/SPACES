@@ -42,6 +42,14 @@ const TERMINAL_STATUSES = new Set([
 ])
 const UNDELIVERED_THRESHOLD_MINUTES = 6 * 60
 
+function hasDeliveryCompletionEvidence(input: ShipmentAttentionInput, status: string): boolean {
+  return Boolean(
+    input.deliveredAt ||
+    input.dropoffExitedAt ||
+    TERMINAL_STATUSES.has(status)
+  )
+}
+
 function formatKph(value: number): string {
   return `${value.toLocaleString("en-US", { maximumFractionDigits: 1 })} km/h`
 }
@@ -85,8 +93,7 @@ export function hasOpenShipmentAttentionTiming(input: ShipmentAttentionInput): b
   const status = input.shipmentStatus?.toLowerCase() ?? ""
   const hasActiveDeliveryWindow = Boolean(
     input.collectedAt &&
-    !input.deliveredAt &&
-    !TERMINAL_STATUSES.has(status)
+    !hasDeliveryCompletionEvidence(input, status)
   )
 
   return hasActiveDeliveryWindow || Boolean(
@@ -100,18 +107,24 @@ export function resolveShipmentAttention(input: ShipmentAttentionInput): Shipmen
   const status = input.shipmentStatus?.toLowerCase() ?? ""
   const activeUndelivered = Boolean(
     input.collectedAt &&
-    !input.deliveredAt &&
-    !TERMINAL_STATUSES.has(status)
+    !hasDeliveryCompletionEvidence(input, status)
   )
   const collectedElapsed = activeUndelivered
     ? elapsedMinutesBetween(input.collectedAt, input.now)
     : null
 
   if (collectedElapsed !== null && collectedElapsed > UNDELIVERED_THRESHOLD_MINUTES) {
+    const dropoffElapsed = input.dropoffEnteredAt && !input.dropoffExitedAt
+      ? elapsedMinutesBetween(input.dropoffEnteredAt, input.now)
+      : null
+    const deliveryState = dropoffElapsed !== null
+      ? `Arrived at the drop-off ${formatDurationMinutes(dropoffElapsed)} ago, but delivery is not complete.`
+      : `Collected ${formatDurationMinutes(collectedElapsed)} ago and has not yet reached the drop-off.`
+
     alerts.push({
       code: "undelivered_over_6_hours",
       tone: "warning",
-      tooltip: `Collected ${formatDurationMinutes(collectedElapsed)} ago and still not delivered (${formatDurationMinutes(collectedElapsed - UNDELIVERED_THRESHOLD_MINUTES)} over the 6 hr threshold).`,
+      tooltip: `${deliveryState} Collection was ${formatDurationMinutes(collectedElapsed)} ago (${formatDurationMinutes(collectedElapsed - UNDELIVERED_THRESHOLD_MINUTES)} over the 6 hr threshold).`,
     })
   }
 

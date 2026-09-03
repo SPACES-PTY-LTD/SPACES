@@ -68,6 +68,34 @@ class ShipmentsFullReportTest extends TestCase
             ->assertJsonPath('data.0.shipment_number', 'ORDER-SELECTED');
     }
 
+    public function test_report_returns_positive_run_duration_and_odometer_distance(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+        $location = $this->createLocation($account->id, $merchant->id, 'Run Depot', 'RUN-DEPOT', 'Cape Town');
+        $vehicle = $this->createVehicle($account->id, $merchant->id, 'RUN-TIME-1');
+        $shipmentUuid = $this->createShipment(
+            $account->id,
+            $merchant->id,
+            'RUN-TIME-SHIPMENT',
+            $location,
+            $location
+        );
+        $shipmentId = (int) DB::table('shipments')->where('uuid', $shipmentUuid)->value('id');
+        $runId = $this->attachShipmentToRun($account->id, $merchant->id, $shipmentId, $vehicle);
+        DB::table('runs')->where('id', $runId)->update([
+            'started_at' => '2026-09-03 08:00:00',
+            'completed_at' => '2026-09-03 10:30:00',
+            'odometer_start_km' => 1000,
+            'odometer_end_km' => 1125,
+        ]);
+
+        $this->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid)
+            ->assertOk()
+            ->assertJsonPath('data.0.run_duration_seconds', 9000)
+            ->assertJsonPath('data.0.run_odometer_distance_km', 125);
+    }
+
     public function test_report_returns_invoice_number_and_searches_all_filtered_rows_before_pagination(): void
     {
         [$user, $merchant, $account] = $this->createMerchantContext();

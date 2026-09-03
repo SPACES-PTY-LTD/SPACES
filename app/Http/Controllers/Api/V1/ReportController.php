@@ -339,7 +339,7 @@ class ReportController extends Controller
                     ? max(0, $run->odometer_end_km - $run->odometer_start_km)
                     : null;
                 $runDurationSeconds = $run?->started_at && $run?->completed_at
-                    ? max(0, $run->completed_at->diffInSeconds($run->started_at))
+                    ? max(0, $run->completed_at->diffInSeconds($run->started_at, true))
                     : null;
 
                 $fromVisit = $visitIntervals[$shipment->id]['pickup'] ?? null;

@@ -23,6 +23,60 @@ Add new entries at the top (newest first).
 ## 2026-09-03 | Version: unreleased
 
 ### Summary
+- Corrected the shipments report's overdue-delivery attention tooltip to use destination visit evidence.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- A completed destination visit (`To Time Out`) now suppresses the “not delivered” warning when booking delivery metadata has not yet caught up.
+- Shipments that have reached the destination but have not completed delivery now say they arrived at the drop-off; shipments without an arrival say they have not yet reached it.
+- A configured **To Location** alone does not count as delivery because it identifies the destination rather than proving the vehicle arrived there.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && node --test tests/dwell-time.test.mjs`
+- `cd website && npm run lint -- src/lib/shipment-attention.ts tests/dwell-time.test.mjs`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-09-03 | Version: unreleased
+
+### Summary
+- Added a Run KM shipment breakdown to the shipments report and corrected completed-run duration values.
+
+### API Changes
+- `GET /api/v1/runs/{run_uuid}` now includes each attached shipment's collection/delivery timestamps, collection/delivery odometers, and `total_km_from_collection` value.
+- `GET /api/v1/reports/shipments_full_report` now returns a positive `run_duration_seconds` value for completed runs.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Clicking **Run KM** in the shipments report now loads the selected run and opens a dialog listing every shipment, its from/to locations and times, individual recorded KM, and the recorded total.
+- The dialog also compares the summed shipment KM with the run's start/end odometer distance and identifies shipments with missing KM.
+- **Run Time** no longer displays `0 min` because of reversed signed timestamp subtraction.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/ShipmentsFullReportTest.php tests/Feature/RunApiTest.php`
+- `vendor/bin/pint --test app/Http/Controllers/Api/V1/ReportController.php app/Http/Resources/RunResource.php app/Services/RunService.php tests/Feature/ShipmentsFullReportTest.php tests/Feature/RunApiTest.php`
+- `cd website && npm run lint -- src/app/admin/logistics/shipments/reports/shipments_report/page.tsx src/components/common/data-table.tsx src/components/reports/run-distance-cell.tsx src/lib/types.ts`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-09-03 | Version: unreleased
+
+### Summary
 - Added page context and requester actions to the **My feedback** list.
 
 ### API Changes

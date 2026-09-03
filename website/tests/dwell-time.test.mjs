@@ -117,6 +117,7 @@ test("terminal or delivered shipments do not show the undelivered alert", () => 
   for (const input of [
     { shipmentStatus: "delivered", collectedAt: at(0) },
     { shipmentStatus: "in_transit", collectedAt: at(0), deliveredAt: at(1) },
+    { shipmentStatus: "in_transit", collectedAt: at(0), dropoffEnteredAt: at(30), dropoffExitedAt: at(50) },
     { shipmentStatus: "failed", collectedAt: at(0) },
   ]) {
     assert.equal(shipmentAttention.resolveShipmentAttention({
@@ -124,6 +125,26 @@ test("terminal or delivered shipments do not show the undelivered alert", () => 
       now: "2026-08-30T08:00:00.000Z",
     }).some((alert) => alert.code === "undelivered_over_6_hours"), false)
   }
+})
+
+test("undelivered tooltip distinguishes destination arrival from a configured destination", () => {
+  const now = "2026-08-30T08:00:00.000Z"
+  const collectedAt = "2026-08-29T08:00:00.000Z"
+
+  const beforeArrival = shipmentAttention.resolveShipmentAttention({
+    shipmentStatus: "in_transit",
+    collectedAt,
+    now,
+  }).find((alert) => alert.code === "undelivered_over_6_hours")
+  assert.match(beforeArrival.tooltip, /has not yet reached the drop-off/)
+
+  const afterArrival = shipmentAttention.resolveShipmentAttention({
+    shipmentStatus: "in_transit",
+    collectedAt,
+    dropoffEnteredAt: "2026-08-30T07:30:00.000Z",
+    now,
+  }).find((alert) => alert.code === "undelivered_over_6_hours")
+  assert.match(afterArrival.tooltip, /Arrived at the drop-off 30 min ago, but delivery is not complete/)
 })
 
 test("shipment attention keeps speeding, pickup, and drop-off alert order", () => {
