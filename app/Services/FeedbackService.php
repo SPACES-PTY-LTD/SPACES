@@ -74,6 +74,26 @@ class FeedbackService
             ->delete();
     }
 
+    public function updateMine(User $user, string $uuid, array $data): Feedback
+    {
+        $feedback = Feedback::query()
+            ->where('submitted_by_user_id', $user->id)
+            ->where('uuid', $uuid)
+            ->firstOrFail();
+
+        DB::transaction(function () use ($feedback, $data) {
+            $feedback->messages()
+                ->where('author_type', 'submitter')
+                ->orderBy('id')
+                ->firstOrFail()
+                ->update(['body' => $data['message']]);
+
+            $feedback->forceFill(['category' => $data['category']])->save();
+        });
+
+        return $this->loadDetail($feedback->fresh(), $user, 'submitter');
+    }
+
     public function listForReview(User $user, array $filters): LengthAwarePaginator
     {
         $query = $this->reviewerQuery($user)->orderByDesc('updated_at');

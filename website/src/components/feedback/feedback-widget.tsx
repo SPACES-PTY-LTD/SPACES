@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { format, parseISO } from "date-fns"
-import { MessageSquareText, Send, ArrowLeft, Loader2, Trash2 } from "lucide-react"
+import { ArrowLeft, Eye, Link2, Loader2, MessageSquareText, MoreHorizontal, Pencil, Send, Trash2 } from "lucide-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -16,6 +16,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -30,6 +36,7 @@ import {
   listMyFeedback,
   markMyFeedbackRead,
   replyToMyFeedback,
+  updateMyFeedback,
 } from "@/lib/api/feedback"
 import { isApiErrorResponse } from "@/lib/api/client"
 import type { Feedback, FeedbackCategory } from "@/lib/types"
@@ -74,7 +81,14 @@ export function FeedbackWidget({
   const [selectedThread, setSelectedThread] = React.useState<Feedback | null>(null)
   const [unreadCount, setUnreadCount] = React.useState(0)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)
+  const [deleteTarget, setDeleteTarget] = React.useState<Feedback | null>(null)
   const [deleting, setDeleting] = React.useState(false)
+  const [editOpen, setEditOpen] = React.useState(false)
+  const [editingThread, setEditingThread] = React.useState<Feedback | null>(null)
+  const [editCategory, setEditCategory] = React.useState<FeedbackCategory>("general")
+  const [editMessage, setEditMessage] = React.useState("")
+  const [loadingEditId, setLoadingEditId] = React.useState<string | null>(null)
+  const [savingEdit, setSavingEdit] = React.useState(false)
 
   const refreshCounts = React.useCallback(async () => {
     const mine = await getMyFeedbackUnreadCount(accessToken)
@@ -183,9 +197,9 @@ export function FeedbackWidget({
   }
 
   async function handleDelete() {
-    if (!selectedThread) return
+    if (!deleteTarget) return
     setDeleting(true)
-    const response = await deleteMyFeedback(selectedThread.feedback_id, accessToken)
+    const response = await deleteMyFeedback(deleteTarget.feedback_id, accessToken)
     setDeleting(false)
     if (isApiErrorResponse(response)) {
       toast.error(response.message || "Unable to delete feedback.")
@@ -193,7 +207,10 @@ export function FeedbackWidget({
     }
 
     setDeleteConfirmOpen(false)
-    setSelectedThread(null)
+    if (selectedThread?.feedback_id === deleteTarget.feedback_id) {
+      setSelectedThread(null)
+    }
+    setDeleteTarget(null)
     const nextSearchParams = new URLSearchParams(searchParams.toString())
     nextSearchParams.delete("feedback_id")
     const nextQuery = nextSearchParams.toString()
@@ -201,6 +218,52 @@ export function FeedbackWidget({
     toast.success("Feedback deleted.")
     await loadThreads()
     await refreshCounts()
+  }
+
+  async function beginEdit(thread: Feedback) {
+    setLoadingEditId(thread.feedback_id)
+    const response = await getMyFeedback(thread.feedback_id, accessToken)
+    setLoadingEditId(null)
+    if (isApiErrorResponse(response)) {
+      toast.error(response.message || "Unable to load feedback for editing.")
+      return
+    }
+
+    const firstSubmitterMessage = response.data.messages?.find((item) => item.author_type === "submitter")
+    if (!firstSubmitterMessage) {
+      toast.error("Unable to find the original feedback message.")
+      return
+    }
+
+    setEditingThread(response.data)
+    setEditCategory(response.data.category)
+    setEditMessage(firstSubmitterMessage.body)
+    setEditOpen(true)
+  }
+
+  async function handleEdit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!editingThread || !editMessage.trim()) return
+
+    setSavingEdit(true)
+    const response = await updateMyFeedback(
+      editingThread.feedback_id,
+      { category: editCategory, message: editMessage.trim() },
+      accessToken
+    )
+    setSavingEdit(false)
+    if (isApiErrorResponse(response)) {
+      toast.error(response.message || "Unable to update feedback.")
+      return
+    }
+
+    if (selectedThread?.feedback_id === editingThread.feedback_id) {
+      setSelectedThread(response.data)
+    }
+    setEditOpen(false)
+    setEditingThread(null)
+    toast.success("Feedback updated.")
+    await loadThreads()
   }
 
   return (
@@ -248,7 +311,10 @@ export function FeedbackWidget({
                   size="sm"
                   variant="outline"
                   className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => setDeleteConfirmOpen(true)}
+                  onClick={() => {
+                    setDeleteTarget(selectedThread)
+                    setDeleteConfirmOpen(true)
+                  }}
                 >
                   <Trash2 className="size-4" />
                   Delete
@@ -344,21 +410,65 @@ export function FeedbackWidget({
                   ) : (
                     <div className="space-y-3">
                       {threads.map((thread) => (
-                        <button
-                          type="button"
-                          key={thread.feedback_id}
-                          onClick={() => void openThread(thread.feedback_id)}
-                          className="relative w-full rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
-                        >
-                          {thread.unread ? <span className="absolute top-4 right-4 size-2 rounded-full bg-red-600" /> : null}
-                          <div className="flex flex-wrap items-center gap-2 pr-5">
-                            <Badge variant="secondary">{CATEGORY_LABELS[thread.category]}</Badge>
-                            <StatusBadge status={thread.status} />
-                            {thread.merchant ? <span className="text-xs text-muted-foreground">{thread.merchant.name}</span> : null}
-                          </div>
-                          <p className="mt-3 line-clamp-2 text-sm">{thread.message_preview}</p>
-                          <p className="mt-2 text-xs text-muted-foreground">Updated {formatDate(thread.updated_at)}</p>
-                        </button>
+                        <div key={thread.feedback_id} className="relative rounded-lg border transition-colors hover:bg-muted/50">
+                          <button
+                            type="button"
+                            onClick={() => void openThread(thread.feedback_id)}
+                            className="w-full p-4 pr-14 text-left"
+                          >
+                            {thread.unread ? <span className="absolute top-5 right-14 size-2 rounded-full bg-red-600" /> : null}
+                            <div className="flex flex-wrap items-center gap-2 pr-5">
+                              <Badge variant="secondary">{CATEGORY_LABELS[thread.category]}</Badge>
+                              <StatusBadge status={thread.status} />
+                              {thread.merchant ? <span className="text-xs text-muted-foreground">{thread.merchant.name}</span> : null}
+                            </div>
+                            <p className="mt-3 line-clamp-2 text-sm">{thread.message_preview}</p>
+                            <p className="mt-2 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                              <Link2 className="size-3.5 shrink-0" />
+                              <span className="truncate font-mono">{thread.page_path}</span>
+                            </p>
+                            <p className="mt-2 text-xs text-muted-foreground">Updated {formatDate(thread.updated_at)}</p>
+                          </button>
+
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-2.5 right-2.5 size-8"
+                                aria-label="Feedback actions"
+                              >
+                                {loadingEditId === thread.feedback_id
+                                  ? <Loader2 className="size-4 animate-spin" />
+                                  : <MoreHorizontal className="size-4" />}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => void openThread(thread.feedback_id)}>
+                                <Eye className="size-4" />
+                                View info
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={loadingEditId === thread.feedback_id}
+                                onSelect={() => void beginEdit(thread)}
+                              >
+                                <Pencil className="size-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => {
+                                  setDeleteTarget(thread)
+                                  setDeleteConfirmOpen(true)
+                                }}
+                              >
+                                <Trash2 className="size-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -369,7 +479,59 @@ export function FeedbackWidget({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+      <Dialog open={editOpen} onOpenChange={(next) => {
+        setEditOpen(next)
+        if (!next && !savingEdit) setEditingThread(null)
+      }}>
+        <DialogContent className="sm:max-w-lg">
+          <form onSubmit={handleEdit}>
+            <DialogHeader>
+              <DialogTitle>Edit feedback</DialogTitle>
+              <DialogDescription>
+                Update the category or original message. The page URL and replies will stay unchanged.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-5">
+              <div className="space-y-2">
+                <Label htmlFor="edit-feedback-category">Category</Label>
+                <Select value={editCategory} onValueChange={(value) => setEditCategory(value as FeedbackCategory)}>
+                  <SelectTrigger id="edit-feedback-category"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-feedback-message">Message</Label>
+                <Textarea
+                  id="edit-feedback-message"
+                  value={editMessage}
+                  onChange={(event) => setEditMessage(event.target.value)}
+                  maxLength={5000}
+                  className="min-h-36"
+                />
+                <p className="text-right text-xs text-muted-foreground">{editMessage.length}/5000</p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)} disabled={savingEdit}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={savingEdit || !editMessage.trim()}>
+                {savingEdit ? <Loader2 className="animate-spin" /> : <Pencil />}
+                Save changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={(next) => {
+        setDeleteConfirmOpen(next)
+        if (!next && !deleting) setDeleteTarget(null)
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Delete this feedback?</DialogTitle>

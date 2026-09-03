@@ -43,6 +43,18 @@ export function getMyFeedback(feedbackId: string, token?: string | null) {
   return apiFetch<ApiEnvelope<Feedback>>(`/api/v1/feedback/${feedbackId}`, { token })
 }
 
+export function updateMyFeedback(
+  feedbackId: string,
+  payload: { category: FeedbackCategory; message: string },
+  token?: string | null
+) {
+  return apiFetch<ApiEnvelope<Feedback>>(`/api/v1/feedback/${feedbackId}`, {
+    method: "PATCH",
+    token,
+    body: payload,
+  })
+}
+
 export function deleteMyFeedback(feedbackId: string, token?: string | null) {
   return apiFetch<ApiEnvelope<{ message: string }>>(`/api/v1/feedback/${feedbackId}`, {
     method: "DELETE",

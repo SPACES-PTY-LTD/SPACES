@@ -117,6 +117,7 @@ Route::prefix('v1')->group(function () {
             Route::get('feedback/mine', [FeedbackController::class, 'mine']);
             Route::get('feedback/unread-count', [FeedbackController::class, 'unreadCount']);
             Route::get('feedback/{feedback_uuid}', [FeedbackController::class, 'show']);
+            Route::patch('feedback/{feedback_uuid}', [FeedbackController::class, 'update']);
             Route::delete('feedback/{feedback_uuid}', [FeedbackController::class, 'destroy']);
             Route::post('feedback/{feedback_uuid}/replies', [FeedbackController::class, 'reply']);
             Route::post('feedback/{feedback_uuid}/read', [FeedbackController::class, 'markRead']);

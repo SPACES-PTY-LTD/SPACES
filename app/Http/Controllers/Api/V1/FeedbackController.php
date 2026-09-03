@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ListFeedbackRequest;
 use App\Http\Requests\StoreFeedbackReplyRequest;
 use App\Http\Requests\StoreFeedbackRequest;
+use App\Http\Requests\UpdateOwnFeedbackRequest;
 use App\Http\Resources\FeedbackResource;
 use App\Services\FeedbackService;
 use App\Support\ApiResponse;
@@ -46,6 +47,17 @@ class FeedbackController extends Controller
             return ApiResponse::success(new FeedbackResource($service->getMine($request->user(), $feedback_uuid)));
         } catch (Throwable $e) {
             return $this->apiError($e, 'FEEDBACK_NOT_FOUND', 'Feedback not found.', Response::HTTP_NOT_FOUND);
+        }
+    }
+
+    public function update(string $feedback_uuid, UpdateOwnFeedbackRequest $request, FeedbackService $service)
+    {
+        try {
+            return ApiResponse::success(new FeedbackResource(
+                $service->updateMine($request->user(), $feedback_uuid, $request->validated())
+            ));
+        } catch (Throwable $e) {
+            return $this->apiError($e, 'FEEDBACK_UPDATE_FAILED', 'Unable to update feedback.');
         }
     }
 

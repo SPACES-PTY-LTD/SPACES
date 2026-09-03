@@ -20,6 +20,33 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-03 | Version: unreleased
+
+### Summary
+- Added page context and requester actions to the **My feedback** list.
+
+### API Changes
+- Added requester-owned `PATCH /api/v1/feedback/{feedback_uuid}` updates for the feedback category and original message.
+
+### Database Changes
+- None. Existing feedback soft deletion remains unchanged.
+
+### Behavior Changes
+- Each **My feedback** card now shows the captured admin page path.
+- A three-dot action menu now provides **View info**, **Edit**, and **Delete** actions.
+- Editing changes only the category and original feedback message; the recorded page path, workflow status, and conversation replies are preserved.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/FeedbackTest.php`
+- `vendor/bin/pint --test app/Http/Controllers/Api/V1/FeedbackController.php app/Http/Requests/UpdateOwnFeedbackRequest.php app/Services/FeedbackService.php routes/api.php tests/Feature/FeedbackTest.php`
+- `cd website && npm run lint -- src/components/feedback/feedback-widget.tsx src/lib/api/feedback.ts`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
 ## 2026-08-31 | Version: unreleased
 
 ### Summary

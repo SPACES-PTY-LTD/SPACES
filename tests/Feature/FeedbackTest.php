@@ -99,6 +99,47 @@ class FeedbackTest extends TestCase
         $this->apiFor($user)->getJson('/api/v1/feedback/'.$otherId)->assertNotFound();
     }
 
+    public function test_submitter_can_edit_their_original_feedback_without_changing_context_or_replies(): void
+    {
+        [$submitter, $account, $merchant] = $this->accountContext();
+        $otherUser = User::factory()->create(['account_id' => $account->id]);
+        $feedbackId = $this->submit($submitter, $merchant)->json('data.feedback_id');
+        $feedback = Feedback::query()->where('uuid', $feedbackId)->firstOrFail();
+        $feedback->forceFill(['status' => 'in_progress'])->save();
+        $feedback->messages()->create([
+            'sender_user_id' => $otherUser->id,
+            'author_type' => 'reviewer',
+            'body' => 'We are looking into this.',
+        ]);
+
+        $this->apiFor($otherUser)->patchJson('/api/v1/feedback/'.$feedbackId, [
+            'category' => 'general',
+            'message' => 'This should not be allowed.',
+        ])->assertNotFound();
+
+        $this->apiFor($submitter)->patchJson('/api/v1/feedback/'.$feedbackId, [
+            'category' => 'feature_request',
+            'message' => '  Please retain the shipment filter value.  ',
+        ])->assertOk()
+            ->assertJsonPath('data.category', 'feature_request')
+            ->assertJsonPath('data.status', 'in_progress')
+            ->assertJsonPath('data.page_path', '/admin/logistics/shipments')
+            ->assertJsonPath('data.messages.0.body', 'Please retain the shipment filter value.')
+            ->assertJsonPath('data.messages.1.body', 'We are looking into this.');
+
+        $this->assertDatabaseHas('feedback', [
+            'uuid' => $feedbackId,
+            'category' => 'feature_request',
+            'page_path' => '/admin/logistics/shipments',
+        ]);
+        $this->assertSame(2, $feedback->messages()->count());
+
+        $this->apiFor($submitter)->patchJson('/api/v1/feedback/'.$feedbackId, [
+            'category' => 'invalid',
+            'message' => '   ',
+        ])->assertUnprocessable();
+    }
+
     public function test_reviewer_scope_includes_all_manageable_merchants_and_excludes_other_roles(): void
     {
         [$owner, $account, $merchantA] = $this->accountContext();
