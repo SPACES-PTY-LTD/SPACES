@@ -39,12 +39,12 @@ function simplifiedPoints(points: RunTrackPoint[]) {
 }
 
 export function RunActualMap({ trackPoints, stops }: Props) {
-  const mapElement = React.useRef<HTMLDivElement | null>(null)
+  const [mapElement, setMapElement] = React.useState<HTMLDivElement | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(trackPoints.length > 0)
 
   React.useEffect(() => {
-    if (!mapElement.current || trackPoints.length === 0) {
+    if (!mapElement || trackPoints.length === 0) {
       setLoading(false)
       return
     }
@@ -55,7 +55,7 @@ export function RunActualMap({ trackPoints, stops }: Props) {
 
     loadGoogleMaps([])
       .then(() => {
-        if (cancelled || !mapElement.current) return
+        if (cancelled) return
         const path = simplifiedPoints(trackPoints)
           .map((point) => validPosition(point.latitude, point.longitude))
           .filter((point): point is google.maps.LatLngLiteral => point !== null)
@@ -65,7 +65,7 @@ export function RunActualMap({ trackPoints, stops }: Props) {
           return
         }
 
-        const map = new google.maps.Map(mapElement.current, {
+        const map = new google.maps.Map(mapElement, {
           center: path[0],
           zoom: 12,
           mapTypeControl: false,
@@ -109,7 +109,7 @@ export function RunActualMap({ trackPoints, stops }: Props) {
       markers.forEach((marker) => marker.setMap(null))
       polyline?.setMap(null)
     }
-  }, [stops, trackPoints])
+  }, [mapElement, stops, trackPoints])
 
   return (
     <Card>
@@ -127,7 +127,7 @@ export function RunActualMap({ trackPoints, stops }: Props) {
           </div>
         ) : (
           <div className="relative">
-            <div ref={mapElement} className="h-[420px] w-full rounded-lg" aria-label="Actual run route map" />
+            <div ref={setMapElement} className="h-[420px] w-full rounded-lg" aria-label="Actual run route map" />
             {loading ? (
               <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/80 text-sm text-muted-foreground">
                 Loading map…

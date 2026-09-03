@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Driver;
 use App\Models\DriverVehicle;
 use App\Models\Location;
+use App\Models\LocationType;
 use App\Models\Merchant;
 use App\Models\Run;
 use App\Models\RunShipment;
@@ -559,6 +560,14 @@ class RunApiTest extends TestCase
         $driver = $this->createDriver($merchant);
         $vehicle = $this->createVehicle($merchant);
         $shipment = $this->createShipment($merchant, 'ORDER-RUN-DETAIL', 'delivered');
+        $locationType = LocationType::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'slug' => 'customer-site',
+            'title' => 'Customer site',
+            'delivery_point' => true,
+        ]);
+        $shipment->pickupLocation->update(['location_type_id' => $locationType->id]);
         $run = Run::create([
             'account_id' => $merchant->account_id,
             'merchant_id' => $merchant->id,
@@ -603,9 +612,9 @@ class RunApiTest extends TestCase
             'account_id' => $merchant->account_id,
             'merchant_id' => $merchant->id,
             'vehicle_id' => $vehicle->id,
-            'run_id' => $run->id,
             'event_type' => VehicleActivity::EVENT_STOPPED,
             'occurred_at' => '2026-07-20 09:00:00',
+            'location_id' => $shipment->pickup_location_id,
             'latitude' => 0,
             'longitude' => 0.1,
             'speed_kph' => 0,
@@ -622,6 +631,16 @@ class RunApiTest extends TestCase
             'speed_kph' => 95,
             'speed_limit_kph' => 80,
         ]);
+        VehicleActivity::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id,
+            'event_type' => VehicleActivity::EVENT_STOPPED,
+            'occurred_at' => '2026-07-20 10:30:00',
+            'latitude' => 0,
+            'longitude' => 0.2,
+            'speed_kph' => 0,
+        ]);
 
         $response = $this->withHeaders($this->authHeaders($token, $merchant->uuid))
             ->getJson("/api/v1/runs/{$run->uuid}");
@@ -637,6 +656,7 @@ class RunApiTest extends TestCase
             ->assertJsonPath('data.safety.worst_speed_exceedance_kph', 15)
             ->assertJsonCount(3, 'data.track_points')
             ->assertJsonCount(1, 'data.actual_stops')
+            ->assertJsonPath('data.actual_stops.0.location.type.title', 'Customer site')
             ->assertJsonPath('data.origin.name', 'Pickup ORDER-RUN-DETAIL')
             ->assertJsonPath('data.destination.name', 'Dropoff ORDER-RUN-DETAIL')
             ->assertJsonPath('data.shipments.0.odometer_at_collection', 2000)

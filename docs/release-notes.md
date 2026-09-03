@@ -23,6 +23,59 @@ Add new entries at the top (newest first).
 ## 2026-09-03 | Version: unreleased
 
 ### Summary
+- Reworked **Run KM details** into a complete stop-by-stop journey that reconciles each leg with the run's total KM.
+
+### API Changes
+- `GET /api/v1/runs/{run_uuid}` now includes same-vehicle activity recorded inside the run window even when the individual activity was not explicitly assigned a `run_id`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The map and table now show the run start, every known or unmapped stop, and the run end in chronological order.
+- Duplicate stop events from the same physical visit are consolidated into one stop.
+- Shipment pickup and drop-off stops are highlighted in amber and link to the shipments they created or served.
+- Each row shows location type, arrival/departure time, KM from the previous stop, and cumulative KM.
+- Complete stop odometer readings are used when available. Otherwise, the run total is transparently allocated across legs using the recorded GPS route so the final cumulative value matches the run total.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `php artisan test tests/Feature/RunApiTest.php`
+- `vendor/bin/pint --test app/Http/Resources/RunResource.php app/Services/RunService.php tests/Feature/RunApiTest.php`
+- `cd website && npm run lint -- src/components/reports/run-distance-cell.tsx src/components/runs/run-stop-journey.tsx src/components/runs/run-actual-map.tsx`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-09-03 | Version: unreleased
+
+### Summary
+- Added a trip map to the shipments report's **Run KM details** dialog.
+
+### API Changes
+- None. The dialog uses the run track points and actual stops already returned by `GET /api/v1/runs/{run_uuid}`.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Opening **Run KM details** now shows the run's actual GPS route, start and end markers, and numbered stop markers above the shipment breakdown.
+- Run maps now initialize reliably when mounted inside a dialog portal and continue to show the existing no-GPS state when route coordinates are unavailable.
+
+### Breaking Changes
+- None.
+
+### Verification
+- `cd website && npm run lint -- src/components/reports/run-distance-cell.tsx src/components/runs/run-actual-map.tsx`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-09-03 | Version: unreleased
+
+### Summary
 - Corrected the shipments report's overdue-delivery attention tooltip to use destination visit evidence.
 
 ### API Changes

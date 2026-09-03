@@ -11,6 +11,7 @@ use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
+use App\Models\VehicleActivity;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -539,26 +540,54 @@ class RunService
 
     private function loadRun(Run $run): Run
     {
-        return $run->load([
+        $run->load([
             'merchant',
             'environment',
             'driver.user',
             'vehicle.vehicleType',
-            'latestLocationStop.location',
-            'vehicleActivities.merchant',
-            'vehicleActivities.vehicle.lastDriver.user',
-            'vehicleActivities.location',
-            'vehicleActivities.run.driver.user',
-            'vehicleActivities.shipment',
-            'route.routeStops.location',
-            'originLocation',
-            'destinationLocation',
+            'latestLocationStop.location.locationType',
+            'route.routeStops.location.locationType',
+            'originLocation.locationType',
+            'destinationLocation.locationType',
             'runShipments.shipment.parcels',
             'runShipments.shipment.booking',
-            'runShipments.shipment.pickupLocation',
-            'runShipments.shipment.dropoffLocation',
+            'runShipments.shipment.pickupLocation.locationType',
+            'runShipments.shipment.dropoffLocation.locationType',
             'deliveryNoteImports.shipments',
         ]);
+
+        $activities = VehicleActivity::query()
+            ->where('merchant_id', $run->merchant_id)
+            ->where(function (Builder $builder) use ($run) {
+                $builder->where('run_id', $run->id);
+
+                if ($run->vehicle_id && $run->started_at) {
+                    $builder->orWhere(function (Builder $windowBuilder) use ($run) {
+                        $windowBuilder
+                            ->where('vehicle_id', $run->vehicle_id)
+                            ->whereBetween('occurred_at', [
+                                $run->started_at,
+                                $run->completed_at ?? now(),
+                            ]);
+                    });
+                }
+            })
+            ->with([
+                'merchant',
+                'vehicle.lastDriver.user',
+                'location.locationType',
+                'run.driver.user',
+                'shipment.booking',
+                'shipment.pickupLocation',
+                'shipment.dropoffLocation',
+            ])
+            ->orderBy('occurred_at')
+            ->orderBy('id')
+            ->get();
+
+        $run->setRelation('vehicleActivities', $activities);
+
+        return $run;
     }
 
     private function syncDriverVehicleAssignment(Run $run): void
