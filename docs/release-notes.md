@@ -23,6 +23,32 @@ Add new entries at the top (newest first).
 ## 2026-09-03 | Version: unreleased
 
 ### Summary
+- Fixed missing stops in the **Run KM details** dialog.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The dialog now reads stop events from `actual_stops` and falls back to the run's full activity collection when necessary.
+- When neither activity collection contains stops, shipment pickup and drop-off records provide a clearly labelled fallback instead of an empty stop list.
+- The stop count and stop table are shown before the map, and cooperative map gestures prevent the map from trapping normal dialog scrolling.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Inspected a live completed run containing 39 recorded stop events.
+- `cd website && npm run lint -- src/components/runs/run-stop-journey.tsx src/components/reports/run-distance-cell.tsx`
+- `cd website && npx tsc --noEmit`
+- `cd website && npm run build`
+- `git diff --check`
+
+## 2026-09-03 | Version: unreleased
+
+### Summary
 - Reworked **Run KM details** into a complete stop-by-stop journey that reconciles each leg with the run's total KM.
 
 ### API Changes

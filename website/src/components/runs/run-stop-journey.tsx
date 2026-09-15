@@ -60,10 +60,18 @@ type RunJourney = {
   checkpoints: JourneyCheckpoint[]
   path: Position[]
   distanceMethod: "odometer" | "allocated" | "gps" | "unavailable"
+  stopSource: "activity" | "shipment" | "none"
+  stopCount: number
   totalKm: number | null
 }
 
 const visitMergeWindowMs = 5 * 60 * 1000
+const stopEventTypes = new Set([
+  "stopped",
+  "entered_location",
+  "shipment_collection",
+  "shipment_delivery",
+])
 
 function finiteNumber(value: unknown) {
   const numeric = Number(value)
@@ -119,10 +127,13 @@ function sameVisit(group: StopGroup, stop: ShipmentStop) {
   const stopEnd = timestampValue(activityEnd(stop)) ?? stopStart
   const groupLocationId = group.location?.location_id
   const stopLocationId = stop.location?.location_id
+  const hasKnownLocation = Boolean(groupLocationId || stopLocationId)
   const locationsConflict = Boolean(groupLocationId && stopLocationId && groupLocationId !== stopLocationId)
   const locationsMatch = Boolean(groupLocationId && stopLocationId && groupLocationId === stopLocationId)
   const stopPoint = activityPosition(stop)
-  const positionsMatch = Boolean(group.position && stopPoint && distanceKm(group.position, stopPoint) <= 0.15)
+  const positionsMatch = Boolean(
+    hasKnownLocation && group.position && stopPoint && distanceKm(group.position, stopPoint) <= 0.15
+  )
   const visitsTouch = stopStart <= group.endMs + visitMergeWindowMs
     && stopEnd >= group.startMs - visitMergeWindowMs
 
@@ -288,6 +299,58 @@ function sortedTrackPoints(points: RunTrackPoint[]) {
     })
 }
 
+function shipmentFallbackStops(run: Run) {
+  return (run.shipments ?? []).flatMap<ShipmentStop>((shipment) => {
+    const shipmentSummary: NonNullable<ShipmentStop["shipment"]> = {
+      shipment_id: shipment.shipment_id,
+      merchant_order_ref: shipment.merchant_order_ref,
+      status: shipment.shipment_status,
+      pickup_location: shipment.pickup_location,
+      dropoff_location: shipment.dropoff_location,
+    }
+
+    return [
+      {
+        activity_id: `shipment-pickup-${shipment.shipment_id}`,
+        event_type: "shipment_collection",
+        occurred_at: shipment.collected_at ?? run.started_at,
+        entered_at: shipment.collected_at ?? run.started_at,
+        location: shipment.pickup_location,
+        latitude: finiteNumber(shipment.pickup_location?.latitude),
+        longitude: finiteNumber(shipment.pickup_location?.longitude),
+        shipment: shipmentSummary,
+      },
+      {
+        activity_id: `shipment-dropoff-${shipment.shipment_id}`,
+        event_type: "shipment_delivery",
+        occurred_at: shipment.delivered_at ?? run.completed_at,
+        entered_at: shipment.delivered_at ?? run.completed_at,
+        location: shipment.dropoff_location,
+        latitude: finiteNumber(shipment.dropoff_location?.latitude),
+        longitude: finiteNumber(shipment.dropoff_location?.longitude),
+        shipment: shipmentSummary,
+      },
+    ]
+  })
+}
+
+function runStops(run: Run) {
+  if ((run.actual_stops ?? []).length > 0) {
+    return { stops: run.actual_stops ?? [], source: "activity" as const }
+  }
+
+  const activityStops = (run.stops ?? []).filter((stop) => stopEventTypes.has(stop.event_type ?? ""))
+  if (activityStops.length > 0) {
+    return { stops: activityStops, source: "activity" as const }
+  }
+
+  const shipmentStops = shipmentFallbackStops(run)
+  return {
+    stops: shipmentStops,
+    source: shipmentStops.length > 0 ? "shipment" as const : "none" as const,
+  }
+}
+
 function closestTrackIndex(
   checkpoint: JourneyCheckpoint,
   trackPoints: RunTrackPoint[],
@@ -336,7 +399,9 @@ function closestTrackIndex(
 function buildRunJourney(run: Run): RunJourney {
   const trackPoints = sortedTrackPoints(run.track_points ?? [])
   const path = trackPoints.map((point) => validPosition(point.latitude, point.longitude)!).filter(Boolean)
-  const groups = createStopGroups(run.actual_stops ?? [])
+  const stopData = runStops(run)
+  const groups = createStopGroups(stopData.stops)
+  const stopCount = groups.length
   const startTime = run.started_at ?? trackPoints[0]?.occurred_at ?? null
   const endTime = run.completed_at ?? trackPoints.at(-1)?.occurred_at ?? null
   const startPosition = locationPosition(run.origin) ?? path[0] ?? null
@@ -412,6 +477,8 @@ function buildRunJourney(run: Run): RunJourney {
       checkpoints,
       path,
       distanceMethod: "odometer",
+      stopSource: stopData.source,
+      stopCount,
       totalKm: odometers.at(-1)! - initialOdometer,
     }
   }
@@ -463,6 +530,8 @@ function buildRunJourney(run: Run): RunJourney {
       : runTotal !== null && Math.abs(scale - 1) > 0.001
         ? "allocated"
         : "gps",
+    stopSource: stopData.source,
+    stopCount,
     totalKm: runTotal ?? (weightTotal > 0 ? weightTotal : null),
   }
 }
@@ -540,6 +609,7 @@ function RunJourneyMap({ journey }: { journey: RunJourney }) {
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: true,
+        gestureHandling: "cooperative",
       })
       const bounds = new google.maps.LatLngBounds()
       journey.path.forEach((point) => bounds.extend(point))
@@ -652,25 +722,23 @@ export function RunStopJourney({ run }: { run: Run }) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Run route and stops</CardTitle>
-          <CardDescription>
-            Green marks the run start, blue marks other stops, amber highlights shipment pickup/drop-off stops, and black marks the run end.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RunJourneyMap journey={journey} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Stop-by-stop distance</CardTitle>
+          <CardTitle>All stops ({journey.stopCount})</CardTitle>
           <CardDescription>{distanceExplanation(journey.distanceMethod)}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto rounded-lg border">
+          {journey.stopSource === "shipment" ? (
+            <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+              Detailed vehicle stop activity was unavailable, so pickup and drop-off stops were reconstructed from the run&apos;s shipments.
+            </p>
+          ) : null}
+          {journey.stopSource === "none" ? (
+            <p className="mb-4 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+              No stop activity or shipment locations were recorded for this run.
+            </p>
+          ) : null}
+          <div className="max-h-[420px] overflow-auto rounded-lg border">
             <Table className="min-w-[1120px]">
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-background shadow-sm">
                 <TableRow>
                   <TableHead className="w-16">#</TableHead>
                   <TableHead>Stop</TableHead>
@@ -752,6 +820,18 @@ export function RunStopJourney({ run }: { run: Run }) {
               </TableFooter>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Run route and stops</CardTitle>
+          <CardDescription>
+            Green marks the run start, blue marks other stops, amber highlights shipment pickup/drop-off stops, and black marks the run end.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RunJourneyMap journey={journey} />
         </CardContent>
       </Card>
     </div>
