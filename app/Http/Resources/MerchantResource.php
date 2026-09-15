@@ -26,6 +26,7 @@ class MerchantResource extends JsonResource
             'driver_offline_timeout_minutes' => $this->driver_offline_timeout_minutes,
             'default_webhook_url' => $this->default_webhook_url,
             'logo_url' => $this->logo_path ? Storage::disk('s3')->url($this->logo_path) : null,
+            'currency' => $this->currency ?? 'ZAR',
             'timezone' => $this->timezone ?? 'UTC',
             'operating_countries' => $this->operating_countries ?? [],
             'allow_auto_shipment_creations_at_locations' => (bool) $this->allow_auto_shipment_creations_at_locations,

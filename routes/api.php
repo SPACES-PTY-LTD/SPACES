@@ -179,6 +179,9 @@ Route::prefix('v1')->group(function () {
         Route::post('shipments/{shipment_uuid}/book', [BookingController::class, 'book']);
         Route::post('shipments/{shipment_uuid}/rebook', [BookingController::class, 'rebook']);
 
+        Route::match(['GET', 'POST'], 'runs/{run_uuid}/additional-costs', [\App\Http\Controllers\Api\V1\AdditionalCostController::class, 'handle']);
+        Route::match(['PATCH', 'DELETE'], 'runs/{run_uuid}/additional-costs/{cost_uuid}', [\App\Http\Controllers\Api\V1\AdditionalCostController::class, 'handle']);
+
         Route::post('runs', [RunController::class, 'store']);
         Route::get('runs', [RunController::class, 'index'])->middleware('merchant.context');
         Route::get('runs/{run_uuid}', [RunController::class, 'show']);
@@ -307,6 +310,9 @@ Route::prefix('v1')->group(function () {
             Route::post('routes', [RouteController::class, 'store']);
             Route::patch('routes/{route_uuid}', [RouteController::class, 'update']);
             Route::delete('routes/{route_uuid}', [RouteController::class, 'destroy']);
+
+            Route::match(['GET', 'POST'], 'locations/{location_uuid}/additional-costs', [\App\Http\Controllers\Api\V1\AdditionalCostController::class, 'handle']);
+            Route::match(['PATCH', 'DELETE'], 'locations/{location_uuid}/additional-costs/{cost_uuid}', [\App\Http\Controllers\Api\V1\AdditionalCostController::class, 'handle']);
 
             Route::get('locations', [LocationController::class, 'index'])->middleware('merchant.context');
             Route::get('locations/{location_uuid}', [LocationController::class, 'show']);

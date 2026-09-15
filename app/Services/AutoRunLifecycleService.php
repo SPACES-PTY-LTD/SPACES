@@ -163,6 +163,16 @@ class AutoRunLifecycleService
                 ]
             );
 
+            $arrivingRun = Run::query()
+                ->where('merchant_id', $merchant->id)
+                ->where('environment_id', $location->environment_id)
+                ->where('vehicle_id', $vehicle->id)
+                ->where('status', Run::STATUS_IN_PROGRESS)
+                ->orderByDesc('started_at')->orderByDesc('id')->lockForUpdate()->first();
+            if ($arrivingRun) {
+                app(RunCostService::class)->applyVisit($arrivingRun, $location, $visit);
+            }
+
             if (! $merchant->allow_auto_shipment_creations_at_locations) {
                 return true;
             }
@@ -181,6 +191,13 @@ class AutoRunLifecycleService
                 driverIntegrationId: $driverIntegrationId,
                 odometerKilometres: $odometerKilometres,
             );
+
+            if (! $arrivingRun && $visit->run_id) {
+                $startedRun = Run::whereKey($visit->run_id)->where('status', Run::STATUS_IN_PROGRESS)->first();
+                if ($startedRun) {
+                    app(RunCostService::class)->applyVisit($startedRun, $location, $visit);
+                }
+            }
 
             return true;
         }, self::TRANSACTION_ATTEMPTS);

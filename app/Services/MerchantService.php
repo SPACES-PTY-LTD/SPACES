@@ -187,6 +187,7 @@ class MerchantService
     public function updateMerchantSettings(Merchant $merchant, array $data): Merchant
     {
         $merchant->fill(Arr::only($data, [
+            'currency',
             'timezone',
             'operating_countries',
             'allow_auto_shipment_creations_at_locations',

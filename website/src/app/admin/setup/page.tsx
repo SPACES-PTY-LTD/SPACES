@@ -22,6 +22,7 @@ export default async function AdminSetupPage() {
       accessToken={session.accessToken}
       merchantId={merchant.merchant_id}
       merchantName={merchant.name ?? "your merchant"}
+      initialCurrency={merchant.currency}
       initialTimezone={merchant.timezone ?? null}
       initialCountries={merchant.operating_countries ?? null}
       initialAutoCreateShipment={Boolean(

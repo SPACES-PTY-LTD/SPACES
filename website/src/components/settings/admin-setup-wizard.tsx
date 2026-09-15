@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { CurrencySelect } from "@/components/settings/currency-select"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
@@ -59,6 +60,7 @@ export function AdminSetupWizard({
   accessToken,
   merchantId,
   merchantName,
+  initialCurrency,
   initialTimezone,
   initialCountries,
   initialAutoCreateShipment,
@@ -66,6 +68,7 @@ export function AdminSetupWizard({
   accessToken?: string
   merchantId: string
   merchantName: string
+  initialCurrency?: string | null
   initialTimezone?: string | null
   initialCountries?: string[] | null
   initialAutoCreateShipment?: boolean
@@ -76,6 +79,7 @@ export function AdminSetupWizard({
   const [saving, setSaving] = React.useState(false)
   const [loadingTypes, setLoadingTypes] = React.useState(false)
   const [locationTypesLoaded, setLocationTypesLoaded] = React.useState(false)
+  const [currency, setCurrency] = React.useState(initialCurrency ?? "ZAR")
   const [timezone, setTimezone] = React.useState(initialTimezone || getDefaultTimezone())
   const [countries, setCountries] = React.useState<string[]>(
     initialCountries?.length ? initialCountries : []
@@ -179,6 +183,7 @@ export function AdminSetupWizard({
 
     setSaving(true)
     const settingsPayload = {
+      currency,
       timezone: normalizeText(timezone),
       operating_countries: countries,
       allow_auto_shipment_creations_at_locations: autoCreateShipment,
@@ -278,14 +283,15 @@ export function AdminSetupWizard({
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Globe2 className="h-5 w-5 text-primary" />
-              Pick your timezone
+              Timezone and currency
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <TimezoneSelect value={timezone} onChange={setTimezone} />
             <p className="text-xs text-muted-foreground">
-              This sets default timestamps and scheduling behavior.
+              The timezone sets default timestamps and scheduling behavior.
             </p>
+            <CurrencySelect value={currency} onChange={setCurrency} disabled={saving} />
           </CardContent>
         </Card>
       ) : null}

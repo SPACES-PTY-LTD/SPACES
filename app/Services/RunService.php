@@ -30,6 +30,7 @@ class RunService
     {
         $query = Run::query()
             ->with([
+                'additionalCosts',
                 'merchant',
                 'environment',
                 'driver.user',
@@ -541,6 +542,7 @@ class RunService
     private function loadRun(Run $run): Run
     {
         $run->load([
+            'additionalCosts',
             'merchant',
             'environment',
             'driver.user',

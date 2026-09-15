@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { AdditionalCostsDialog } from "@/components/costs/additional-costs"
+import { costTotalsLabel } from "@/lib/costs"
 import { MarkerClusterer, MarkerUtils, type Marker } from "@googlemaps/markerclusterer"
 import { Loader2, MapPin, RotateCcw, Search, X } from "lucide-react"
 import { toast } from "sonner"
@@ -488,6 +490,7 @@ export function LocationsGeofencePageContent({
                   <span className="mt-1 inline-flex max-w-full rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                     <span className="truncate">{getLocationTypeLabel(location)}</span>
                   </span>
+                  <span className="block mt-1 text-xs text-muted-foreground">Additional costs: {costTotalsLabel(location.additional_cost_totals)}</span>
                   {!hasGeofence ? (
                     <span className="mt-1 inline-flex max-w-full rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                       No geofence
@@ -905,6 +908,7 @@ function LocationsGeofenceMap({
             </Button>
           </div>
 
+          <div className="mb-3"><AdditionalCostsDialog key={selectedLocation.location_id} kind="locations" id={selectedLocation.location_id} accessToken={accessToken} totals={selectedLocation.additional_cost_totals} onChanged={(summary) => onLocationSaved({ ...selectedLocation, additional_cost_totals: summary.additional_cost_totals })} /></div>
           <div className="space-y-3">
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">

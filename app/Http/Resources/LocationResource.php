@@ -24,6 +24,8 @@ class LocationResource extends JsonResource
         }
         return [
             'location_id' => $this->uuid,
+            'additional_cost_totals' => $this->whenLoaded('additionalCosts', fn () => \App\Support\CostMoney::totals($this->additionalCosts)),
+            'additional_costs' => $this->when($request->route('location_uuid') !== null && $this->relationLoaded('additionalCosts'), fn () => AdditionalCostResource::collection($this->additionalCosts)),
             'name' => $this->name,
             'code' => $this->code,
             'company' => $this->company,

@@ -26,6 +26,7 @@ class UpdateMerchantSettingsRequest extends BaseRequest
     public function rules(): array
     {
         return [
+            'currency' => ['sometimes', 'required', \Illuminate\Validation\Rule::in(array_keys(\App\Support\CostMoney::CURRENCIES))],
             'timezone' => ['sometimes', 'required', 'timezone'],
             'operating_countries' => ['sometimes', 'required', 'array', 'min:1'],
             'operating_countries.*' => ['string', 'size:2', 'regex:/^[A-Z]{2}$/', 'distinct'],

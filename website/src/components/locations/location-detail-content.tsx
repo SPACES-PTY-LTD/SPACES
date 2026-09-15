@@ -9,6 +9,7 @@ import { LocationDetailActions } from "@/components/locations/location-detail-ac
 import { LocationGeofence } from "@/components/locations/location-geofence"
 import { LocationTruckActivityTimelineCard } from "@/components/locations/location-truck-activity-timeline-card"
 import { EntryTagsManager } from "@/components/common/entry-tags-manager"
+import { AdditionalCosts } from "@/components/costs/additional-costs"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { getLocation } from "@/lib/api/locations"
 import { getShipmentsFullReport } from "@/lib/api/reports"
@@ -210,6 +211,18 @@ export async function LocationDetailContent({
         accessToken={accessToken}
         initialTags={location.tags ?? []}
       />
+
+      <Card>
+        <CardContent>
+          <AdditionalCosts
+            key={locationId}
+            kind="locations"
+            id={locationId}
+            accessToken={accessToken}
+            merchantId={merchantId ?? location.merchant_id ?? null}
+          />
+        </CardContent>
+      </Card>
 
       <LocationTruckActivityTimelineCard
         locationId={locationId}

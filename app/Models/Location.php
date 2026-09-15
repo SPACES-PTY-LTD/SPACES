@@ -53,6 +53,11 @@ class Location extends Model
         'imported_at' => 'datetime',
     ];
 
+    public function additionalCosts()
+    {
+        return $this->hasMany(LocationCost::class)->orderBy('id');
+    }
+
     public function merchant()
     {
         return $this->belongsTo(Merchant::class);

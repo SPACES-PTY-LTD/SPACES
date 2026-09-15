@@ -62,6 +62,8 @@ class RunResource extends JsonResource
 
         return [
             'run_id' => $this->uuid,
+            'additional_cost_totals' => $this->whenLoaded('additionalCosts', fn () => \App\Support\CostMoney::totals($this->additionalCosts)),
+            'additional_costs' => $this->when($request->route('run_uuid') !== null && $this->relationLoaded('additionalCosts'), fn () => AdditionalCostResource::collection($this->additionalCosts)),
             'merchant_id' => optional($this->merchant)->uuid,
             'environment_id' => optional($this->environment)->uuid,
             'status' => $this->status,

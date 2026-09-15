@@ -88,6 +88,7 @@ export interface User {
 }
 
 export interface Merchant {
+  currency?: string
   merchant_id: UUID
   name: string
   status: Status
@@ -510,6 +511,8 @@ export interface RunSafety {
 }
 
 export interface Run {
+  additional_costs?: AdditionalCost[]
+  additional_cost_totals?: CostTotal[]
   run_id: UUID
   merchant_id?: UUID
   environment_id?: UUID | null
@@ -733,6 +736,8 @@ export type DriverVehicle = Vehicle
 
 
 export interface Location {
+  additional_costs?: AdditionalCost[]
+  additional_cost_totals?: CostTotal[]
   location_id: UUID
   merchant_id?: UUID
   environment_id?: UUID | null
@@ -1507,4 +1512,22 @@ export interface BillingPaymentMethodSyncResult {
     status?: string | null
     retrieved_from_gateway?: boolean
   }>
+}
+
+export interface CostTotal { currency: string; amount: string }
+export interface AdditionalCost {
+  cost_id: string
+  title: string
+  amount: string
+  currency: string
+  source: "manual" | "geofence"
+  location_name?: string | null
+  visited_at?: string | null
+}
+export interface AdditionalCostSummary {
+  additional_costs: AdditionalCost[]
+  additional_cost_totals: CostTotal[]
+  default_currency: string
+  can_edit: boolean
+  can_delete: boolean
 }

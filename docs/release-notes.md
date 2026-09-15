@@ -20,6 +20,104 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-15 | Version: unreleased
+
+### Summary
+- Moved Additional costs directly after the Shipments card on run details.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Run details display cost management below the shipment list.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Targeted ESLint passed.
+- Visually verified the card order and cost controls on the completed preview run.
+
+## 2026-09-15 | Version: unreleased
+
+### Summary
+- Fixed the Additional costs column layout on the runs list.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Reserved sufficient table and column width to prevent costs from overlapping Shipments.
+- Display each currency total on a separate line, keeping its currency and amount together.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Targeted ESLint and TypeScript checks passed.
+- Visually verified single-currency totals, mixed-currency totals, and the no-cost state in the local runs list.
+
+## 2026-09-15 | Version: unreleased
+
+### Summary
+- Added an Additional costs card directly after Tags on location details.
+
+### API Changes
+- None; reuses the existing location cost endpoints.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Location details show itemized costs and totals, with permission-aware controls to add, edit, and remove costs.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Targeted ESLint and TypeScript checks passed.
+- Verified the card appears between Tags and Truck activity using the local preview account.
+
+## 2026-09-15 | Version: unreleased
+
+### Summary
+- Added configurable geofence costs and separate, editable run additional costs.
+- Added merchant currency selection in organization settings and merchant setup, defaulting to ZAR.
+
+### API Changes
+- Added `GET`/`POST /api/v1/locations/{location_uuid}/additional-costs` and `PATCH`/`DELETE /api/v1/locations/{location_uuid}/additional-costs/{cost_uuid}`.
+- Added equivalent endpoints under `/api/v1/runs/{run_uuid}/additional-costs`.
+- Manual run creation accepts `{ "source": "manual", "title": "Parking", "amount": "25.00" }`; configured geofence selection accepts `{ "source": "geofence", "location_cost_id": "<cost UUID>" }` with optional title/amount overrides. Location cost creation accepts title and amount. Amounts are decimal strings; currencies are assigned from the merchant default or selected cost and cannot be relabelled on existing records.
+- Cost responses include individual costs, totals grouped by currency, current default currency, and edit/delete permissions. Run/location list resources include `additional_cost_totals`; detail resources also include `additional_costs`.
+- Merchant resources and `PATCH /api/v1/merchants/{merchant_uuid}/settings` now support `currency` (supported codes are defined in `CostMoney::CURRENCIES`).
+
+### Database Changes
+- Added `merchants.currency` with default ZAR, `location_costs`, and `run_costs` with decimal amounts, currency and source snapshots, visit references, actor IDs, and soft deletion.
+- A unique run/visit/configured-cost key survives soft deletion to prevent duplicate automatic charges.
+
+### Behavior Changes
+- Each new geofence entry charges the in-progress run once per configured cost. Staying inside produces no new charges; exiting and re-entering does. Charging also works with shipment automation disabled and at intermediate locations without an automation type.
+- When an entry ends one run and starts another, the arriving run receives the charge. If no run arrives, a run created by that entry receives it.
+- Automatic charges start with new visits only; existing visits and historical journeys are not backfilled.
+- Run details allow authorized users to add manual or selected geofence costs, override titles/amounts, and remove costs even after completion, with an activity log. Normal run edit restrictions remain unchanged.
+- Geofence and run lists show costs. Changes to configured prices or merchant currency preserve recorded values, with separate totals per currency and no exchange-rate conversion.
+- Quotes, invoices, shipment pages, and the mobile app are unchanged.
+
+### Breaking Changes
+- None. Apply the migration before running the updated application or tracking workers.
+
+### Verification
+- `php artisan test --compact --filter='AdditionalCostsTest|AutoRunLifecycleServiceTest|RunApiTest|LocationGeofenceUpdateTest|LocationResourceTest'`: 47 passed, 326 assertions. Includes repeat visits, replay after deletion, database uniqueness enforcement, run boundaries, snapshots, currency precision, permissions, and tenant/environment isolation.
+- Browser-verified manual and multiple selected geofence cost creation, overrides, editing/removal on a completed run, geofence configuration and totals, saved merchant currency, and ZAR defaults in setup using a disposable SQLite preview.
+- Frontend targeted ESLint, TypeScript checking, production build, and `git diff --check` passed. The build reports existing unrelated unused-variable and multiple-lockfile warnings.
+- Migration applied successfully to disposable SQLite databases and the local MySQL database. A local Cost Preview account includes three geofences, completed/in-progress/draft runs, repeated-visit charges, and separate ZAR/USD totals. Simultaneous concurrent processing was not exercised against MySQL.
+
 ## 2026-09-03 | Version: unreleased
 
 ### Summary

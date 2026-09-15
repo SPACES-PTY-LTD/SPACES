@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { CurrencySelect } from "@/components/settings/currency-select"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
@@ -27,6 +28,7 @@ export function OrganizationSettingsForm({
   const { data: liveSession, update } = useSession()
   const [saving, setSaving] = React.useState(false)
   const [name, setName] = React.useState(merchant.name ?? "")
+  const [currency, setCurrency] = React.useState(merchant.currency ?? "ZAR")
   const [timezone, setTimezone] = React.useState(merchant.timezone ?? getDefaultTimezone())
   const [countries, setCountries] = React.useState<string[]>(merchant.operating_countries ?? [])
   const [logoFile, setLogoFile] = React.useState<File | null>(null)
@@ -85,6 +87,7 @@ export function OrganizationSettingsForm({
     const settingsResponse = await updateMerchantSettings(
       merchant.merchant_id,
       {
+        currency,
         timezone: trimmedTimezone,
         operating_countries: countries,
       },
@@ -190,6 +193,7 @@ export function OrganizationSettingsForm({
       </div>
 
       <div className="pt-4 border-t border-border" />
+      <CurrencySelect value={currency} onChange={setCurrency} disabled={saving} />
 
       <div>
         <label className="block text-sm font-medium text-muted-foreground mb-1">

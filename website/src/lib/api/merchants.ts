@@ -154,6 +154,7 @@ export async function updateMerchant(
 }
 
 export type UpdateMerchantSettingsPayload = {
+  currency?: string
   timezone?: string | null
   operating_countries?: string[] | null
   allow_auto_shipment_creations_at_locations?: boolean

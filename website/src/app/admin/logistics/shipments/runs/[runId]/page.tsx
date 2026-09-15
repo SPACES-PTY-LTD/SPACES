@@ -1,3 +1,4 @@
+import { AdditionalCosts } from "@/components/costs/additional-costs"
 import Link from "next/link"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { ErrorMessage } from "@/components/common/error-message"
@@ -133,6 +134,8 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
           </Table>
         </CardContent>
       </Card>
+
+      <Card><CardContent className="pt-6"><AdditionalCosts kind="runs" id={run.run_id} accessToken={session.accessToken} merchantId={run.merchant_id} environmentId={run.environment_id} /></CardContent></Card>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card>

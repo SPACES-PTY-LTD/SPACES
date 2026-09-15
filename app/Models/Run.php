@@ -58,6 +58,11 @@ class Run extends Model
         'auto_created' => 'boolean',
     ];
 
+    public function additionalCosts()
+    {
+        return $this->hasMany(RunCost::class)->orderBy('id');
+    }
+
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);

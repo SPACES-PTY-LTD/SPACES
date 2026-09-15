@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { AdditionalCostsDialog } from "@/components/costs/additional-costs"
+import type { CostTotal } from "@/lib/types"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { DataTable, type DataTableSelectionState, type Filter } from "@/components/common/data-table"
@@ -29,6 +31,7 @@ import type { LocationType, Tag } from "@/lib/types"
 const MAX_EXPECTED_WAITING_TIME = 4_294_967_295
 
 type LocationsTableRow = {
+  additional_cost_totals?: CostTotal[]
   location_id?: string
   name?: string
   code?: string
@@ -466,6 +469,7 @@ export function LocationsTable({
         { key: "company", label: "Company", link: "href" },
         { key: "type", label: "Type", link: "href" },
         { key: "tags", label: "Tags", type: "tags" },
+        { key: "additional_cost_totals", label: "Additional costs", customValue: (row) => row.location_id ? <AdditionalCostsDialog compact kind="locations" id={row.location_id} accessToken={accessToken} totals={row.additional_cost_totals} /> : "No costs" },
         { key: "city", label: "City", link: "href" },
         {
           key: "expected_waiting_time",

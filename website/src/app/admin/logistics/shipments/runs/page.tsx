@@ -67,6 +67,9 @@ export default async function RunsPage({
   const rows = runs.map((run) => ({
     ...run,
     href: AdminRoute.runDetails(run.run_id),
+    additionalCostsLabel: run.additional_cost_totals?.length
+      ? run.additional_cost_totals.map(({ currency, amount }) => `${currency}\u00a0${amount}`).join("\n")
+      : "No costs",
     runDuration: duration(run.duration_seconds),
     runDistance: distance(run),
     originName: locationName(run.origin),
@@ -77,7 +80,7 @@ export default async function RunsPage({
   }))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 [&_td:nth-child(6)]:whitespace-pre-line [&_td:nth-child(6)]:tabular-nums">
       <PageHeader title="Runs" description="Review active and historical delivery runs." />
       <form className="flex max-w-xl gap-2" action="/admin/logistics/shipments/runs">
         {status ? <input type="hidden" name="status" value={status} /> : null}
@@ -92,7 +95,7 @@ export default async function RunsPage({
         meta={response && !isApiErrorResponse(response) ? normalizeTableMeta(response.meta) : undefined}
         loading_error={error}
         emptyMessage="No runs match the selected filters."
-        width="1500px"
+        width="1850px"
         filters={[
           {
             key: "status",
@@ -123,6 +126,7 @@ export default async function RunsPage({
           { key: "effectiveStart", label: "Start", type: "date_time", link: "href", className: "w-[170px]" },
           { key: "runDuration", label: "Duration", link: "href", className: "w-[120px]" },
           { key: "runDistance", label: "Distance", link: "href", className: "w-[140px]" },
+          { key: "additionalCostsLabel", label: "Additional costs", link: "href", className: "w-[180px]" },
           { key: "shipment_count", label: "Shipments", link: "href", className: "w-[110px]" },
           { key: "originName", label: "Origin", link: "href", className: "w-[220px]" },
           { key: "destinationName", label: "Destination", link: "href", className: "w-[220px]" },

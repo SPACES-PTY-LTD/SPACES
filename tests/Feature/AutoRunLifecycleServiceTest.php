@@ -963,6 +963,87 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertSame('2026-02-28T10:00:00+00:00', $vehicle->driver_logged_at?->toIso8601String());
     }
 
+    public function test_visit_costs_cover_origin_intermediate_delivery_and_arriving_run_boundary(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $origin = $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
+        $stop = $this->createLocation($merchant, 'Intermediate', false, -33.93, 18.43);
+        $stop->update(['location_type_id' => null]);
+        $delivery = $this->createLocation($merchant, 'Delivery', false, -33.94, 18.44);
+        $next = $this->createLocation($merchant, 'Next origin', true, -33.95, 18.45);
+        foreach ([$origin, $stop, $delivery, $next] as $location) {
+            $location->additionalCosts()->create(['title' => $location->name, 'amount' => '10.00', 'currency' => 'ZAR']);
+        }
+        $service = app(AutoRunLifecycleService::class);
+        foreach ([$origin, $stop, $delivery, $next] as $index => $location) {
+            $service->processVehiclePosition($vehicle, $merchant, (float) $location->latitude, (float) $location->longitude, Carbon::parse('2026-09-15 08:00:00')->addMinutes($index * 20));
+        }
+        $runs = Run::orderBy('id')->get();
+        $this->assertCount(2, $runs);
+        $this->assertCount(4, $runs[0]->additionalCosts);
+        $this->assertSame(Run::STATUS_COMPLETED, $runs[0]->status);
+        $this->assertCount(0, $runs[1]->additionalCosts);
+        $this->assertSame([$origin->name, $stop->name, $delivery->name, $next->name], $runs[0]->additionalCosts->pluck('title')->all());
+    }
+
+    public function test_costs_charge_once_per_visit_without_auto_shipments_and_preserve_deleted_replay_keys(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(false);
+        $location = $this->createLocation($merchant, 'Toll', false, -33.92, 18.42);
+        foreach (['Toll', 'Handling'] as $title) {
+            $location->additionalCosts()->create(['title' => $title, 'amount' => '12.50', 'currency' => 'ZAR']);
+        }
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'vehicle_id' => $vehicle->id, 'status' => Run::STATUS_IN_PROGRESS]);
+        $service = app(AutoRunLifecycleService::class);
+        $time = Carbon::parse('2026-09-15 08:00:00');
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $time);
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $time->copy()->addMinute());
+        $this->assertCount(2, $run->additionalCosts()->get());
+        $visit = VehicleActivity::where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->firstOrFail();
+        app(\App\Services\RunCostService::class)->applyVisit($run, $location, $visit);
+        $this->assertCount(2, $run->additionalCosts()->get());
+        $run->additionalCosts()->first()->delete();
+        app(\App\Services\RunCostService::class)->applyVisit($run, $location, $visit);
+        $this->assertCount(1, $run->additionalCosts()->get());
+        $this->assertSame(2, \App\Models\RunCost::withTrashed()->count());
+        $service->processVehiclePosition($vehicle, $merchant, -34.00, 18.60, $time->copy()->addMinutes(2));
+        $location->additionalCosts()->update(['amount' => '20.00']);
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $time->copy()->addMinutes(3));
+        $this->assertCount(3, $run->additionalCosts()->get());
+        $this->assertSame(['12.5000', '20.0000', '20.0000'], $run->additionalCosts()->pluck('amount')->all());
+    }
+
+    public function test_visits_without_an_in_progress_run_do_not_receive_costs_or_backfill(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(false);
+        $location = $this->createLocation($merchant, 'Toll', false, -33.92, 18.42);
+        $location->additionalCosts()->create(['title' => 'Toll', 'amount' => '10.00', 'currency' => 'ZAR']);
+        $service = app(AutoRunLifecycleService::class);
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42);
+        $this->assertDatabaseCount('run_costs', 0);
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'vehicle_id' => $vehicle->id, 'status' => Run::STATUS_DRAFT]);
+        $service->processVehiclePosition($vehicle, $merchant, -34.00, 18.60);
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42);
+        $this->assertDatabaseCount('run_costs', 0);
+        $run->update(['status' => Run::STATUS_IN_PROGRESS]);
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42);
+        $this->assertDatabaseCount('run_costs', 0);
+    }
+
+    public function test_database_rejects_duplicate_automatic_cost_even_after_soft_deletion(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(false);
+        $location = $this->createLocation($merchant, 'Toll', false, -33.92, 18.42);
+        $location->additionalCosts()->create(['title' => 'Toll', 'amount' => '10.00', 'currency' => 'ZAR']);
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'vehicle_id' => $vehicle->id, 'status' => Run::STATUS_IN_PROGRESS]);
+        app(AutoRunLifecycleService::class)->processVehiclePosition($vehicle, $merchant, -33.92, 18.42);
+        $cost = $run->additionalCosts()->firstOrFail();
+        $duplicate = $cost->replicate(['uuid']);
+        $cost->delete();
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
+        $duplicate->save();
+    }
+
     private function createMerchantVehicleContext(bool $allowAutoCreation): array
     {
         $user = $this->createUserWithoutEvents(['role' => 'user']);

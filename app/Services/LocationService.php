@@ -41,7 +41,7 @@ class LocationService
 
         $query = Location::query()
             ->select('locations.*')
-            ->with(['locationType:id,uuid,slug,title', 'tags'])
+            ->with(['locationType:id,uuid,slug,title', 'tags', 'additionalCosts'])
             ->orderBy($sortColumn, $sortDirection)
             ->orderBy('locations.id');
 
@@ -156,7 +156,7 @@ class LocationService
 
         $query = Location::query()
             ->select('locations.*')
-            ->with(['locationType:id,uuid,slug,title', 'tags'])
+            ->with(['locationType:id,uuid,slug,title', 'tags', 'additionalCosts'])
             ->where('uuid', $locationUuid);
 
         if ($supportsSpatialText) {
