@@ -618,6 +618,9 @@ export const driverApi = {
     const response = await requestWithMeta<DriverShipment[]>(final_url, { token });
     return normalizeListResponse(response, (shipments) => shipments.map((shipment) => normalizeShipment(shipment)) as DriverShipment[]);
   },
+  async runTrack(token: string, runId: string, before?: string) {
+    return request<RecordedRunTrack>(`/driver/runs/${encodeURIComponent(runId)}/track${before ? `?before=${encodeURIComponent(before)}` : ''}`, { token });
+  },
   async runPosition(token: string, runId: string) {
     return request<RunPosition>(`/driver/runs/${encodeURIComponent(runId)}/position`, { token });
   },
@@ -864,4 +867,15 @@ export type RunPosition = {
   plate_number: string | null;
   coordinate: { latitude: number; longitude: number } | null;
   updated_at: string | null;
+};
+
+export type RecordedRunTrack = {
+  status: 'ready' | 'empty' | 'disabled';
+  source: 'recorded_gps' | 'limited_history';
+  active: boolean;
+  segments: { latitude: number; longitude: number; observed_at: string }[][];
+  stops: { latitude: number; longitude: number; first_seen_at: string; last_seen_at: string; sample_count: number }[];
+  updated_at: string | null;
+  latest_observed_at: string | null;
+  coverage: { partial: boolean; next_before: string | null; displayed_coordinates: number; from?: string; to?: string };
 };

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { RunActualMap } from "@/components/runs/run-actual-map"
 import { ChevronDown, Link2, MapPin } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,7 +15,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 import { AdminRoute } from "@/lib/routes/admin"
 import type { Location, Run, RunShipment, RunTrackPoint, ShipmentStop } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -553,154 +553,10 @@ function locationSubtitle(location?: StopLocation | null) {
   return location?.full_address || location?.company || location?.code || null
 }
 
-function markerIcon(checkpoint: JourneyCheckpoint) {
-  const color = checkpoint.kind === "start"
-    ? "#16a34a"
-    : checkpoint.kind === "end"
-      ? "#111827"
-      : checkpoint.isShipmentStop
-        ? "#d97706"
-        : "#2563eb"
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 42 52">
-      <path d="M21 2C11.1 2 3 10.1 3 20c0 13.4 15.1 27.4 16.8 28.9.7.7 1.8.7 2.5 0C23.9 47.4 39 33.4 39 20 39 10.1 30.9 2 21 2z" fill="${color}" />
-      <circle cx="21" cy="20" r="10.5" fill="#ffffff" />
-    </svg>
-  `
-  return {
-    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    scaledSize: new google.maps.Size(38, 46),
-    anchor: new google.maps.Point(19, 45),
-    labelOrigin: new google.maps.Point(19, 18),
-  }
-}
-
 function markerLabel(checkpoint: JourneyCheckpoint, stopIndex: number) {
   if (checkpoint.kind === "start") return "S"
   if (checkpoint.kind === "end") return "E"
   return String(stopIndex)
-}
-
-function RunJourneyMap({ journey }: { journey: RunJourney }) {
-  const [mapElement, setMapElement] = React.useState<HTMLDivElement | null>(null)
-  const [loading, setLoading] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
-
-  const mappedCheckpoints = React.useMemo(
-    () => journey.checkpoints.filter((checkpoint) => checkpoint.position !== null),
-    [journey.checkpoints]
-  )
-
-  React.useEffect(() => {
-    if (!mapElement || (journey.path.length === 0 && mappedCheckpoints.length === 0)) return
-    let cancelled = false
-    let resizeObserver: ResizeObserver | null = null
-    let resizeFrame: number | null = null
-    let polyline: google.maps.Polyline | null = null
-    let markers: google.maps.Marker[] = []
-    setLoading(true)
-    setError(null)
-
-    loadGoogleMaps([]).then(() => {
-      if (cancelled) return
-      const firstPosition = journey.path[0] ?? mappedCheckpoints[0].position!
-      const map = new google.maps.Map(mapElement, {
-        center: firstPosition,
-        zoom: 12,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: true,
-        gestureHandling: "cooperative",
-      })
-      const bounds = new google.maps.LatLngBounds()
-      journey.path.forEach((point) => bounds.extend(point))
-      if (journey.path.length > 1) {
-        polyline = new google.maps.Polyline({
-          map,
-          path: journey.path,
-          strokeColor: "#2563eb",
-          strokeOpacity: 0.9,
-          strokeWeight: 4,
-        })
-      }
-
-      markers = mappedCheckpoints.map((checkpoint) => {
-        const checkpointIndex = journey.checkpoints.findIndex((candidate) => candidate.key === checkpoint.key)
-        const stopNumber = journey.checkpoints
-          .slice(0, checkpointIndex + 1)
-          .filter((candidate) => candidate.kind === "stop").length
-        const label = markerLabel(checkpoint, stopNumber)
-        const marker = new google.maps.Marker({
-          map,
-          position: checkpoint.position!,
-          title: `${label}. ${checkpoint.label} · ${formatKm(checkpoint.segmentKm)} from previous`,
-          icon: markerIcon(checkpoint),
-          label: { text: label, color: "#111827", fontSize: "12px", fontWeight: "700" },
-          zIndex: checkpoint.isShipmentStop ? 500 : 1,
-        })
-        bounds.extend(checkpoint.position!)
-        return marker
-      })
-
-      const refreshMap = () => {
-        google.maps.event.trigger(map, "resize")
-        if (bounds.isEmpty()) return
-        map.fitBounds(bounds, 48)
-      }
-      resizeFrame = window.requestAnimationFrame(() => {
-        resizeFrame = window.requestAnimationFrame(() => {
-          if (cancelled) return
-          refreshMap()
-          setLoading(false)
-        })
-      })
-      resizeObserver = new ResizeObserver(() => {
-        if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame)
-        resizeFrame = window.requestAnimationFrame(refreshMap)
-      })
-      resizeObserver.observe(mapElement)
-    }).catch(() => {
-      if (!cancelled) {
-        setError("The map could not be loaded. Check the Google Maps configuration and try again.")
-        setLoading(false)
-      }
-    })
-
-    return () => {
-      cancelled = true
-      resizeObserver?.disconnect()
-      if (resizeFrame !== null) window.cancelAnimationFrame(resizeFrame)
-      markers.forEach((marker) => marker.setMap(null))
-      polyline?.setMap(null)
-    }
-  }, [journey.checkpoints, journey.path, mapElement, mappedCheckpoints])
-
-  if (journey.path.length === 0 && mappedCheckpoints.length === 0) {
-    return (
-      <div className="flex h-72 items-center justify-center rounded-lg border border-dashed px-6 text-center text-sm text-muted-foreground">
-        No coordinates were recorded for this run.
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-72 items-center justify-center rounded-lg border border-dashed px-6 text-center text-sm text-muted-foreground">
-        {error}
-      </div>
-    )
-  }
-
-  return (
-    <div className="relative">
-      <div ref={setMapElement} className="h-[420px] w-full rounded-lg" aria-label="Run stops and travelled route map" />
-      {loading ? (
-        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/80 text-sm text-muted-foreground">
-          Loading map…
-        </div>
-      ) : null}
-    </div>
-  )
 }
 
 function distanceExplanation(method: RunJourney["distanceMethod"]) {
@@ -730,7 +586,7 @@ function StopTime({ label, value }: { label: string; value: string | null }) {
   )
 }
 
-function JourneyTimeline({ journey }: { journey: RunJourney }) {
+function JourneyTimeline({ journey, run, accessToken }: { journey: RunJourney; run: Run; accessToken?: string | null }) {
   const [showMap, setShowMap] = React.useState(false)
   return (
     <section aria-label="All stops" className="min-w-0">
@@ -787,16 +643,16 @@ function JourneyTimeline({ journey }: { journey: RunJourney }) {
       <div className="flex justify-between gap-4 py-4 text-sm"><span className="text-muted-foreground">{journey.checkpoints.length} journey checkpoints</span><span className="font-semibold tabular-nums">Run total · {formatKm(journey.totalKm)}</span></div>
       <details className="mt-3 rounded-lg border p-4" onToggle={(event) => setShowMap(event.currentTarget.open)}>
         <summary className="cursor-pointer text-sm font-medium">Run route and stops</summary>
-        {showMap ? <><p className="my-3 text-xs text-muted-foreground">Green: start · Blue: other stops · Amber: pickup/drop-off · Black: end</p><RunJourneyMap journey={journey} /></> : null}
+        {showMap ? <RunActualMap runId={run.run_id} accessToken={accessToken} stops={run.actual_stops ?? []} /> : null}
       </details>
     </section>
   )
 }
 
-export function RunStopJourney({ run, layout = "table" }: { run: Run; layout?: "table" | "timeline" }) {
+export function RunStopJourney({ run, layout = "table", accessToken }: { run: Run; layout?: "table" | "timeline"; accessToken?: string | null }) {
   const journey = React.useMemo(() => buildRunJourney(run), [run])
 
-  if (layout === "timeline") return <JourneyTimeline journey={journey} />
+  if (layout === "timeline") return <JourneyTimeline journey={journey} run={run} accessToken={accessToken} />
 
   return (
     <div className="space-y-4">
@@ -903,17 +759,7 @@ export function RunStopJourney({ run, layout = "table" }: { run: Run; layout?: "
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Run route and stops</CardTitle>
-          <CardDescription>
-            Green marks the run start, blue marks other stops, amber highlights shipment pickup/drop-off stops, and black marks the run end.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RunJourneyMap journey={journey} />
-        </CardContent>
-      </Card>
+      <RunActualMap runId={run.run_id} accessToken={accessToken} stops={run.actual_stops ?? []} />
     </div>
   )
 }

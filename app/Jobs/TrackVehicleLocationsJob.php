@@ -26,13 +26,17 @@ class TrackVehicleLocationsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /**
-     * @param  array<int>  $vehicleIds
-     */
+    public ?string $captureAttemptId = null;
+
+    public ?string $captureFallbackAt = null;
+
+    /** @param array<int> $vehicleIds */
     public function __construct(
         public int $merchantIntegrationId,
         public array $vehicleIds
     ) {
+        $this->captureAttemptId = (string) Str::uuid();
+        $this->captureFallbackAt = now()->toIso8601String();
     }
 
     public function handle(
@@ -40,8 +44,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
         AutoRunLifecycleService $autoRunLifecycleService,
         DriverVehicleService $driverVehicleService,
         DriverService $driverService
-    ): void
-    {
+    ): void {
         $integration = null;
         $provider = null;
         $result = 'completed';
@@ -51,42 +54,46 @@ class TrackVehicleLocationsJob implements ShouldQueue
         $vehiclesChecked = 0;
         $vehiclesInsideGeofence = 0;
         $failureMetadata = [];
+        $historyStats = ['created' => 0, 'merged' => 0, 'duplicates' => 0, 'invalid' => 0];
+        $captureStarted = hrtime(true);
 
         try {
             $integration = MerchantIntegration::with(['provider', 'merchant'])->find($this->merchantIntegrationId);
-            if (!$integration || !$integration->provider) {
+            if (! $integration || ! $integration->provider) {
                 $exitReason = 'missing_integration_or_provider';
+
                 return;
             }
 
             $provider = $integration->provider;
             $service = $this->resolveProviderService($provider);
-            if (!$service) {
+            if (! $service) {
                 $exitReason = 'missing_provider_service';
+
                 return;
             }
-            
+
             // Log::info('Starting vehicle location tracking job.', [
             //     'merchant_integration_id' => $integration->id,
             //     'provider_id' => $provider->id,
             //     'vehicle_ids' => $this->vehicleIds,
             // ]);
-            
 
             $vehicles = Vehicle::query()
                 ->whereIn('id', $this->vehicleIds)
                 ->whereNotNull('intergration_id')
                 ->get();
 
-
             if ($vehicles->isEmpty()) {
                 $exitReason = 'no_vehicles_to_sync';
+
                 return;
             }
 
             $assetIds = $vehicles->pluck('intergration_id')->filter()->values()->all();
             if (empty($assetIds)) {
                 $exitReason = 'no_asset_ids';
+
                 return;
             }
 
@@ -95,19 +102,20 @@ class TrackVehicleLocationsJob implements ShouldQueue
 
             foreach ($vehicles as $vehicle) {
                 $assetId = $vehicle->intergration_id;
-       
-                if (!$assetId) {
+
+                if (! $assetId) {
                     continue;
                 }
 
                 $position = $positionsByAsset[$assetId] ?? null;
-                if (!$position) {
+                if (! $position) {
                     continue;
                 }
                 $vehiclesChecked++;
                 $matchedPositions++;
 
-                $timestamp = $this->extractTimestamp($position) ?? now();
+                $sourceTimeKnown = $this->extractTimestamp($position) !== null;
+                $timestamp = ($this->extractTimestamp($position) ?? Carbon::parse($this->captureFallbackAt ?? now()))->utc();
                 $latitude = $this->extractLatitude($position);
                 $longitude = $this->extractLongitude($position);
                 $speedKilometresPerHour = $this->extractSpeedKilometresPerHour($position);
@@ -115,47 +123,64 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 $driverIntegrationId = $this->extractDriverIntegrationId($position);
                 $odometerKilometres = $this->extractOdometerKilometres($position);
 
-                $args = [
-                    'last_location_address' => $this->extractAddress($position) ?? $vehicle->last_location_address,
-                    'location_updated_at' => $timestamp,
-                    'odometer' => $this->extractOdometer($position) ?? $vehicle->odometer,
-                    'metadata' => $this->mergeMetadata($vehicle->metadata, [
-                        'tracking_provider' => $provider->name,
-                        'tracking_position' => $position,
-                    ]),
-                ];
+                if ($latitude === null || $longitude === null || ! is_finite($latitude) || ! is_finite($longitude) || abs($latitude) > 90 || abs($longitude) > 180) {
+                    $historyStats['invalid']++;
+                    Log::warning('vehicle_history.invalid_coordinate', ['vehicle_id' => $vehicle->id]);
 
-                $vehicle->forceFill($args)->save();
-                $updatedVehicles++;
+                    continue;
+                }
+                // Resolve provider data before acquiring the per-vehicle database lock.
+                $detectedDriver = null;
+                if ((! $vehicle->location_updated_at || $timestamp->greaterThan($vehicle->location_updated_at)) && $integration->merchant && filled($driverIntegrationId)) {
+                    $detectedDriver = $this->findDriverByIntegrationId($integration, $driverIntegrationId)
+                        ?? $this->importMissingDriver($integration, $provider, $service, $driverIntegrationId, $driverService, $activityLogService);
+                }
+                $history = DB::transaction(function () use ($vehicle, $integration, $provider, $detectedDriver, $position, $timestamp, $sourceTimeKnown, $latitude, $longitude, $speedKilometresPerHour, $speedLimit, $driverIntegrationId, $odometerKilometres, $driverVehicleService, $autoRunLifecycleService, &$updatedVehicles, &$vehiclesInsideGeofence) {
+                    $vehicle = app(\App\Services\VehicleLocationHistoryService::class)->lockVehicle($vehicle->id);
+                    // Late deliveries belong in history but must not replay lifecycle transitions.
+                    if (! $vehicle->location_updated_at || $timestamp->greaterThan($vehicle->location_updated_at)) {
+                        $args = [
+                            'last_location_address' => $this->extractAddress($position) ?? $vehicle->last_location_address,
+                            'location_updated_at' => $timestamp,
+                            'odometer' => $this->extractOdometer($position) ?? $vehicle->odometer,
+                            'metadata' => $this->mergeMetadata($vehicle->metadata, [
+                                'tracking_provider' => $provider->name,
+                                'tracking_position' => $position,
+                            ]),
+                        ];
 
-                $this->syncDetectedDriver(
-                    vehicle: $vehicle,
-                    merchantIntegration: $integration,
-                    provider: $provider,
-                    providerService: $service,
-                    driverIntegrationId: $driverIntegrationId,
-                    driverVehicleService: $driverVehicleService,
-                    driverService: $driverService,
-                    activityLogService: $activityLogService,
-                );
+                        $vehicle->forceFill($args)->save();
+                        $updatedVehicles++;
 
-                if ($integration->merchant) {
-                    $insideGeofence = $autoRunLifecycleService->processVehiclePosition(
-                        vehicle: $vehicle,
-                        merchant: $integration->merchant,
-                        latitude: $latitude,
-                        longitude: $longitude,
-                        eventAt: $timestamp,
-                        speedKph: $speedKilometresPerHour,
-                        speedLimitKph: $speedLimit,
-                        odometerKilometres: $odometerKilometres,
-                        driverIntegrationId: $driverIntegrationId,
-                        providerPosition: $position,
-                    );
+                        $this->syncDetectedDriver($vehicle, $detectedDriver, $driverVehicleService);
 
-                    if ($insideGeofence) {
-                        $vehiclesInsideGeofence++;
+                        if ($integration->merchant) {
+                            $insideGeofence = $autoRunLifecycleService->processVehiclePosition(
+                                vehicle: $vehicle,
+                                merchant: $integration->merchant,
+                                latitude: $latitude,
+                                longitude: $longitude,
+                                eventAt: $timestamp,
+                                speedKph: $speedKilometresPerHour,
+                                speedLimitKph: $speedLimit,
+                                odometerKilometres: $odometerKilometres,
+                                driverIntegrationId: $driverIntegrationId,
+                                providerPosition: $position,
+                            );
+
+                            if ($insideGeofence) {
+                                $vehiclesInsideGeofence++;
+                            }
+                        }
                     }
+
+                    return app(\App\Services\VehicleLocationHistoryService::class)->record(
+                        $vehicle, $integration, $timestamp, $latitude, $longitude,
+                        $speedKilometresPerHour, $odometerKilometres, $sourceTimeKnown, $this->captureAttemptId
+                    );
+                }, 3);
+                if (config('vehicle_history.recording_enabled')) {
+                    $historyStats[$history === null ? 'duplicates' : ($history->wasRecentlyCreated ? 'created' : 'merged')]++;
                 }
             }
 
@@ -198,8 +223,11 @@ class TrackVehicleLocationsJob implements ShouldQueue
             );
             throw $exception;
         } finally {
+            if (config('vehicle_history.recording_enabled')) {
+                Log::info('vehicle_history.ingestion', $historyStats + ['integration_id' => $this->merchantIntegrationId, 'result' => $result, 'duration_ms' => round((hrtime(true) - $captureStarted) / 1000000, 2)]);
+            }
 
-            //only log if there the $result is not === 'completed' to avoid double logging in case of exception, otherwise log the successful completion
+            // only log if there the $result is not === 'completed' to avoid double logging in case of exception, otherwise log the successful completion
             if ($result !== 'completed') {
                 $activityLogService->log(
                     action: $result,
@@ -250,7 +278,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
     {
         $decoded = json_decode($body, true);
 
-        if (!is_array($decoded) || !array_key_exists('Message', $decoded)) {
+        if (! is_array($decoded) || ! array_key_exists('Message', $decoded)) {
             return false;
         }
 
@@ -271,7 +299,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
             'key' => $key,
         ]);
 
-        if (!$serviceClass || !class_exists($serviceClass)) {
+        if (! $serviceClass || ! class_exists($serviceClass)) {
             Log::warning('Tracking provider service class not configured..', [
                 'provider_id' => $provider->id,
                 'provider_name' => $provider->name,
@@ -286,7 +314,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
 
     private function httpExceptionMetadata(\Throwable $exception): array
     {
-        if (!$exception instanceof RequestException) {
+        if (! $exception instanceof RequestException) {
             return [];
         }
 
@@ -299,30 +327,30 @@ class TrackVehicleLocationsJob implements ShouldQueue
 
     private function normalizePositions($positions, array $assetIds): array
     {
-        if (!is_array($positions)) {
+        if (! is_array($positions)) {
             return [];
         }
 
         $list = $positions['positions'] ?? $positions['Positions'] ?? $positions['data'] ?? $positions;
-        if (!is_array($list)) {
+        if (! is_array($list)) {
             return [];
         }
-        if (!array_is_list($list)) {
+        if (! array_is_list($list)) {
             $list = [$list];
         }
 
         $normalized = [];
         foreach (array_values($list) as $index => $item) {
-            if (!is_array($item)) {
+            if (! is_array($item)) {
                 continue;
             }
 
             $assetId = $item['vehicle_integration_id'] ?? $item['assetId'] ?? $item['asset_id'] ?? $item['assetID'] ?? null;
-            if (!$assetId && isset($assetIds[$index])) {
+            if (! $assetId && isset($assetIds[$index])) {
                 $assetId = $assetIds[$index];
             }
 
-            if (!$assetId) {
+            if (! $assetId) {
                 continue;
             }
 
@@ -339,7 +367,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
             ?? $position['recordedAt']
             ?? Arr::get($position, 'position.timestamp');
 
-        if (!$timestamp) {
+        if (! $timestamp) {
             return null;
         }
 
@@ -381,7 +409,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
             ?? $position['OdometerKilometres']
             ?? Arr::get($position, 'position.odometer');
 
-        if (!is_numeric($value)) {
+        if (! is_numeric($value)) {
             return null;
         }
 
@@ -440,34 +468,9 @@ class TrackVehicleLocationsJob implements ShouldQueue
         return (string) $value;
     }
 
-    private function syncDetectedDriver(
-        Vehicle $vehicle,
-        MerchantIntegration $merchantIntegration,
-        TrackingProvider $provider,
-        object $providerService,
-        ?string $driverIntegrationId,
-        DriverVehicleService $driverVehicleService,
-        DriverService $driverService,
-        ActivityLogService $activityLogService
-    ): void {
-        if (!$merchantIntegration->merchant || blank($driverIntegrationId)) {
-            return;
-        }
-
-        $driver = $this->findDriverByIntegrationId($merchantIntegration, $driverIntegrationId);
-
-        if (!$driver) {
-            $driver = $this->importMissingDriver(
-                merchantIntegration: $merchantIntegration,
-                provider: $provider,
-                providerService: $providerService,
-                driverIntegrationId: $driverIntegrationId,
-                driverService: $driverService,
-                activityLogService: $activityLogService,
-            );
-        }
-
-        if (!$driver) {
+    private function syncDetectedDriver(Vehicle $vehicle, ?Driver $driver, DriverVehicleService $driverVehicleService): void
+    {
+        if (! $driver) {
             return;
         }
 
@@ -475,17 +478,17 @@ class TrackVehicleLocationsJob implements ShouldQueue
             $driver = Driver::query()->whereKey($driver->id)->lockForUpdate()->first();
             $vehicle = Vehicle::query()->whereKey($vehicle->id)->lockForUpdate()->first();
 
-            if (!$driver || !$vehicle) {
+            if (! $driver || ! $vehicle) {
                 return;
             }
 
-            if (!$driver->is_active) {
+            if (! $driver->is_active) {
                 $driver->forceFill([
                     'is_active' => true,
                 ])->save();
             }
 
-            if (!$driver->vehicles()->whereKey($vehicle->id)->exists()) {
+            if (! $driver->vehicles()->whereKey($vehicle->id)->exists()) {
                 $driverVehicleService->assignVehicle($driver, $vehicle);
             }
         });
@@ -516,7 +519,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
         ActivityLogService $activityLogService
     ): ?Driver {
         $merchant = $merchantIntegration->merchant;
-        if (!$merchant) {
+        if (! $merchant) {
             return null;
         }
 
@@ -538,7 +541,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 $drivers = $providerService->import_drivers($integrationData, $integrationOptions);
                 if (is_array($drivers)) {
                     foreach ($drivers as $candidate) {
-                        if (!is_array($candidate)) {
+                        if (! is_array($candidate)) {
                             continue;
                         }
 
@@ -557,7 +560,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
                 'provider_name' => $provider->name,
                 'driver_integration_id' => $driverIntegrationId,
                 'fetch_method' => $fetchMethod,
-                'exception_message' => $exception->getMessage()
+                'exception_message' => $exception->getMessage(),
             ]);
 
             $activityLogService->log(
@@ -579,7 +582,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
             return null;
         }
 
-        if (!is_array($payload)) {
+        if (! is_array($payload)) {
             Log::info('Tracking sync did not find provider driver details for missing driver.', [
                 'merchant_integration_id' => $merchantIntegration->id,
                 'merchant_id' => $merchantIntegration->merchant_id,
@@ -601,7 +604,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
         );
 
         $driver = $this->findDriverByIntegrationId($merchantIntegration, $driverIntegrationId);
-        if (!$driver) {
+        if (! $driver) {
             return null;
         }
 
@@ -641,7 +644,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
     private function buildProviderIntegrationData(MerchantIntegration $integration): array
     {
         $payload = $integration->integration_data ?? [];
-        if (!is_array($payload)) {
+        if (! is_array($payload)) {
             $payload = [];
         }
 

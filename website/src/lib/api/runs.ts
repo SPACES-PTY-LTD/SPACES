@@ -26,3 +26,19 @@ export async function getRun(runId: string, token?: string | null) {
   if (isApiErrorResponse(response)) return response
   return response.data
 }
+
+export type RunTrack = {
+  status: "ready" | "empty" | "disabled"
+  source: "recorded_gps" | "limited_history"
+  active: boolean
+  segments: { latitude: number; longitude: number; observed_at: string }[][]
+  stops: { latitude: number; longitude: number; first_seen_at: string; last_seen_at: string; sample_count: number }[]
+  updated_at: string | null
+  latest_observed_at: string | null
+  coverage: { partial: boolean; next_before: string | null; displayed_coordinates: number; from?: string; to?: string; gap_count?: number }
+}
+
+export async function getRunTrack(runId: string, token?: string | null, before?: string) {
+  const response = await apiFetch<ApiEnvelope<RunTrack>>(`/api/v1/runs/${runId}/track`, { token, params: { before } })
+  return isApiErrorResponse(response) ? response : response.data
+}

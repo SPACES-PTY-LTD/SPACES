@@ -1,8 +1,8 @@
 # Driver dashboard plan
 
-Version: 1.20
-Last updated: 2026-09-17  
-Status: Approved mobile/API implementation completed on 2026-09-16. Targeted automated and simulator checks are recorded below; live AI and physical-camera verification remain environment-dependent.
+Version: 1.21
+Last updated: 2026-09-18
+Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
 ## Purpose and maintenance
 
@@ -82,6 +82,16 @@ Use Google map routing for road directions. The full planned trip is:
 - Missing coordinates must not remove a stop or shipment from the timeline. Keep its address and explain that its position is unavailable; omit its pin until resolved.
 - A Google routing failure must preserve the run and timeline. Show a routing retry/unavailable state rather than treating a straight line as verified road directions.
 - Do not infer that planned endpoints have been visited. Recorded visits and events remain factual history.
+
+### Recorded GPS history (1.21)
+
+Add **Planned / Recorded** above the map, with Planned selected initially. Planned routing and its distance/time information remain unchanged. Recorded uses a separate lazy route endpoint and the current truck position. Label it **Recorded GPS**; never run directions or road matching to fill missing roads. Break lines across gaps longer than five minutes. Keep explicit loading, empty, stale, disabled and recoverable failure states. Preserve prior data for the same run/window on refresh failure.
+
+Refresh the active run every minute only while Recorded is visible and the app is foregrounded. Stop fetching when hidden/backgrounded. Bound each response to 2,000 displayed coordinates while preserving segment endpoints and stop boundaries; provide Earlier route / Latest route controls for large histories. Older activity-only traces must say **Limited historical data**. No history is embedded in the general dashboard payload.
+
+Store GPS separately from business activities forever. Merge only newer stationary observations within five minutes, reported speed at most 3 km/h and within 25 metres of the original stop position; thresholds are configurable. Missing speed stays an individual point. Preserve original position/time and latest details/count. Serialize ingestion per vehicle and deduplicate retries. Keep delayed observations at their source times without rewinding live location or lifecycle. Associate by the actual vehicle/run interval; ambiguous samples stay unassigned and are logged. Do not change odometer totals or shipment-distance calculations.
+
+Implementation: migration, ingestion, scoped API and admin/mobile consumers are implemented behind independent recording/display flags, both default off. Figma active-run map includes the default toggle; its scenario guide documents Recorded states and behavior. Native device behavior and production-engine load checks remain rollout gates. See [capture contract, rollout and monitoring](../../vehicle-location-history.md).
 
 ## 5. Timeline
 
@@ -263,6 +273,17 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 - Define reliable recorded-visit matching, repeated-visit ambiguity, manual status overrides, delivery-time provenance and status correction permissions. Audit existing odometer/proof requirements; never fabricate required evidence.
 
+### GPS history acceptance (1.21)
+
+- [x] Separate permanent history and deduplication receipts; configurable stop merging and delayed-sample handling.
+- [x] Scoped admin/assigned-driver track endpoints; bounded windows preserve stop/segment boundaries.
+- [x] Admin run and expanded Run KM maps consume history separately from lists/reports.
+- [x] Mobile Planned / Recorded UI and foreground/visibility refresh guards implemented.
+- [x] Retry, timestamp, authorization, large-dataset and concurrent-ingestion automated checks.
+- [x] Figma default toggle, scenario notes, this plan and release notes updated.
+- [ ] Native iOS/Android map/toggle/background/network-state interaction verified on a release build.
+- [ ] Production database load, row-lock behavior, indexes, monitoring alerts and storage capacity verified before enabling flags broadly.
+
 ### Acceptance checklist
 
 - [x] Runs without a final destination expose Choose final destination in All stops; selection saves through a scoped bottom sheet and refreshes the planned end/route without changing lifecycle or overwriting a concurrent destination.
@@ -309,6 +330,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-18 | 1.21 | Implemented separate GPS history, merged stationary observations, scoped bounded recorded-route APIs, admin maps and mobile Planned / Recorded mode behind staged rollout flags. Figma toggle/notes updated; native and production-capacity verification remain rollout gates. |
 | 2026-09-17 | 1.20 | Removed the separate daily-delivery summary, progress bar and View shipments dashboard shortcut. |
 | 2026-09-17 | 1.19 | Replaced app-owned native alerts with reusable message bottom sheets, preserving actions and dismiss behaviour. |
 | 2026-09-17 | 1.18 | Tightened shipment links from 52-point spacing to 36-point rows with no inter-row gap; realigned curved branches. |

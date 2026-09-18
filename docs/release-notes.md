@@ -20,6 +20,16 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-18 | Version: recorded-run-gps-v1
+
+- **Summary:** Added permanent vehicle GPS history with merged stationary observations and recorded routes on admin run details, Run KM details and the mobile dashboard.
+- **API Changes:** Added scoped `GET /api/v1/runs/{run_uuid}/track` and assigned-driver `GET /api/v1/driver/runs/{run_uuid}/track`, with earlier-window cursors, capture freshness, coverage, stops and at most 2,000 displayed coordinates. No history is added to lists, reports or the general dashboard payload.
+- **Database Changes:** Additive migration creates `vehicle_location_history`, compact permanent `vehicle_location_receipts` for retry deduplication, indexed vehicle/run queries and the runs actual-interval index. No automatic deletion or provider payload storage.
+- **Behavior Changes:** One-minute tracking now optionally records observations under a vehicle lock. Stops merge within configurable 3 km/h / 25m limits and five-minute gaps. Delayed observations retain source times without rewinding live coordinates or lifecycle; actual run intervals determine association. Separate `VEHICLE_HISTORY_RECORDING_ENABLED` and `VEHICLE_HISTORY_DISPLAY_ENABLED` flags default off. Mobile defaults to Planned; Recorded fetches lazily and refreshes active routes only while visible/foregrounded. Recorded maps break missing tracking segments and label activity-only fallback Limited historical data. Odometer/billing/distance-allocation logic is unchanged. Completed maps are cached and invalidated after affected ingestion commits; monitoring counters and payload-size logs are available.
+- **Internal Changes:** Dashboard plan revision 1.21, Figma map toggle/scenario notes and [rollout/monitoring documentation](vehicle-location-history.md) updated.
+- **Breaking Changes:** None. Apply the additive migration before enabling either flag; deploy and verify capture before enabling display. Existing missing GPS history cannot be recreated.
+- **Verification:** 56 targeted backend tests passed (568 assertions), covering capture, authorization, lifecycle regression, automatic-start ingestion ordering, list-query isolation, a 12,000-row multi-day history, bounded payloads, SQLite query plans, four concurrent processes and committed late-sample cache invalidation. Website/mobile TypeScript and focused ESLint passed. Browser fixture verified separated route segments and stale/empty/failure/Retry states; fixture removed. Native device/background interaction and production-engine load/lock checks remain rollout gates; this task does not deploy or enable the flags.
+
 ## 2026-09-18 | Version: shipment-report-status-views-v1
 
 - **Summary:** Added All, Ready for Pickup, In Transit and Delivered view buttons to the Shipments Report using the existing table view controls.

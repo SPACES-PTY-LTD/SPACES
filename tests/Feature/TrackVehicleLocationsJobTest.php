@@ -241,8 +241,8 @@ class TrackVehicleLocationsJobTest extends TestCase
         FakeHttpFailureProviderService::reset();
         FakeHttpFailureProviderService::$status = 401;
         FakeHttpFailureProviderService::$body = '<html><body>'
-            . str_repeat('Unauthorized provider response details. ', 20)
-            . '</body></html>';
+            .str_repeat('Unauthorized provider response details. ', 20)
+            .'</body></html>';
         Http::fake([
             'https://provider.example.test/latest-positions' => Http::response(
                 FakeHttpFailureProviderService::$body,
@@ -394,6 +394,40 @@ class TrackVehicleLocationsJobTest extends TestCase
         return [$merchant, $integration, $vehicle];
     }
 
+    public function test_history_retries_and_delayed_samples_do_not_rewind_live_location(): void
+    {
+        config(['vehicle_history.recording_enabled' => true]);
+        FakeDriverSingleProviderService::reset();
+        [, $integration, $vehicle] = $this->createTrackingContext('Fake History Provider', FakeDriverSingleProviderService::class);
+        $position = ['vehicle_integration_id' => 'veh-123', 'timestamp' => '2026-04-02T12:00:00+02:00', 'latitude' => -30, 'longitude' => 30, 'speed_kilometres_per_hour' => 40];
+        FakeDriverSingleProviderService::$positions = [$position];
+        $this->runTrackingJob($integration, $vehicle);
+        $this->runTrackingJob($integration, $vehicle);
+        $this->assertSame(1, \App\Models\VehicleLocationHistory::count());
+        FakeDriverSingleProviderService::$positions = [array_replace($position, ['timestamp' => '2026-04-02T09:59:00Z', 'latitude' => -31])];
+        $this->runTrackingJob($integration, $vehicle);
+        $this->assertSame(2, \App\Models\VehicleLocationHistory::count());
+        $this->assertEquals(-30, $vehicle->fresh()->last_location_address['latitude']);
+        $this->assertSame('10:00:00', $vehicle->fresh()->location_updated_at->format('H:i:s'));
+    }
+
+    public function test_the_sample_that_starts_a_run_is_attached_to_that_run(): void
+    {
+        config(['vehicle_history.recording_enabled' => true]);
+        FakeDriverSingleProviderService::reset();
+        [, $integration, $vehicle] = $this->createTrackingContext('Fake Start Provider', FakeDriverSingleProviderService::class);
+        FakeDriverSingleProviderService::$positions = [['vehicle_integration_id' => 'veh-123', 'timestamp' => '2026-04-02T10:00:00Z', 'latitude' => -30, 'longitude' => 30, 'speed_kilometres_per_hour' => 40]];
+        $this->mock(AutoRunLifecycleService::class, function ($mock) {
+            $mock->shouldReceive('processVehiclePosition')->once()->andReturnUsing(function ($vehicle, $merchant, $latitude, $longitude, $eventAt) {
+                \App\Models\Run::create(['account_id' => $vehicle->account_id, 'merchant_id' => $merchant->id, 'vehicle_id' => $vehicle->id, 'started_at' => $eventAt, 'status' => 'in_progress']);
+
+                return false;
+            });
+        });
+        $this->runTrackingJob($integration, $vehicle);
+        $this->assertEquals(\App\Models\Run::firstOrFail()->id, \App\Models\VehicleLocationHistory::firstOrFail()->run_id);
+    }
+
     private function runTrackingJob(MerchantIntegration $integration, Vehicle $vehicle): void
     {
         $job = new TrackVehicleLocationsJob($integration->id, [$vehicle->id]);
@@ -409,7 +443,9 @@ class TrackVehicleLocationsJobTest extends TestCase
 class FakeDriverSingleProviderService
 {
     public static array $positions = [];
+
     public static ?array $singleDriver = null;
+
     public static bool $throwOnSingle = false;
 
     public static function reset(): void
@@ -444,6 +480,7 @@ class FakeDriverSingleProviderService
 class FakeDriverBulkFallbackProviderService
 {
     public static array $positions = [];
+
     public static array $bulkDrivers = [];
 
     public static function reset(): void
@@ -466,6 +503,7 @@ class FakeDriverBulkFallbackProviderService
 class FakeHttpFailureProviderService
 {
     public static int $status = 401;
+
     public static string $body = '';
 
     public static function reset(): void

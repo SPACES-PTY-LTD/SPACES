@@ -184,6 +184,7 @@ Route::prefix('v1')->group(function () {
 
         Route::post('runs', [RunController::class, 'store']);
         Route::get('runs', [RunController::class, 'index'])->middleware('merchant.context');
+        Route::get('runs/{run_uuid}/track', [\App\Http\Controllers\Api\V1\RunTrackController::class, 'show']);
         Route::get('runs/{run_uuid}', [RunController::class, 'show']);
         Route::patch('runs/{run_uuid}', [RunController::class, 'update']);
         Route::post('runs/{run_uuid}/shipments', [RunController::class, 'attachShipments']);
@@ -345,6 +346,7 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('role:driver')->prefix('driver')->group(function () {
+            Route::get('runs/{run_uuid}/track', [\App\Http\Controllers\Api\V1\RunTrackController::class, 'driver'])->middleware('throttle:30,1');
             Route::get('runs/{run_uuid}/position', \App\Http\Controllers\Api\V1\DriverRunPositionController::class)->middleware('throttle:30,1');
             Route::get('runs/{run_uuid}/directions', \App\Http\Controllers\Api\V1\DriverRunDirectionsController::class)->middleware('throttle:30,1');
             Route::post('trip-locations/search', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'searchLocations'])->middleware('throttle:20,1');

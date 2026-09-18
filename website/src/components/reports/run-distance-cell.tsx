@@ -100,7 +100,7 @@ export function RunDistanceCell({ runId, displayValue, accessToken }: RunDistanc
                 </Button>
               </div>
             ) : run ? (
-              <RunStopJourney run={run} layout="timeline" />
+              <RunStopJourney run={run} layout="timeline" accessToken={accessToken} />
             ) : null}
           </div>
         </DialogContent>
