@@ -20,6 +20,15 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-18 | Version: shipment-report-status-views-v1
+
+- **Summary:** Added All, Ready for Pickup, In Transit and Delivered view buttons to the Shipments Report using the existing table view controls.
+- **API Changes:** None; uses the report's existing `shipment_status` filter.
+- **Database Changes:** None.
+- **Behavior Changes:** Switching views filters the report and returns to page one while preserving search, other filters, sorting and page size. All clears only the status filter. The active view is highlighted. Ready for Pickup is also available in the status dropdown.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint and diff whitespace checks passed. View links and active-view matching reviewed against the shared table implementation.
+
 ## 2026-09-18 | Version: shared-new-shipment-button-v1
 
 - **Summary:** Added New shipment to the Shipments Report using a shared component also used by the Shipments page.

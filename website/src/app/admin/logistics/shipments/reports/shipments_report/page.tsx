@@ -211,6 +211,27 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
     }
   })
   const tableMeta = successResponse ? normalizeTableMeta(successResponse.meta) : undefined
+  const statusViews = [
+    { label: "All", status: "" },
+    { label: "Ready for Pickup", status: "ready" },
+    { label: "In Transit", status: "in_transit" },
+    { label: "Delivered", status: "delivered" },
+  ].map((view) => {
+    const viewParams = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      const normalized = getSingleValue(value)
+      if (normalized && key !== "page" && key !== "shipment_status") {
+        viewParams.set(key, normalized)
+      }
+    }
+    if (view.status) viewParams.set("shipment_status", view.status)
+    const query = viewParams.toString()
+    return {
+      label: view.label,
+      link: query ? `${AdminLinks.reportsShipments}?${query}` : AdminLinks.reportsShipments,
+      match: "exact" as const,
+    }
+  })
 
   return (
     <div className="space-y-6 max-w-full ">
@@ -231,6 +252,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         resource="shipment-report"
         idKey="shipment_id"
         label="report rows"
+        views={statusViews}
         accessToken={session.accessToken}
         merchantId={merchantId ?? null}
         data={rows}
@@ -332,6 +354,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
             url_param_name: "shipment_status",
             options: [
               { label: "Draft", value: "draft" },
+              { label: "Ready for Pickup", value: "ready" },
               { label: "Quoted", value: "quoted" },
               { label: "Booked", value: "booked" },
               { label: "In Transit", value: "in_transit" },
