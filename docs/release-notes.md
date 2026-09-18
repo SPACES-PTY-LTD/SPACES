@@ -20,6 +20,15 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-18 | Version: run-km-timeline-layout-v1
+
+- **Summary:** Replaced the Run KM details modal's wide stops table with the approved responsive timeline design.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Fixed compact distance summary, readable location/address rows, grouped arrival/departure times, aligned leg/cumulative distances, numbered timeline and expandable shipment links. First checkpoint's links open initially when present. Route map remains available in a collapsible section and loads on expansion. Existing run details table and distance calculations remain unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused ESLint passed. Local component preview with synthetic run data inspected at 1396×1127 and 390×844; shipment expansion/collapse verified, mobile dialog width matched scroll width (358px), and no browser console errors observed. Live authenticated API integration and map-provider loading were not re-tested. Temporary preview route removed.
+
 ## 2026-09-17 | Version: shipment-report-column-sorting-v1
 
 - **Summary:** Expanded shipment-report sorting from 8 to 21 visible columns.

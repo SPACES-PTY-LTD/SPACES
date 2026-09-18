@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { ChevronDown, Link2, MapPin } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -715,8 +716,87 @@ function distanceExplanation(method: RunJourney["distanceMethod"]) {
   return "There is not enough distance data to calculate KM between stops."
 }
 
-export function RunStopJourney({ run }: { run: Run }) {
+function StopTime({ label, value }: { label: string; value: string | null }) {
+  const date = value ? new Date(value) : null
+  const valid = date && !Number.isNaN(date.getTime())
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      {valid ? <time dateTime={value!} className="mt-1 block tabular-nums">
+        <span className="block text-xs">{new Intl.DateTimeFormat("en-ZA", { dateStyle: "medium" }).format(date)}</span>
+        <span className="mt-0.5 block text-base font-semibold">{new Intl.DateTimeFormat("en-ZA", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date)}</span>
+      </time> : <p className="mt-1 text-sm text-muted-foreground">—</p>}
+    </div>
+  )
+}
+
+function JourneyTimeline({ journey }: { journey: RunJourney }) {
+  const [showMap, setShowMap] = React.useState(false)
+  return (
+    <section aria-label="All stops" className="min-w-0">
+      <div className="mb-5">
+        <h3 className="flex items-center gap-3 text-lg font-semibold">All stops <Badge variant="secondary">{journey.stopCount}</Badge></h3>
+        <p className="mt-1 text-sm text-muted-foreground">{distanceExplanation(journey.distanceMethod)}</p>
+      </div>
+      {journey.stopSource === "shipment" ? <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">Detailed stop activity is unavailable. These stops were reconstructed from the run&apos;s shipments.</p> : null}
+      {journey.stopSource === "none" ? <p className="py-8 text-center text-sm text-muted-foreground">No stop activity or shipment locations were recorded for this run.</p> : null}
+      <div className="hidden grid-cols-[minmax(0,1fr)_220px_180px] gap-5 border-b pb-3 pl-12 pr-9 text-xs text-muted-foreground lg:grid">
+        <span>Location</span><span>Timing (local)</span>
+        <div className="grid grid-cols-2 gap-3 text-right"><span>Leg km</span><span>Total km</span></div>
+      </div>
+      <ol>
+        {journey.checkpoints.map((checkpoint, index) => {
+          const roles = [...new Set(checkpoint.shipmentRoles.map((role) => role.role))]
+          const shipments = [...new Map(checkpoint.shipmentRoles.map((role) => [role.shipmentId, role])).values()]
+          const subtitle = locationSubtitle(checkpoint.location)
+          const events = [...new Set(checkpoint.activities.map((activity) => activity.event_type).filter(Boolean))]
+          return (
+            <li key={checkpoint.key} className="relative border-b">
+              {index < journey.checkpoints.length - 1 ? <div aria-hidden="true" className="absolute bottom-0 left-[15px] top-6 w-px bg-border" /> : null}
+              <details open={index === 0 && shipments.length > 0} className="group">
+                <summary className="relative grid cursor-pointer list-none grid-cols-[32px_minmax(0,1fr)_20px] items-start gap-x-4 py-5 outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                  <span className={cn("relative z-10 flex size-8 items-center justify-center rounded-full bg-muted text-sm font-semibold", checkpoint.isShipmentStop && "bg-amber-600 text-white")}>{index + 1}</span>
+                  <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_220px_180px] lg:gap-5">
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-semibold">{checkpoint.label}</p>
+                      {subtitle && subtitle !== checkpoint.label ? <p className="mt-1 break-words text-xs text-muted-foreground">{subtitle}</p> : null}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <Badge variant="outline"><MapPin className="size-3" />{checkpoint.location?.type?.title || "Unmapped stop"}</Badge>
+                        {checkpoint.kind !== "stop" ? <Badge variant="secondary">{checkpoint.kind === "start" ? "Run start" : "Run end"}</Badge> : null}
+                        {roles.map((role) => <Badge key={role} className="bg-amber-600 text-white">{role}</Badge>)}
+                        {checkpoint.kind === "stop" && roles.length === 0 ? events.map((type) => <Badge key={type} variant="secondary">{eventLabel(type)}</Badge>) : null}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3"><StopTime label="Arrived" value={checkpoint.arrivedAt} /><StopTime label="Departed" value={checkpoint.departedAt} /></div>
+                    <div className="grid grid-cols-2 gap-3 tabular-nums lg:text-right">
+                      <div><p className="text-xs text-muted-foreground lg:sr-only">Leg km</p><p className="mt-1 text-sm font-medium">{checkpoint.kind === "start" ? "—" : formatKm(checkpoint.segmentKm)}</p></div>
+                      <div><p className="text-xs text-muted-foreground lg:sr-only">Total km</p><p className="mt-1 text-sm font-medium">{formatKm(checkpoint.cumulativeKm)}</p></div>
+                    </div>
+                  </div>
+                  <ChevronDown aria-hidden="true" className="mt-1 size-4 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="mb-5 ml-12 mr-6 rounded-lg bg-muted/30 p-4">
+                  <p className="flex items-center gap-2 text-sm font-medium"><Link2 aria-hidden="true" className="size-4" />Linked shipments ({shipments.length})</p>
+                  {shipments.length ? <ul className="mt-2 space-y-2 pl-6">{shipments.map((role) => <li key={role.shipmentId}><Link href={AdminRoute.shipmentDetails(role.shipmentId)} className="break-all text-sm underline-offset-4 hover:underline focus-visible:underline">{role.reference}</Link></li>)}</ul> : <p className="mt-2 text-sm text-muted-foreground">No linked shipments at this stop.</p>}
+                </div>
+              </details>
+            </li>
+          )
+        })}
+      </ol>
+      <div className="flex justify-between gap-4 py-4 text-sm"><span className="text-muted-foreground">{journey.checkpoints.length} journey checkpoints</span><span className="font-semibold tabular-nums">Run total · {formatKm(journey.totalKm)}</span></div>
+      <details className="mt-3 rounded-lg border p-4" onToggle={(event) => setShowMap(event.currentTarget.open)}>
+        <summary className="cursor-pointer text-sm font-medium">Run route and stops</summary>
+        {showMap ? <><p className="my-3 text-xs text-muted-foreground">Green: start · Blue: other stops · Amber: pickup/drop-off · Black: end</p><RunJourneyMap journey={journey} /></> : null}
+      </details>
+    </section>
+  )
+}
+
+export function RunStopJourney({ run, layout = "table" }: { run: Run; layout?: "table" | "timeline" }) {
   const journey = React.useMemo(() => buildRunJourney(run), [run])
+
+  if (layout === "timeline") return <JourneyTimeline journey={journey} />
 
   return (
     <div className="space-y-4">

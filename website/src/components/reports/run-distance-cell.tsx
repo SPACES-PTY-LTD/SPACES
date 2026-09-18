@@ -70,7 +70,7 @@ export function RunDistanceCell({ runId, displayValue, accessToken }: RunDistanc
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="flex max-h-[85dvh] min-h-0 flex-col overflow-hidden p-0 sm:max-w-5xl">
+        <DialogContent className="flex max-h-[90dvh] min-h-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1140px,calc(100vw-2rem))]">
           <DialogHeader className="shrink-0 border-b px-6 py-5 pr-14">
             <DialogTitle>Run KM details</DialogTitle>
             <DialogDescription className="break-all">
@@ -78,7 +78,15 @@ export function RunDistanceCell({ runId, displayValue, accessToken }: RunDistanc
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          {run && !loading && !error ? (
+            <dl className="grid shrink-0 grid-cols-2 gap-4 border-b px-4 py-4 sm:grid-cols-3 sm:px-6 sm:py-5">
+              <div><dt className="text-xs text-muted-foreground">Run total</dt><dd className="mt-1 text-2xl font-semibold tabular-nums">{formatKm(run.distance_km ?? run.odometer_distance_km)}</dd></div>
+              <div className="sm:border-l sm:pl-5"><dt className="text-xs text-muted-foreground">Odometer readings</dt><dd className="mt-2 text-sm font-semibold tabular-nums">{formatKm(run.odometer_start_km)} → {formatKm(run.odometer_end_km)}</dd></div>
+              <div className="col-span-2 sm:col-span-1 sm:border-l sm:pl-5"><dt className="text-xs text-muted-foreground">Distance source</dt><dd className="mt-1 text-lg font-semibold capitalize">{run.distance_source || "Unavailable"}</dd></div>
+            </dl>
+          ) : null}
+
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-5 sm:px-6">
             {loading ? (
               <div className="flex min-h-52 items-center justify-center text-muted-foreground">
                 <Loader2 className="mr-2 size-5 animate-spin" />
@@ -92,34 +100,7 @@ export function RunDistanceCell({ runId, displayValue, accessToken }: RunDistanc
                 </Button>
               </div>
             ) : run ? (
-              <div className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border bg-muted/20 p-4">
-                    <p className="text-xs text-muted-foreground">Run total KM</p>
-                    <p className="mt-1 text-xl font-semibold">
-                      {formatKm(run.distance_km ?? run.odometer_distance_km)}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {run.distance_source === "odometer"
-                        ? `${formatKm(run.odometer_start_km)} → ${formatKm(run.odometer_end_km)}`
-                        : "Calculated from the recorded route"}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-4">
-                    <p className="text-xs text-muted-foreground">Distance source</p>
-                    <p className="mt-1 text-xl font-semibold capitalize">{run.distance_source || "Unavailable"}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {run.distance_source === "odometer"
-                        ? "Run start and end odometer readings"
-                        : run.distance_source === "gps"
-                          ? "Recorded vehicle GPS route"
-                          : "No distance source recorded"}
-                    </p>
-                  </div>
-                </div>
-
-                <RunStopJourney run={run} />
-              </div>
+              <RunStopJourney run={run} layout="timeline" />
             ) : null}
           </div>
         </DialogContent>
