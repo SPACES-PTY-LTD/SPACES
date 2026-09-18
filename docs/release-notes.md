@@ -20,6 +20,16 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-18 | Version: shared-new-shipment-button-v1
+
+- **Summary:** Added New shipment to the Shipments Report using a shared component also used by the Shipments page.
+- **API Changes:** None; retains the existing shipment creation endpoint and payload.
+- **Database Changes:** None.
+- **Behavior Changes:** Both buttons open the same creation form with the selected merchant, validation and error handling. The button remains disabled without a selected merchant. Successful creation revalidates both the shipments list and shipment report, preserving the current page's filters.
+- **Internal Changes:** Moved dialog configuration, address conversion and the authenticated creation server action into `website/src/components/shipments/new-shipment-button.tsx` to avoid duplication.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused ESLint passed; diff whitespace check passed. Creation payload and form configuration compared with the original implementation. No live shipment was created during verification.
+
 ## 2026-09-18 | Version: run-km-timeline-layout-v1
 
 - **Summary:** Replaced the Run KM details modal's wide stops table with the approved responsive timeline design.

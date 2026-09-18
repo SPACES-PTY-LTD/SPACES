@@ -1,6 +1,7 @@
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import Link from "next/link"
 import { ExportableDataTable } from "@/components/common/exportable-data-table"
+import { NewShipmentButton } from "@/components/shipments/new-shipment-button"
 import { PageHeader } from "@/components/layout/page-header"
 import { Button } from "@/components/ui/button"
 import { isApiErrorResponse } from "@/lib/api/client"
@@ -217,9 +218,12 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         title="Shipments Report"
         description="Review shipment delivery performance with filterable and sortable report data."
         actions={
-          <Button asChild variant="outline">
-            <Link href={AdminLinks.reportsShipments}>Reset</Link>
-          </Button>
+          <>
+            <Button asChild variant="outline">
+              <Link href={AdminLinks.reportsShipments}>Reset</Link>
+            </Button>
+            <NewShipmentButton merchantId={merchantId} />
+          </>
         }
       />
 
