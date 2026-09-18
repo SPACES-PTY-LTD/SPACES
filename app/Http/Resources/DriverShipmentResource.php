@@ -46,6 +46,11 @@ class DriverShipmentResource extends JsonResource
             ] : null,
         ] : null;
 
+        $shipment['status_history'] = $this->trackingEvents()->whereIn('event_code', ['failed', 'delivered', 'in_transit'])->latest('id')->limit(30)->get()->map(fn ($event) => [
+            'status' => $event->event_code, 'description' => $event->event_description,
+            'occurred_at' => $event->occurred_at?->toIso8601String(), 'source' => $event->payload['source'] ?? 'system',
+            'matched_stop_id' => $event->payload['matched_stop_id'] ?? null,
+        ]);
         return $shipment;
     }
 }

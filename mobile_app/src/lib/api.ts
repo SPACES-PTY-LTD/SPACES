@@ -63,6 +63,8 @@ export type ApiListResponse<T> = {
 };
 
 export type DriverLocation = {
+  latitude?: number | string | null;
+  longitude?: number | string | null;
   location_id: string;
   name: string | null;
   code: string | null;
@@ -73,6 +75,7 @@ export type DriverLocation = {
 };
 
 export type DriverShipment = {
+  status_history?: { status: string; description: string; occurred_at: string; source: string; matched_stop_id?: string | null }[];
   shipment_id: string;
   merchant: {
     merchant_id: string;
@@ -232,6 +235,28 @@ export type DriverOnlineStatusResponse = {
   push_provider: string | null;
   push_token: string | null;
   last_seen_at: string | null;
+};
+
+export type DriverDashboard = {
+  trip_endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
+  current_run: { run_id: string; status: string; destination_location_id?: string | null } | null;
+  run_shipments: DriverShipment[];
+  recorded_stops?: { stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
+  planned_delivery_stops?: { stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
+  delivery_note_required_run_id: string | null;
+  documents: {
+    missing_required_count: number;
+    missing_required_names: string[];
+    missing_managed_by_dispatch_count: number;
+    expired_count: number;
+  };
+  date: string;
+  timezone: string;
+  delivered: number;
+  remaining: number;
+  total: number;
+  next_shipment: DriverShipment | null;
+  dispatch_email: string | null;
 };
 
 export type CancelReason = {
@@ -420,7 +445,7 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     },
-    body: options.body ? (isFormData ? options.body : JSON.stringify(options.body)) : undefined,
+    body: options.body ? (isFormData ? options.body as FormData : JSON.stringify(options.body)) : undefined,
   });
 
   const payload = (await response.json()) as ApiEnvelope<T>;
@@ -593,6 +618,19 @@ export const driverApi = {
     const response = await requestWithMeta<DriverShipment[]>(final_url, { token });
     return normalizeListResponse(response, (shipments) => shipments.map((shipment) => normalizeShipment(shipment)) as DriverShipment[]);
   },
+  async runPosition(token: string, runId: string) {
+    return request<RunPosition>(`/driver/runs/${encodeURIComponent(runId)}/position`, { token });
+  },
+  async runDirections(token: string, runId: string) {
+    return request<RunDirections>(`/driver/runs/${encodeURIComponent(runId)}/directions`, { token });
+  },
+  async dashboard(token: string, runId?: string) {
+    const response = await request<DriverDashboard>(`/driver/dashboard${runId ? `?run_id=${encodeURIComponent(runId)}` : ''}`, { token });
+    return {
+      ...response,
+      next_shipment: response.next_shipment ? normalizeShipment(response.next_shipment) : null,
+    };
+  },
   async getShipment(token: string, shipmentId: string) {
     const response = await request<DriverShipment>(`/driver/shipments/${shipmentId}`, { token });
     return normalizeShipment(response);
@@ -757,4 +795,73 @@ export const driverApi = {
   async getFileDownloadUrl(token: string, fileId: string) {
     return request<{ url: string }>(`/files/${fileId}/download?format=url`, { token });
   },
+};
+
+export type ImportLine = {
+  merchant_order_ref: string | null; collection_date?: string | null; description: string;
+  pickup_address?: Record<string, string | null>; dropoff_address?: Record<string, string | null>;
+  status?: 'delivered' | 'in_transit' | 'failed' | null; failure_reason?: string; odometer_at_collection?: number | null; odometer_at_delivery?: number | null; excluded?: boolean;
+  quantity: number | null; type?: string | null; weight?: number | null;
+  length_cm?: number | null; width_cm?: number | null; height_cm?: number | null;
+};
+export type ImportDraft = {
+  run_id?: string | null;
+  trip_locations?: ImportLocation[]; create_new_run?: boolean; vehicle_id?: string | null; origin_location_id?: string | null; destination_location_id?: string | null; review_token?: string;
+  grouping_mode: 'separate_shipments' | 'single_shipment';
+  delivery_note_number?: string | null; merchant_order_ref: string | null; collection_date: string | null;
+  pickup_address: Record<string, string | null>; dropoff_address: Record<string, string | null>;
+  pickup_instructions?: string | null; dropoff_instructions?: string | null; line_items: ImportLine[];
+};
+export type ImportResult = { run_id?: string; delivered?: string[]; created: string[]; skipped: string[]; attached: string[]; unassigned: string[] };
+export type DocumentImport = {
+  import_id: string; status: string; filename: string; run_id: string | null;
+  extracted_data: ImportDraft; existing_references: string[]; confirmation_result: ImportResult | null;
+};
+export type ImportLocation = { location_id: string; name: string; full_address?: string; latitude?: string | number | null; longitude?: string | number | null } & Record<string, any>;
+export type ImportReviewRow = { index: number; reference: string; eligibility: 'new' | 'existing' | 'excluded'; validation_warnings?: string[]; collection_comparison: 'match' | 'mismatch' | 'unknown'; status: string; status_source: string; ambiguous_match: boolean; matched_stop: null | { stop_id: string; name: string; occurred_at: string } };
+export type ImportReview = { rows: ImportReviewRow[]; review_token: string };
+export type ImportContext = { vehicles: { vehicle_id: string; label: string }[]; locations: ImportLocation[]; recent_imports: { import_id: string; filename: string; status: string }[]; today: string; timezone: string; runs: { run_id: string; label: string; status: string; origin_location_id?: string; destination_location_id?: string; vehicle_id?: string }[] };
+export const documentImportApi = {
+  searchLocations: (token: string, query: string) => request<ImportLocation[]>('/driver/trip-locations/search', { token, method: 'POST', body: { query } }),
+  chooseFinalDestination: (token: string, runId: string, locationId: string) => request(`/driver/runs/${encodeURIComponent(runId)}/final-destination`, { token, method: 'PATCH', body: { destination_location_id: locationId } }),
+  startRun: (token: string, id: string) => request(`/driver/runs/${id}/start`, { token, method: 'POST' }),
+  preview: (token: string, id: string, body: ImportDraft) => request<ImportReview>(`/driver/document-imports/${id}/preview`, { token, method: 'POST', body }),
+  context: (token: string) => request<ImportContext>('/driver/document-imports/context', { token }),
+  upload: (token: string, body: FormData, onUploaded?: () => void) => new Promise<DocumentImport>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${apiBaseUrl}/driver/document-imports`);
+    xhr.setRequestHeader('Accept', 'application/json');
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.timeout = 150000;
+    xhr.upload.onload = () => onUploaded?.();
+    xhr.onerror = () => reject(new Error('Connection lost. Please try again.'));
+    xhr.ontimeout = () => reject(new Error('Reading took too long. No shipments have been created. Please try again.'));
+    xhr.onload = () => {
+      try {
+        const payload = JSON.parse(xhr.responseText) as ApiEnvelope<DocumentImport>;
+        if (xhr.status < 200 || xhr.status >= 300 || !payload.success) {
+          const error = new Error(payload.error?.message || 'Unable to read the delivery note.') as ApiRequestError;
+          error.details = payload.error?.details;
+          reject(error);
+        } else resolve(payload.data);
+      } catch { reject(new Error('Unable to read the server response. Please try again.')); }
+    };
+    xhr.send(body);
+  }),
+  show: (token: string, id: string) => request<DocumentImport>(`/driver/document-imports/${id}`, { token }),
+  confirm: (token: string, id: string, body: ImportDraft) => request<ImportResult>(`/driver/document-imports/${id}/confirm`, { token, method: 'POST', body }),
+};
+
+export type RunDirections = {
+  status: 'ready' | 'missing_locations' | 'not_configured' | 'not_needed' | 'too_many_stops' | 'unavailable';
+  coordinates?: { latitude: number; longitude: number }[];
+  distance_meters?: number;
+  duration_seconds?: number;
+};
+
+export type RunPosition = {
+  vehicle_id: string | null;
+  plate_number: string | null;
+  coordinate: { latitude: number; longitude: number } | null;
+  updated_at: string | null;
 };

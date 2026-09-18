@@ -8,6 +8,8 @@ export async function listRuns(
     merchant_id?: string
     page?: number
     per_page?: number
+    sort_by?: string
+    sort_dir?: "asc" | "desc"
     search?: string
     status?: string
     from?: string

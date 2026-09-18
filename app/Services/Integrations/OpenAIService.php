@@ -26,7 +26,7 @@ class OpenAIService
         $content = [
             [
                 'type' => 'input_text',
-                'text' => 'Extract the delivery note into the required schema. Preserve printed references exactly. Use ISO 8601 dates when a date is visible. Never invent missing addresses, dates, quantities, weights, dimensions, contacts, or references; return null for uncertainty. Each printed product/order row must be a separate line_items entry.',
+                'text' => 'Extract the delivery note into the required schema. Preserve printed references exactly. Use ISO 8601 dates when a date is visible. Never invent missing addresses, dates, quantities, weights, dimensions, contacts, or references; return null for uncertainty. Each printed product/order row must be a separate line_items entry. Preserve the pickup and delivery address for each row; inherit the document address only when that row clearly uses it.',
             ],
             $isPdf
                 ? [
@@ -92,6 +92,9 @@ class OpenAIService
         ];
         $lineProperties = [
             'merchant_order_ref' => $nullableString,
+            'collection_date' => $nullableString,
+            'pickup_address' => $address,
+            'dropoff_address' => $address,
             'description' => $nullableString,
             'quantity' => ['type' => ['integer', 'null']],
             'type' => $nullableString,

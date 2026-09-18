@@ -38,6 +38,7 @@ class Run extends Model
         'route_id',
         'status',
         'auto_created',
+        'driver_workflow',
         'planned_start_at',
         'started_at',
         'origin_departure_time',
@@ -56,6 +57,7 @@ class Run extends Model
         'odometer_start_km' => 'integer',
         'odometer_end_km' => 'integer',
         'auto_created' => 'boolean',
+        'driver_workflow' => 'boolean',
     ];
 
     public function additionalCosts()

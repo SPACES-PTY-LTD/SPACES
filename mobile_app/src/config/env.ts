@@ -14,7 +14,11 @@ const apiBaseUrls: Record<EnvironmentName, string> = {
 function resolveEnvironmentName(): EnvironmentName {
   const configuredEnvironment = process.env.EXPO_PUBLIC_APP_ENV;
 
-  if (configuredEnvironment === 'staging' || configuredEnvironment === 'production') {
+  if (
+    configuredEnvironment === 'development' ||
+    configuredEnvironment === 'staging' ||
+    configuredEnvironment === 'production'
+  ) {
     return configuredEnvironment;
   }
 

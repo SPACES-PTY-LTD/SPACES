@@ -56,7 +56,7 @@ export const adminNavGroups: NavGroup[] = [
       },
       {
         title: "Shipments",
-        href: AdminLinks.shipments,
+        href: AdminLinks.reportsShipments,
         icon: CreditCard,
         subItems: [
           // {

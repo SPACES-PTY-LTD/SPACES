@@ -32,6 +32,30 @@ class AutoRunLifecycleServiceTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_driver_planned_run_starts_on_departure_and_is_not_closed_at_end(): void
+    {
+        Carbon::setTestNow('2026-09-16 08:00:00');
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $user = $this->createUserWithoutEvents(['role' => 'driver', 'account_id' => $merchant->account_id]);
+        $driver = Driver::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'user_id' => $user->id, 'is_active' => true]);
+        $origin = $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
+        $end = $this->createLocation($merchant, 'End', true, -33.95, 18.45);
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'driver_id' => $driver->id, 'vehicle_id' => $vehicle->id, 'origin_location_id' => $origin->id, 'destination_location_id' => $end->id, 'status' => 'draft', 'driver_workflow' => true]);
+        $shipment = Shipment::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'merchant_order_ref' => 'PLANNED', 'status' => 'draft', 'pickup_location_id' => $origin->id, 'dropoff_location_id' => $end->id]);
+        app(\App\Services\RunService::class)->attachShipments($run, [$shipment->uuid]);
+        $service = app(AutoRunLifecycleService::class);
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, Carbon::now(), null, null, 1000);
+        $this->assertSame('draft', $run->fresh()->status);
+        $this->assertDatabaseCount('runs', 1);
+        $service->processVehiclePosition($vehicle, $merchant, -33.905, 18.405, Carbon::now()->addMinutes(10), null, null, 1005);
+        $this->assertSame('in_progress', $run->fresh()->status);
+        $this->assertSame('2026-09-16 08:10:00', $run->fresh()->started_at->toDateTimeString());
+        $service->processVehiclePosition($vehicle, $merchant, -33.95, 18.45, Carbon::now()->addHour(), null, null, 1050);
+        $this->assertSame('in_progress', $run->fresh()->status);
+        $this->assertDatabaseCount('runs', 1);
+        $this->assertDatabaseCount('shipments', 1);
+    }
+
     public function test_it_auto_manages_runs_and_shipments_from_location_entries(): void
     {
         Carbon::setTestNow('2026-02-21 08:00:00');

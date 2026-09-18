@@ -26,6 +26,153 @@ class DriverShipmentApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_dashboard_includes_current_run_visits_and_collection_stops(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $shipment = $this->createShipment($merchant, 'STOP-TEST', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+        $run = RunShipment::where('shipment_id', $shipment->id)->firstOrFail()->run;
+        $base = ['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'vehicle_id' => $vehicle->id,
+            'run_id' => $run->id, 'event_type' => 'stopped', 'occurred_at' => now()];
+        $stop = \App\Models\VehicleActivity::create($base);
+        \App\Models\VehicleActivity::create(array_merge($base, ['run_id' => null]));
+        \App\Models\VehicleActivity::create(array_merge($base, ['event_type' => 'moving']));
+        \App\Models\VehicleActivity::create(array_merge($base, ['shipment_id' => $shipment->id]));
+        \App\Models\VehicleActivity::create(array_merge($base, ['event_type' => 'shipment_collection', 'shipment_id' => $shipment->id, 'location_id' => $shipment->pickup_location_id, 'occurred_at' => now()->addMinute()]));
+        \App\Models\VehicleActivity::create(array_merge($base, ['event_type' => 'speeding', 'speed_kph' => 95, 'speed_limit_kph' => 60, 'occurred_at' => now()->addMinutes(2)]));
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))->assertOk()
+            ->assertJsonCount(4, 'data.recorded_stops')->assertJsonPath('data.recorded_stops.0.stop_id', $stop->uuid)
+            ->assertJsonPath('data.recorded_stops.0.name', 'Truck stop')
+            ->assertJsonPath('data.recorded_stops.3.kind', 'Speeding')
+            ->assertJsonPath('data.recorded_stops.3.speed_kph', 95)
+            ->assertJsonPath('data.recorded_stops.3.speed_limit_kph', 60)
+            ->assertJsonPath('data.recorded_stops.2.kind', 'Collection')
+            ->assertJsonPath('data.recorded_stops.2.shipments.0.shipment_id', $shipment->uuid)
+            ->assertJsonCount(1, 'data.planned_delivery_stops')
+            ->assertJsonPath('data.planned_delivery_stops.0.kind', 'Delivery')
+            ->assertJsonPath('data.planned_delivery_stops.0.planned', true)
+            ->assertJsonPath('data.planned_delivery_stops.0.shipments.0.shipment_id', $shipment->uuid);
+        [$other] = $this->createDriverContext($merchant);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($other))->assertOk()->assertJsonCount(0, 'data.recorded_stops');
+    }
+
+    public function test_run_position_returns_only_the_assigned_trucks_reported_location(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $vehicle->update(['last_location_address' => ['latitude' => '-26.15', 'longitude' => '28.04'], 'location_updated_at' => now()->subHour()]);
+        $shipment = $this->createShipment($merchant, 'POSITION', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+        $run = RunShipment::where('shipment_id', $shipment->id)->firstOrFail()->run;
+        $url = '/api/v1/driver/runs/'.$run->uuid.'/position';
+        $this->getJson($url, $this->driverAuthHeaders($user))->assertOk()
+            ->assertJsonPath('data.coordinate.latitude', -26.15)->assertJsonPath('data.coordinate.longitude', 28.04)
+            ->assertJsonPath('data.vehicle_id', $vehicle->uuid)->assertJsonPath('data.updated_at', $vehicle->location_updated_at->toIso8601String());
+        [$other] = $this->createDriverContext($merchant);
+        $this->getJson($url, $this->driverAuthHeaders($other))->assertNotFound();
+        $vehicle->update(['last_location_address' => ['latitude' => null, 'longitude' => 28]]);
+        $this->getJson($url, $this->driverAuthHeaders($user))->assertOk()->assertJsonPath('data.coordinate', null);
+        $vehicle->update(['last_location_address' => ['latitude' => 0, 'longitude' => 0]]);
+        $this->getJson($url, $this->driverAuthHeaders($user))->assertOk()->assertJsonPath('data.coordinate.latitude', 0);
+        $run->update(['status' => Run::STATUS_COMPLETED]);
+        $this->getJson($url, $this->driverAuthHeaders($user))->assertNotFound();
+    }
+
+    public function test_run_directions_only_resolves_the_authenticated_drivers_active_run(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $shipment = $this->createShipment($merchant, 'ROUTE', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+        $run = RunShipment::where('shipment_id', $shipment->id)->firstOrFail()->run;
+        $this->mock(\App\Services\RunDirectionsService::class)->shouldReceive('route')->once()->andReturn(['status' => 'not_needed']);
+        $this->getJson('/api/v1/driver/runs/'.$run->uuid.'/directions', $this->driverAuthHeaders($user))
+            ->assertOk()->assertJsonPath('data.status', 'not_needed');
+        [$other] = $this->createDriverContext($merchant);
+        $this->getJson('/api/v1/driver/runs/'.$run->uuid.'/directions', $this->driverAuthHeaders($other))->assertNotFound();
+        $run->update(['status' => Run::STATUS_COMPLETED]);
+        $this->getJson('/api/v1/driver/runs/'.$run->uuid.'/directions', $this->driverAuthHeaders($user))->assertNotFound();
+    }
+
+    public function test_dashboard_counts_due_work_and_deliveries_in_the_merchant_day(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-09-15 12:00:00', 'UTC'));
+        [$user, $merchant] = $this->createDriverContext();
+        $merchant->update(['timezone' => 'Africa/Johannesburg', 'support_email' => 'dispatch@example.test']);
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $due = $this->createShipment($merchant, 'DUE-TODAY', 'booked');
+        $this->createBooking($merchant, $due, 'internal', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $due, Run::STATUS_IN_PROGRESS);
+        $future = $this->createShipment($merchant, 'TOMORROW', 'booked');
+        $future->update(['ready_at' => now()->addDay()]);
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $future, Run::STATUS_DISPATCHED);
+
+        // 22:30 UTC yesterday is today in the merchant's timezone, even after the run closes.
+        $done = $this->createShipment($merchant, 'DONE-TODAY', 'delivered');
+        $this->createBooking($merchant, $done, 'internal', 'delivered')->update([
+            'current_driver_id' => $user->driver->id,
+            'delivered_at' => \Carbon\Carbon::parse('2026-09-14 22:30:00', 'UTC'),
+        ]);
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $done, Run::STATUS_COMPLETED);
+        $old = $this->createShipment($merchant, 'DONE-YESTERDAY', 'delivered');
+        $this->createBooking($merchant, $old, 'internal', 'delivered')->update([
+            'current_driver_id' => $user->driver->id, 'delivered_at' => now()->subDay(),
+        ]);
+        [$other] = $this->createDriverContext($merchant);
+        $otherShipment = $this->createShipment($merchant, 'OTHER-DRIVER', 'booked');
+        $this->attachShipmentToRun($merchant, $other->driver, $vehicle, $otherShipment, Run::STATUS_IN_PROGRESS);
+
+        $this->withHeaders($this->driverAuthHeaders($user))->getJson('/api/v1/driver/dashboard')
+            ->assertOk()->assertJsonPath('data.delivered', 1)->assertJsonPath('data.remaining', 1)
+            ->assertJsonPath('data.total', 2)->assertJsonPath('data.date', '2026-09-15')
+            ->assertJsonPath('data.next_shipment.shipment_id', $due->uuid)
+            ->assertJsonPath('data.dispatch_email', 'dispatch@example.test');
+    }
+
+    public function test_dashboard_timeline_contains_only_current_run_shipments_in_sequence(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $active = $this->createShipment($merchant, 'ACTIVE', 'booked');
+        $this->createBooking($merchant, $active, 'internal', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $active, Run::STATUS_IN_PROGRESS);
+        $attachment = RunShipment::where('shipment_id', $active->id)->firstOrFail();
+        $attachment->update(['sequence' => 2]);
+        $done = $this->createShipment($merchant, 'DONE', 'delivered');
+        $this->createBooking($merchant, $done, 'internal', 'delivered');
+        RunShipment::create(['run_id' => $attachment->run_id, 'shipment_id' => $done->id,
+            'sequence' => 1, 'status' => RunShipment::STATUS_DONE]);
+        $removed = $this->createShipment($merchant, 'REMOVED', 'booked');
+        RunShipment::create(['run_id' => $attachment->run_id, 'shipment_id' => $removed->id,
+            'sequence' => 3, 'status' => RunShipment::STATUS_REMOVED]);
+        $planned = $this->createShipment($merchant, 'OTHER-RUN', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $planned, Run::STATUS_DISPATCHED);
+        [$other] = $this->createDriverContext($merchant);
+        $foreign = $this->createShipment($merchant, 'OTHER-DRIVER', 'booked');
+        $this->attachShipmentToRun($merchant, $other->driver, $vehicle, $foreign, Run::STATUS_IN_PROGRESS);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+            ->assertOk()->assertJsonPath('data.current_run.run_id', $attachment->run->uuid)
+            ->assertJsonCount(2, 'data.run_shipments')
+            ->assertJsonPath('data.run_shipments.0.shipment_id', $done->uuid)
+            ->assertJsonPath('data.run_shipments.0.status', 'delivered')
+            ->assertJsonPath('data.run_shipments.1.shipment_id', $active->uuid);
+        $attachment->run->update(['status' => Run::STATUS_COMPLETED]);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+            ->assertOk()->assertJsonCount(1, 'data.run_shipments')
+            ->assertJsonPath('data.run_shipments.0.shipment_id', $planned->uuid);
+    }
+
+    public function test_dashboard_handles_no_assignments_and_requires_a_driver(): void
+    {
+        [$user] = $this->createDriverContext();
+        $this->withHeaders($this->driverAuthHeaders($user))->getJson('/api/v1/driver/dashboard')
+            ->assertOk()->assertJsonPath('data.total', 0)->assertJsonPath('data.next_shipment', null)
+            ->assertJsonPath('data.current_run', null)->assertJsonCount(0, 'data.run_shipments');
+        $user->update(['role' => 'user']);
+        $this->withHeaders($this->driverAuthHeaders($user))->getJson('/api/v1/driver/dashboard')->assertForbidden();
+    }
+
     public function test_list_shipments_returns_only_active_run_assignments_for_authenticated_driver(): void
     {
         [$driverUser, $merchant] = $this->createDriverContext();
@@ -177,7 +324,7 @@ class DriverShipmentApiTest extends TestCase
         $this->assertSame(1200, $booking->odometer_at_delivery);
     }
 
-    public function test_update_status_rejects_backward_transition(): void
+    public function test_update_status_rejects_unsupported_driver_status(): void
     {
         [$driverUser, $merchant] = $this->createDriverContext();
         $driver = $driverUser->driver;
@@ -191,7 +338,7 @@ class DriverShipmentApiTest extends TestCase
                 'status' => 'booked',
             ])
             ->assertStatus(422)
-            ->assertJsonPath('error.code', 'INVALID_STATUS');
+            ->assertJsonPath('error.code', 'VALIDATION');
     }
 
     public function test_update_status_rejects_non_internal_carrier(): void
@@ -466,6 +613,104 @@ class DriverShipmentApiTest extends TestCase
                 'status' => 'in_transit',
             ])
             ->assertNotFound();
+    }
+
+    public function test_dashboard_reports_missing_required_and_expired_driver_documents(): void
+    {
+        $this->travelTo(\Carbon\Carbon::parse('2026-09-15 12:00:00', 'UTC'));
+        [$user, $merchant] = $this->createDriverContext();
+        [$other] = $this->createDriverContext($merchant);
+        $type = function (string $name, array $extra = []) use ($merchant) {
+            return \App\Models\FileType::create(array_merge([
+                'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+                'entity_type' => 'driver', 'name' => $name, 'slug' => Str::slug($name),
+                'is_active' => true, 'driver_can_upload' => true,
+            ], $extra));
+        };
+        $file = function ($driver, $type, $expiry = null) use ($merchant) {
+            return $driver->files()->create([
+                'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+                'file_type_id' => $type->id, 'disk' => 'local', 'path' => 'test/document.pdf',
+                'original_name' => 'document.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 10,
+                'uploaded_by_role' => 'driver', 'expires_at' => $expiry,
+            ]);
+        };
+        $missing = $type('Identity document');
+        $managed = $type('Background check', ['driver_can_upload' => false]);
+        $expired = $type('Driving licence');
+        $valid = $type('Permit');
+        $type('Inactive', ['is_active' => false]);
+        $type('Vehicle registration', ['entity_type' => 'vehicle']);
+        $deletedType = $type('Removed type'); $deletedType->delete();
+        $file($other->driver, $missing, now()->subDay()); // Another driver cannot satisfy this driver's upload.
+        $file($user->driver, $missing)->delete(); // Removed uploads do not satisfy requirements.
+        $file($user->driver, $expired, now()->subSecond());
+        $file($user->driver, $valid, now()->addDay());
+        $file($user->driver, $valid, now()->subDay())->delete();
+
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+            ->assertOk()
+            ->assertJsonPath('data.documents.missing_required_count', 2)
+            ->assertJsonPath('data.documents.missing_required_names', ['Background check', 'Identity document'])
+            ->assertJsonPath('data.documents.missing_managed_by_dispatch_count', 1)
+            ->assertJsonPath('data.documents.expired_count', 1);
+
+        $file($user->driver, $missing);
+        $file($user->driver, $managed);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+            ->assertOk()->assertJsonPath('data.documents.missing_required_count', 0)
+            ->assertJsonPath('data.documents.expired_count', 1);
+    }
+
+    public function test_dashboard_document_summary_is_empty_without_configured_documents(): void
+    {
+        [$user] = $this->createDriverContext();
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+            ->assertOk()->assertJsonPath('data.documents', [
+                'missing_required_count' => 0, 'missing_required_names' => [],
+                'missing_managed_by_dispatch_count' => 0, 'expired_count' => 0,
+            ]);
+    }
+
+    public function test_dashboard_prompts_for_delivery_note_only_for_an_empty_in_progress_run(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        [$other] = $this->createDriverContext($merchant);
+        $run = Run::create([
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'driver_id' => $user->driver->id, 'status' => Run::STATUS_DRAFT,
+        ]);
+        Run::create([
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'driver_id' => $other->driver->id, 'status' => Run::STATUS_IN_PROGRESS,
+        ]);
+        foreach ([Run::STATUS_DRAFT, Run::STATUS_DISPATCHED, Run::STATUS_COMPLETED, Run::STATUS_CANCELLED] as $status) {
+            $run->update(['status' => $status]);
+            $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+                ->assertOk()->assertJsonPath('data.delivery_note_required_run_id', null);
+        }
+        $run->update(['status' => Run::STATUS_IN_PROGRESS]);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+            ->assertOk()->assertJsonPath('data.delivery_note_required_run_id', $run->uuid);
+
+        $shipment = $this->createShipment($merchant, 'RUN-NOTE-CHECK', 'booked');
+        $shipment->update(['collection_date' => now()->addDay()]);
+        $attachment = RunShipment::create(['run_id' => $run->id, 'shipment_id' => $shipment->id, 'sequence' => 1, 'status' => RunShipment::STATUS_ACTIVE]);
+        foreach ([RunShipment::STATUS_ACTIVE, RunShipment::STATUS_PLANNED, RunShipment::STATUS_DONE, RunShipment::STATUS_FAILED] as $status) {
+            $attachment->update(['status' => $status]);
+            $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+                ->assertOk()->assertJsonPath('data.delivery_note_required_run_id', null);
+        }
+        $attachment->update(['status' => RunShipment::STATUS_REMOVED]);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+            ->assertOk()->assertJsonPath('data.delivery_note_required_run_id', $run->uuid);
+        $attachment->update(['status' => RunShipment::STATUS_ACTIVE]);
+        $shipment->delete();
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+            ->assertOk()->assertJsonPath('data.delivery_note_required_run_id', $run->uuid);
+        $run->delete();
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))
+            ->assertOk()->assertJsonPath('data.delivery_note_required_run_id', null);
     }
 
     private function createDriverContext(?Merchant $merchant = null, ?string $email = null): array

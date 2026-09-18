@@ -303,6 +303,8 @@ class ReportController extends Controller
                 'collection_date' => 'shipments.collection_date',
                 'shipment_number' => 'shipments.merchant_order_ref',
                 'delivery_note_number' => 'shipments.delivery_note_number',
+                'invoice_number' => 'shipments.invoice_number',
+                'shipment_type' => 'shipments.service_type',
                 'truck_plate_number' => 'report_vehicles.plate_number',
                 'driver_name' => 'report_driver_users.name',
                 'shipment_status' => 'shipments.status',
@@ -313,8 +315,10 @@ class ReportController extends Controller
             $query->orderBy($sortColumn, $sortDirection)
                 ->orderByDesc('shipments.id');
 
-            $perPage = min((int) ($request->get('per_page', 50)), 200);
-            $shipments = $query->paginate($perPage);
+            $perPage = max(1, min((int) ($request->get('per_page', 50)), 200));
+            $shipments = app(\App\Services\ShipmentReportSorter::class)->paginate(
+                $query, $sortBy, $sortDirection, $perPage
+            );
             $visitIntervals = $visitIntervalService->resolveForShipments($shipments->getCollection());
             $reportNow = now();
             $speedingSummaries = $this->resolveShipmentSpeedingSummaries(

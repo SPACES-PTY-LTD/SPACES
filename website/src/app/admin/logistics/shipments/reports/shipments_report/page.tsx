@@ -30,6 +30,19 @@ const SORTABLE_COLUMNS = [
   "driver_name",
   "shipment_status",
   "delivered_volume",
+  "invoice_number",
+  "shipment_type",
+  "from_location",
+  "to_location",
+  "from_time_in",
+  "from_time_out",
+  "from_total_time",
+  "to_time_in",
+  "to_time_out",
+  "to_total_time",
+  "total_km_from_collection",
+  "run_duration_seconds",
+  "run_odometer_distance_km",
 ] as const satisfies readonly ShipmentsFullReportSortBy[]
 
 function getSingleValue(value?: string | string[]) {
@@ -340,16 +353,22 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
         enableSorting
         sortDirParam="sort_direction"
         sortableColumns={[
-          "date_created",
-          "collection_date",
-          "shipment_number",
-          "delivery_note_number",
-          "truck_plate_number",
+          ...SORTABLE_COLUMNS,
           "driver",
-          "shipment_status",
-          "delivered_volume",
+          "from_location_display",
+          "to_location_display",
+          "total_km_from_collection_display",
+          "run_total_time",
+          "run_odometer_distance_display",
         ]}
-        sortKeyMap={{ driver: "driver_name" }}
+        sortKeyMap={{
+          driver: "driver_name",
+          from_location_display: "from_location",
+          to_location_display: "to_location",
+          total_km_from_collection_display: "total_km_from_collection",
+          run_total_time: "run_duration_seconds",
+          run_odometer_distance_display: "run_odometer_distance_km",
+        }}
         searchKeys={[
           "shipment_number",
           "delivery_note_number",

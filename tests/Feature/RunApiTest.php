@@ -668,6 +668,84 @@ class RunApiTest extends TestCase
         $this->assertEqualsWithDelta(11.12, $response->json('data.distance_km'), 0.02);
     }
 
+    public function test_run_columns_sort_across_pages_in_both_directions(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        $runs = [];
+        foreach (['Alpha', 'Zulu'] as $index => $name) {
+            $driver = $this->createDriver($merchant);
+            $driver->user->update(['name' => $name]);
+            $vehicle = $this->createVehicle($merchant);
+            $vehicle->update(['plate_number' => $name]);
+            $location = $this->createLocation($merchant, $name);
+            $run = Run::create([
+                'uuid' => $index === 0 ? '00000000-0000-4000-8000-000000000001' : '00000000-0000-4000-8000-000000000002',
+                'account_id' => $merchant->account_id,
+                'merchant_id' => $merchant->id,
+                'driver_id' => $driver->id,
+                'vehicle_id' => $vehicle->id,
+                'origin_location_id' => $index === 0 ? $location->id : null,
+                'destination_location_id' => $index === 0 ? $location->id : null,
+                'status' => $index === 0 ? Run::STATUS_COMPLETED : Run::STATUS_IN_PROGRESS,
+                'started_at' => $index === 0 ? '2026-07-20 08:00:00' : '2026-07-21 08:00:00',
+                'completed_at' => $index === 0 ? '2026-07-20 08:02:00' : '2026-07-21 08:10:00',
+                'odometer_start_km' => 100,
+                'odometer_end_km' => $index === 0 ? 102 : null,
+            ]);
+            if ($index === 1) {
+                foreach ([0, 0.1] as $point => $longitude) {
+                    VehicleActivity::create([
+                        'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+                        'vehicle_id' => $vehicle->id, 'run_id' => $run->id,
+                        'event_type' => VehicleActivity::EVENT_MOVING,
+                        'occurred_at' => '2026-07-21 08:0'.$point.':00',
+                        'latitude' => 0, 'longitude' => $longitude,
+                    ]);
+                }
+            }
+            $run->additionalCosts()->create(['title' => 'Toll', 'amount' => $index === 0 ? '2.00' : '10.00', 'currency' => 'ZAR', 'source' => 'manual']);
+            for ($i = 0; $i <= $index; $i++) {
+                $shipment = $this->createShipment($merchant, $name.$i, 'draft');
+                $run->runShipments()->create(['shipment_id' => $shipment->id, 'status' => RunShipment::STATUS_PLANNED, 'sequence' => $i]);
+            }
+            $runs[] = $run;
+        }
+        // A run outside the selected merchant must not enter any sorted page.
+        [, $otherMerchant] = $this->createMerchantContext();
+        Run::create(['account_id' => $otherMerchant->account_id, 'merchant_id' => $otherMerchant->id, 'status' => Run::STATUS_DRAFT]);
+
+        foreach (['run_id', 'status', 'start', 'duration', 'distance', 'additional_costs', 'shipment_count', 'origin', 'destination', 'driver', 'vehicle'] as $column) {
+            foreach (['asc', 'desc'] as $direction) {
+                foreach ([1, 2] as $page) {
+                    $expected = $direction === 'asc' ? $page - 1 : 2 - $page;
+                    $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+                        ->getJson("/api/v1/runs?sort_by={$column}&sort_dir={$direction}&per_page=1&page={$page}")
+                        ->assertOk()
+                        ->assertJsonCount(1, 'data')
+                        ->assertJsonPath('data.0.run_id', $runs[$expected]->uuid)
+                        ->assertJsonPath('meta.total', 2);
+                }
+            }
+        }
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->getJson('/api/v1/runs?sort_by=duration&sort_dir=desc&status=completed')
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.run_id', $runs[0]->uuid);
+        $runs[0]->additionalCosts()->create(['title' => 'USD fee', 'amount' => '10.00', 'currency' => 'USD', 'source' => 'manual']);
+        $runs[1]->additionalCosts()->create(['title' => 'USD fee', 'amount' => '2.00', 'currency' => 'USD', 'source' => 'manual']);
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->getJson('/api/v1/runs?sort_by=additional_costs&sort_dir=asc')
+            ->assertOk()->assertJsonPath('data.0.run_id', $runs[1]->uuid);
+        $runs[0]->update(['completed_at' => null]);
+        foreach (['asc', 'desc'] as $direction) {
+            $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+                ->getJson('/api/v1/runs?sort_by=duration&sort_dir='.$direction)
+                ->assertOk()->assertJsonPath('data.0.run_id', $runs[1]->uuid);
+        }
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->getJson('/api/v1/runs?sort_by=invalid&sort_dir=invalid')
+            ->assertOk()->assertJsonCount(2, 'data');
+    }
+
     private function createMerchantContext(?string $email = null): array
     {
         $user = User::withoutEvents(fn () => User::factory()->create([

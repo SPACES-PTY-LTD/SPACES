@@ -107,13 +107,16 @@ class DriverShipmentController extends Controller
     public function updateStatus(DriverStatusUpdateRequest $request, string $shipment_uuid, ActivityLogService $activityLogService)
     {
         try {
+            return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $shipment_uuid, $activityLogService) {
             $driver = $request->user()?->driver;
             if (!$driver) {
                 return ApiResponse::error('FORBIDDEN', 'Driver profile not found.', [], Response::HTTP_FORBIDDEN);
             }
 
             $shipment = $this->findDriverShipment($driver, $shipment_uuid);
+            $shipment = Shipment::whereKey($shipment->id)->lockForUpdate()->firstOrFail();
             $booking = $this->requireShipmentBooking($shipment);
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
 
             $carrier = Carrier::where('code', $booking->carrier_code)->first();
             if (!$carrier || $carrier->type !== 'internal') {
@@ -133,11 +136,12 @@ class DriverShipmentController extends Controller
             $currentIndex = array_search($booking->status, self::STATUS_FLOW, true);
             $newIndex = array_search($newStatus, self::STATUS_FLOW, true);
 
-            if ($currentIndex === false || $newIndex === false || $newIndex < $currentIndex) {
+            if ($newIndex === false || in_array($booking->status, ['cancelled', 'returned'], true)) {
                 return ApiResponse::error('INVALID_STATUS', 'Invalid status transition.', [], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
             $updateData = ['status' => $newStatus];
+            if ($newStatus !== 'delivered') $updateData['delivered_at'] = null;
             $collectionOdometer = $request->validated()['odometer_at_collection'] ?? null;
             $deliveryOdometer = $request->validated()['odometer_at_delivery'] ?? null;
             $requiresCollectionOdometer = $newIndex >= array_search('picked_up', self::STATUS_FLOW, true);
@@ -196,8 +200,8 @@ class DriverShipmentController extends Controller
                 );
             }
 
-            if (in_array($newStatus, ['delivered', 'failed'], true)) {
-                $shipment->update(['status' => $newStatus]);
+            if (in_array($newStatus, ['delivered', 'in_transit', 'failed'], true)) {
+                $shipment->update(['status' => $newStatus, 'metadata' => array_merge($shipment->metadata ?? [], ['status_source' => 'driver'])]);
             }
 
             TrackingEvent::create([
@@ -210,12 +214,15 @@ class DriverShipmentController extends Controller
                 'occurred_at' => now(),
                 'payload' => array_filter([
                     'source' => 'driver',
+                    'actor_id' => $request->user()->id,
+                    'previous_status' => $before['status'],
                     'odometer_at_collection' => $collectionOdometer,
                     'odometer_at_delivery' => $deliveryOdometer,
                 ], fn ($value) => $value !== null),
             ]);
 
             return ApiResponse::success(new DriverShipmentResource($this->refreshDriverShipment($shipment)));
+            });
         } catch (Throwable $e) {
             Log::error('Driver shipment status update failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
 
@@ -505,7 +512,7 @@ class DriverShipmentController extends Controller
             'parcels.pickedUpScannedBy',
             'merchant',
             'environment',
-        ])->whereHas('currentRunShipment.run', function (Builder $builder) use ($driver) {
+        ])->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)->whereHas('currentRunShipment.run', function (Builder $builder) use ($driver) {
             $builder->where('driver_id', $driver->id)
                 ->whereIn('status', [
                     Run::STATUS_DRAFT,

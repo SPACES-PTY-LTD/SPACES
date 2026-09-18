@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\DeliveryNoteImport;
+use App\Models\Merchant;
 use App\Models\Run;
 use App\Models\Shipment;
 use App\Models\User;
@@ -28,18 +29,25 @@ class DeliveryNoteImportService
             throw new ConflictHttpException('Delivery notes can only be imported while the run is draft, dispatched, or in progress.');
         }
 
+        return $this->analyzeDocument($user, $file, $run->merchant, $run);
+    }
+
+    public function analyzeDocument(User $user, UploadedFile $file, Merchant $merchant, ?Run $run = null): DeliveryNoteImport
+    {
+
         $disk = (string) config('filesystems.default', 'local');
         $extension = $file->getClientOriginalExtension();
         $filename = (string) Str::uuid().($extension ? '.'.$extension : '');
-        $path = "delivery-note-imports/{$run->merchant->uuid}/{$run->uuid}/{$filename}";
+        $scope = $run?->uuid ?? 'driver-documents';
+        $path = "delivery-note-imports/{$merchant->uuid}/{$scope}/{$filename}";
 
         Storage::disk($disk)->putFileAs(dirname($path), $file, basename($path), ['visibility' => 'private']);
 
         $import = DeliveryNoteImport::create([
-            'account_id' => $run->account_id,
-            'merchant_id' => $run->merchant_id,
-            'environment_id' => $run->environment_id,
-            'run_id' => $run->id,
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'environment_id' => $run?->environment_id,
+            'run_id' => $run?->id,
             'uploaded_by_user_id' => $user->id,
             'status' => DeliveryNoteImport::STATUS_ANALYZED,
             'disk' => $disk,

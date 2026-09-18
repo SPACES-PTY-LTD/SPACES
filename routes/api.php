@@ -345,6 +345,17 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('role:driver')->prefix('driver')->group(function () {
+            Route::get('runs/{run_uuid}/position', \App\Http\Controllers\Api\V1\DriverRunPositionController::class)->middleware('throttle:30,1');
+            Route::get('runs/{run_uuid}/directions', \App\Http\Controllers\Api\V1\DriverRunDirectionsController::class)->middleware('throttle:30,1');
+            Route::post('trip-locations/search', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'searchLocations'])->middleware('throttle:20,1');
+            Route::post('runs/{run_uuid}/start', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'start']);
+            Route::patch('runs/{run_uuid}/final-destination', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'chooseFinalDestination']);
+            Route::post('document-imports/{id}/preview', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'preview']);
+            Route::get('dashboard', \App\Http\Controllers\Api\V1\DriverDashboardController::class);
+            Route::get('document-imports/context', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'context']);
+            Route::post('document-imports', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'store']);
+            Route::get('document-imports/{id}', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'show']);
+            Route::post('document-imports/{id}/confirm', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'confirm']);
             Route::patch('profile', [MeController::class, 'updateDriverProfile']);
             Route::post('devices/register', [DriverDeviceController::class, 'store']);
             Route::post('presence/heartbeat', [DriverPresenceController::class, 'heartbeat']);

@@ -11,7 +11,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ApiRequestError, CancelReason, DriverEntityFile, DriverFileType, DriverShipment, driverApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
 
-const STATUS_FLOW = ['booked', 'pickup_scheduled', 'picked_up', 'in_transit', 'out_for_delivery', 'delivered', 'failed'];
+const STATUS_FLOW = ['delivered', 'in_transit', 'failed'];
 
 export default function ShipmentDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -318,14 +318,14 @@ export default function ShipmentDetailScreen() {
 
                 {activeAction === 'status' ? (
                   <ActionCard
-                    title="Update booking status"
+                    title="Update delivery status"
                     description="Choose the next shipment state available to this driver booking.">
                     <OptionRow options={getAvailableStatuses(shipment.booking.status)} selected={statusValue} onSelect={setStatusValue} />
                     <Input
-                      label="Note"
+                      label={statusValue === 'failed' ? 'Failure reason · Required' : 'Note'}
                       value={statusNote}
                       onChangeText={setStatusNote}
-                      placeholder="Optional status note"
+                      placeholder={statusValue === 'failed' ? 'Why could delivery not be completed?' : 'Optional status note'}
                       multiline
                     />
                     {statusRequiresPickupOdometer ? (
@@ -348,13 +348,13 @@ export default function ShipmentDetailScreen() {
                     ) : null}
                     <SubmitButton
                       label={isMutating ? 'Saving...' : 'Save status'}
-                      disabled={isMutating || needsPickupOdometer || needsDeliveryOdometer}
+                      disabled={isMutating || needsPickupOdometer || needsDeliveryOdometer || (statusValue === 'failed' && !statusNote.trim())}
                       onPress={() =>
                         runAction(
                           (token) =>
                             driverApi.updateShipmentStatus(token, shipment.shipment_id, {
                               status: statusValue,
-                              note: statusNote || undefined,
+                              note: statusNote.trim() || undefined,
                               odometer_at_collection: parsedPickupOdometer ?? undefined,
                               odometer_at_delivery: parsedDeliveryOdometer ?? undefined,
                             }),
@@ -532,6 +532,7 @@ export default function ShipmentDetailScreen() {
 
             <View className="bg-card mt-6 rounded-xl px-5 py-5">
               <Text className="text-card-foreground text-lg font-semibold">Timeline</Text>
+              {shipment.status_history?.map((event, index) => <View key={index} className="mt-4"><Text className="text-card-foreground font-semibold">{formatStatus(event.status)} · {event.source === 'matched_visit' ? 'Matched recorded visit' : event.source === 'driver' ? 'Driver update' : 'Status update'}</Text><Text className="text-muted-foreground">{event.description}</Text><Text className="text-muted-foreground">{event.occurred_at}</Text></View>)}
               <InfoRow label="Booked at" value={shipment.booking?.booked_at} />
               <InfoRow label="Collected at" value={shipment.booking?.collected_at} />
               <InfoRow label="Pickup odometer" value={formatOdometerDisplay(shipment.booking?.odometer_at_collection)} />
@@ -805,18 +806,10 @@ function SubmitButton({
 }
 
 function formatStatus(status: string) {
-  return status.replaceAll('_', ' ');
+  return status === 'failed' ? 'Failed Delivery' : status.replaceAll('_', ' ');
 }
 
-function getAvailableStatuses(currentStatus: string) {
-  const currentIndex = STATUS_FLOW.indexOf(currentStatus);
-
-  if (currentIndex === -1) {
-    return STATUS_FLOW;
-  }
-
-  return STATUS_FLOW.slice(currentIndex);
-}
+function getAvailableStatuses(_currentStatus: string) { return STATUS_FLOW; }
 
 function parseOdometer(value: string) {
   const trimmed = value.trim();
@@ -837,7 +830,7 @@ function formatOdometerDisplay(value?: string | number | null) {
 }
 
 function requiresPickupOdometer(status: string) {
-  return STATUS_FLOW.indexOf(status) >= STATUS_FLOW.indexOf('picked_up');
+  return ['delivered', 'in_transit', 'failed'].includes(status);
 }
 
 function requiresDeliveryOdometer(status: string) {
@@ -845,8 +838,8 @@ function requiresDeliveryOdometer(status: string) {
 }
 
 function toggleAction(
-  current: 'cancel' | 'pod' | 'scan' | 'status' | null,
-  next: 'cancel' | 'pod' | 'scan' | 'status',
+  current: 'cancel' | 'pod' | 'status' | null,
+  next: 'cancel' | 'pod' | 'status',
 ) {
   return current === next ? null : next;
 }

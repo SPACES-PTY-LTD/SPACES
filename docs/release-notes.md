@@ -20,6 +20,1122 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-17 | Version: shipment-report-column-sorting-v1
+
+- **Summary:** Expanded shipment-report sorting from 8 to 21 visible columns.
+- **API Changes:** `GET /api/v1/reports/shipments_full_report` additionally supports `sort_by` values `invoice_number`, `shipment_type`, `from_location`, `to_location`, `from_time_in`, `from_time_out`, `from_total_time`, `to_time_in`, `to_time_out`, `to_total_time`, `total_km_from_collection`, `run_duration_seconds`, and `run_odometer_distance_km`, using the existing `sort_direction` parameter.
+- **Database Changes:** None.
+- **Behavior Changes:** New header sorts apply before pagination and preserve filters. Durations and kilometres sort numerically; location sorting follows displayed labels. Visit sorting uses the report's existing run/legacy visit matching, with ongoing dwell calculated at request time and missing derived values last in either direction. Attention remains unsortable because it combines different alert categories without a defined priority order.
+- **Internal Changes:** Derived keys are computed in batches; full report rows are loaded for the selected page. Derived sorting scans all matching shipments and may cost more on broad reports than direct database sorts.
+- **Breaking Changes:** None.
+- **Verification:** Shipment report API suite passed (9 tests, 276 assertions), covering all 13 new columns in both directions across pages, merchant scope, search, ongoing visits and missing exit times. Website TypeScript, focused ESLint and diff whitespace checks passed.
+
+## 2026-09-17 | Version: admin-run-column-sorting-v1
+
+- **Summary:** Enabled ascending/descending sorting on every column of the admin Runs table.
+- **API Changes:** `GET /api/v1/runs` accepts `sort_by` (`run_id`, `status`, `start`, `duration`, `distance`, `additional_costs`, `shipment_count`, `origin`, `destination`, `driver`, `vehicle`) and `sort_dir` (`asc`, `desc`). Unknown sort keys retain newest-first ordering.
+- **Database Changes:** None.
+- **Behavior Changes:** Sorts the full filtered result before pagination, with stable UUID tie-breaking. Header clicks reset pagination; search and filters retain sorting. Distance includes the existing GPS fallback; locations include shipment endpoint fallbacks. Additional costs compare currency codes then numeric totals, without currency conversion. Missing derived values sort last in both directions.
+- **Internal Changes:** Reused the GPS distance calculation. Derived sort keys are computed in batches with only relevant relationships; full response relationships load for the selected page. Derived sorting still scans all matching runs, so broad searches cost more than direct database sorts.
+- **Breaking Changes:** None.
+- **Verification:** All 16 Run API tests passed (291 assertions), including every column in both directions across pages, merchant scoping, filtering, GPS and location fallbacks, mixed currencies, missing values and invalid sort parameters. Website TypeScript and focused ESLint passed.
+
+## 2026-09-17 | Version: vehicle-last-known-driver-v1
+
+- **Summary:** Added the last known driver to the admin vehicle details page, immediately after Status.
+- **API Changes:** None; uses the existing vehicle last-driver response fields.
+- **Database Changes:** None.
+- **Behavior Changes:** The driver name links to their details page, with email or “View driver” as a fallback. Shows “Unknown” when no last driver is recorded.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript check and focused ESLint passed.
+
+## 2026-09-17 | Version: dashboard-remove-daily-summary-v1
+
+- **Summary:** Removed the separate Today’s deliveries section from the dashboard.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Removed daily counts, progress bar and View shipments shortcut. Current-run counts, timeline links and the Shipments tab remain available.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused ESLint; removed unused progress calculation and styles.
+
+## 2026-09-17 | Version: mobile-message-sheets-v1
+
+- **Summary:** Replaced app-owned native alerts with reusable message bottom sheets.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Timeline details, dispatch contact, permission guidance, camera confirmation and action errors use `MessageSheet`/`BottomSheet`. Existing Settings, Retake, Use photo and dismissal actions are preserved; callbacks run after dismissal, with duplicate taps guarded. OS permission prompts remain native.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused ESLint, source scan confirming no remaining app-owned alert calls, and simulator verification of the timeline detail bottom sheet.
+
+## 2026-09-17 | Version: dashboard-compact-shipment-links-v1
+
+- **Summary:** Reduced spacing between timeline shipment links.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Grouped shipment links with no extra inter-row gap, reduced minimum row height to 36 points and realigned curved grey joins. Text can still wrap and expand each row.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused ESLint checks.
+
+## 2026-09-16 | Version: dashboard-shipment-branches-v1
+
+- **Summary:** Connected shipment links to the main timeline using curved grey branches.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Each shipment link has a rounded grey join; the rail extends beside shipments on the final stop. Links retain navigation and a minimum 44-point touch target. Decorative connectors do not intercept touches.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused ESLint and simulator visual inspection of curved shipment branches.
+
+## 2026-09-16 | Version: dashboard-grey-map-v1
+
+- **Summary:** Applied an Uber-inspired grey dashboard basemap.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Grey terrain, parks and water; white roads; subdued labels; hidden POI/transit clutter. Route and vehicle/stop marker colours remain distinct. Styling is centralised in `run-map-style.ts`.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused ESLint checks.
+
+## 2026-09-16 | Version: dashboard-final-destination-v1
+
+- **Summary:** Added a missing-final-destination entry to the run timeline.
+- **API Changes:** Added `PATCH /driver/runs/{run_uuid}/final-destination`; dashboard current-run data now includes `destination_location_id`.
+- **Database Changes:** None; uses the existing run destination field.
+- **Behavior Changes:** All stops shows **Choose final destination** when missing. A shared bottom sheet supports saved-location/address search, selection preview and explicit save. Saving refreshes the map and timeline; run lifecycle and historical visits remain unchanged. Ownership, active-run state, coordinates, environment and concurrent updates are validated. Same-destination retries are idempotent.
+- **Breaking Changes:** None.
+- **Verification:** Driver import/destination suite: 15 tests, 102 assertions; TypeScript and focused ESLint. Tests cover dashboard empty/set state, repeat save, concurrent destination, foreign driver/location, missing coordinates and closed runs.
+
+## 2026-09-16 | Version: driver-dashboard-mobile-v2
+
+- **Summary:** Implemented the approved dashboard and five-step delivery-note workflow in Expo and Laravel.
+- **API Changes:** Added driver-scoped import preview/review tokens, saved-address/Google geocoding search, manual run start, explicit current/new-run confirmation and selected-run dashboard refresh. Directions include the planned start and end. Shipment responses expose status history.
+- **Database Changes:** Added `runs.driver_workflow` (default false); applied the migration locally. Existing run endpoints and tracking-event audit storage are reused.
+- **Behavior Changes:** Initial checking/ready/stale states; Photo/File/Camera source sheet; persisted editable draft; location mismatch warnings within cards; direct restricted status editing and required failure reasons; safe recorded-stop delivery matches; all-date assignment; duplicate/excluded-row handling; atomic idempotent final save; automatic departure start and dispatch-only closure for driver-planned runs. Trip endpoint markers, planned-end timeline entry and route retry are available.
+- **Breaking Changes:** Driver status selection is limited to `delivered`, `in_transit`, `failed`; failed updates require a nonblank reason. Import assignment now includes all reviewed dates. Legacy confirmation without the new-run flag remains supported.
+- **Verification:** 66 Laravel feature tests (419 assertions), five map/filter tests (`node --experimental-strip-types --test tests/*.test.mjs`), TypeScript, focused ESLint and simulator inspection. Local MySQL upload context verified. Live AI reading is blocked by missing `OPENAI_API_KEY`; camera capture still needs a physical-device pass. Google Geocoding requires an enabled server key (`GOOGLE_MAPS_GEOCODING_API_KEY`, falling back to the routes key).
+
+## 2026-09-16 | Version: dashboard-plan-v1.13
+
+### Summary
+Improved Figma shipment review and trip-location clarity.
+
+### API Changes
+None.
+
+### Database Changes
+None.
+
+### Behavior Changes
+Design only: mismatch warnings appear inside their shipment cards, the review header summarises attention counts, and eligible cards have a direct Change delivery status button. Step 3 shows Run starting point and Planned end location with full example addresses.
+
+### Internal Changes
+Added optional warning to the shared shipment card; updated location selection examples and dashboard plan v1.13.
+
+### Breaking Changes
+None.
+
+### Verification
+Visually checked Step 3 and the full affected shipment card. Status actions preserve per-shipment context; Failed Delivery retains the reason flow. Documentation diff checked. Runtime implementation remains pending.
+
+## 2026-09-16 | Version: dashboard-plan-v1.12
+
+### Summary
+Moved trip-location confirmation before shipment review in the planned import journey.
+
+### API Changes
+None.
+
+### Database Changes
+None.
+
+### Behavior Changes
+Design only: Step 3 confirms collection/end locations; Step 4 reviews shipments and warns when collection points differ from the confirmed run start. Added Change run start correction path; Step 5 remains final run selection/submission.
+
+### Internal Changes
+Updated Figma labels, progression, overview and mismatch fixture; dashboard plan updated to v1.12.
+
+### Breaking Changes
+None.
+
+### Verification
+Inspected prototype reactions and visually checked review warning; documentation diff checked. Runtime location matching remains pending implementation.
+
+## 2026-09-16 | Version: dashboard-plan-v1.11
+
+### Summary
+Fixed inconsistent Figma upload, processing and reading loading layouts.
+
+### API Changes
+None.
+
+### Database Changes
+None.
+
+### Behavior Changes
+Design only: aligned loading indicators, matched sheet heights and text spacing, and allowed the reading heading two lines.
+
+### Internal Changes
+Replaced separately positioned loading content with consistent vertical auto-layout. Dashboard plan updated to v1.11.
+
+### Breaking Changes
+None.
+
+### Verification
+Checked loading sheet geometry and screenshot rendering; retained frame-level progress transitions. Documentation diff checked. No runtime code changed.
+
+## 2026-09-16 | Version: dashboard-plan-v1.10
+
+### Summary
+Added Photo, File and Camera document-source choices to the Figma upload flow.
+
+### API Changes
+None.
+
+### Database Changes
+None.
+
+### Behavior Changes
+Design only: Choose document and Change document open a shared action sheet. Cancel preserves selection; each source previews a simulated selected file before Continue.
+
+### Internal Changes
+Dashboard plan v1.10 documents native picker/camera, permissions, capture confirmation and file validation requirements.
+
+### Breaking Changes
+None.
+
+### Verification
+Visually checked action sheet; verified source actions target the selected-file screen and Cancel closes the overlay. Documentation diff checked. Native functionality remains pending implementation.
+
+## 2026-09-16 | Version: dashboard-plan-v1.9
+
+### Summary
+Restricted planned driver delivery-status choices and added mandatory failure reasons.
+
+### API Changes
+None implemented. Plan requires server enforcement of three driver statuses and nonblank failure reasons.
+
+### Database Changes
+None implemented. Failure-reason persistence and status audit requirements documented.
+
+### Behavior Changes
+Design only: Delivered, In transit and Failed Delivery are the only driver choices. Failed Delivery opens a required reason field; Save is disabled until entered and Cancel preserves status.
+
+### Internal Changes
+Updated dashboard plan v1.9 and Figma status picker with empty/entered failure-reason states. Example text entry is simulated.
+
+### Breaking Changes
+None.
+
+### Verification
+Visually checked the three-option picker and both failure-reason states. Documentation diff checked; no runtime code changed.
+
+## 2026-09-16 | Version: dashboard-plan-v1.8
+
+### Summary
+Label shipment review dates as Collection date in Figma and the dashboard plan.
+
+### API Changes
+None.
+
+### Database Changes
+None.
+
+### Behavior Changes
+Design only: explicit Collection date labels on shared shipment cards and the edit form; date values preserved.
+
+### Internal Changes
+Renamed the editable Figma date property to Collection date; updated dashboard plan to v1.8.
+
+### Breaking Changes
+None.
+
+### Verification
+Visually checked a linked shipment card; shared variants updated. Documentation diff checked. No runtime code changes.
+
+## 2026-09-16 | Version: dashboard-plan-v1.7
+
+### Summary
+Updated dashboard Figma and plan for importing shipments whose delivery destinations have already been visited on the selected run.
+
+### API Changes
+None; matching and status correction contracts are planned.
+
+### Database Changes
+None; stop linkage and status audit requirements documented for implementation.
+
+### Behavior Changes
+Design only: propose Delivered for reliable recorded delivery-visit matches, link existing stops, allow driver status corrections, and reconcile matches against the final run choice.
+
+### Internal Changes
+Updated `docs/design/dashboard/README.md` to v1.7; extended shared Figma shipment cards, edit status picker and run-choice explanation.
+
+### Breaking Changes
+None.
+
+### Verification
+Inspected existing driver status labels; visually checked Figma shipment review, edit form and run-choice spacing. Mobile/backend implementation remains pending; no runtime tests apply to these documentation/design changes.
+
+## 2026-09-16 | Version: dashboard-plan-v1.6
+
+### Summary
+- Show explicit collection and delivery addresses on the Figma shipment review card.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Design only: labelled Collection and Deliver to address rows, independently editable location properties and a separate delivery date. All eight instances retain their specific destination.
+- No runtime changes.
+
+### Internal Changes
+- Update dashboard plan v1.6 to distinguish shipment addresses from run-level trip boundaries.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Visually reviewed the updated card and checked shipment addresses, component links and Edit actions.
+- Documentation whitespace checks pass.
+
+## 2026-09-16 | Version: dashboard-plan-v1.5
+
+### Summary
+- Convert shipment cards into a reusable Figma component with separate quantity and shipment type fields.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Design only: eight linked card instances expose reference, quantity, shipment type, date/destination and status variants while preserving Edit actions.
+- No runtime changes.
+
+### Internal Changes
+- Document component location, editable properties and reuse rules in dashboard plan v1.5.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Checked component variants, instance field values and preserved Edit interactions; visually reviewed the updated card.
+- Documentation whitespace checks pass.
+
+## 2026-09-16 | Version: dashboard-plan-v1.4
+
+### Summary
+- Redesign Figma shipment review cards with clear information hierarchy and a separate Edit button.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Design only: prominent quantity/type, labelled status badge, muted date/destination, and scrolling shipment cards with Continue outside the scroll region.
+- No mobile/backend runtime changes.
+
+### Internal Changes
+- Update the canonical dashboard plan to v1.4 with the shipment-card presentation rules.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Visually reviewed card and screen layouts and checked preserved per-shipment edit actions.
+- Documentation whitespace checks pass.
+
+## 2026-09-16 | Version: dashboard-plan-v1.3
+
+### Summary
+- Redesign the Figma delivery-note upload into five steps: upload, reading, shipment confirmation/editing, location confirmation, and current/new run selection.
+
+### API Changes
+- None implemented. The plan specifies draft quantity/type editing and final-step submission for future implementation.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Design only: list every extracted shipment with quantity, type and its own edit action before confirming trip locations.
+- Current/new run choice submits the confirmed draft; completion shows a success icon and Continue button.
+- No mobile/backend runtime changes.
+
+### Internal Changes
+- Update the canonical plan to v1.3, including step ordering, endpoint preservation, final submission and completion acceptance criteria.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Inspected the revised shipment, location, run-choice and completion designs; checked prototype navigation and per-shipment edit values.
+- Checked documentation whitespace and five-step section ordering.
+
+## 2026-09-16 | Version: dashboard-plan-v1.2
+
+### Summary
+- Fix overlapping Step 3 controls and duplicate Continue buttons in the Figma upload flow.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Design only: run information, location selectors, helper text and one primary action flow vertically. Apply the same correction to final review.
+- No mobile/backend runtime changes.
+
+### Internal Changes
+- Update the canonical dashboard plan to v1.2 with layout order and duplicate-action acceptance criteria.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Visually inspected all three Step 3 variants; checked all five affected screens for one Continue label, no overlapping stack children, preserved location bindings and linked primary actions.
+- Documentation whitespace checks pass.
+
+## 2026-09-16 | Version: dashboard-plan-v1.1
+
+### Summary
+- Document the dashboard implementation plan and update Figma Step 3 with collection and planned end location selection.
+
+### API Changes
+- None implemented. The plan records endpoint validation, persistence and full-trip routing requirements for future work.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Design only: location choices carry from run confirmation into review; the planned trip includes collection, shipment stops and the chosen end location.
+- No mobile or backend runtime behaviour changed in this task.
+
+### Internal Changes
+- Add `docs/design/dashboard/README.md` as the canonical dashboard plan, link it from the mobile README, and require updates when the plan changes in `AGENTS.md`.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Reviewed Step 3 and review screen layouts and prototype location-selection links in Figma.
+- Checked documentation links, required sections and whitespace.
+
+## 2026-09-16 | Version: timeline-event-circle-colors
+
+### Summary
+- Apply event colors to timeline icon circle backgrounds.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Collections use blue, speeding uses red, and deliveries (including planned and combined collection/delivery visits) use green. Other stops remain gray; icons remain white.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Expo lint and whitespace checks pass.
+
+## 2026-09-16 | Version: demo-run-speeding-events
+
+### Summary
+- Add two example speeding events to the simulator driver's run.
+
+### API Changes
+- None.
+
+### Database Changes
+- Local demo data only: two speeding activities, marked as illustrative telemetry with stable demo keys, scoped to the test driver's active run.
+
+### Behavior Changes
+- Example timeline includes 82 km/h in a 60 km/h zone and 98 km/h in an 80 km/h zone, positioned between existing visits. Both appear in the Speeding events filter.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Confirmed both events and speed limits in the dashboard response. Guarded the update against non-demo shipments.
+
+## 2026-09-16 | Version: run-speeding-event-timeline
+
+### Summary
+- Include speeding events in the run timeline and add a Speeding events action-sheet filter.
+
+### API Changes
+- Dashboard timeline includes run/account/merchant-scoped speeding activity with recorded speed and speed limit in km/h. Speeding events remain separate from location visits.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- All stops interleaves speeding events chronologically with visited stops, before planned deliveries. Speeding entries use a red warning icon and show recorded speed/limit when available.
+- Speeding events filter displays only those events; Shipment deliveries excludes them. Empty and missing-speed states are explicit.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Driver shipment API and timeline filter tests pass, including speeding details/order and filter isolation. Expo lint and whitespace checks pass.
+
+## 2026-09-16 | Version: shipment-deliveries-stop-filter
+
+### Summary
+- Rename the stop filter to Shipment deliveries and include visited and planned delivery stops.
+
+### API Changes
+- Dashboard adds `planned_delivery_stops` for open shipments whose delivery visit has not been recorded, grouped by destination in run order.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Shipment deliveries filters out collection-only and non-shipment stops. Planned deliveries are labeled explicitly and appended after chronological visited stops; they are never presented as visited.
+- All stops includes recorded visits and planned deliveries. Closed shipments do not produce planned visits.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Driver shipment API suite, delivery-filter test, Expo lint, and whitespace checks pass. Tests cover collection exclusion and planned delivery inclusion.
+
+## 2026-09-16 | Version: complete-demo-run-stop-history
+
+### Summary
+- Populate the simulator driver's missing example run-stop history.
+
+### API Changes
+- None.
+
+### Database Changes
+- Local demo data only: added five collection activity records, three completed-delivery activity records, and rest/fuel stops with two illustrative locations. Shared arrival times group collection and delivery activities into visits. Records carry demo metadata and stable demo keys for repeatable updates.
+
+### Behavior Changes
+- All stops shows four chronological visits: depot collection, Rosebank delivery, rest, and fuel. Shipments only shows the collection and delivery visits with five and three linked shipments respectively. The two in-transit shipments have no fabricated delivery visit.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Verified the dashboard response contains four total stops and two shipment-linked stops, with correct locations, arrival times, and shipment counts. Updates were scoped to the simulator driver's active run and guarded against non-demo shipments.
+
+## 2026-09-16 | Version: shipment-linked-run-stop-filter
+
+### Summary
+- Make both Current run filters operate on the same stop timeline.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- All stops is the default and displays all recorded run stops. Shipments only filters that list to stops with associated shipments, including collection and delivery visits, preserving chronological order.
+- Removed the separate shipment-list rendering from this selector. Counts and empty states reflect the selected stop filter.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Stop-filter test covers collection/delivery inclusion, stops with no shipments, stable order, multiple shipments at a stop, and empty lists. Expo lint and whitespace checks pass.
+
+## 2026-09-16 | Version: visited-run-stop-timeline
+
+### Summary
+- Show all recorded visits, including collection and delivery stops, in one chronological All stops timeline.
+
+### API Changes
+- Dashboard recorded stops now include arrival, collection and delivery activity, stop kind, and associated shipment links. Events sharing a location and recorded arrival time are combined.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- All stops shows the places the run has visited in arrival order, including collection stops and other truck stops. It no longer appends a separate shipment timeline. Shipments only retains the shipment view.
+- Visits include location, arrival/departure times and links to associated shipments where available. Missing history is shown explicitly; planned shipment addresses alone do not create visited stops.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Driver shipment API tests and Expo lint; checked inclusion of collection activity and associated shipments, exclusion of movement and other runs, and chronological ordering.
+
+## 2026-09-16 | Version: current-run-view-filter
+
+### Summary
+- Add an action-sheet selector beside Current run for All stops or Shipments only.
+
+### API Changes
+- Driver dashboard includes `recorded_stops`: current-run stopped vehicle events without shipment associations, scoped by account and merchant.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Shipments only preserves the shipment timeline. All stops adds a chronological recorded-truck-stops section above shipments, with names, addresses and timestamps where available, and an explicit empty state.
+- Selected view appears in the header and is marked in the reusable ActionSheet. Route map and shipment numbering remain unchanged.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Driver shipment API tests cover run-scoped truck stops, excluded movement/shipment events, and other-driver isolation. Expo lint and whitespace checks pass.
+
+## 2026-09-16 | Version: dashboard-map-minimum-half-height
+
+### Summary
+- Keep the dashboard map at least half height.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Expanding the dashboard sheet beyond 50% overlays the map without shrinking it further. Collapsing the sheet to 25% still enlarges the map. Safe-area and rounded-corner overlap remain accounted for.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Expo lint and whitespace checks pass; checked the map-height clamp against the three sheet positions.
+
+## 2026-09-16 | Version: dashboard-quarter-sheet-map-resize
+
+### Summary
+- Add a 25% dashboard sheet position and resize the map with the sheet.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Dashboard sheet supports 25%, 50%, and 92% heights, starting at 50%. Tapping the handle cycles through all three positions; dragging also supports them.
+- Map height follows the sheet's animated position, growing when collapsed and shrinking when expanded. Existing map layout handling refits truck and shipment geometry to the available space.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Expo lint and whitespace checks; simulator verification of sheet positions and map resizing.
+
+## 2026-09-16 | Version: stronger-dashboard-sheet-shadow
+
+### Summary
+- Make the dashboard bottom sheet shadow more visible against the map.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Give the shadow container an opaque white rounded surface and increase the shadow opacity, upward offset, blur, and Android elevation.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Expo lint and whitespace checks pass.
+
+## 2026-09-16 | Version: dashboard-route-info-toggle
+
+### Summary
+- Add a bottom-right map info button that shows or hides route information.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Route distance/time is hidden by default. Tap the accessible info button to reveal the summary beside it; tap again to hide it.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Expo lint and whitespace checks pass.
+
+## 2026-09-16 | Version: hide-known-truck-location-banner
+
+### Summary
+- Hide the map's truck location banner when coordinates are available.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Known truck locations show the truck marker without the timestamp/locate banner. Last-reported time remains available in the marker callout. Loading and unavailable-location messages remain when no position is known.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Expo lint and diff whitespace checks pass.
+
+## 2026-09-16 | Version: subtle-dashboard-sheet-shadow
+
+### Summary
+- Add a very subtle shadow to the dashboard bottom sheet.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The white dashboard sheet has a soft, low-opacity shadow above the map, with a small Android elevation.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Checked the sheet styling and ran Expo lint.
+
+## 2026-09-16 | Version: local-demo-truck-position
+
+### Summary
+- Add an example truck position for simulator dashboard preview.
+
+### API Changes
+- None.
+
+### Database Changes
+- Updated only the local simulator driver's active-run vehicle `SIM-DEMO-01` with example coordinates (-26.157, 28.044), a location timestamp, and metadata identifying the position as an illustrative fixture rather than live telemetry. No schema changes.
+
+### Behavior Changes
+- The existing truck-position endpoint now returns a location for the demo truck, enabling its map marker and locate control.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Scoped the update through simulator.driver@example.com's active run and account-owned vehicle; confirmed the saved example coordinates.
+
+## 2026-09-16 | Version: local-phone-api-connection
+
+### Summary
+- Persist the local Expo API address for physical-phone testing.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Local Expo configuration uses the Mac's LAN API at `http://172.20.10.4:8001/api/v1` instead of device loopback. Update the local IP if the Mac changes networks.
+
+### Breaking Changes
+- None; local development configuration only.
+
+### Verification
+- API listens on all interfaces on port 8001. Localhost and LAN requests both return the expected unauthenticated HTTP 401 response. Phone network access still depends on its connection and permissions.
+
+## 2026-09-16 | Version: unreleased-dashboard-truck-position
+
+### Summary
+- Show the assigned truck's last reported GPS position alongside run shipment stops.
+
+### API Changes
+- Added authenticated `GET /api/v1/driver/runs/{run_uuid}/position`, restricted to the driver's active run and account-owned vehicle (matching merchant or shared account vehicle). Returns validated coordinates, plate, vehicle ID, and original location update time.
+
+### Database Changes
+- None. Uses existing vehicle `last_location_address` and `location_updated_at` values.
+
+### Behavior Changes
+- Blue truck marker, timestamp banner, and tap-to-center control. Map bounds include the truck and shipment route.
+- Refresh every 30 seconds while the dashboard is focused and the app is active; refresh again on foreground. No phone-location permissions or background tracking added.
+- Missing GPS coordinates show “Truck location not reported yet”; request failures are identified and any previous point retains its last-reported timestamp. No simulated truck position is created.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Driver shipment API tests cover assigned vehicle position, timestamp, other-driver denial, missing coordinates, valid zero coordinates, and closed-run denial.
+- Expo lint passes; TypeScript retains existing unrelated shipment-action/request-body errors.
+- Simulator verified the missing-location state: the local demo truck has no reported GPS fix, so a real-position marker cannot yet be visually verified.
+
+## 2026-09-16 | Version: unreleased-google-run-directions
+
+### Summary
+- Draw Google driving routes between current-run shipment stops on the dashboard Google map.
+
+### API Changes
+- Added authenticated `GET /api/v1/driver/runs/{run_uuid}/directions`, scoped to the driver's active assigned run and account/merchant. Returns road coordinates, distance in meters, estimated driving seconds, or an explicit unavailable status.
+- Google Routes API requests run on Laravel using `GOOGLE_MAPS_ROUTES_API_KEY`. No routing credentials or persisted Google route cache are sent to the mobile app.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Replaced straight stop-order lines with Google road geometry; preserve shipment order, completed stops, and return visits. Consecutive co-located stops are collapsed for routing only.
+- Route loading is independent of dashboard loading. Missing coordinates, configuration, service errors, or more than 27 distinct consecutive stops leave markers visible without a fabricated route.
+- Show route distance and approximate driving time (traffic-unaware, excluding delivery service time). Fit road geometry and pins above the white dashboard sheet.
+- Google map provider is used on iOS and Android, with bottom padding preserving Google attribution. Expo Go works directly; standalone builds accept `GOOGLE_MAPS_IOS_API_KEY` and `GOOGLE_MAPS_ANDROID_API_KEY` through `app.config.js` and require their respective Google Maps SDKs enabled.
+
+### Breaking Changes
+- None. Deployed road routing requires a Google Routes API key; standalone Google maps require native SDK keys and a rebuild.
+
+### Verification
+- 28 backend tests pass (154 assertions), including Google waypoint order, return visits, missing coordinates/key, provider failures, and driver/run authorization.
+- Expo lint passes. TypeScript still reports only the four pre-existing shipment-action/request-body errors.
+- Verified Google map and road-following geometry in the iOS simulator, including all five shipment numbers and the local demo route of 16.2 km / approximately 38 minutes. Demo coordinates remain illustrative.
+
+## 2026-09-16 | Version: unreleased-visible-shipment-stops
+
+### Summary
+- Make every mapped shipment number visible, including shared destination stops.
+
+### API Changes
+- None.
+
+### Database Changes
+- No schema changes. Added clearly marked illustrative coordinates to the four local simulator demo locations that had none; existing coordinates are preserved.
+
+### Behavior Changes
+- Shipments with identical coordinates share a numbered marker rather than hiding behind each other. Tap a shared marker to choose a shipment in the reusable ActionSheet.
+- A single distinct location receives an appropriate map zoom even when several shipments use it.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Four map data tests and Expo lint pass, including shared-location grouping and preserved timeline numbering.
+- Verified all five shipment numbers on the iOS map and the shared-stop chooser for shipments 1, 4, and 5. TypeScript retains only the four pre-existing errors.
+
+## 2026-09-15 | Version: unreleased-map-dashboard-sheet
+
+### Summary
+- Implement the Figma half-map dashboard with a persistent white bottom sheet.
+
+### API Changes
+- None. Mobile location types now include the coordinates already returned by the API.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Native map shows saved drop-off locations with numbered shipment markers and green delivered markers. Callouts open shipment details.
+- Connect mapped stops in run order only when all locations are available; the connection is an overview, not road directions. Missing coordinates show an explicit empty/partial-map state.
+- White dashboard sheet opens halfway, expands to 92% by tapping or dragging its handle, and scrolls above the existing tab bar. Modal and persistent sheets share corner/handle tokens. The date is centered and the separate Dashboard heading is removed to match the latest Figma frame.
+- Web retains dashboard information with a mobile-map fallback.
+
+### Breaking Changes
+- None. Added Expo-compatible react-native-maps 1.20.1; standalone Android maps require a configured Google Maps key.
+
+### Verification
+- Map data tests: 3 passed (valid decimal coordinates, missing/invalid locations, stable timeline numbering and completed shipments).
+- Expo lint and production web export passed. TypeScript has only the four previously identified shipment-action/API-body errors.
+- iOS simulator verified white sheet, rounded map overlap, tap-to-expand, live shipment counts, and shipment navigation. Existing demo locations have no coordinates, so their map shows the explicit empty state.
+
+## 2026-09-15 | Version: unreleased-driver-run-timeline
+
+### Summary
+- Replace the next-delivery card with the current run's shipment timeline.
+
+### API Changes
+- Dashboard adds `current_run` and sequence-ordered `run_shipments`, including completed attachments and excluding removed shipments. Prefer in-progress, then dispatched, then draft runs belonging to the authenticated driver, account, and merchant.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Show connected numbered stops, green completion checks, shipment status, addresses, parcel counts, and individual Open shipment actions.
+- Show only the required-document reminder title; tapping it still opens Documents.
+- Keep daily delivery progress separate from the current run summary.
+
+### Breaking Changes
+- None; existing dashboard response fields remain available.
+
+### Verification
+- DriverShipmentApiTest: 24 tests passed, 137 assertions, including sequence, completed attachments, removed shipments, other runs/drivers, and no-run cases.
+- Expo lint passed. TypeScript still reports four pre-existing errors in shipment action state and the API request body.
+- Verified the rebuilt iOS simulator dashboard shows five real run shipments, three delivered/two remaining, connected markers, and the title-only document reminder.
+
+## 2026-09-15 | Version: unreleased-upload-continue-visibility
+
+### Summary
+- Show Continue in the upload sheet only after a file is selected.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Continue is hidden until a valid file is selected and hides again when the selection is removed.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Verified conditional rendering uses the selected-file state; diff whitespace check passed.
+
+## 2026-09-15 | Version: unreleased-content-sized-sheets
+
+### Summary
+- Shared bottom sheets now fit their content, removing the empty space below short upload forms.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Enabled dynamic sizing for scrollable sheets as well as static sheets. Longer content remains limited to the existing safe-area-aware maximum height and can scroll.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Shared BottomSheet ESLint and diff whitespace checks passed. Simulator screenshot verified the upload sheet fits the content with normal padding below Continue.
+
+## 2026-09-15 | Version: unreleased-upload-helper-copy
+
+### Summary
+- Removed the “Next: AI reads your document…” message from the upload sheet.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Removed the explanatory footer from file selection.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Confirmed the requested text was removed; diff whitespace check passed.
+
+## 2026-09-15 | Version: unreleased-hide-recent-uploads
+
+### Summary
+- Removed recent uploads from the delivery-note upload sheet.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- The upload step shows file selection and Continue without recent import or resume links.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Upload screen ESLint and diff whitespace checks passed.
+
+## 2026-09-15 | Version: unreleased-guided-delivery-note-upload
+
+### Summary
+- Converted delivery-note import into a guided bottom-sheet flow: choose file, processing animation, confirm note/run, editable review, final creation, and completion.
+
+### API Changes
+- Driver import confirmation accepts an optional run UUID selected after extraction. Ownership and active-run validation remain enforced in the creation transaction; omitted run preserves existing clients' behavior.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Continue uploads and analyzes the selected file. Actual upload completion switches to indeterminate AI processing; no timed/fabricated completion or percentage is shown.
+- The confirmation step shows the extracted note/order reference, destination, and item count, with a run choice. Continue opens the review, where Continue upload creates shipments.
+- The final screen reports Delivery note upload completed and processed with created/attached/skipped/unassigned counts. Duplicate skipping and today's-only run assignment are preserved.
+- All steps use the shared bottom sheet; processing blocks dismissal and duplicate submissions. Animation respects reduced motion. Existing imports can resume at confirmation.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Added API tests for assigning a run after extraction and rejecting another driver's run.
+- 31 backend tests passed (175 assertions); targeted mobile ESLint passed. Whole-app TypeScript reports only the previously documented unrelated errors.
+- Simulator verified file/Continue, confirmation, long-form review scrolling, Continue upload, and successful completion with duplicate skipping and no new demo shipments. Fixed shared-sheet scrolling and backdrop ordering when busy state changes.
+- Live AI upload/processing remains unverified locally because no AI key is configured; progress uses real request events.
+
+## 2026-09-15 | Version: unreleased-shared-bottom-sheets
+
+### Summary
+- Added reusable BottomSheet and ActionSheet UI components, styled centrally for Spaces and inspired by the supplied floating-sheet references.
+- Shipment/delivery-note upload now opens as a floating bottom sheet over the dashboard.
+
+### API Changes
+- None.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Shared sheets handle light/dark appearance, rounded floating layout, safe areas, height limits, scrollable content, backdrop/close/drag dismissal, and keyboard behavior.
+- ActionSheet supports configurable actions, destructive/disabled states, async error handling, and action execution after dismissal; the upload flow uses it for run selection and replacing/removing a selected document.
+- Upload keeps run preselection and review navigation. Dismissal is disabled during document analysis. The full review editor remains a separate page.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Targeted ESLint passed. TypeScript reports only the previously documented shipment-action union and request-body narrowing errors.
+- Simulator verified floating upload presentation, accessible controls, nested run ActionSheet presentation, action selection updating the restored parent sheet, and dismissal before opening the existing review screen. Android/dark mode and document replacement were not exercised in the simulator.
+- Added usage guidance in `mobile_app/docs/bottom-sheets.md`.
+
+## 2026-09-15 | Version: unreleased-empty-run-delivery-note
+
+### Summary
+- Added an on-road dashboard reminder to upload a delivery note when an in-progress run has no attached shipments.
+
+### API Changes
+- Added nullable `delivery_note_required_run_id` to the driver dashboard, scoped to the driver's account, merchant, and assigned in-progress runs.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Tapping the reminder opens Upload a delivery note with the matching run selected, including when the driver has multiple runs.
+- Planned, dispatched, completed, and cancelled runs do not trigger the notice. Existing non-removed shipments, including future-dated/completed/failed shipments, prevent the notice; removed/deleted shipments do not.
+- The notice refreshes with the dashboard. A run that becomes unavailable before upload is not silently replaced with another run.
+- Existing document extraction, review-before-create, duplicate skipping, and today's-run assignment rules remain unchanged.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Added API coverage for run lifecycle, other-driver isolation, future-dated shipments, attachment statuses, deleted shipments, and deleted runs.
+- Driver shipment/import API suites: 29 tests passed (167 assertions). Dashboard/upload ESLint passed. Whole-app TypeScript still reports only the previously documented shipment-action union and request-body narrowing errors.
+- Simulator verified reminder visibility and navigation with the correct empty run preselected among two runs. Temporary verification run cancelled afterward.
+
+## 2026-09-15 | Version: unreleased-dashboard-document-notices
+
+### Summary
+- Added dashboard notices for missing required driver uploads and expired documents, linking to Documents.
+
+### API Changes
+- Extended driver dashboard with missing required document count/names, dispatch-managed missing count, and expired file count.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Required uploads follow existing coverage rules: active driver document types for the driver's merchant. Soft-deleted uploads do not satisfy requirements; inactive/deleted and vehicle/shipment types are excluded.
+- Expired files are counted separately using their expiry timestamp, including historical expired files still present in Documents. An expired upload is not also counted as missing.
+- Notices hide when their count is zero and refresh on dashboard focus/pull-to-refresh. Dispatch-managed requirements include guidance to contact dispatch.
+
+### Breaking Changes
+- None; dashboard response additions are additive.
+
+### Verification
+- Added API tests for missing/expired counts, other-driver isolation, deleted files/types, inactive and non-driver types, successful uploads, and the empty state.
+- Driver shipment API suite: 22 tests passed (102 assertions). Dashboard ESLint and diff whitespace checks passed. Simulator showed five missing requirements and tapping the notice opened Documents. Expired and empty states verified through API tests.
+
+## 2026-09-15 | Version: unreleased-driver-document-import
+
+### Summary
+- Added dashboard Load shipment, document upload, editable AI review, import results, and recent imports for resuming reviews in the Expo driver app.
+
+### API Changes
+- Added driver-only document import context, upload, show, and confirm endpoints under `/api/v1/driver/document-imports`.
+- Reuses the existing AI extraction service; extraction now includes an optional collection date per item.
+- Enforces account, merchant, uploader, active driver, and assigned-run ownership. Confirmation is transactional and repeatable without creating duplicates.
+
+### Database Changes
+- Makes delivery note import run optional and adds reviewed data and confirmation result audit fields.
+- Applied the scoped migration to the local development database.
+
+### Behavior Changes
+- Uploading creates no shipments. Drivers edit the extracted references, dates, shared pickup/drop-off addresses, grouping, quantities, and parcel details before confirming.
+- Existing merchant shipment references (including soft-deleted shipments) are skipped; existing shipments are never reassigned.
+- Only new shipments with today's collection date in the merchant time zone join the selected active run. Other dates, or imports without a run, remain draft and unassigned for dispatch.
+- PDF/JPG/PNG/WebP uploads up to 20 MB; 100 items and 500 parcels per confirmation. The current extraction uses shared addresses across an import.
+
+### Breaking Changes
+- None. Existing web import behavior is preserved. Rollback requires assigning or retaining standalone imports before restoring a required run.
+
+### Verification
+- 30 focused backend tests pass (161 assertions), covering review-before-create, mixed dates/time zones, duplicate and repeat confirmation, ownership, reassigned runs, validation, single-shipment grouping, and AI failure.
+- Existing web import and AI extraction tests pass. Mobile lint passes; whole-app TypeScript still reports the previously existing shipment-action union and request-body narrowing errors.
+- Simulator upload and review screens verified, including the existing-reference warning, using a clearly labelled local review fixture; no fixture shipments were created. Live AI extraction could not be exercised because the local server has no AI key configured.
+
+## 2026-09-15 | Version: unreleased-driver-dashboard
+
+### Summary
+- Rebuilt the Expo dashboard around the selected “Your next stop” design with live delivery details, daily progress, and dispatch contact.
+
+### API Changes
+- Added authenticated, driver-only `GET /api/v1/driver/dashboard` with the next due shipment, daily delivered/remaining counts, merchant date/timezone, and configured support email.
+- Due work includes overdue assignments; future pickups are excluded. Delivered counts use the merchant's day and include bookings from completed runs.
+
+### Database Changes
+- None.
+
+### Behavior Changes
+- Removed the dashboard's online/offline controls, availability mutations, and automatic location heartbeats as requested.
+- Removed the top-right avatar, driver name, and role from the dashboard header as requested; account access remains in the Account tab.
+- Open delivery and View shipments navigate to existing screens. Incoming offers remain actionable when present.
+- Contact dispatch opens the merchant's support email, with an explanatory fallback when no contact or mail app is available.
+- Added a generated SPACES wordmark and retained the existing bottom navigation and theme support.
+
+### Breaking Changes
+- Drivers can no longer set their availability from this dashboard. Existing availability API endpoints remain unchanged.
+- The redesigned app requires the new dashboard endpoint on its configured backend.
+
+### Verification
+- Driver shipment API suite passed: 20 tests, 92 assertions, including daily timezone boundaries, driver isolation, future pickups, completed runs, empty state, and role access.
+- Local dashboard returned 2 delivered, 3 remaining, and the expected next shipment.
+- Targeted mobile ESLint and PHP syntax checks passed.
+- Verified the rendered simulator dashboard, Open delivery, and View shipments navigation; no online control is present.
+- Visual QA: `mobile_app/design-qa.md`. Full TypeScript checking remains blocked by pre-existing shipment action union and request body typing errors.
+
+## 2026-09-15 | Version: unreleased-local-simulator
+
+### Summary
+- Enabled the Expo simulator to use the local Laravel API through local environment overrides.
+
+### API Changes
+- None.
+
+### Database Changes
+- Created an active local simulator test driver using the existing driver service; no schema changes.
+- Loaded fictional local demo data for that driver: one assigned Toyota Hiace, one active run, three deliveries, four parcels, pickup/drop-off locations, and supporting booking/quote records.
+- Added two delivered shipment examples to the assigned run, with scanned parcels, delivery timestamps, and odometer readings.
+
+### Behavior Changes
+- The mobile environment resolver now accepts `development` explicitly.
+- This workspace uses a git-ignored `.env.local` override for the API at `http://127.0.0.1:8000/api/v1`.
+
+### Breaking Changes
+- None.
+
+### Verification
+- Driver login against the local API returned HTTP 200 with the driver role.
+- Expo loaded the local environment overrides and compiled the iOS bundle.
+- Targeted ESLint passed for the environment configuration.
+- Signed in through the simulator UI and verified the dashboard welcomes Simulator Test Driver.
+- Verified all three demo deliveries and the assigned van in the simulator's Shipments and Vehicles tabs.
+- Verified two delivered examples appear in the simulator's Completed shipment filter.
+
 ## 2026-09-15 | Version: unreleased
 
 ### Summary

@@ -23,13 +23,15 @@ class DeliveryNoteImport extends Model
         'uuid', 'account_id', 'merchant_id', 'environment_id', 'run_id',
         'uploaded_by_user_id', 'status', 'disk', 'path', 'original_name',
         'mime_type', 'size_bytes', 'model', 'extracted_data', 'failure_message',
-        'confirmed_at',
+        'confirmed_at', 'reviewed_data', 'confirmation_result',
     ];
 
     protected $casts = [
         'size_bytes' => 'integer',
         'extracted_data' => 'array',
         'confirmed_at' => 'datetime',
+        'reviewed_data' => 'array',
+        'confirmation_result' => 'array',
     ];
 
     public function run(): BelongsTo

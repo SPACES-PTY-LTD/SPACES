@@ -703,6 +703,15 @@ export interface VehicleLocation {
 }
 
 export interface Vehicle {
+  last_driver_id?: UUID | null
+  last_driver?: {
+    driver_id?: UUID
+    name?: string | null
+    email?: string | null
+    telephone?: string | null
+    intergration_id?: string | null
+    is_active?: boolean
+  } | null
   driver_vehicle_id?: UUID
   vehicle_id?: UUID
   vehicle_uuid?: UUID

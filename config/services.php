@@ -14,6 +14,11 @@ return [
     |
     */
 
+    'google_maps' => [
+        'geocoding_api_key' => env('GOOGLE_MAPS_GEOCODING_API_KEY', env('GOOGLE_MAPS_ROUTES_API_KEY')),
+        'routes_api_key' => env('GOOGLE_MAPS_ROUTES_API_KEY'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

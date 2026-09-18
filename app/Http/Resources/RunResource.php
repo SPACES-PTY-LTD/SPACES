@@ -36,7 +36,7 @@ class RunResource extends JsonResource
                 'speed_kph' => $activity->speed_kph !== null ? (float) $activity->speed_kph : null,
                 'speed_limit_kph' => $activity->speed_limit_kph !== null ? (float) $activity->speed_limit_kph : null,
             ])->values();
-        $gpsDistance = $this->gpsDistanceKm($trackPoints->all());
+        $gpsDistance = \App\Support\RunDistance::gpsDistanceKm($trackPoints->all());
         $distanceKm = $odometerDistance ?? ($trackPoints->count() > 1 ? $gpsDistance : null);
         $distanceSource = $odometerDistance !== null ? 'odometer' : ($distanceKm !== null ? 'gps' : null);
         $speedReadings = $activities->pluck('speed_kph')->filter(fn ($speed) => $speed !== null)->map(fn ($speed) => (float) $speed);
@@ -197,24 +197,5 @@ class RunResource extends JsonResource
             'updated_at' => $this->formatDateForMerchantTimezone($this->updated_at, $request),
             'delivery_note_imports' => DeliveryNoteImportResource::collection($this->whenLoaded('deliveryNoteImports')),
         ];
-    }
-
-    private function gpsDistanceKm(array $points): float
-    {
-        $distance = 0.0;
-
-        for ($index = 1, $count = count($points); $index < $count; $index++) {
-            $previous = $points[$index - 1];
-            $current = $points[$index];
-            $latitudeDelta = deg2rad($current['latitude'] - $previous['latitude']);
-            $longitudeDelta = deg2rad($current['longitude'] - $previous['longitude']);
-            $a = sin($latitudeDelta / 2) ** 2
-                + cos(deg2rad($previous['latitude'])) * cos(deg2rad($current['latitude']))
-                * sin($longitudeDelta / 2) ** 2;
-            $a = min(1, max(0, $a));
-            $distance += 6371.0088 * 2 * atan2(sqrt($a), sqrt(1 - $a));
-        }
-
-        return $distance;
     }
 }

@@ -1,5 +1,9 @@
 # Welcome to your Expo app 👋
 
+## Dashboard design and implementation plan
+
+Read the [driver dashboard plan](../docs/design/dashboard/README.md) before updating the dashboard or delivery-note upload flow. Keep that plan updated whenever the intended behaviour changes.
+
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
 ## Get started

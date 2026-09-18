@@ -1,4 +1,4 @@
-import { AdminLinks } from "@/lib/routes/admin"
+import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { PageHeader } from "@/components/layout/page-header"
 import { ErrorMessage } from "@/components/common/error-message"
@@ -12,6 +12,7 @@ import { isApiErrorResponse } from "@/lib/api/client"
 import { getVehicle } from "@/lib/api/vehicles"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import moment from "moment"
+import Link from "next/link"
 
 export default async function VehicleDetailPage({
   params,
@@ -34,6 +35,7 @@ export default async function VehicleDetailPage({
     )
   }
   const plateNumberLabel = vehicle.plate_number ?? ""
+  const lastDriverId = vehicle.last_driver?.driver_id ?? vehicle.last_driver_id
   const statusLabel =
     vehicle.maintenance_mode_at
       ? "maintenance"
@@ -60,6 +62,11 @@ export default async function VehicleDetailPage({
   const detailItems = [
     { label: "Type", value: vehicle.type?.name },
     { label: "Status", value: statusLabel },
+    {
+      label: "Last known driver",
+      value: vehicle.last_driver?.name || vehicle.last_driver?.email || (lastDriverId ? "View driver" : "Unknown"),
+      href: lastDriverId ? AdminRoute.driverDetails(lastDriverId) : undefined,
+    },
     { label: "Make", value: vehicle.make },
     { label: "Model", value: vehicle.model },
     { label: "Color", value: vehicle.color },
@@ -156,7 +163,13 @@ export default async function VehicleDetailPage({
               {detailItems.map((item) => (
                 <div key={item.label}>
                   <div className="text-xs text-muted-foreground">{item.label}</div>
-                  <div className="font-medium">{String(item.value)}</div>
+                  <div className="font-medium">
+                    {item.href ? (
+                      <Link href={item.href} className="text-primary hover:underline">
+                        {String(item.value)}
+                      </Link>
+                    ) : String(item.value)}
+                  </div>
                 </div>
               ))}
             </div>

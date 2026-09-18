@@ -66,6 +66,8 @@ function RootNavigator() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="shipments/load" options={{ presentation: 'transparentModal', animation: 'none', gestureEnabled: false, contentStyle: { backgroundColor: 'transparent' } }} />
+        <Stack.Screen name="shipments/imports/[import_id]" options={{ presentation: 'transparentModal', animation: 'none', gestureEnabled: false, contentStyle: { backgroundColor: 'transparent' } }} />
         <Stack.Screen name="shipments/[shipment_id]" />
         <Stack.Screen name="shipments/[shipment_id]/scan" />
         <Stack.Screen name="shipments/completed" />

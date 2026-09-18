@@ -376,6 +376,70 @@ class ShipmentsFullReportTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_report_sorts_extended_columns_before_pagination(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+        $uuids = [];
+        foreach (['Alpha', 'Zulu'] as $index => $name) {
+            $location = $this->createLocation($account->id, $merchant->id, $name, $name, 'Cape Town');
+            $vehicle = $this->createVehicle($account->id, $merchant->id, $name);
+            $uuid = $this->createShipment($account->id, $merchant->id, $name, $location, $location);
+            $shipmentId = (int) DB::table('shipments')->where('uuid', $uuid)->value('id');
+            DB::table('shipments')->where('id', $shipmentId)->update(['invoice_number' => $name, 'service_type' => $name]);
+            $runId = $this->attachShipmentToRun($account->id, $merchant->id, $shipmentId, $vehicle);
+            $start = $index === 0 ? '2026-09-01 08:00:00' : '2026-09-02 08:00:00';
+            $end = $index === 0 ? '2026-09-01 08:02:00' : '2026-09-02 08:10:00';
+            DB::table('runs')->where('id', $runId)->update([
+                'started_at' => $start, 'completed_at' => $end,
+                'odometer_start_km' => 100, 'odometer_end_km' => $index === 0 ? 102 : 110,
+            ]);
+            $this->createBooking($account->id, $merchant->id, $shipmentId, 'delivered', $start, $end);
+            DB::table('bookings')->where('shipment_id', $shipmentId)->update(['total_km_from_collection' => $index === 0 ? '2.00' : '10.00']);
+            $this->createVehicleActivity($account->id, $merchant->id, $vehicle, $location, $runId, null, VehicleActivity::EVENT_ENTERED_LOCATION, $start, $end);
+            $uuids[] = $uuid;
+        }
+        $otherMerchant = Merchant::factory()->create(['owner_user_id' => $user->id, 'account_id' => $account->id]);
+        $otherMerchant->users()->attach($user->id, ['role' => 'owner']);
+        $otherLocation = $this->createLocation($account->id, $otherMerchant->id, 'Other', 'Other', 'Durban');
+        $this->createShipment($account->id, $otherMerchant->id, 'Other', $otherLocation, $otherLocation);
+        foreach (['invoice_number', 'shipment_type', 'from_location', 'to_location', 'from_time_in', 'from_time_out', 'from_total_time', 'to_time_in', 'to_time_out', 'to_total_time', 'total_km_from_collection', 'run_duration_seconds', 'run_odometer_distance_km'] as $column) {
+            foreach (['asc', 'desc'] as $direction) {
+                foreach ([1, 2] as $page) {
+                    $expected = $direction === 'asc' ? $page - 1 : 2 - $page;
+                    $this->withHeaders($this->authHeaders($user))
+                        ->getJson('/api/v1/reports/shipments_full_report?'.http_build_query([
+                            'merchant_id' => $merchant->uuid, 'sort_by' => $column,
+                            'sort_direction' => $direction, 'per_page' => 1, 'page' => $page,
+                        ]))
+                        ->assertOk()->assertJsonPath('meta.total', 2)
+                        ->assertJsonCount(1, 'data')->assertJsonPath('data.0.shipment_id', $uuids[$expected]);
+                }
+            }
+        }
+        $this->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/reports/shipments_full_report?'.http_build_query([
+                'merchant_id' => $merchant->uuid, 'sort_by' => 'from_total_time', 'search' => 'Alpha',
+            ]))
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.shipment_id', $uuids[0]);
+
+        $this->travelTo(Carbon::parse('2026-09-03 12:00:00'));
+        DB::table('vehicle_activity')->where('merchant_id', $merchant->id)
+            ->where('entered_at', '2026-09-02 08:00:00')->update(['exited_at' => null]);
+        foreach (['asc', 'desc'] as $direction) {
+            $this->withHeaders($this->authHeaders($user))
+                ->getJson('/api/v1/reports/shipments_full_report?'.http_build_query([
+                    'merchant_id' => $merchant->uuid, 'sort_by' => 'from_total_time', 'sort_direction' => $direction,
+                ]))
+                ->assertOk()->assertJsonPath('data.0.shipment_id', $uuids[$direction === 'asc' ? 0 : 1]);
+            $this->withHeaders($this->authHeaders($user))
+                ->getJson('/api/v1/reports/shipments_full_report?'.http_build_query([
+                    'merchant_id' => $merchant->uuid, 'sort_by' => 'from_time_out', 'sort_direction' => $direction,
+                ]))
+                ->assertOk()->assertJsonPath('data.0.shipment_id', $uuids[0]);
+        }
+        $this->travelBack();
+    }
+
     private function createMerchantContext(): array
     {
         $user = User::factory()->create();

@@ -39,6 +39,8 @@ export default async function RunsPage({
   const session = await requireAuth()
   const merchantId = getScopedMerchantId(session)
   const params = searchParams ? await searchParams : {}
+  const sortBy = single(params.sort_by)
+  const sortDir = single(params.sort_dir) === "desc" ? "desc" : "asc"
   const status = single(params.status)
   const from = single(params.from)
   const to = single(params.to)
@@ -49,6 +51,8 @@ export default async function RunsPage({
   const response = canLoad
     ? await listRuns(session.accessToken, {
         merchant_id: merchantId,
+        sort_by: sortBy,
+        sort_dir: sortDir,
         status: status || undefined,
         from: from || undefined,
         to: to || undefined,
@@ -86,12 +90,25 @@ export default async function RunsPage({
         {status ? <input type="hidden" name="status" value={status} /> : null}
         {from ? <input type="hidden" name="from" value={from} /> : null}
         {to ? <input type="hidden" name="to" value={to} /> : null}
+        {sortBy ? <input type="hidden" name="sort_by" value={sortBy} /> : null}
+        {sortBy ? <input type="hidden" name="sort_dir" value={sortDir} /> : null}
         <input type="hidden" name="per_page" value={String(perPage)} />
         <Input name="q" defaultValue={query} placeholder="Search run, driver, vehicle, service area…" />
         <Button type="submit">Search</Button>
       </form>
       <DataTable
         data={rows}
+        enableSorting
+        sortKeyMap={{
+          effectiveStart: "start",
+          runDuration: "duration",
+          runDistance: "distance",
+          additionalCostsLabel: "additional_costs",
+          originName: "origin",
+          destinationName: "destination",
+          driverName: "driver",
+          vehicleName: "vehicle",
+        }}
         meta={response && !isApiErrorResponse(response) ? normalizeTableMeta(response.meta) : undefined}
         loading_error={error}
         emptyMessage="No runs match the selected filters."

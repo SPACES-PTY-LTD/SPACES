@@ -138,7 +138,7 @@ class RunService
 
         $perPage = min((int) ($filters['per_page'] ?? 15), 100);
 
-        return $query->orderByDesc('created_at')->paginate($perPage);
+        return app(RunListSorter::class)->paginate($query, $filters, max(1, $perPage));
     }
 
     public function createRun(array $data, ?MerchantEnvironment $environment = null): Run

@@ -62,6 +62,19 @@ export type ShipmentsFullReportSortBy =
   | "driver_name"
   | "shipment_status"
   | "delivered_volume"
+  | "invoice_number"
+  | "shipment_type"
+  | "from_location"
+  | "to_location"
+  | "from_time_in"
+  | "from_time_out"
+  | "from_total_time"
+  | "to_time_in"
+  | "to_time_out"
+  | "to_total_time"
+  | "total_km_from_collection"
+  | "run_duration_seconds"
+  | "run_odometer_distance_km"
 
 export type ShipmentsFullReportParams = {
   merchant_id?: string
