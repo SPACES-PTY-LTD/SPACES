@@ -93,7 +93,6 @@ export function LoginForm() {
                   <Input
                     autoComplete="email"
                     className="h-11"
-                    placeholder="name@example.com"
                     {...field}
                   />
                 </FormControl>
