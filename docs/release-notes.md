@@ -20,6 +20,24 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-21 | Version: sign-in-email-placeholder-removal-v1
+
+- **Summary:** Removed the example email placeholder from the sign-in form.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Empty sign-in email fields show no placeholder; the Email label and autocomplete remain available.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and diff whitespace checks passed.
+
+## 2026-09-21 | Version: admin-submenu-visibility-v1
+
+- **Summary:** Keep admin sidebar submenus visible when any of their child routes is active.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** All sidebar groups use parent-or-child route matching for submenu visibility, including nested detail routes. Shipments stays expanded on Runs, Tracking, 3D Monitor and Invoiced; the same rule covers every other group. Role filtering and mobile drawer dismissal are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and website TypeScript checks passed. 104 render checks using the real navigation configuration and AdminNav with routing/sidebar stubs passed across submenu and nested paths for user and super-admin roles. Diff whitespace check passed.
+
 ## 2026-09-21 | Version: auto-run-continuous-geofence-visit-v1
 
 - **Summary:** Preserve the active location visit while the truck remains inside its geofence, preventing overlapping locations from triggering another shipment prematurely.

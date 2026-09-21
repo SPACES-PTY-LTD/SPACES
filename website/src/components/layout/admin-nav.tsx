@@ -60,8 +60,6 @@ export function AdminNav({
     return pathname === href || pathname.startsWith(`${href}/`)
   }
 
-  const shouldShowSubItems = (href: string) => pathname.startsWith(`${href}`)
-
   const handleNavClick = () => {
     if (isMobile) {
       setOpenMobile(false)
@@ -93,7 +91,7 @@ export function AdminNav({
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
-                    {item.subItems?.length && shouldShowSubItems(item.href) ? (
+                    {item.subItems?.length && active ? (
                       <SidebarMenuSub>
                         {item.subItems.map((subItem) => {
                           const subActive = isPathActive(subItem.href)
