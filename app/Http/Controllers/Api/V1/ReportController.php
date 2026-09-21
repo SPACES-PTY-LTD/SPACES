@@ -139,39 +139,16 @@ class ReportController extends Controller
                 ]);
             }
 
-            $latestRunShipmentSub = RunShipment::query()
-                ->selectRaw('shipment_id, MAX(id) as latest_run_shipment_id')
-                ->where('status', '!=', RunShipment::STATUS_REMOVED)
-                ->groupBy('shipment_id');
-
-            $parcelWeightColumn = Schema::hasColumn('shipment_parcels', 'weight')
-                ? 'weight'
-                : 'weight_kg';
-            $parcelTotalsSub = DB::table('shipment_parcels')
-                ->selectRaw("shipment_id, COALESCE(SUM({$parcelWeightColumn}), 0) as delivered_volume_order")
-                ->whereNull('deleted_at')
-                ->groupBy('shipment_id');
+            $sortBy = (string) $request->get('sort_by', 'date_created');
+            $search = trim((string) $request->get('search', ''));
 
             $query = $this->applyShipmentScope(
                 Shipment::query()
                     ->select('shipments.*')
-                    ->leftJoinSub($latestRunShipmentSub, 'latest_run_shipment', function ($join) {
-                        $join->on('latest_run_shipment.shipment_id', '=', 'shipments.id');
-                    })
-                    ->leftJoin('run_shipments as lrs', 'lrs.id', '=', 'latest_run_shipment.latest_run_shipment_id')
-                    ->leftJoin('runs as lr', 'lr.id', '=', 'lrs.run_id')
-                    ->leftJoin('vehicles as report_vehicles', 'report_vehicles.id', '=', 'lr.vehicle_id')
-                    ->leftJoin('drivers as report_drivers', 'report_drivers.id', '=', 'lr.driver_id')
-                    ->leftJoin('users as report_driver_users', 'report_driver_users.id', '=', 'report_drivers.user_id')
-                    ->leftJoin('locations as report_pickup_locations', 'report_pickup_locations.id', '=', 'shipments.pickup_location_id')
-                    ->leftJoin('locations as report_dropoff_locations', 'report_dropoff_locations.id', '=', 'shipments.dropoff_location_id')
-                    ->leftJoinSub($parcelTotalsSub, 'parcel_totals', function ($join) {
-                        $join->on('parcel_totals.shipment_id', '=', 'shipments.id');
-                    })
                     ->with([
                         'merchant',
-                        'pickupLocation',
-                        'dropoffLocation',
+                        'pickupLocation.locationType',
+                        'dropoffLocation.locationType',
                         'parcels',
                         'booking',
                         'runShipments' => function ($builder) {
@@ -183,6 +160,44 @@ class ReportController extends Controller
                 $environment,
                 $user
             );
+
+            // Display relations are loaded only after pagination. Join them into
+            // the full result set only when a filter or SQL sort needs them.
+            $needsRun = $search !== ''
+                || ! empty($request->get('truck_plate_number'))
+                || ! empty($request->get('driver_id'))
+                || ! empty($request->get('vehicle_tag_id'))
+                || in_array($sortBy, ['truck_plate_number', 'driver_name'], true);
+            if ($needsRun) {
+                $latestRunShipmentSub = RunShipment::query()
+                    ->selectRaw('shipment_id, MAX(id) as latest_run_shipment_id')
+                    ->where('status', '!=', RunShipment::STATUS_REMOVED)
+                    ->groupBy('shipment_id');
+                $query->leftJoinSub($latestRunShipmentSub, 'latest_run_shipment', function ($join) {
+                    $join->on('latest_run_shipment.shipment_id', '=', 'shipments.id');
+                })
+                    ->leftJoin('run_shipments as lrs', 'lrs.id', '=', 'latest_run_shipment.latest_run_shipment_id')
+                    ->leftJoin('runs as lr', 'lr.id', '=', 'lrs.run_id')
+                    ->leftJoin('vehicles as report_vehicles', 'report_vehicles.id', '=', 'lr.vehicle_id')
+                    ->leftJoin('drivers as report_drivers', 'report_drivers.id', '=', 'lr.driver_id')
+                    ->leftJoin('users as report_driver_users', 'report_driver_users.id', '=', 'report_drivers.user_id');
+            }
+            if ($search !== '' || ! empty($request->get('from_location_id'))) {
+                $query->leftJoin('locations as report_pickup_locations', 'report_pickup_locations.id', '=', 'shipments.pickup_location_id');
+            }
+            if ($search !== '' || ! empty($request->get('to_location_id'))) {
+                $query->leftJoin('locations as report_dropoff_locations', 'report_dropoff_locations.id', '=', 'shipments.dropoff_location_id');
+            }
+            if ($sortBy === 'delivered_volume') {
+                $parcelWeightColumn = Schema::hasColumn('shipment_parcels', 'weight') ? 'weight' : 'weight_kg';
+                $parcelTotalsSub = DB::table('shipment_parcels')
+                    ->selectRaw("shipment_id, COALESCE(SUM({$parcelWeightColumn}), 0) as delivered_volume_order")
+                    ->whereNull('deleted_at')
+                    ->groupBy('shipment_id');
+                $query->leftJoinSub($parcelTotalsSub, 'parcel_totals', function ($join) {
+                    $join->on('parcel_totals.shipment_id', '=', 'shipments.id');
+                });
+            }
 
             if (! empty($merchantUuid)) {
                 $merchantId = Merchant::query()
@@ -209,7 +224,6 @@ class ReportController extends Controller
                 $query->whereDate('shipments.collection_date', $request->get('collection_date'));
             }
 
-            $search = trim((string) $request->get('search', ''));
             if ($search !== '') {
                 $likeSearch = '%'.$search.'%';
                 $query->where(function (Builder $builder) use ($likeSearch) {
@@ -292,7 +306,6 @@ class ReportController extends Controller
                 $query->where('shipments.status', $request->get('shipment_status'));
             }
 
-            $sortBy = (string) $request->get('sort_by', 'date_created');
             $sortDirection = strtolower((string) $request->get('sort_direction', 'desc'));
             if (! in_array($sortDirection, ['asc', 'desc'], true)) {
                 $sortDirection = 'desc';
@@ -320,6 +333,17 @@ class ReportController extends Controller
                 $query, $sortBy, $sortDirection, $perPage
             );
             $visitIntervals = $visitIntervalService->resolveForShipments($shipments->getCollection());
+            // Resources access these nested relations; batch them for the
+            // selected visits instead of issuing queries for every report row.
+            (new \Illuminate\Database\Eloquent\Collection(
+                collect($visitIntervals)->flatMap(fn ($visits) => array_values($visits))
+                    ->filter()->unique('id')->values()->all()
+            ))->loadMissing([
+                'location.locationType',
+                'shipment.booking',
+                'shipment.pickupLocation',
+                'shipment.dropoffLocation',
+            ]);
             $reportNow = now();
             $speedingSummaries = $this->resolveShipmentSpeedingSummaries(
                 $shipments->getCollection(),

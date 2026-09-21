@@ -76,7 +76,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
         actions={<StatusBadge status={run.status ?? "unknown"} />}
       />
 
-      <RunActualMap runId={run.run_id} accessToken={session.accessToken} stops={run.actual_stops ?? []} />
+      <RunActualMap runId={run.run_id} accessToken={session.accessToken} stops={run.actual_stops ?? []} activities={run.stops} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total duration" value={duration(stats?.duration_seconds)} />

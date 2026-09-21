@@ -1,7 +1,7 @@
 # Driver dashboard plan
 
-Version: 1.21
-Last updated: 2026-09-18
+Version: 1.23
+Last updated: 2026-09-21
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
 ## Purpose and maintenance
@@ -90,6 +90,10 @@ Add **Planned / Recorded** above the map, with Planned selected initially. Plann
 Refresh the active run every minute only while Recorded is visible and the app is foregrounded. Stop fetching when hidden/backgrounded. Bound each response to 2,000 displayed coordinates while preserving segment endpoints and stop boundaries; provide Earlier route / Latest route controls for large histories. Older activity-only traces must say **Limited historical data**. No history is embedded in the general dashboard payload.
 
 Store GPS separately from business activities forever. Merge only newer stationary observations within five minutes, reported speed at most 3 km/h and within 25 metres of the original stop position; thresholds are configurable. Missing speed stays an individual point. Preserve original position/time and latest details/count. Serialize ingestion per vehicle and deduplicate retries. Keep delayed observations at their source times without rewinding live location or lifecycle. Associate by the actual vehicle/run interval; ambiguous samples stay unassigned and are logged. Do not change odometer totals or shipment-distance calculations.
+
+Admin recorded maps fit all located run stops, stationary observations and the displayed GPS segments with padding. Keep stop pins visible while history loads or is empty, disabled or unavailable; report the route state separately. Draw each available GPS segment as a blue line without connecting missing history. This admin viewport correction is implemented and fixture-verified; live run verification is blocked by local database authentication. The referenced mobile Figma screens and their Planned / Recorded behavior are unchanged.
+
+Admin marker inspection (1.23, implemented): clicking any run-stop, stationary-GPS or isolated-position marker opens its recorded context. Run stops show event type, location name/address/category, arrival/departure and duration, plus shipment, driver, vehicle, speed and departure reason when present. Complete visit intervals determine duration; stopped-to-next-moving transitions for the same vehicle/run provide explicitly estimated duration when available. Missing or invalid intervals remain unknown. GPS stationary duration is an observation interval, not a confirmed visit or inferred reason. Co-located pins expose all visible records at those exact coordinates. A top-right checkbox dropdown toggles activity types independently, with counts, Show all / Hide all and a clear all-hidden state. Filtering preserves the route, viewport and stop numbering. The shared Run KM map uses the same behavior. Existing Figma references describe mobile screens only; this admin-only addition does not change those designs.
 
 Implementation: migration, ingestion, scoped API and admin/mobile consumers are implemented behind independent recording/display flags, both default off. Figma active-run map includes the default toggle; its scenario guide documents Recorded states and behavior. Native device behavior and production-engine load checks remain rollout gates. See [capture contract, rollout and monitoring](../../vehicle-location-history.md).
 
@@ -273,11 +277,13 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 - Define reliable recorded-visit matching, repeated-visit ambiguity, manual status overrides, delivery-time provenance and status correction permissions. Audit existing odometer/proof requirements; never fabricate required evidence.
 
-### GPS history acceptance (1.21)
+### GPS history acceptance (1.23)
 
+- [x] Admin markers expose recorded activity/location/duration context and independent activity-type toggles; duration/data-safety regression tests pass. Live browser interaction remains unverified.
 - [x] Separate permanent history and deduplication receipts; configurable stop merging and delayed-sample handling.
 - [x] Scoped admin/assigned-driver track endpoints; bounded windows preserve stop/segment boundaries.
 - [x] Admin run and expanded Run KM maps consume history separately from lists/reports.
+- [x] Admin recorded-map bounds include every located stop and displayed GPS segment; stops remain visible without history and recorded lines preserve gaps (map API fixture verified).
 - [x] Mobile Planned / Recorded UI and foreground/visibility refresh guards implemented.
 - [x] Retry, timestamp, authorization, large-dataset and concurrent-ingestion automated checks.
 - [x] Figma default toggle, scenario notes, this plan and release notes updated.
@@ -330,6 +336,8 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-21 | 1.23 | Added admin marker detail popups and top-right activity-type filters, with observed/estimated/unknown duration provenance and overlapping event access. Shared Run KM maps inherit the behavior; mobile Figma designs are unaffected. |
+| 2026-09-18 | 1.22 | Corrected admin recorded-map bounds to include all located stops and displayed GPS history; preserved stop visibility without route data and clarified route legend. TypeScript, lint and map fixture passed; live database verification unavailable. Mobile Figma behavior unchanged. |
 | 2026-09-18 | 1.21 | Implemented separate GPS history, merged stationary observations, scoped bounded recorded-route APIs, admin maps and mobile Planned / Recorded mode behind staged rollout flags. Figma toggle/notes updated; native and production-capacity verification remain rollout gates. |
 | 2026-09-17 | 1.20 | Removed the separate daily-delivery summary, progress bar and View shipments dashboard shortcut. |
 | 2026-09-17 | 1.19 | Replaced app-owned native alerts with reusable message bottom sheets, preserving actions and dismiss behaviour. |

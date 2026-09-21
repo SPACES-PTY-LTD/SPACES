@@ -128,38 +128,40 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
   const session = await requireAuth()
   const merchantId = session.selected_merchant?.merchant_id ?? undefined
   const canLoad = Boolean(merchantId)
-  const tagsResponse = merchantId
-    ? await listTags(session.accessToken, { merchant_id: merchantId, per_page: 100 })
-    : null
+  const [tagsResponse, response] = await Promise.all([
+    merchantId
+      ? listTags(session.accessToken, { merchant_id: merchantId, per_page: 100 })
+      : null,
+    canLoad
+      ? getShipmentsFullReport(
+          {
+            merchant_id: merchantId,
+            search: normalizeText(search),
+            created_from: normalizeDate(createdFrom),
+            created_to: normalizeDate(createdTo),
+            collection_date: normalizeDate(collectionDate),
+            shipment_number: normalizeText(shipmentNumber),
+            delivery_note_number: normalizeText(deliveryNoteNumber),
+            truck_plate_number: normalizeText(truckPlateNumber),
+            driver_id: normalizeText(driverId),
+            from_location_id: normalizeText(fromLocationId),
+            to_location_id: normalizeText(toLocationId),
+            location_tag_id: normalizeText(locationTagId),
+            vehicle_tag_id: normalizeText(vehicleTagId),
+            shipment_status: normalizeText(shipmentStatus),
+            sort_by: sortBy,
+            sort_direction: sortDirection,
+            page,
+            per_page: perPage,
+          },
+          session.accessToken
+        )
+      : null,
+  ])
   const tags =
     tagsResponse && !isApiErrorResponse(tagsResponse)
       ? tagsResponse.data
       : []
-  const response = canLoad
-    ? await getShipmentsFullReport(
-        {
-          merchant_id: merchantId,
-          search: normalizeText(search),
-          created_from: normalizeDate(createdFrom),
-          created_to: normalizeDate(createdTo),
-          collection_date: normalizeDate(collectionDate),
-          shipment_number: normalizeText(shipmentNumber),
-          delivery_note_number: normalizeText(deliveryNoteNumber),
-          truck_plate_number: normalizeText(truckPlateNumber),
-          driver_id: normalizeText(driverId),
-          from_location_id: normalizeText(fromLocationId),
-          to_location_id: normalizeText(toLocationId),
-          location_tag_id: normalizeText(locationTagId),
-          vehicle_tag_id: normalizeText(vehicleTagId),
-          shipment_status: normalizeText(shipmentStatus),
-          sort_by: sortBy,
-          sort_direction: sortDirection,
-          page,
-          per_page: perPage,
-        },
-        session.accessToken
-      )
-    : null
 
   const errorResponse = response && isApiErrorResponse(response) ? response : null
   const successResponse = response && !isApiErrorResponse(response) ? response : null

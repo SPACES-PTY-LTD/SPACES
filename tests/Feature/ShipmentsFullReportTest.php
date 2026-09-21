@@ -16,6 +16,73 @@ class ShipmentsFullReportTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_default_report_paginates_without_global_aggregate_joins(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+        $location = $this->createLocation($account->id, $merchant->id, 'Depot', 'DEPOT', 'Cape Town');
+        $this->createShipment($account->id, $merchant->id, 'FAST-PAGE', $location, $location);
+        $headers = $this->authHeaders($user);
+
+        DB::enableQueryLog();
+        try {
+            $this->withHeaders($headers)
+                ->getJson('/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid)
+                ->assertOk()->assertJsonPath('meta.total', 1);
+            $queries = collect(DB::getQueryLog())->pluck('query')->filter(
+                fn ($sql) => str_contains($sql, 'from "shipments"')
+            );
+            $this->assertNotEmpty($queries);
+            foreach ($queries as $sql) {
+                $this->assertStringNotContainsString('left join', $sql);
+                $this->assertStringNotContainsString('group by', $sql);
+            }
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+    }
+
+    public function test_report_detail_query_count_stays_bounded_as_page_size_grows(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+        $type = \App\Models\LocationType::create([
+            'account_id' => $account->id, 'merchant_id' => $merchant->id,
+            'title' => 'Depot', 'slug' => 'depot',
+        ]);
+        $vehicle = $this->createVehicle($account->id, $merchant->id, 'BATCHED');
+        for ($i = 0; $i < 20; $i++) {
+            $location = $this->createLocation($account->id, $merchant->id, 'Depot '.$i, 'DEPOT-'.$i, 'Cape Town');
+            DB::table('locations')->where('id', $location)->update(['location_type_id' => $type->id]);
+            $uuid = $this->createShipment($account->id, $merchant->id, 'BATCH-'.$i, $location, $location);
+            $shipmentId = (int) DB::table('shipments')->where('uuid', $uuid)->value('id');
+            $runId = $this->attachShipmentToRun($account->id, $merchant->id, $shipmentId, $vehicle);
+            $this->createBooking($account->id, $merchant->id, $shipmentId, 'delivered', '2026-09-01 08:00:00', '2026-09-01 09:00:00');
+            $this->createVehicleActivity(
+                $account->id, $merchant->id, $vehicle, $location, $runId, $shipmentId,
+                VehicleActivity::EVENT_ENTERED_LOCATION, '2026-09-01 08:00:00', '2026-09-01 08:30:00'
+            );
+        }
+        $headers = $this->authHeaders($user);
+        $counts = [];
+        DB::enableQueryLog();
+        try {
+            foreach ([5, 20] as $perPage) {
+                DB::flushQueryLog();
+                $this->withHeaders($headers)
+                    ->getJson('/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid.'&per_page='.$perPage)
+                    ->assertOk()->assertJsonCount($perPage, 'data')
+                    ->assertJsonPath('data.0.from_location.type.title', 'Depot')
+                    ->assertJsonPath('data.0.from_vehicle_activity.location.type.title', 'Depot')
+                    ->assertJsonPath('data.0.from_vehicle_activity.shipment.delivered_at', '2026-09-01T09:00:00+00:00');
+                $counts[$perPage] = count(DB::getQueryLog());
+            }
+            $this->assertLessThanOrEqual($counts[5], $counts[20], json_encode($counts));
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+    }
+
     public function test_report_requires_merchant_id_when_no_merchant_environment_is_present(): void
     {
         [$user] = $this->createMerchantContext();
@@ -378,6 +445,8 @@ class ShipmentsFullReportTest extends TestCase
 
     public function test_report_sorts_extended_columns_before_pagination(): void
     {
+        // This matrix intentionally exceeds the per-minute API request limit.
+        $this->withoutMiddleware(\Illuminate\Routing\Middleware\ThrottleRequests::class);
         [$user, $merchant, $account] = $this->createMerchantContext();
         $uuids = [];
         foreach (['Alpha', 'Zulu'] as $index => $name) {
@@ -386,6 +455,11 @@ class ShipmentsFullReportTest extends TestCase
             $uuid = $this->createShipment($account->id, $merchant->id, $name, $location, $location);
             $shipmentId = (int) DB::table('shipments')->where('uuid', $uuid)->value('id');
             DB::table('shipments')->where('id', $shipmentId)->update(['invoice_number' => $name, 'service_type' => $name]);
+            DB::table('shipment_parcels')->insert([
+                'uuid' => (string) Str::uuid(), 'shipment_id' => $shipmentId,
+                'weight_kg' => $index === 0 ? 2 : 10,
+                'created_at' => now(), 'updated_at' => now(),
+            ]);
             $runId = $this->attachShipmentToRun($account->id, $merchant->id, $shipmentId, $vehicle);
             $start = $index === 0 ? '2026-09-01 08:00:00' : '2026-09-02 08:00:00';
             $end = $index === 0 ? '2026-09-01 08:02:00' : '2026-09-02 08:10:00';
@@ -402,7 +476,7 @@ class ShipmentsFullReportTest extends TestCase
         $otherMerchant->users()->attach($user->id, ['role' => 'owner']);
         $otherLocation = $this->createLocation($account->id, $otherMerchant->id, 'Other', 'Other', 'Durban');
         $this->createShipment($account->id, $otherMerchant->id, 'Other', $otherLocation, $otherLocation);
-        foreach (['invoice_number', 'shipment_type', 'from_location', 'to_location', 'from_time_in', 'from_time_out', 'from_total_time', 'to_time_in', 'to_time_out', 'to_total_time', 'total_km_from_collection', 'run_duration_seconds', 'run_odometer_distance_km'] as $column) {
+        foreach (['truck_plate_number', 'delivered_volume', 'invoice_number', 'shipment_type', 'from_location', 'to_location', 'from_time_in', 'from_time_out', 'from_total_time', 'to_time_in', 'to_time_out', 'to_total_time', 'total_km_from_collection', 'run_duration_seconds', 'run_odometer_distance_km'] as $column) {
             foreach (['asc', 'desc'] as $direction) {
                 foreach ([1, 2] as $page) {
                     $expected = $direction === 'asc' ? $page - 1 : 2 - $page;

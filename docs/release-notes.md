@@ -20,6 +20,35 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-21 | Version: admin-run-map-context-v1
+
+- **Summary:** Added useful activity details and marker-type filtering to admin run maps and shared Run KM maps.
+- **API Changes:** None; consumes existing run activities and GPS history.
+- **Database Changes:** None.
+- **Behavior Changes:** Click pins for event, location/address/category, arrival/departure, stop duration and available shipment/driver/vehicle/speed information. Durations distinguish complete visits, estimated stopped-to-moving intervals and GPS stationary observations; unavailable values remain explicit. Overlapping pins expose all visible events at that coordinate. Top-right checkboxes toggle activity types with counts and Show all / Hide all while preserving route lines, viewport and numbering.
+- **Internal Changes:** Dashboard plan revision 1.23 documents the admin behavior; existing mobile Figma screens are unaffected.
+- **Breaking Changes:** None.
+- **Verification:** Six marker regression tests passed, including interval provenance, invalid/missing times and coordinates, vehicle/run isolation and safe popup text. Website TypeScript and focused ESLint passed. Live browser interaction on the requested run was not verified; no local website server was listening on port 3000.
+
+## 2026-09-18 | Version: admin-run-map-bounds-v1
+
+- **Summary:** Fixed admin recorded run maps cropping stops outside the latest GPS coverage.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Default map bounds include all located run stops, stationary observations and displayed GPS segments. Stop pins remain visible while GPS history loads or is empty, disabled or unavailable. A legend identifies blue recorded-route lines and numbered stops; missing history stays unconnected with an explicit unavailable state. Shared behavior also applies to Run KM details.
+- **Internal Changes:** Dashboard plan revision 1.22 documents the admin correction; mobile Figma screens are unaffected.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused ESLint passed. Temporary map API fixture verified full bounds, separate GPS polylines, missing-coordinate handling and stop visibility with loading/empty/disabled history. Live run history could not be checked because local MySQL authentication was rejected; no history was changed or fabricated.
+
+## 2026-09-18 | Version: shipment-report-load-performance-v1
+
+- **Summary:** Reduced database work and request waiting on the admin Shipments Report.
+- **API Changes:** No contract changes. Report queries join run/vehicle/driver/location tables only when filtering, searching or sorting requires them; parcel aggregation runs only for delivered-volume sorting.
+- **Database Changes:** None.
+- **Behavior Changes:** Filter tags and report data load concurrently. Report location types and selected visit shipment details are batch-loaded, preserving existing output, filters and pagination.
+- **Breaking Changes:** None.
+- **Verification:** Local SQLite regression fixture reduced 20-row report queries from 143 to 27; both 5-row and 20-row pages now use 27 queries (previously 53 and 143). Regression tests cover bounded query growth and omission of unnecessary aggregate joins. Report tests, website TypeScript and focused ESLint passed. Production latency has not been measured; computed visit/run/location sorts still evaluate all matching shipments.
+
 ## 2026-09-18 | Version: recorded-run-gps-v1
 
 - **Summary:** Added permanent vehicle GPS history with merged stationary observations and recorded routes on admin run details, Run KM details and the mobile dashboard.
