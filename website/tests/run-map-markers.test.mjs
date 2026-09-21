@@ -5,7 +5,7 @@ import ts from "typescript"
 
 const source = await readFile(new URL("../src/components/runs/run-map-markers.ts", import.meta.url), "utf8")
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
-const { buildRunMapMarkers, elapsed, markerDetails } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`)
+const { buildRunMapMarkers, elapsed, markerDetails, markerAppearance, latestStopMarker } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`)
 const start = "2026-09-21T08:00:00Z", end = "2026-09-21T09:15:30Z"
 const stop = { latitude: -26, longitude: 28, event_type: "stopped", occurred_at: start, vehicle: { vehicle_id: "truck" }, run_id: "run" }
 const rows = marker => Object.fromEntries(marker.rows)
@@ -58,4 +58,23 @@ test("popup treats location text as text and retains overlapping events", () => 
     assert.equal(content.children.length, 2)
     assert.match(content.children[0].children[0].textContent, /<img src=x/)
   } finally { globalThis.document = original }
+})
+
+
+test("latest stop follows recorded chronology, ignoring speed and GPS positions", () => {
+  const markers = buildRunMapMarkers([{ ...stop, occurred_at: end }, stop, { ...stop, occurred_at: "invalid" }], null)
+  markers.push({ type: "speeding", observedAt: "2026-09-22T00:00:00Z" })
+  markers.push({ type: "recorded_position", observedAt: "2026-09-23T00:00:00Z" })
+  assert.equal(latestStopMarker(markers), markers[0])
+  assert.equal(latestStopMarker([{ ...markers[0], observedAt: null }]), null)
+})
+
+test("speeding activities appear once and use a distinct warning colour", () => {
+  const speeding = { ...stop, activity_id: "speed-1", event_type: "speeding", speed_kph: 100 }
+  assert.equal(buildRunMapMarkers([speeding], null, [speeding]).length, 1)
+  const markers = buildRunMapMarkers([stop], null, [speeding])
+  assert.equal(markers[1].type, "speeding")
+  assert.equal(markers[1].label, undefined)
+  assert.equal(markerAppearance("speeding").color, "#dc2626")
+  assert.notEqual(markerAppearance("shipment_collection").color, markerAppearance("shipment_delivery").color)
 })

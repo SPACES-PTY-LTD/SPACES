@@ -4,6 +4,7 @@ import type { ShipmentStop } from "@/lib/types"
 export type RunMapMarker = {
   position: { lat: number; lng: number }
   label?: string
+  observedAt?: string | null
   type: string
   title: string
   rows: [string, string][]
@@ -75,12 +76,15 @@ export function buildRunMapMarkers(stops: ShipmentStop[], track: RunTrack | null
     if (stop.speed_kph != null) rows.push(["Recorded speed", `${stop.speed_kph} km/h`])
     if (stop.speed_limit_kph != null) rows.push(["Speed limit", `${stop.speed_limit_kph} km/h`])
     rows.push(coordinates(point))
-    return [{ position: point, label: String(index + 1), type, title: `${eventLabel(type)} · ${location?.name || location?.company || "Unknown location"}`, rows }]
+    return [{ observedAt: stop.entered_at ?? stop.occurred_at, position: point, label: String(index + 1), type, title: `${eventLabel(type)} · ${location?.name || location?.company || "Unknown location"}`, rows }]
   })
+  const knownIds = new Set(stops.map(stop => stop.activity_id).filter(Boolean))
+  const speeding = activities.filter(activity => activity.event_type === "speeding" && (!activity.activity_id || !knownIds.has(activity.activity_id)))
+  if (speeding.length) markers.push(...buildRunMapMarkers(speeding, null).map(marker => ({ ...marker, label: undefined })))
   track?.stops.forEach(stop => {
     const point = position(stop.latitude, stop.longitude)
     if (!point) return
-    markers.push({ position: point, type: "stationary_gps", title: "Stationary GPS observation", rows: [
+    markers.push({ observedAt: stop.first_seen_at, position: point, type: "stationary_gps", title: "Stationary GPS observation", rows: [
       ["Activity", "Truck observed stationary"],
       ["Observed stationary time", elapsed(stop.first_seen_at, stop.last_seen_at) ?? "Unknown"],
       ["First observation", time(stop.first_seen_at)], ["Last observation", time(stop.last_seen_at)],
@@ -127,4 +131,26 @@ export function markerDetails(markers: RunMapMarker[]) {
     content.append(section)
   })
   return content
+}
+
+export const markerCategories = [
+  { title: "Collection", color: "#2563eb", symbol: "C" },
+  { title: "Delivery", color: "#15803d", symbol: "D" },
+  { title: "Other stop", color: "#64748b", symbol: "S" },
+  { title: "Speeding", color: "#dc2626", symbol: "!" },
+  { title: "GPS position", color: "#7c3aed", symbol: "P" },
+] as const
+
+export function markerAppearance(type: string) {
+  if (type === "shipment_collection") return markerCategories[0]
+  if (type === "shipment_delivery") return markerCategories[1]
+  if (type === "speeding") return markerCategories[3]
+  if (type === "recorded_position") return markerCategories[4]
+  return markerCategories[2]
+}
+
+export function latestStopMarker(markers: RunMapMarker[]) {
+  return markers.filter(marker => ["stopped", "entered_location", "shipment_collection", "shipment_delivery", "run_stop", "stationary_gps"].includes(marker.type)
+    && Number.isFinite(Date.parse(marker.observedAt ?? "")))
+    .reduce<RunMapMarker | null>((latest, marker) => !latest || Date.parse(marker.observedAt!) > Date.parse(latest.observedAt!) ? marker : latest, null)
 }

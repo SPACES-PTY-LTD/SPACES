@@ -20,6 +20,26 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-21 | Version: admin-run-map-trip-replay-v1
+
+- **Summary:** Implemented selected timeline design 3 with interactive trip replay in admin run and shared Run KM maps.
+- **API Changes:** No contract changes. Admin consumers fetch available bounded track pages to cover the trip instead of switching individual windows.
+- **Database Changes:** None.
+- **Behavior Changes:** Bottom timeline includes stop-duration bands, event dots, selected date/time/time zone and GPS gaps. Dragging or keyboard input moves a compact 32px car and updates activity/location/duration; recorded stop intervals hold the car stationary. Unavailable positions hide it without crossing GPS/segment gaps. Back to latest restores the latest-stop view. Preserve viewport/filter state and prior data after refresh failure; foreground-only refresh and cursor guards remain. Removed the separate colour key per user feedback, retained filter swatches and applied the muted basemap. Disabled map-only fullscreen to keep timeline controls accessible.
+- **Internal Changes:** Added replay/history helpers, a responsive timeline component, regression tests and a labelled development-only preview (404 outside development). Dashboard plan 1.25 and design verification record updated; mobile Figma unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Fifteen marker/replay tests, website TypeScript and focused ESLint passed. In-app browser fixture verified dragging, keyboard navigation, stop context, car movement, GPS-gap hiding, reset, filtering and desktop/390px layouts with no console errors. Real run data remains unverified because browser sign-in is required.
+
+## 2026-09-21 | Version: admin-run-map-marker-styling-v1
+
+- **Summary:** Added colour-coded run-map markers and a car icon at the latest dated mapped stop.
+- **API Changes:** None; includes existing speeding activity data in the map.
+- **Database Changes:** None.
+- **Behavior Changes:** Blue collection, green delivery, slate other-stop, red speeding and purple isolated-position markers have a text legend and matching filter swatches. Stop numbering and details remain available. A separately filterable car icon marks the latest dated stop with coordinates in the available history, explicitly distinguished from live location; missing timestamps do not produce a fabricated latest stop.
+- **Internal Changes:** Dashboard plan revision 1.24 and three illustrative trip-slider UI proposals saved under `docs/design/run-map`. The slider is not implemented and awaits user selection; mobile Figma screens are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint and eight marker tests passed, including chronology selection, speeding exclusion/deduplication and distinct colours. Live Google Maps/browser interaction remains unverified.
+
 ## 2026-09-21 | Version: admin-run-map-context-v1
 
 - **Summary:** Added useful activity details and marker-type filtering to admin run maps and shared Run KM maps.

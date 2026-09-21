@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 1.23
+Version: 1.25
 Last updated: 2026-09-21
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -87,13 +87,21 @@ Use Google map routing for road directions. The full planned trip is:
 
 Add **Planned / Recorded** above the map, with Planned selected initially. Planned routing and its distance/time information remain unchanged. Recorded uses a separate lazy route endpoint and the current truck position. Label it **Recorded GPS**; never run directions or road matching to fill missing roads. Break lines across gaps longer than five minutes. Keep explicit loading, empty, stale, disabled and recoverable failure states. Preserve prior data for the same run/window on refresh failure.
 
-Refresh the active run every minute only while Recorded is visible and the app is foregrounded. Stop fetching when hidden/backgrounded. Bound each response to 2,000 displayed coordinates while preserving segment endpoints and stop boundaries; provide Earlier route / Latest route controls for large histories. Older activity-only traces must say **Limited historical data**. No history is embedded in the general dashboard payload.
+Refresh the active run every minute only while Recorded is visible and the app is foregrounded. Stop fetching when hidden/backgrounded. Bound each response to 2,000 displayed coordinates while preserving segment endpoints and stop boundaries; provide Earlier route / Latest route controls on mobile for large histories; admin maps aggregate the bounded pages for trip replay. Older activity-only traces must say **Limited historical data**. No history is embedded in the general dashboard payload.
 
 Store GPS separately from business activities forever. Merge only newer stationary observations within five minutes, reported speed at most 3 km/h and within 25 metres of the original stop position; thresholds are configurable. Missing speed stays an individual point. Preserve original position/time and latest details/count. Serialize ingestion per vehicle and deduplicate retries. Keep delayed observations at their source times without rewinding live location or lifecycle. Associate by the actual vehicle/run interval; ambiguous samples stay unassigned and are logged. Do not change odometer totals or shipment-distance calculations.
 
 Admin recorded maps fit all located run stops, stationary observations and the displayed GPS segments with padding. Keep stop pins visible while history loads or is empty, disabled or unavailable; report the route state separately. Draw each available GPS segment as a blue line without connecting missing history. This admin viewport correction is implemented and fixture-verified; live run verification is blocked by local database authentication. The referenced mobile Figma screens and their Planned / Recorded behavior are unchanged.
 
 Admin marker inspection (1.23, implemented): clicking any run-stop, stationary-GPS or isolated-position marker opens its recorded context. Run stops show event type, location name/address/category, arrival/departure and duration, plus shipment, driver, vehicle, speed and departure reason when present. Complete visit intervals determine duration; stopped-to-next-moving transitions for the same vehicle/run provide explicitly estimated duration when available. Missing or invalid intervals remain unknown. GPS stationary duration is an observation interval, not a confirmed visit or inferred reason. Co-located pins expose all visible records at those exact coordinates. A top-right checkbox dropdown toggles activity types independently, with counts, Show all / Hide all and a clear all-hidden state. Filtering preserves the route, viewport and stop numbering. The shared Run KM map uses the same behavior. Existing Figma references describe mobile screens only; this admin-only addition does not change those designs.
+
+Admin marker styling (1.24, implemented): collections are blue, deliveries green, other stops slate, speeding red with an exclamation mark and isolated GPS positions purple. Keep stop numbering, readable marker titles and matching filter swatches (the separate colour key was removed at the user’s request in 1.25). Include existing speeding activities without duplicating events already supplied as stops. A car icon identifies the latest dated, located stop in the available history; it is explicitly labelled **Latest mapped stop**, not live vehicle location. Select by visit/event start time, exclude speeding/isolated positions, omit when no usable dated stop exists, and expose its details on click. The car is independently toggleable in Marker types.
+
+Admin trip scrubber (1.25, implemented): [selected option 3](../run-map/README.md) is a straight linear timeline footer with stop-duration bands, point-event dots, GPS gaps, selected date/time/time zone, Back to latest and a concise activity/location/duration summary. Dragging or keyboard adjustment updates a compact 32px replay car without recentering the map. Confirmed visits and observed stationary intervals hold the car at their recorded coordinates; stopped-to-moving estimates are explicitly labelled. Unknown endpoints remain point events, not assumed ongoing stops. Interpolate only within valid GPS segments with sample gaps no longer than five minutes; hide the car when position is unavailable, including between paginated segments whose continuity is unproven. Stop context survives missing coordinates. Back to latest restores the independently filtered latest-stop icon.
+
+Admin history loads every available cursor page while the map is visible and the document is foregrounded. Active runs refresh at one-minute intervals with no overlapping loads. Preserve prior same-run data after failure; expose loading, partial, limited-history and retry states, and guard repeated cursors. History remains bounded per API response; older activity-only data may still be incomplete. Timeline data and selection are scoped by run/auth context. Filter changes preserve the timeline, route and viewport. The separate colour key is removed; colours remain in filter swatches and pins. The muted basemap follows the selected visual. The native map-only fullscreen control is disabled so replay controls cannot disappear outside fullscreen. Mobile Figma screens and mobile paging are unchanged.
+
+Verification: fifteen focused marker/replay tests, website TypeScript and focused lint pass. Browser fixture checks cover desktop/mobile layouts, drag and keyboard replay, movement, stationary delivery context, GPS-gap hiding, Back to latest and marker filtering; no browser console errors. The requested real run requires browser authentication and has not been verified with its live data. A development-only preview at `/dev-run-replay-preview` uses labelled illustrative data and returns not found outside development.
 
 Implementation: migration, ingestion, scoped API and admin/mobile consumers are implemented behind independent recording/display flags, both default off. Figma active-run map includes the default toggle; its scenario guide documents Recorded states and behavior. Native device behavior and production-engine load checks remain rollout gates. See [capture contract, rollout and monitoring](../../vehicle-location-history.md).
 
@@ -277,8 +285,11 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 - Define reliable recorded-visit matching, repeated-visit ambiguity, manual status overrides, delivery-time provenance and status correction permissions. Audit existing odometer/proof requirements; never fabricate required evidence.
 
-### GPS history acceptance (1.23)
+### GPS history acceptance (1.25)
 
+- [x] Admin marker colours/legend and latest dated mapped-stop car icon implemented; chronology and speeding deduplication regression tests pass.
+- [x] Option 3 trip slider implemented with whole-history pagination, gap states, keyboard/drag interaction and replay activity updates; fixture-browser verified.
+- [ ] Requested real run verified after browser sign-in; live-data acceptance remains outstanding.
 - [x] Admin markers expose recorded activity/location/duration context and independent activity-type toggles; duration/data-safety regression tests pass. Live browser interaction remains unverified.
 - [x] Separate permanent history and deduplication receipts; configurable stop merging and delayed-sample handling.
 - [x] Scoped admin/assigned-driver track endpoints; bounded windows preserve stop/segment boundaries.
@@ -336,6 +347,8 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-21 | 1.25 | Implemented selected option 3 trip replay with paginated history, stop bands, gap handling and responsive activity summary. Removed the colour key and reduced the vehicle icon to 32px per review. Fixture-browser and automated checks passed; live run requires sign-in. Mobile Figma unchanged. |
+| 2026-09-21 | 1.24 | Implemented colour-coded admin markers, speeding pins and latest mapped-stop car icon. Created three illustrative trip-slider mockups; slider implementation awaits design selection. Mobile Figma unchanged. |
 | 2026-09-21 | 1.23 | Added admin marker detail popups and top-right activity-type filters, with observed/estimated/unknown duration provenance and overlapping event access. Shared Run KM maps inherit the behavior; mobile Figma designs are unaffected. |
 | 2026-09-18 | 1.22 | Corrected admin recorded-map bounds to include all located stops and displayed GPS history; preserved stop visibility without route data and clarified route legend. TypeScript, lint and map fixture passed; live database verification unavailable. Mobile Figma behavior unchanged. |
 | 2026-09-18 | 1.21 | Implemented separate GPS history, merged stationary observations, scoped bounded recorded-route APIs, admin maps and mobile Planned / Recorded mode behind staged rollout flags. Figma toggle/notes updated; native and production-capacity verification remain rollout gates. |
