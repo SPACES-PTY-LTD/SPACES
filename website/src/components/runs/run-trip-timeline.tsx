@@ -25,7 +25,7 @@ export function RunTripTimeline({ model, selected, onSelect, loading, error, onR
     {error && <div role="status" className="flex items-center gap-2 text-xs text-amber-700"><span>{error} Showing available history.</span><Button variant="ghost" size="sm" onClick={onRetry}>Retry history</Button></div>}
     {limited && !loading && <p className="mt-1 text-xs text-muted-foreground">Limited historical data — only recorded activity is available.</p>}
     {model && span > 0 ? <>
-      <div className="relative mt-8 h-10 mx-3">
+      <div className="relative mt-2 h-10 mx-3">
         <div aria-hidden="true" className="absolute inset-x-0 top-[17px] h-1 rounded bg-slate-300" />
         <div aria-hidden="true" className="absolute top-[17px] h-1 rounded bg-blue-500" style={{ width: `${percent(value)}%` }} />
         {model.gaps.map((gap, index) => <div key={`gap-${index}`} aria-hidden="true" className="absolute top-[17px] h-1 border-t-2 border-dashed border-slate-400 bg-background" style={{ left: `${percent(gap.start)}%`, width: `${percent(gap.end) - percent(gap.start)}%` }}>{percent(gap.end) - percent(gap.start) > 3 && <span className="absolute -top-5 left-1/2 hidden sm:block -translate-x-1/2 whitespace-nowrap text-[10px] italic text-muted-foreground">GPS gap</span>}</div>)}

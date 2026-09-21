@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 1.25
+Version: 1.28
 Last updated: 2026-09-21
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -58,6 +58,8 @@ Run queries, shipments, documents, telemetry and mutations must stay scoped to t
 
 ## 3. Run lifecycle
 
+- Automatic geofence visits stay open while the truck remains inside the current location, including overlaps with nearer or higher-priority locations. Repeated positions reuse that visit and its shipment; selecting an overlapping geofence must not create another shipment, mark delivery, or restart a run. Once the truck leaves the current fence, normal exit and entry rules apply. Existing per-run/location shipment reuse remains in place after a return visit.
+- Implementation (1.28): active-geofence retention and regression coverage are implemented locally. The overlapping-radius regression reproduced premature delivery and a second shipment before the fix. Production deployment and investigation/cleanup of historical records are not included. This backend rule changes no Figma screen or control.
 - New runs created by upload start **Ready to start**.
 - Automatically start when the assigned vehicle departs a collection point linked to the run.
 - If the run has no linked collection point, departure from any recognised collection point can be the fallback. Newly prepared runs should use the explicit collection location chosen in Step 3.
@@ -97,7 +99,7 @@ Admin marker inspection (1.23, implemented): clicking any run-stop, stationary-G
 
 Admin marker styling (1.24, implemented): collections are blue, deliveries green, other stops slate, speeding red with an exclamation mark and isolated GPS positions purple. Keep stop numbering, readable marker titles and matching filter swatches (the separate colour key was removed at the user’s request in 1.25). Include existing speeding activities without duplicating events already supplied as stops. A car icon identifies the latest dated, located stop in the available history; it is explicitly labelled **Latest mapped stop**, not live vehicle location. Select by visit/event start time, exclude speeding/isolated positions, omit when no usable dated stop exists, and expose its details on click. The car is independently toggleable in Marker types.
 
-Admin trip scrubber (1.25, implemented): [selected option 3](../run-map/README.md) is a straight linear timeline footer with stop-duration bands, point-event dots, GPS gaps, selected date/time/time zone, Back to latest and a concise activity/location/duration summary. Dragging or keyboard adjustment updates a compact 32px replay car without recentering the map. Confirmed visits and observed stationary intervals hold the car at their recorded coordinates; stopped-to-moving estimates are explicitly labelled. Unknown endpoints remain point events, not assumed ongoing stops. Interpolate only within valid GPS segments with sample gaps no longer than five minutes; hide the car when position is unavailable, including between paginated segments whose continuity is unproven. Stop context survives missing coordinates. Back to latest restores the independently filtered latest-stop icon.
+Admin trip scrubber (1.26, implemented): [selected option 3](../run-map/README.md) is a straight linear timeline footer with stop-duration bands, point-event dots, GPS gaps, selected date/time/time zone, Back to latest and a concise activity/location/duration summary. Render the admin map and timeline directly in the page without an outer Card or Recorded GPS heading. Omit the introductory route paragraph and generic incomplete-coverage notice; retain contextual timeline gap/error states. Keep an 8px margin between the heading row and the slider container. Dragging or keyboard adjustment updates a compact 32px replay car without recentering the map. Confirmed visits and observed stationary intervals hold the car at their recorded coordinates; stopped-to-moving estimates are explicitly labelled. Unknown endpoints remain point events, not assumed ongoing stops. Interpolate only within valid GPS segments with sample gaps no longer than five minutes; hide the car when position is unavailable, including between paginated segments whose continuity is unproven. Stop context survives missing coordinates. Back to latest restores the independently filtered latest-stop icon.
 
 Admin history loads every available cursor page while the map is visible and the document is foregrounded. Active runs refresh at one-minute intervals with no overlapping loads. Preserve prior same-run data after failure; expose loading, partial, limited-history and retry states, and guard repeated cursors. History remains bounded per API response; older activity-only data may still be incomplete. Timeline data and selection are scoped by run/auth context. Filter changes preserve the timeline, route and viewport. The separate colour key is removed; colours remain in filter swatches and pins. The muted basemap follows the selected visual. The native map-only fullscreen control is disabled so replay controls cannot disappear outside fullscreen. Mobile Figma screens and mobile paging are unchanged.
 
@@ -285,9 +287,11 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 - Define reliable recorded-visit matching, repeated-visit ambiguity, manual status overrides, delivery-time provenance and status correction permissions. Audit existing odometer/proof requirements; never fabricate required evidence.
 
-### GPS history acceptance (1.25)
+### GPS history acceptance (1.27)
 
 - [x] Admin marker colours/legend and latest dated mapped-stop car icon implemented; chronology and speeding deduplication regression tests pass.
+- [x] Admin map outer card/title and introductory copy removed; map/timeline controls and contextual history states retained.
+- [x] Timeline heading-to-slider margin reduced from 32px to 8px; timeline dimensions and controls preserved.
 - [x] Option 3 trip slider implemented with whole-history pagination, gap states, keyboard/drag interaction and replay activity updates; fixture-browser verified.
 - [ ] Requested real run verified after browser sign-in; live-data acceptance remains outstanding.
 - [x] Admin markers expose recorded activity/location/duration context and independent activity-type toggles; duration/data-safety regression tests pass. Live browser interaction remains unverified.
@@ -303,6 +307,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 ### Acceptance checklist
 
+- [x] Repeated positions and movement inside overlapping geofences retain one continuous visit and shipment until departure; leaving the active fence permits the next location visit and shipment. Verified by run-lifecycle regression tests.
 - [x] Runs without a final destination expose Choose final destination in All stops; selection saves through a scoped bottom sheet and refreshes the planned end/route without changing lifecycle or overwriting a concurrent destination.
 
 - [x] Initial loading contains only the indicator and checking message.
@@ -347,6 +352,9 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-21 | 1.28 | Retain the active location while its geofence still contains the truck; prevent overlapping fences from triggering premature exit/delivery and another shipment. Added regression tests; deployment and historical cleanup remain outstanding. No Figma UI change. |
+| 2026-09-21 | 1.27 | Removed the admin map outer card and Recorded GPS heading; recorded the earlier introductory-copy removal. Timeline and contextual states retained; mobile Figma unchanged. |
+| 2026-09-21 | 1.26 | Tightened the admin timeline heading-to-slider margin from 32px to 8px per user feedback; slider geometry and behavior unchanged. Mobile Figma unaffected. |
 | 2026-09-21 | 1.25 | Implemented selected option 3 trip replay with paginated history, stop bands, gap handling and responsive activity summary. Removed the colour key and reduced the vehicle icon to 32px per review. Fixture-browser and automated checks passed; live run requires sign-in. Mobile Figma unchanged. |
 | 2026-09-21 | 1.24 | Implemented colour-coded admin markers, speeding pins and latest mapped-stop car icon. Created three illustrative trip-slider mockups; slider implementation awaits design selection. Mobile Figma unchanged. |
 | 2026-09-21 | 1.23 | Added admin marker detail popups and top-right activity-type filters, with observed/estimated/unknown duration provenance and overlapping event access. Shared Run KM maps inherit the behavior; mobile Figma designs are unaffected. |

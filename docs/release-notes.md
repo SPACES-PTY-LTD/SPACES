@@ -20,6 +20,42 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-21 | Version: auto-run-continuous-geofence-visit-v1
+
+- **Summary:** Preserve the active location visit while the truck remains inside its geofence, preventing overlapping locations from triggering another shipment prematurely.
+- **API Changes:** No schema changes. Position processing retains the active matching geofence before considering other locations.
+- **Database Changes:** None; existing production records are not modified.
+- **Behavior Changes:** Repeated positions retain the current visit and shipment even if an overlapping location becomes closer or has higher priority. Normal exit/delivery and next-location automation run after leaving the active fence. Existing per-run/location shipment reuse is retained.
+- **Breaking Changes:** None.
+- **Verification:** Overlap regression failed before the fix (two shipments instead of one). All 25 run-lifecycle tests and 18 tracking/autorun-controller tests passed (255 assertions); PHP syntax checks passed. Production cause and historical cleanup remain unverified; not deployed by this task.
+
+## 2026-09-21 | Version: admin-run-map-card-removal-v1
+
+- **Summary:** Removed the outer card and Recorded GPS heading from admin run maps.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Map and timeline now use the available page width without outer card padding or title. Marker filters, replay and contextual history states remain available.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint and diff whitespace checks passed.
+
+## 2026-09-21 | Version: admin-run-map-copy-cleanup-v1
+
+- **Summary:** Removed the explanatory route paragraph and general incomplete-coverage notice above the admin run map.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Cleaner map header; timeline gap labels, unavailable-position details and loading/error states remain available.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and diff whitespace checks passed.
+
+## 2026-09-21 | Version: admin-run-timeline-spacing-v1
+
+- **Summary:** Tightened spacing beneath the Trip timeline heading row.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reduced the margin above the slider from 32px to 8px; preserved slider size, labels and replay behavior.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and diff whitespace checks passed; checked the updated development preview.
+
 ## 2026-09-21 | Version: admin-run-map-trip-replay-v1
 
 - **Summary:** Implemented selected timeline design 3 with interactive trip replay in admin run and shared Run KM maps.

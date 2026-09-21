@@ -90,7 +90,7 @@ class AutoRunLifecycleService
                 ->lockForUpdate()
                 ->first();
 
-            $location = $this->resolveGeofencedLocation($merchant, $latitude, $longitude);
+            $location = $this->resolveGeofencedLocation($merchant, $latitude, $longitude, $activeVisit?->location_id);
 
             if ($activeVisit && $location && $activeVisit->location_id === $location->id) {
                 $this->updateActivitySnapshot(
@@ -1065,7 +1065,7 @@ class AutoRunLifecycleService
         };
     }
 
-    private function resolveGeofencedLocation(Merchant $merchant, float $latitude, float $longitude): ?Location
+    private function resolveGeofencedLocation(Merchant $merchant, float $latitude, float $longitude, ?int $activeLocationId = null): ?Location
     {
         $driver = DB::connection()->getDriverName();
 
@@ -1105,6 +1105,12 @@ class AutoRunLifecycleService
 
             if (! $matches) {
                 continue;
+            }
+
+            // A nearer or higher-priority overlapping fence is not evidence of
+            // departure. Keep this visit until the vehicle leaves its fence.
+            if ($activeLocationId !== null && (int) $location->id === $activeLocationId) {
+                return $location;
             }
 
             $distance = $this->distanceMeters($latitude, $longitude, (float) ($location->latitude ?? $latitude), (float) ($location->longitude ?? $longitude));

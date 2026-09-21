@@ -174,6 +174,62 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertSame($secondRun->id, $openVisit->run_id);
     }
 
+    public function test_repeated_positions_during_a_delivery_visit_do_not_create_more_shipments(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $origin = $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
+        $destination = $this->createLocation($merchant, 'Destination', false, -33.93, 18.43);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-09-21 08:00:00');
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at);
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(10));
+        $visit = VehicleActivity::where('location_id', $destination->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->sole();
+
+        foreach ([11, 12, 30, 60] as $minutes) {
+            $service->processVehiclePosition($vehicle, $merchant, -33.9301, 18.4301, $at->copy()->addMinutes($minutes));
+        }
+
+        $this->assertDatabaseCount('shipments', 1);
+        $this->assertDatabaseCount('bookings', 1);
+        $this->assertSame(1, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_COLLECTION)->count());
+        $this->assertSame(1, VehicleActivity::where('location_id', $destination->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->count());
+        $this->assertNull($visit->fresh()->exited_at);
+        $this->assertSame('in_transit', Shipment::sole()->status);
+        $this->assertSame($origin->id, Shipment::sole()->pickup_location_id);
+    }
+
+    public function test_overlapping_locations_do_not_end_a_visit_until_the_truck_leaves_its_geofence(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
+        $destination = $this->createLocation($merchant, 'Destination', false, -33.93, 18.43);
+        // Centres are about 74 m apart, with 120 m radii.
+        $neighbour = $this->createLocation($merchant, 'Neighbour', false, -33.93, 18.4308);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-09-21 08:00:00');
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at);
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(10));
+        $visit = VehicleActivity::where('location_id', $destination->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->sole();
+
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.4308, $at->copy()->addMinutes(11));
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(12));
+
+        $this->assertDatabaseCount('shipments', 1);
+        $this->assertDatabaseCount('bookings', 1);
+        $this->assertNull($visit->fresh()->exited_at);
+        $this->assertSame('in_transit', Shipment::sole()->status);
+        $this->assertSame(0, VehicleActivity::where('location_id', $neighbour->id)->count());
+        $this->assertSame(1, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_COLLECTION)->count());
+
+        // Now outside the first fence but still inside the neighbour's fence.
+        $exitAt = $at->copy()->addMinutes(20);
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.4316, $exitAt);
+        $this->assertTrue($visit->fresh()->exited_at->equalTo($exitAt));
+        $this->assertDatabaseCount('shipments', 2);
+        $this->assertSame('delivered', Shipment::where('dropoff_location_id', $destination->id)->sole()->status);
+        $this->assertSame('in_transit', Shipment::where('dropoff_location_id', $neighbour->id)->sole()->status);
+    }
+
     public function test_internal_booking_backfill_keeps_collection_odometer_for_shipment_km(): void
     {
         $service = app(InternalBookingLifecycleService::class);

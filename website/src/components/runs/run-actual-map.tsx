@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 import { getRunTrack, type RunTrack } from "@/lib/api/runs"
@@ -161,11 +160,7 @@ export function RunActualMap({ runId, accessToken, stops, activities }: Props) {
     return () => { cancelled = true; listeners.forEach(listener => listener.remove()); infoWindow.current?.close(); infoWindow.current = null; markerHandles.current = []; replayCar.current = null; overlays.forEach(overlay => overlay.setMap(null)) }
   }, [mapElement, track, markers, hasMap, retry, key])
   const stale = track?.active && track.latest_observed_at && checkedAt - Date.parse(track.latest_observed_at) > 300000
-  return <div ref={container}><Card>
-    <CardHeader><CardTitle>{track?.source === "limited_history" ? "Limited historical data" : "Recorded GPS"}</CardTitle></CardHeader>
-    <CardContent className="space-y-3">
-      <p className="text-xs text-muted-foreground">Blue lines show the driver’s recorded GPS route. Numbered pins show run stops. Click a pin for activity, duration and location details. Times include your local time zone. Lines break where tracking is missing.</p>
-      {track?.coverage.partial && <p className="text-xs text-muted-foreground">GPS coverage is incomplete. Replay uses only available history.</p>}
+  return <div ref={container} className="space-y-3">
       {(error || stale) && <p role="status" className="text-sm text-amber-700">{error ? `${track ? "Showing previous data. " : ""}${error}` : "Tracking is stale; showing the last recorded route."}</p>}
       {mapError && <p role="alert" className="text-sm text-destructive">{mapError}</p>}
       {!hasTrack && <p role="status" className="text-sm text-muted-foreground">{track?.status === "disabled" ? "Recorded route display is not enabled." : track ? "No GPS history recorded for this run. The route taken is unavailable." : error ? "Route unavailable." : "Loading recorded route…"}</p>}
@@ -195,8 +190,7 @@ export function RunActualMap({ runId, accessToken, stops, activities }: Props) {
       <div className="flex flex-wrap gap-2">
         {(error || mapError || stale) && <Button variant="outline" onClick={() => setRetry(v => v + 1)}>Retry</Button>}
       </div>
-    </CardContent>
-  </Card></div>
+  </div>
 }
 
 function vehicleIcon(): google.maps.Icon {
