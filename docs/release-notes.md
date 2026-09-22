@@ -20,6 +20,15 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: run-geofences-default-on-v1
+
+- **Summary:** Show geofences by default on admin run maps.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** The Geofences switch starts on and automatically loads stop-linked boundaries when the map is mounted. Users can still hide them; opening another run starts with geofences enabled.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and diff whitespace checks passed. Live browser verification pending.
+
 ## 2026-09-22 | Version: github-desktop-commit-draft-v1
 
 - **Summary:** Maintain the commit draft directly in GitHub Desktop instead of a repository text file.

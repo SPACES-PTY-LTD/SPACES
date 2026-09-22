@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 1.38
+Version: 1.39
 Last updated: 2026-09-22
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -93,7 +93,7 @@ Admin geofence names (1.32, implemented locally): hovering over a displayed poly
 
 Admin basemap labels (1.31): use dark slate text with an explicit thin white outline so street names remain distinct from roads, land and route lines at close zoom. Implemented locally; live zoomed-map visual verification pending. Mobile Figma styles are unchanged.
 
-Admin geofence overlay (1.30, implemented locally): a top-left Geofences switch starts off. Enabling it fetches each distinct location linked to recorded run stops/activities using the existing authorised location-details endpoint, with at most four requests in flight. Draw saved polygons and the configured centre radius (150 metres by default, matching lifecycle detection) in translucent colours from a 12-colour palette. Assign colours by the complete sorted run location-ID list so partial fetches/retries do not shift them; each location’s polygon and radius share a colour. The palette repeats after 12 locations (1.33, implemented locally). Disabling removes overlays and stops queued loads; ignore late responses. Cache successful responses for this run/auth context and retry failures only. Changing run or auth resets to off. Preserve map viewport, marker filters and replay. Stack controls on narrow screens. These are current saved boundaries, not historical boundary snapshots or every location along the route. No mobile/Figma screen change.
+Admin geofence overlay (1.30, implemented locally): a top-left Geofences switch starts on (1.39). Mounting the map automatically fetches each distinct location linked to recorded run stops/activities using the existing authorised location-details endpoint, with at most four requests in flight. Draw saved polygons and the configured centre radius (150 metres by default, matching lifecycle detection) in translucent colours from a 12-colour palette. Assign colours by the complete sorted run location-ID list so partial fetches/retries do not shift them; each location’s polygon and radius share a colour. The palette repeats after 12 locations (1.33, implemented locally). Disabling removes overlays and stops queued loads; ignore late responses. Cache successful responses for this run/auth context and retry failures only. Changing run or auth resets to on. Preserve map viewport, marker filters and replay. Stack controls on narrow screens. These are current saved boundaries, not historical boundary snapshots or every location along the route. No mobile/Figma screen change.
 
 Add **Planned / Recorded** above the map, with Planned selected initially. Planned routing and its distance/time information remain unchanged. Recorded uses a separate lazy route endpoint and the current truck position. Label it **Recorded GPS**; never run directions or road matching to fill missing roads. Break lines across gaps longer than five minutes. Keep explicit loading, empty, stale, disabled and recoverable failure states. Preserve prior data for the same run/window on refresh failure.
 
@@ -329,7 +329,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 - [ ] Verify geofence-name hover tooltips on the live map, including polygons, circles and toggle-off cleanup. Implementation and static checks complete.
 - [ ] Visually verify admin street-label readability at close zoom on the live map. Explicit dark fill/white outline is implemented; TypeScript and lint checks pass.
-- [x] Admin geofences default off, load stop-linked locations on demand and clean up independently of route/replay. Loader tests cover deduplication, cache reuse, partial failures/retry and cancellation. Live authenticated browser verification remains pending.
+- [x] Admin geofences default on, automatically load stop-linked locations on mount and clean up independently of route/replay. Loader tests cover deduplication, cache reuse, partial failures/retry and cancellation. Live authenticated browser verification remains pending.
 - [x] Admin Runs requests lightweight row summaries with unchanged table values, pagination and sorting; detail-only relationships are omitted. Verified with Run API tests; production timing pending.
 - [x] Repeated positions and movement inside overlapping geofences retain one continuous visit and shipment until departure; leaving the active fence permits the next location visit and shipment. Verified by run-lifecycle regression tests.
 - [x] Runs without a final destination expose Choose final destination in All stops; selection saves through a scoped bottom sheet and refreshes the planned end/route without changing lifecycle or overwriting a concurrent destination.
@@ -376,6 +376,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-22 | 1.39 | Show admin run geofences by default and load their boundaries on mount. The switch still hides them. Static checks passed; live visual verification pending. Mobile Figma unchanged. |
 | 2026-09-22 | 1.38 | Replaced admin map polling/tab-focus reloads with manual Refresh beside Geofences. Refresh updates run details, GPS and enabled geofences; mobile polling remains unchanged. Live browser verification pending. |
 | 2026-09-22 | 1.37 | Hit-test every loaded geofence for hover names, including nested polygons/circles, deduplicating by location ID. Geometry loads on demand. Live visual verification pending; mobile Figma unchanged. |
 | 2026-09-22 | 1.36 | Pan to off-screen replay car positions during timeline use, preserving zoom and remaining still for visible cars or GPS gaps. Live drag verification pending; mobile Figma unchanged. |

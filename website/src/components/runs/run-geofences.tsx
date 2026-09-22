@@ -16,7 +16,7 @@ export function RunGeofences({ map, locationIds, accessToken, refreshVersion = 0
   accessToken?: string | null
   refreshVersion?: number
 }) {
-  const [enabled, setEnabled] = React.useState(false)
+  const [enabled, setEnabled] = React.useState(true)
   const [locations, setLocations] = React.useState<Location[]>([])
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState(false)
