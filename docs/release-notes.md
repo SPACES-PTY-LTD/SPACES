@@ -20,6 +20,24 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: admin-run-map-label-contrast-v1
+
+- **Summary:** Improve street-name contrast on the admin run map at close zoom.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Map labels now use darker slate text and an explicit thin white outline instead of relying on the default outline styling.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint, website TypeScript and diff whitespace checks passed. Live zoomed-map visual verification remains pending.
+
+## 2026-09-22 | Version: admin-run-geofence-toggle-v1
+
+- **Summary:** Added a top-left Geofences toggle to the shared admin run map, off by default.
+- **API Changes:** None; uses existing `GET /api/v1/locations/{location_uuid}` only when enabled, for distinct locations linked to recorded run stops/activities.
+- **Database Changes:** None.
+- **Behavior Changes:** Show current saved polygons and lifecycle radius boundaries in purple without changing the viewport, markers or replay. Limit concurrent requests to four, cache successful results within the run/auth context, expose loading/error/retry and remove overlays on toggle-off. Ignore late responses and stop queued loads. On narrow screens the marker filter moves below the geofence toggle.
+- **Breaking Changes:** None.
+- **Verification:** Three loader regression tests passed (deduplication/cache, partial failure/retry, cancellation/concurrency). Focused ESLint, website TypeScript and diff whitespace checks passed. Live authenticated browser verification and deployment are pending.
+
 ## 2026-09-21 | Version: admin-runs-list-summary-v1
 
 - **Summary:** Reduce Runs table loading work by requesting only the row summary instead of complete run details.

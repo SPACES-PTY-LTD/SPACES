@@ -1,7 +1,7 @@
 # Driver dashboard plan
 
-Version: 1.29
-Last updated: 2026-09-21
+Version: 1.31
+Last updated: 2026-09-22
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
 ## Purpose and maintenance
@@ -88,6 +88,10 @@ Use Google map routing for road directions. The full planned trip is:
 - Do not infer that planned endpoints have been visited. Recorded visits and events remain factual history.
 
 ### Recorded GPS history (1.21)
+
+Admin basemap labels (1.31): use dark slate text with an explicit thin white outline so street names remain distinct from roads, land and route lines at close zoom. Implemented locally; live zoomed-map visual verification pending. Mobile Figma styles are unchanged.
+
+Admin geofence overlay (1.30, implemented locally): a top-left Geofences switch starts off. Enabling it fetches each distinct location linked to recorded run stops/activities using the existing authorised location-details endpoint, with at most four requests in flight. Draw saved polygons and the configured centre radius (150 metres by default, matching lifecycle detection) in translucent purple. Disabling removes overlays and stops queued loads; ignore late responses. Cache successful responses for this run/auth context and retry failures only. Changing run or auth resets to off. Preserve map viewport, marker filters and replay. Stack controls on narrow screens. These are current saved boundaries, not historical boundary snapshots or every location along the route. No mobile/Figma screen change.
 
 Add **Planned / Recorded** above the map, with Planned selected initially. Planned routing and its distance/time information remain unchanged. Recorded uses a separate lazy route endpoint and the current truck position. Label it **Recorded GPS**; never run directions or road matching to fill missing roads. Break lines across gaps longer than five minutes. Keep explicit loading, empty, stale, disabled and recoverable failure states. Preserve prior data for the same run/window on refresh failure.
 
@@ -309,6 +313,8 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 ### Acceptance checklist
 
+- [ ] Visually verify admin street-label readability at close zoom on the live map. Explicit dark fill/white outline is implemented; TypeScript and lint checks pass.
+- [x] Admin geofences default off, load stop-linked locations on demand and clean up independently of route/replay. Loader tests cover deduplication, cache reuse, partial failures/retry and cancellation. Live authenticated browser verification remains pending.
 - [x] Admin Runs requests lightweight row summaries with unchanged table values, pagination and sorting; detail-only relationships are omitted. Verified with Run API tests; production timing pending.
 - [x] Repeated positions and movement inside overlapping geofences retain one continuous visit and shipment until departure; leaving the active fence permits the next location visit and shipment. Verified by run-lifecycle regression tests.
 - [x] Runs without a final destination expose Choose final destination in All stops; selection saves through a scoped bottom sheet and refreshes the planned end/route without changing lifecycle or overwriting a concurrent destination.
@@ -355,6 +361,8 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-22 | 1.31 | Set explicit white label outlines and darker text on the admin run basemap to improve close-zoom street-name contrast. Live visual verification pending; mobile Figma unchanged. |
+| 2026-09-22 | 1.30 | Added an off-by-default admin geofence switch with on-demand location fetches, polygon/radius overlays, caching and retry. Loader tests pass; live browser verification pending. Mobile Figma unchanged. |
 | 2026-09-21 | 1.29 | Added opt-in run-list summaries and used them for the admin Runs table to avoid loading and transmitting detail-only data. Regression checks passed; production timing/deployment unverified. Figma unchanged. |
 | 2026-09-21 | 1.28 | Retain the active location while its geofence still contains the truck; prevent overlapping fences from triggering premature exit/delivery and another shipment. Added regression tests; deployment and historical cleanup remain outstanding. No Figma UI change. |
 | 2026-09-21 | 1.27 | Removed the admin map outer card and Recorded GPS heading; recorded the earlier introductory-copy removal. Timeline and contextual states retained; mobile Figma unchanged. |

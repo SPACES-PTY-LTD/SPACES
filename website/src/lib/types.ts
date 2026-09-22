@@ -745,6 +745,7 @@ export type DriverVehicle = Vehicle
 
 
 export interface Location {
+  metadata?: Record<string, unknown> | null
   additional_costs?: AdditionalCost[]
   additional_cost_totals?: CostTotal[]
   location_id: UUID

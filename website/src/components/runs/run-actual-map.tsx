@@ -6,6 +6,7 @@ import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 import { getRunTrack, type RunTrack } from "@/lib/api/runs"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { RunTripTimeline } from "./run-trip-timeline"
+import { RunGeofences } from "./run-geofences"
 import { buildReplayModel, loadTrackPages, replayAt } from "./run-replay"
 import type { ShipmentStop } from "@/lib/types"
 import { ChevronDown, Filter } from "lucide-react"
@@ -24,6 +25,8 @@ export function RunActualMap({ runId, accessToken, stops, activities }: Props) {
   const [loadingKey, setLoadingKey] = React.useState<string | null>(null)
   const [checkedAt, setCheckedAt] = React.useState(0)
   const mapInstance = React.useRef<{ element: HTMLDivElement; map: google.maps.Map } | null>(null)
+  const [readyMap, setReadyMap] = React.useState<google.maps.Map | null>(null)
+  const geofenceLocationIds = React.useMemo(() => [...new Set([...stops, ...(activities ?? [])].flatMap(stop => stop.location?.location_id ? [stop.location.location_id] : []))].sort(), [stops, activities])
   const fittedKey = React.useRef<string | null>(null)
   const [mapError, setMapError] = React.useState<string | null>(null)
   const key = `${accessToken}:${runId}`
@@ -117,9 +120,11 @@ export function RunActualMap({ runId, accessToken, stops, activities }: Props) {
         { featureType: "water", elementType: "geometry", stylers: [{ color: "#dce0e5" }] },
         { featureType: "poi", stylers: [{ visibility: "off" }] },
         { featureType: "transit", stylers: [{ visibility: "off" }] },
-        { elementType: "labels.text.fill", stylers: [{ color: "#64748b" }] },
+        { elementType: "labels.text.stroke", stylers: [{ color: "#ffffff" }, { weight: 2 }] },
+        { elementType: "labels.text.fill", stylers: [{ color: "#334155" }] },
       ] })
       mapInstance.current = { element: mapElement, map }
+      setReadyMap(map)
       const details = new google.maps.InfoWindow({ maxWidth: 350 })
       infoWindow.current = details
       replayCar.current = new google.maps.Marker({ map, visible: false, zIndex: 1100, icon: vehicleIcon(), title: "Replay position" })
@@ -167,7 +172,8 @@ export function RunActualMap({ runId, accessToken, stops, activities }: Props) {
       {hasMap ? <div className="overflow-hidden rounded-lg border">
         <div className="relative">
         <div ref={setMapElement} className="h-[380px] w-full sm:h-[480px]" aria-label="Run stops and recorded GPS route map" />
-        <div className="absolute right-3 top-3">
+        <RunGeofences key={key} map={readyMap} locationIds={geofenceLocationIds} accessToken={accessToken} />
+        <div className="absolute right-3 top-16 sm:top-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" className="bg-background shadow-sm"><Filter className="size-4" />Marker types ({shownCount}/{markers.length})<ChevronDown className="size-4" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
