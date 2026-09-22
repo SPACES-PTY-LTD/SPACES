@@ -24,14 +24,13 @@ Rules:
 3. If no user-facing/runtime impact, still add a short `Internal Changes` note.
 4. Do not finish a task until release notes are updated.
 
-## Commit Message Draft (Required)
+## GitHub Desktop Commit Draft (Required)
 
-Maintain `COMMIT_MESSAGE.txt` at the repository root so a relevant commit title and body are ready before the user commits.
+After every change, update the current repository's draft directly in GitHub Desktop's **Commit summary** and **Commit description** fields. Do not create `COMMIT_MESSAGE.txt` or another commit-message file.
 
-1. After every change, including documentation, configuration and tests, refresh the draft before finishing the task.
-2. Inspect `git status --short`, the staged and unstaged diffs, and relevant untracked files. Summarize the complete pending change set, not just the last edit. Do not stage, discard or modify unrelated changes to prepare the draft.
-3. Write a plain-text Git commit message: a concise imperative title on the first line (aim for 72 characters or fewer), a blank line, then a short body explaining the concrete changes and their purpose. No Markdown title headings or code fences.
-4. Include verification actually performed and material remaining limitations. Never claim tests passed or changes were deployed without evidence. Avoid generic titles such as “debug” or “updates”.
-5. Rewrite the draft as the pending scope changes; do not append a history of earlier drafts. After a commit, replace stale content when the next change is made. Use the current diff as the source of truth, excluding `COMMIT_MESSAGE.txt` itself from the functional change summary.
-6. If asked to commit only a subset of changes, refresh the draft to describe exactly that subset before committing.
-7. This requirement maintains a draft only. Do not create commits, amend existing commit messages or push changes unless the user requests it. When authorized, the draft can be used with `git commit -F COMMIT_MESSAGE.txt`.
+1. Before finishing a task, inspect `git status --short`, staged/unstaged diffs and relevant untracked files. Draft a title and description reflecting the full pending change set, not just the last edit.
+2. Verify that GitHub Desktop is showing this repository before editing its draft. Use supported UI automation to fill the Commit summary and Commit description fields, then read them back to verify the update.
+3. Use a concise imperative summary (aim for 72 characters or fewer). Explain the concrete changes and their purpose in the description, including verification actually performed and material remaining limitations. Avoid generic titles such as “debug” or “updates”.
+4. Replace stale draft text as the pending scope changes; do not append a history of previous drafts. After a commit, draft only the next pending changes. If the user selected a specific subset for the next commit, describe that subset without changing their selection.
+5. Do not stage, discard or modify unrelated changes, create a commit, amend an existing commit or push merely to update the draft. Leave the Commit button for the user unless committing is explicitly requested.
+6. If GitHub Desktop or its draft fields cannot be accessed, report that limitation and provide the proposed summary/description in the response. Do not substitute a file or claim the draft was updated.

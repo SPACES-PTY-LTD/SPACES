@@ -20,6 +20,16 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: github-desktop-commit-draft-v1
+
+- **Summary:** Maintain the commit draft directly in GitHub Desktop instead of a repository text file.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None at runtime.
+- **Internal Changes:** Updated AGENTS.md to require editing and verifying GitHub Desktop's Commit summary and Commit description after changes. Removed COMMIT_MESSAGE.txt. Draft updates do not authorize committing, amending or pushing.
+- **Breaking Changes:** None.
+- **Verification:** Documentation reviewed and diff whitespace check passed. No runtime tests needed.
+
 ## 2026-09-22 | Version: run-shipment-location-names-v1
 
 - **Summary:** Include location names in the run detail shipment Pickup and Drop-off columns.
