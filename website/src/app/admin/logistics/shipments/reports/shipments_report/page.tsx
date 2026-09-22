@@ -202,6 +202,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
       odometer_at_delivery_display: formatKm(item.odometer_at_delivery),
       total_km_from_collection_display: formatKm(item.total_km_from_collection),
       shipment_href: shipmentHref,
+      run_href: item.run_id ? AdminRoute.runDetails(item.run_id) : "",
       vehicle_href: item.vehicle_id ? AdminRoute.vehicleDetails(item.vehicle_id) : "",
       driver_href: item.driver_id ? AdminRoute.driverDetails(item.driver_id) : "",
       from_location_href: item.from_location?.location_id
@@ -462,6 +463,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           { key: "run_odometer_distance_display", label: "Run KM", type: "run_distance", className: "w-[120px]" },
           
           { key: "delivered_volume", label: "Delivered Volume" },
+          { key: "run_id", label: "Run ID", link: "run_href", className: "w-[300px]" },
         ]}
       />
     </div>

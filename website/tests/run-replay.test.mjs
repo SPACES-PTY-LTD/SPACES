@@ -4,7 +4,7 @@ import test from "node:test"
 import ts from "typescript"
 const source = await readFile(new URL("../src/components/runs/run-replay.ts", import.meta.url), "utf8")
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
-const { buildReplayModel, replayAt, loadTrackPages, mergeTrackPages } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`)
+const { buildReplayModel, replayAt, replayRouteAt, loadTrackPages, mergeTrackPages } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`)
 const at = minutes => new Date(Date.UTC(2026, 8, 21, 8, minutes)).toISOString()
 const ms = minutes => Date.parse(at(0)) + minutes * 60000
 const point = (minutes, latitude = -26) => ({ latitude, longitude: 28, observed_at: at(minutes) })
@@ -69,4 +69,32 @@ test("pagination failure retains loaded data, cyclic cursors stop, cancellation 
   const cancelled = await loadTrackPages(async () => { throw Error("Should not fetch") }, () => false)
   assert.equal(cancelled.interrupted, true)
   assert.equal(mergeTrackPages([]), null)
+})
+
+
+test("route grows and rewinds to the interpolated time without showing future segments", () => {
+  const model = buildReplayModel(page([[point(0, -26), point(4, -25)], [point(15), point(19, -24)]]), [])
+  const original = structuredClone(model.segments)
+  assert.deepEqual(replayRouteAt(model, ms(-1)), [[], []])
+  assert.deepEqual(replayRouteAt(model, ms(0)), [[model.segments[0][0]], []])
+  const forward = replayRouteAt(model, ms(17))
+  assert.deepEqual(forward[0], model.segments[0])
+  assert.deepEqual(forward[1].at(-1), replayAt(model, ms(17)).position)
+  const rewind = replayRouteAt(model, ms(2))
+  assert.deepEqual(rewind[0].at(-1), replayAt(model, ms(2)).position)
+  assert.deepEqual(rewind[1], [])
+  assert.deepEqual(replayRouteAt(model, ms(10)), [model.segments[0], []])
+  assert.deepEqual(replayRouteAt(model, ms(4)), [model.segments[0], []])
+  assert.deepEqual(replayRouteAt(model, ms(20)), model.segments)
+  assert.deepEqual(replayRouteAt(model, null), model.segments)
+  assert.deepEqual(model.segments, original)
+})
+
+test("route keeps invalid samples and long gaps broken, including during a stop", () => {
+  const model = buildReplayModel(page([[point(0), point(2), { ...point(3), latitude: null }, point(4), point(15), point(19)]]), [
+    { event_type: "shipment_delivery", entered_at: at(5), exited_at: at(13), latitude: -25, longitude: 29 },
+  ])
+  assert.equal(model.segments.length, 3)
+  assert.deepEqual(replayRouteAt(model, ms(10)), [model.segments[0], model.segments[1], []])
+  assert.deepEqual(replayRouteAt(buildReplayModel(null, [{ occurred_at: at(0) }]), null), [])
 })

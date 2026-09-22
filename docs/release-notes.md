@@ -20,6 +20,24 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: run-replay-progressive-route-v1
+
+- **Summary:** Draw the blue run route progressively as the timeline knob moves.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replay shows recorded GPS history up to the selected time, growing forward and retracting backward with an interpolated endpoint. Future segments stay hidden and GPS gaps remain disconnected. Latest view and clearing the time range restore the full route. Existing polylines update without resetting the viewport or markers.
+- **Breaking Changes:** None.
+- **Verification:** Eleven replay/time-range tests, focused ESLint, website TypeScript and diff whitespace checks passed. Live visual verification pending.
+
+## 2026-09-22 | Version: shipments-report-run-link-v1
+
+- **Summary:** Add Run ID as the last column in the shipments report.
+- **API Changes:** None; use the existing run UUID returned by the report endpoint.
+- **Database Changes:** None.
+- **Behavior Changes:** Each available Run ID links to its admin run detail page. Shipments without a run have no run link.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint, website TypeScript and diff whitespace checks passed. Live browser verification pending.
+
 ## 2026-09-22 | Version: run-geofences-default-on-v1
 
 - **Summary:** Show geofences by default on admin run maps.

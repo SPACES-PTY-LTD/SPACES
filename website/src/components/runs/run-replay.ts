@@ -107,6 +107,22 @@ export function buildReplayModel(track: RunTrack | null, stops: ShipmentStop[], 
   return { start, end, segments, events, gaps }
 }
 
+// Keep one path per validated segment so scrubbing never bridges missing history.
+export function replayRouteAt(model: ReplayModel, selected: number | null): ReplayPoint[][] {
+  return model.segments.map(segment => {
+    if (selected === null || selected >= segment.at(-1)!.time) return segment
+    if (selected < segment[0].time) return []
+    const nextIndex = segment.findIndex(sample => sample.time > selected)
+    const path = segment.slice(0, nextIndex)
+    const left = path.at(-1)!, right = segment[nextIndex]
+    if (left.time < selected) {
+      const ratio = (selected - left.time) / (right.time - left.time)
+      path.push({ lat: left.lat + (right.lat - left.lat) * ratio, lng: left.lng + (right.lng - left.lng) * ratio, time: selected })
+    }
+    return path
+  })
+}
+
 export function replayAt(model: ReplayModel, selected: number) {
   // Point events are highlighted briefly after their timestamp, never before they happened.
   const event = model.events.filter(event => selected >= event.start && selected <= (event.end > event.start ? event.end : event.start + 30_000))

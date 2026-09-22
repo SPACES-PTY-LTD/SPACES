@@ -8,7 +8,7 @@ import { getRunTrack, type RunTrack } from "@/lib/api/runs"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { RunTripTimeline } from "./run-trip-timeline"
 import { RunGeofences } from "./run-geofences"
-import { buildReplayModel, loadTrackPages, replayAt } from "./run-replay"
+import { buildReplayModel, loadTrackPages, replayAt, replayRouteAt } from "./run-replay"
 import type { ShipmentStop } from "@/lib/types"
 import { ChevronDown, Filter, RefreshCw } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
@@ -49,6 +49,7 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
   const isReplaying = selected !== null
   const replay = React.useMemo(() => model && selected !== null ? replayAt(model, selected) : null, [model, selected])
   const replayCar = React.useRef<google.maps.Marker | null>(null)
+  const routeLines = React.useRef<google.maps.Polyline[]>([])
   const [mapRevision, setMapRevision] = React.useState(0)
   const [filter, setFilter] = React.useState<{ runId: string; hidden: string[] }>({ runId, hidden: [] })
   const hiddenTypes = React.useMemo(() => filter.runId === runId ? filter.hidden : [], [filter, runId])
@@ -95,6 +96,10 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
     return () => { cancelled = true }
   }, [runId, accessToken, key, visible, retry])
   React.useEffect(() => {
+    const paths = model ? replayRouteAt(model, selected) : []
+    routeLines.current.forEach((line, index) => line.setPath(paths[index] ?? []))
+  }, [model, selected, mapRevision])
+  React.useEffect(() => {
     const car = replayCar.current
     if (!car) return
     car.setVisible(Boolean(replay?.position))
@@ -134,10 +139,11 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
       replayCar.current = new google.maps.Marker({ map, visible: false, zIndex: 1100, icon: vehicleIcon(), title: "Replay position" })
       overlays.push(replayCar.current)
       const bounds = new google.maps.LatLngBounds()
-      track?.segments.forEach(segment => {
-        const path = segment.map(p => ({ lat: p.latitude, lng: p.longitude }))
-        path.forEach(p => bounds.extend(p))
-        if (path.length > 1) overlays.push(new google.maps.Polyline({ map, path, strokeColor: "#2563eb", strokeWeight: 4 }))
+      routeLines.current = (model?.segments ?? []).map(segment => {
+        segment.forEach(p => bounds.extend(p))
+        const line = new google.maps.Polyline({ map, path: [], strokeColor: "#2563eb", strokeWeight: 4 })
+        overlays.push(line)
+        return line
       })
       markerHandles.current = markers.map(item => {
         bounds.extend(item.position)
@@ -166,8 +172,8 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
       if (!bounds.isEmpty() && fittedKey.current !== fitKey) { map.fitBounds(bounds, 64); fittedKey.current = fitKey }
       setMapRevision(value => value + 1)
     }).catch(() => { if (!cancelled) setMapError("Map unavailable. Try again.") })
-    return () => { cancelled = true; listeners.forEach(listener => listener.remove()); infoWindow.current?.close(); infoWindow.current = null; markerHandles.current = []; replayCar.current = null; overlays.forEach(overlay => overlay.setMap(null)) }
-  }, [mapElement, track, markers, hasMap, retry, key])
+    return () => { cancelled = true; listeners.forEach(listener => listener.remove()); infoWindow.current?.close(); infoWindow.current = null; markerHandles.current = []; replayCar.current = null; routeLines.current = []; overlays.forEach(overlay => overlay.setMap(null)) }
+  }, [mapElement, track, model, markers, hasMap, retry, key])
   const refreshLatest = () => {
     if (loading || refreshingDetails) return
     setRetry(value => value + 1)
