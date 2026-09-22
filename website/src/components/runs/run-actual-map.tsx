@@ -102,6 +102,11 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
     if (replay?.position) {
       car.setPosition(replay.position)
       car.setTitle(`Replay position · ${replay.title} · ${replay.detail}`)
+      const map = mapInstance.current?.map
+      const bounds = map?.getBounds()
+      if (map && bounds && !bounds.contains(replay.position)) {
+        map.panTo(replay.position)
+      }
     }
     infoWindow.current?.close()
   }, [replay, mapRevision])

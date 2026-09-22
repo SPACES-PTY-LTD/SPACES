@@ -20,6 +20,24 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: run-geofence-nested-hover-v1
+
+- **Summary:** Show nested and overlapping geofence names even when another overlay captures the hover.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Tooltip hit-tests every displayed polygon/circle using Google geometry and lists each matching location once. A location's polygon and radius do not duplicate its name. Geometry loads only when geofences are enabled; load failures retain retry handling.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint, website TypeScript and diff whitespace checks passed. Live nested-geofence visual verification remains pending.
+
+## 2026-09-22 | Version: run-map-follow-replay-car-v1
+
+- **Summary:** Bring an off-screen replay car back into view while using the timeline.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** When a replay position falls outside the current map bounds, pan to the car while preserving zoom. Leave the map still when the car is already in view; do not pan when GPS position is unavailable.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint, website TypeScript and diff whitespace checks passed. Live drag verification remains pending.
+
 ## 2026-09-22 | Version: run-map-replay-badge-removal-v1
 
 - **Summary:** Removed the replay-position badge from the run map.
