@@ -20,6 +20,15 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-21 | Version: admin-runs-list-summary-v1
+
+- **Summary:** Reduce Runs table loading work by requesting only the row summary instead of complete run details.
+- **API Changes:** Opt-in `GET /api/v1/runs?summary=true` returns run ID/status, start dates, duration/distance, additional-cost totals, shipment count, origin/destination labels, driver name and vehicle plate/reference with the existing pagination metadata. Default list and detail responses remain unchanged.
+- **Database Changes:** None.
+- **Behavior Changes:** Admin Runs uses the summary response. It avoids activity-detail relationships, route stops, parcels, bookings and delivery-note imports; runs with odometer distance skip activity coordinates too. GPS fallback, endpoint fallback, timestamps, authorization, filters and sorting retain existing semantics.
+- **Breaking Changes:** None; reduced fields are opt-in only. Deploy API support before or alongside the frontend for the performance benefit.
+- **Verification:** All 17 Run API tests passed (533 assertions), including both summary distance sources, row-value parity, omitted detail relationships, payload below half the full fixture size and both response modes across every sort column/direction/page with merchant isolation. Website TypeScript and focused ESLint passed. Production latency has not been measured; changes are local.
+
 ## 2026-09-21 | Version: sign-in-email-placeholder-removal-v1
 
 - **Summary:** Removed the example email placeholder from the sign-in form.

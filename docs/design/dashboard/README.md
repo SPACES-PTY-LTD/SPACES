@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 1.28
+Version: 1.29
 Last updated: 2026-09-21
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -69,6 +69,8 @@ Run queries, shipments, documents, telemetry and mutations must stay scoped to t
 - Define and verify departure detection, GPS quality, geofence thresholds and backend run-state mappings before implementing automatic start. No specific threshold is prescribed by this design.
 
 ## 4. Map and full planned trip
+
+Admin Runs list performance (1.29, implemented locally): request the opt-in run-list summary for table rows. Do not load or transmit activity details, route stops, parcels, bookings or document imports for this table. Keep existing displayed counts, costs, dates, odometer/GPS distance fallback and shipment-based endpoint fallback. Load activity coordinates only for runs without complete odometers. Default API consumers and run detail remain unchanged. API regression tests cover summary parity and all sort columns; production latency/deployment remain unverified. No Figma screen or interaction changes.
 
 Use Google map routing for road directions. The full planned trip is:
 
@@ -307,6 +309,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 ### Acceptance checklist
 
+- [x] Admin Runs requests lightweight row summaries with unchanged table values, pagination and sorting; detail-only relationships are omitted. Verified with Run API tests; production timing pending.
 - [x] Repeated positions and movement inside overlapping geofences retain one continuous visit and shipment until departure; leaving the active fence permits the next location visit and shipment. Verified by run-lifecycle regression tests.
 - [x] Runs without a final destination expose Choose final destination in All stops; selection saves through a scoped bottom sheet and refreshes the planned end/route without changing lifecycle or overwriting a concurrent destination.
 
@@ -352,6 +355,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-21 | 1.29 | Added opt-in run-list summaries and used them for the admin Runs table to avoid loading and transmitting detail-only data. Regression checks passed; production timing/deployment unverified. Figma unchanged. |
 | 2026-09-21 | 1.28 | Retain the active location while its geofence still contains the truck; prevent overlapping fences from triggering premature exit/delivery and another shipment. Added regression tests; deployment and historical cleanup remain outstanding. No Figma UI change. |
 | 2026-09-21 | 1.27 | Removed the admin map outer card and Recorded GPS heading; recorded the earlier introductory-copy removal. Timeline and contextual states retained; mobile Figma unchanged. |
 | 2026-09-21 | 1.26 | Tightened the admin timeline heading-to-slider margin from 32px to 8px per user feedback; slider geometry and behavior unchanged. Mobile Figma unaffected. |

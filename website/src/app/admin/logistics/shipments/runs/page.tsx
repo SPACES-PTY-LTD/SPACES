@@ -50,6 +50,7 @@ export default async function RunsPage({
   const canLoad = session.user.role === "super_admin" || Boolean(merchantId)
   const response = canLoad
     ? await listRuns(session.accessToken, {
+        summary: true,
         merchant_id: merchantId,
         sort_by: sortBy,
         sort_dir: sortDir,

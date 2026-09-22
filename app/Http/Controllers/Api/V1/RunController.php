@@ -7,6 +7,7 @@ use App\Http\Requests\AttachRunShipmentsRequest;
 use App\Http\Requests\StoreRunRequest;
 use App\Http\Requests\UpdateRunRequest;
 use App\Http\Resources\RunResource;
+use App\Http\Resources\RunSummaryResource;
 use App\Models\Merchant;
 use App\Models\Run;
 use App\Services\RunService;
@@ -30,7 +31,9 @@ class RunController extends Controller
                 $request->attributes->get('merchant_environment')
             );
 
-            return ApiResponse::paginated($runs, RunResource::collection($runs));
+            return ApiResponse::paginated($runs, $request->boolean('summary')
+                ? RunSummaryResource::collection($runs)
+                : RunResource::collection($runs));
         } catch (Throwable $e) {
             Log::error('Run list failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'RUN_LIST_FAILED', 'Unable to list runs.');

@@ -51,6 +51,24 @@ class RunService
                 'deliveryNoteImports.shipments',
             ]);
 
+        if (filter_var($filters['summary'] ?? false, FILTER_VALIDATE_BOOL)) {
+            $query->withoutEagerLoads()->with([
+                'merchant',
+                'driver.user',
+                'vehicle',
+                'additionalCosts:id,run_id,currency,amount',
+                'originLocation',
+                'destinationLocation',
+                'runShipments.shipment.pickupLocation',
+                'runShipments.shipment.dropoffLocation',
+                'vehicleActivities' => fn ($activities) => $activities
+                    ->select('id', 'run_id', 'latitude', 'longitude', 'occurred_at')
+                    ->whereNotNull('latitude')->whereNotNull('longitude')
+                    ->whereHas('run', fn ($runs) => $runs->where(fn ($missing) => $missing
+                        ->whereNull('odometer_start_km')->orWhereNull('odometer_end_km'))),
+            ]);
+        }
+
         if ($environment) {
             $query->where('merchant_id', $environment->merchant_id)
                 ->where('environment_id', $environment->id);

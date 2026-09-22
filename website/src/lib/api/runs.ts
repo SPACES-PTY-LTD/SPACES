@@ -16,6 +16,7 @@ export async function listRuns(
     to?: string
     active_only?: boolean
     with_shipments?: boolean
+    summary?: boolean
   }
 ) {
   return apiFetch<ApiListResponse<Run>>("/api/v1/runs", { token, params })
