@@ -10,6 +10,7 @@ use App\Models\Vehicle;
 use App\Models\VehicleActivity;
 use App\Services\AutoRunLifecycleService;
 use App\Support\ApiResponse;
+use App\Support\GeofencePolygon;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -135,38 +136,18 @@ class AdminAutorunTestController extends Controller
 
     private function representativePoint(Location $location): array
     {
-        if ($location->latitude !== null && $location->longitude !== null) {
+        $polygon = GeofencePolygon::fromWkt($location->polygon_wkt ?? null);
+        if (! $polygon) {
+            throw ValidationException::withMessages([
+                'location_id' => 'The selected location must have a valid drawn geofence.',
+            ]);
+        }
+        if ($location->latitude !== null && $location->longitude !== null
+            && $polygon->contains((float) $location->latitude, (float) $location->longitude)) {
             return [(float) $location->latitude, (float) $location->longitude];
         }
 
-        $wkt = $location->polygon_wkt ?? null;
-        $start = is_string($wkt) ? strpos($wkt, '((') : false;
-        $end = is_string($wkt) ? strrpos($wkt, '))') : false;
-        $points = [];
-
-        if ($start !== false && $end !== false && $end > $start) {
-            foreach (explode(',', substr($wkt, $start + 2, $end - $start - 2)) as $pair) {
-                $parts = preg_split('/\s+/', trim($pair));
-                if (count($parts) === 2 && is_numeric($parts[0]) && is_numeric($parts[1])) {
-                    $points[] = [(float) $parts[1], (float) $parts[0]];
-                }
-            }
-        }
-
-        if (count($points) < 3) {
-            throw ValidationException::withMessages([
-                'location_id' => 'The selected location does not have usable coordinates or polygon geometry.',
-            ]);
-        }
-
-        if ($points[0] === $points[count($points) - 1]) {
-            array_pop($points);
-        }
-
-        return [
-            array_sum(array_column($points, 0)) / count($points),
-            array_sum(array_column($points, 1)) / count($points),
-        ];
+        return $polygon->interiorPoint();
     }
 
     private function locationSummary(Location $location): array

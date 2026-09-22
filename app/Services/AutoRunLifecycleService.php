@@ -12,6 +12,7 @@ use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\Vehicle;
 use App\Models\VehicleActivity;
+use App\Support\GeofencePolygon;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -1072,17 +1073,15 @@ class AutoRunLifecycleService
         $query = Location::query()
             ->with('locationType')
             ->where('merchant_id', $merchant->id)
-            ->where(function (Builder $builder) {
-                $builder->whereNotNull('polygon_bounds')
-                    ->orWhere(function (Builder $locationBuilder) {
-                        $locationBuilder->whereNotNull('latitude')
-                            ->whereNotNull('longitude');
-                    });
-            })
+            ->whereNotNull('polygon_bounds')
             ->orderBy('id');
 
         if (in_array($driver, ['mysql', 'pgsql'], true)) {
             $query->select('locations.*')->selectRaw('ST_AsText(polygon_bounds) as polygon_wkt');
+        }
+
+        if ($driver === 'sqlite') {
+            $query->select('locations.*')->selectRaw('polygon_bounds as polygon_wkt');
         }
 
         $locations = $query->get();
@@ -1091,19 +1090,8 @@ class AutoRunLifecycleService
         $winnerDistance = null;
 
         foreach ($locations as $location) {
-            $matches = false;
-            if (! empty($location->polygon_wkt ?? null)) {
-                $polygon = $this->parseWktPolygon($location->polygon_wkt);
-                $matches = $polygon !== [] && $this->pointInPolygon($latitude, $longitude, $polygon);
-            }
-
-            if (! $matches && $location->latitude !== null && $location->longitude !== null) {
-                $distance = $this->distanceMeters($latitude, $longitude, (float) $location->latitude, (float) $location->longitude);
-                $radius = (float) (($location->metadata['geofence_radius_meters'] ?? 150));
-                $matches = $distance <= $radius;
-            }
-
-            if (! $matches) {
+            $polygon = GeofencePolygon::fromWkt($location->polygon_wkt ?? null);
+            if (! $polygon || ! $polygon->contains($latitude, $longitude)) {
                 continue;
             }
 
@@ -1125,53 +1113,6 @@ class AutoRunLifecycleService
         }
 
         return $winner;
-    }
-
-    private function parseWktPolygon(string $wkt): array
-    {
-        $start = strpos($wkt, '((');
-        $end = strrpos($wkt, '))');
-
-        if ($start === false || $end === false || $end <= $start) {
-            return [];
-        }
-
-        $pairs = explode(',', substr($wkt, $start + 2, $end - $start - 2));
-
-        $points = [];
-        foreach ($pairs as $pair) {
-            $parts = preg_split('/\s+/', trim($pair));
-            if (count($parts) !== 2 || ! is_numeric($parts[0]) || ! is_numeric($parts[1])) {
-                continue;
-            }
-
-            $points[] = [(float) $parts[0], (float) $parts[1]];
-        }
-
-        return $points;
-    }
-
-    private function pointInPolygon(float $latitude, float $longitude, array $polygon): bool
-    {
-        $inside = false;
-        $count = count($polygon);
-        if ($count < 3) {
-            return false;
-        }
-
-        for ($i = 0, $j = $count - 1; $i < $count; $j = $i++) {
-            [$latI, $lngI] = $polygon[$i];
-            [$latJ, $lngJ] = $polygon[$j];
-
-            $intersects = (($lngI > $longitude) !== ($lngJ > $longitude))
-                && ($latitude < ($latJ - $latI) * ($longitude - $lngI) / (($lngJ - $lngI) ?: 0.0000001) + $latI);
-
-            if ($intersects) {
-                $inside = ! $inside;
-            }
-        }
-
-        return $inside;
     }
 
     private function distanceMeters(float $lat1, float $lng1, float $lat2, float $lng2): float

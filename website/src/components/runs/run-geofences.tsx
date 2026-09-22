@@ -65,8 +65,8 @@ export function RunGeofences({ map, locationIds, accessToken, refreshVersion = 0
     // Assign from the complete, sorted ID list so partial loads cannot shift colours.
     const ids: string[] = JSON.parse(idsKey)
     const colors = new Map([...new Set(ids)].sort().map((id, index) => [id, geofenceColors[index % geofenceColors.length]]))
-    const overlays: (google.maps.Polygon | google.maps.Circle)[] = []
-    const hitAreas: { overlay: google.maps.Polygon | google.maps.Circle; location: Location }[] = []
+    const overlays: google.maps.Polygon[] = []
+    const hitAreas: { overlay: google.maps.Polygon; location: Location }[] = []
     const listeners: google.maps.MapsEventListener[] = []
     const label = document.createElement("div")
     label.className = "pointer-events-none absolute max-w-60 whitespace-pre-line rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-md"
@@ -87,20 +87,18 @@ export function RunGeofences({ map, locationIds, accessToken, refreshVersion = 0
     tooltip.setMap(map)
     const hideTooltip = () => { position = null; label.style.display = "none" }
     listeners.push(map.addListener("dragstart", hideTooltip), map.addListener("zoom_changed", hideTooltip))
-    const addOverlay = (overlay: google.maps.Polygon | google.maps.Circle, location: Location) => {
+    const addOverlay = (overlay: google.maps.Polygon, location: Location) => {
       overlays.push(overlay)
       hitAreas.push({ overlay, location })
       const showTooltip = (event: google.maps.MapMouseEvent) => {
         if (!event.latLng) return
         position = event.latLng
         // The top shape receives mouse events, but every containing location
-        // must be inspectable, including polygons hidden beneath radius circles.
+        // must be inspectable, including nested polygons beneath larger polygons.
         const matches = new Map<string, Location>()
         for (const area of hitAreas) {
           const shape = area.overlay
-          const contains = shape instanceof google.maps.Polygon
-            ? google.maps.geometry.poly.containsLocation(event.latLng, shape) || google.maps.geometry.poly.isLocationOnEdge(event.latLng, shape)
-            : Boolean(shape.getCenter() && google.maps.geometry.spherical.computeDistanceBetween(event.latLng, shape.getCenter()!) <= shape.getRadius())
+          const contains = google.maps.geometry.poly.containsLocation(event.latLng, shape) || google.maps.geometry.poly.isLocationOnEdge(event.latLng, shape)
           if (contains) matches.set(area.location.location_id, area.location)
         }
         // Keep the event's location on the stroke itself, even at pixel edges.
@@ -118,12 +116,7 @@ export function RunGeofences({ map, locationIds, accessToken, refreshVersion = 0
       if (points && points.length >= 3 && points.every(p => p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Math.abs(p[0]) <= 90 && Math.abs(p[1]) <= 180)) {
         addOverlay(new google.maps.Polygon({ ...options, paths: points.map(([lat, lng]) => ({ lat, lng })) }), location)
       }
-      // Lifecycle detection also uses a radius around the saved location centre.
-      const lat = location.latitude, lng = location.longitude
-      const radius = Number(location.metadata?.geofence_radius_meters ?? 150)
-      if (lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && Math.abs(Number(lat)) <= 90 && Math.abs(Number(lng)) <= 180 && Number.isFinite(radius) && radius > 0) {
-        addOverlay(new google.maps.Circle({ ...options, center: { lat: Number(lat), lng: Number(lng) }, radius }), location)
-      }
+
     }
     return () => {
       listeners.forEach(listener => listener.remove())

@@ -16,6 +16,7 @@ use Tests\TestCase;
 class AdminAutorunTestControllerTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Support\DrawnGeofence;
 
     public function test_super_admin_can_process_a_point_location_and_receive_diagnostics(): void
     {
@@ -96,6 +97,36 @@ class AdminAutorunTestControllerTest extends TestCase
             'action' => 'enter',
         ])->assertUnprocessable()
             ->assertJsonPath('error.code', 'VALIDATION_ERROR');
+    }
+
+    public function test_arrival_requires_a_drawn_polygon_even_with_centre_coordinates(): void
+    {
+        [$admin, $merchant, $vehicle] = $this->context('super_admin');
+        $location = $this->location($merchant, 'No polygon', -33.92, 18.42);
+        $location->update(['polygon_bounds' => null]);
+        $this->withToken($admin->createToken('test-suite')->plainTextToken)->postJson('/api/v1/admin/tools/autorun-test', [
+            'merchant_id' => $merchant->uuid,
+            'vehicle_id' => $vehicle->uuid,
+            'location_id' => $location->uuid,
+            'action' => 'enter',
+        ])->assertUnprocessable();
+        $this->assertSame(0, VehicleActivity::count());
+    }
+
+    public function test_arrival_uses_an_interior_point_when_centre_is_outside_concave_polygon(): void
+    {
+        [$admin, $merchant, $vehicle] = $this->context('super_admin');
+        $location = $this->location($merchant, 'Concave depot', 2, 2);
+        $wkt = 'POLYGON((0 0, 4 0, 4 1, 1 1, 1 4, 0 4, 0 0))';
+        $location->update(['polygon_bounds' => $wkt]);
+        $response = $this->withToken($admin->createToken('test-suite')->plainTextToken)->postJson('/api/v1/admin/tools/autorun-test', [
+            'merchant_id' => $merchant->uuid,
+            'vehicle_id' => $vehicle->uuid,
+            'location_id' => $location->uuid,
+            'action' => 'enter',
+        ])->assertOk()->assertJsonPath('data.resolved_location.location_id', $location->uuid);
+        $coordinates = $response->json('data.simulated_coordinates');
+        $this->assertTrue(\App\Support\GeofencePolygon::fromWkt($wkt)->contains($coordinates['latitude'], $coordinates['longitude']));
     }
 
     public function test_polygon_center_is_used_when_point_coordinates_are_missing(): void
@@ -242,6 +273,7 @@ class AdminAutorunTestControllerTest extends TestCase
             'post_code' => '8001',
             'latitude' => $latitude,
             'longitude' => $longitude,
+            'polygon_bounds' => $this->squareGeofence($latitude, $longitude),
             'metadata' => ['geofence_radius_meters' => 150],
         ]);
     }

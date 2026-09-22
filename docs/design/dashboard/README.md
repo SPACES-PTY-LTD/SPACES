@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 1.40
+Version: 1.41
 Last updated: 2026-09-22
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -58,6 +58,11 @@ Run queries, shipments, documents, telemetry and mutations must stay scoped to t
 
 ## 3. Run lifecycle
 
+- Polygon-only detection (1.41, implemented locally): match a location only when the truck is strictly inside its valid saved polygon. Edges/vertices are outside; no radius or distance buffer is used. Ignore missing, malformed, degenerate or self-intersecting polygons. Convert WKT longitude/latitude into latitude/longitude correctly; support spatial production storage and SQLite WKT fixtures. Centre coordinates only break ties between containing locations, never establish membership.
+- Apply this rule to future GPS processing only. Existing open visits exit through the normal workflow on the next outside sample, including visits previously retained by a radius. Do not rewrite past visits or shipments. Raw GPS, motion and speeding recording continues outside polygons. Stored radius metadata is retained but ignored.
+- Admin simulated arrival requires a valid polygon and uses a verified interior point, including for concave polygons or a centre outside the fence. Missing/invalid polygons return validation errors. Existing manual simulated exit remains available.
+- Verification: polygon geometry, lifecycle, tracking and simulator regressions pass locally; production spatial-engine and live map checks remain pending. No mobile Figma screen changes.
+
 - Automatic geofence visits stay open while the truck remains inside the current location, including overlaps with nearer or higher-priority locations. Repeated positions reuse that visit and its shipment; selecting an overlapping geofence must not create another shipment, mark delivery, or restart a run. Once the truck leaves the current fence, normal exit and entry rules apply. Existing per-run/location shipment reuse remains in place after a return visit.
 - Implementation (1.28): active-geofence retention and regression coverage are implemented locally. The overlapping-radius regression reproduced premature delivery and a second shipment before the fix. Production deployment and investigation/cleanup of historical records are not included. This backend rule changes no Figma screen or control.
 - New runs created by upload start **Ready to start**.
@@ -89,11 +94,11 @@ Use Google map routing for road directions. The full planned trip is:
 
 ### Recorded GPS history (1.21)
 
-Admin geofence names (1.32, implemented locally): hovering over a displayed polygon or radius boundary shows a compact name tooltip beside the pointer. Hit-test all loaded polygons/circles at the pointer and list every containing location once, so nested/overlapping geofences cannot conceal each other (1.37). Load Google geometry only when geofences are enabled. Use location name, then company/code, then “Unnamed geofence”. Render plain text; the tooltip must not intercept pointer events. Hide it on pointer exit, map dragging/zooming, toggle-off and cleanup. No mobile/Figma changes; live visual verification pending.
+Admin geofence names (1.32, implemented locally): hovering over a displayed polygon boundary shows a compact name tooltip beside the pointer. Hit-test all loaded polygons at the pointer and list every containing location once, so nested/overlapping geofences cannot conceal each other (1.37). Load Google geometry only when geofences are enabled. Use location name, then company/code, then “Unnamed geofence”. Render plain text; the tooltip must not intercept pointer events. Hide it on pointer exit, map dragging/zooming, toggle-off and cleanup. No mobile/Figma changes; live visual verification pending.
 
 Admin basemap labels (1.31): use dark slate text with an explicit thin white outline so street names remain distinct from roads, land and route lines at close zoom. Implemented locally; live zoomed-map visual verification pending. Mobile Figma styles are unchanged.
 
-Admin geofence overlay (1.30, implemented locally): a top-left Geofences switch starts on (1.39). Mounting the map automatically fetches each distinct location linked to recorded run stops/activities using the existing authorised location-details endpoint, with at most four requests in flight. Draw saved polygons and the configured centre radius (150 metres by default, matching lifecycle detection) in translucent colours from a 12-colour palette. Assign colours by the complete sorted run location-ID list so partial fetches/retries do not shift them; each location’s polygon and radius share a colour. The palette repeats after 12 locations (1.33, implemented locally). Disabling removes overlays and stops queued loads; ignore late responses. Cache successful responses for this run/auth context and retry failures only. Changing run or auth resets to on. Preserve map viewport, marker filters and replay. Stack controls on narrow screens. These are current saved boundaries, not historical boundary snapshots or every location along the route. No mobile/Figma screen change.
+Admin geofence overlay (1.30, implemented locally): a top-left Geofences switch starts on (1.39). Mounting the map automatically fetches each distinct location linked to recorded run stops/activities using the existing authorised location-details endpoint, with at most four requests in flight. Draw only saved polygons, with no centre-radius circles (1.41), in translucent colours from a 12-colour palette. Assign colours by the complete sorted run location-ID list so partial fetches/retries do not shift them; each location’s polygon uses its assigned colour. The palette repeats after 12 locations (1.33, implemented locally). Disabling removes overlays and stops queued loads; ignore late responses. Cache successful responses for this run/auth context and retry failures only. Changing run or auth resets to on. Preserve map viewport, marker filters and replay. Stack controls on narrow screens. These are current saved boundaries, not historical boundary snapshots or every location along the route. No mobile/Figma screen change.
 
 Add **Planned / Recorded** above the map, with Planned selected initially. Planned routing and its distance/time information remain unchanged. Recorded uses a separate lazy route endpoint and the current truck position. Label it **Recorded GPS**; never run directions or road matching to fill missing roads. Break lines across gaps longer than five minutes. Keep explicit loading, empty, stale, disabled and recoverable failure states. Preserve prior data for the same run/window on refresh failure.
 
@@ -317,6 +322,9 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 ### Acceptance checklist
 
+- [x] Only valid drawn polygons admit automatic location visits; outside/edge points and radius-only locations do not. Coordinate ordering, concave interiors, invalid geometry, repeated visits, overlap retention and polygon exits are regression-tested. Simulator uses verified polygon interiors. Historical records remain unchanged.
+- [ ] Verify polygon-only overlays and nested tooltips on the live map and run spatial-storage checks against the deployment database engine before rollout.
+
 - [x] Replay route grows/retracts to the selected time, preserves GPS breaks and restores full history on reset. Automated checks pass; live drag/keyboard visual verification pending.
 
 - [ ] Verify the admin run page stays unchanged across timer intervals/tab switches and Refresh retrieves details, GPS and enabled geofences while retaining view state. Polling/focus triggers removed and static/loader checks pass; live browser verification pending.
@@ -329,9 +337,9 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 - [x] Time range replaces Back to latest, provides four date/time fields, rejects outside-trip/reversed/empty ranges and narrows the replay slider. Whole trip resets the range. Automated boundary/replay checks pass; live visual review pending.
 
-- [x] Geofence polygons/radii share per-location colours, stable across toggles and partial loads for the same run location set. Static checks passed; live visual review pending.
+- [x] Geofence polygons use per-location colours, stable across toggles and partial loads for the same run location set. Static checks passed; live visual review pending.
 
-- [ ] Verify geofence-name hover tooltips on the live map, including polygons, circles and toggle-off cleanup. Implementation and static checks complete.
+- [ ] Verify geofence-name hover tooltips on the live map, including nested polygons and toggle-off cleanup. Implementation and static checks complete.
 - [ ] Visually verify admin street-label readability at close zoom on the live map. Explicit dark fill/white outline is implemented; TypeScript and lint checks pass.
 - [x] Admin geofences default on, automatically load stop-linked locations on mount and clean up independently of route/replay. Loader tests cover deduplication, cache reuse, partial failures/retry and cancellation. Live authenticated browser verification remains pending.
 - [x] Admin Runs requests lightweight row summaries with unchanged table values, pagination and sorting; detail-only relationships are omitted. Verified with Run API tests; production timing pending.
@@ -380,6 +388,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-22 | 1.41 | Require strict polygon-only location detection, fix WKT coordinate ordering, remove map radius circles and use verified polygon interiors for simulated arrival. Local regressions pass; production spatial/live visual verification pending. Historical records and mobile Figma unchanged. |
 | 2026-09-22 | 1.40 | Draw the admin blue GPS route progressively with timeline selection, preserve gaps and restore the full route in latest view. Automated checks pass; live visual verification pending. Mobile Figma unchanged. |
 | 2026-09-22 | 1.39 | Show admin run geofences by default and load their boundaries on mount. The switch still hides them. Static checks passed; live visual verification pending. Mobile Figma unchanged. |
 | 2026-09-22 | 1.38 | Replaced admin map polling/tab-focus reloads with manual Refresh beside Geofences. Refresh updates run details, GPS and enabled geofences; mobile polling remains unchanged. Live browser verification pending. |

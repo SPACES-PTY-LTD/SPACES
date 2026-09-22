@@ -25,6 +25,42 @@ use Tests\TestCase;
 class AutoRunLifecycleServiceTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Support\DrawnGeofence;
+
+    public function test_only_drawn_polygon_contains_truck_and_radius_cannot_keep_visit_open(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $location = $this->createLocation($merchant, 'Depot', true, -33.92, 18.42);
+        $location->update(['polygon_bounds' => 'POLYGON((18.4199 -33.9201, 18.4201 -33.9201, 18.4201 -33.9199, 18.4199 -33.9199, 18.4199 -33.9201))']);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-09-22 08:00:00');
+        // About 18 metres from the centre: within the old radius, outside the polygon.
+        $this->assertFalse($service->processVehiclePosition($vehicle, $merchant, -33.92, 18.4202, $at));
+        $this->assertDatabaseCount('runs', 0);
+        $this->assertDatabaseCount('shipments', 0);
+        $this->assertSame(0, VehicleActivity::where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->count());
+        $this->assertTrue($service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at->copy()->addMinute()));
+        $visit = VehicleActivity::where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->sole();
+        $this->assertTrue($service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at->copy()->addMinutes(2)));
+        $this->assertNull($visit->fresh()->exited_at);
+        $this->assertFalse($service->processVehiclePosition($vehicle, $merchant, -33.92, 18.4202, $at->copy()->addMinutes(3)));
+        $this->assertNotNull($visit->fresh()->exited_at);
+        $this->assertSame(1, VehicleActivity::where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->count());
+    }
+
+    public function test_missing_invalid_or_boundary_polygon_never_creates_a_visit(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $location = $this->createLocation($merchant, 'Depot', true, -33.92, 18.42);
+        $service = app(AutoRunLifecycleService::class);
+        foreach ([null, 'invalid', 'POLYGON((18.42 -33.92, 18.43 -33.92, 18.43 -33.91, 18.42 -33.91, 18.42 -33.92))'] as $polygon) {
+            $location->update(['polygon_bounds' => $polygon]);
+            $this->assertFalse($service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, Carbon::now()));
+        }
+        $this->assertSame(0, VehicleActivity::where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->count());
+        $this->assertDatabaseCount('runs', 0);
+        $this->assertDatabaseCount('shipments', 0);
+    }
 
     protected function tearDown(): void
     {
@@ -203,7 +239,7 @@ class AutoRunLifecycleServiceTest extends TestCase
         [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
         $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
         $destination = $this->createLocation($merchant, 'Destination', false, -33.93, 18.43);
-        // Centres are about 74 m apart, with 120 m radii.
+        // Centres are about 74 m apart, with overlapping drawn square polygons.
         $neighbour = $this->createLocation($merchant, 'Neighbour', false, -33.93, 18.4308);
         $service = app(AutoRunLifecycleService::class);
         $at = Carbon::parse('2026-09-21 08:00:00');
@@ -451,6 +487,7 @@ class AutoRunLifecycleServiceTest extends TestCase
             'post_code' => '8001',
             'latitude' => -33.9600,
             'longitude' => 18.4600,
+            'polygon_bounds' => $this->squareGeofence(-33.9600, 18.4600),
             'location_type_id' => $siteType->id,
             'metadata' => ['geofence_radius_meters' => 120],
         ]);
@@ -573,6 +610,7 @@ class AutoRunLifecycleServiceTest extends TestCase
             'post_code' => '8001',
             'latitude' => -33.9200,
             'longitude' => 18.4200,
+            'polygon_bounds' => $this->squareGeofence(-33.9200, 18.4200),
             'location_type_id' => $type->id,
             'metadata' => ['geofence_radius_meters' => 120],
         ]);
@@ -733,6 +771,7 @@ class AutoRunLifecycleServiceTest extends TestCase
             'post_code' => '8001',
             'latitude' => -33.9500,
             'longitude' => 18.4500,
+            'polygon_bounds' => $this->squareGeofence(-33.9500, 18.4500),
             'location_type_id' => $combinedType->id,
             'metadata' => ['geofence_radius_meters' => 120],
         ]);
@@ -1166,6 +1205,7 @@ class AutoRunLifecycleServiceTest extends TestCase
             'post_code' => '8001',
             'latitude' => $lat,
             'longitude' => $lng,
+            'polygon_bounds' => $this->squareGeofence($lat, $lng),
             'location_type_id' => $type->id,
             'metadata' => ['geofence_radius_meters' => 120],
         ]);

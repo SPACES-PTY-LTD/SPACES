@@ -20,6 +20,15 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: polygon-only-geofence-detection-v1
+
+- **Summary:** Require the truck to be strictly inside a valid drawn geofence for automatic location detection; remove radius circles from run maps.
+- **API Changes:** Response shapes unchanged. Admin simulated arrival now rejects missing/invalid polygons and uses a verified interior point when the centre is outside or absent.
+- **Database Changes:** None. Existing radius metadata remains stored but is ignored; historical visits/shipments are not rewritten.
+- **Behavior Changes:** Fix WKT longitude/latitude ordering and support SQLite polygon fixtures. Polygon edges, vertices and outside points do not match. Retain visits only while inside their polygon, including overlaps. Existing open visits follow the normal exit workflow on the next non-matching sample. Raw GPS/motion/speeding capture continues outside fences. Maps retain polygon colours, toggling and nested-name tooltips.
+- **Breaking Changes:** Locations with only centre/radius data no longer trigger automatic location visits or associated entry actions; a valid drawn polygon is required.
+- **Verification:** 50 geometry/lifecycle/simulator/tracking tests passed (302 assertions), plus three geofence-loader tests, focused ESLint, TypeScript and diff whitespace checks. Two additional RouteServiceTest checks fail in unchanged fixtures because users.uuid is missing. Production spatial-engine and live map visual checks remain pending.
+
 ## 2026-09-22 | Version: run-replay-progressive-route-v1
 
 - **Summary:** Draw the blue run route progressively as the timeline knob moves.
