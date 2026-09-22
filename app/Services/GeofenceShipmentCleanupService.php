@@ -21,7 +21,9 @@ class GeofenceShipmentCleanupService
 
     private const EVENTS = ['shipment_created', 'shipment_collection', 'shipment_delivery', 'shipment_ended'];
 
-    public function audit(string $merchantUuid, string $from, string $to, ?string $runUuid = null): string
+    private array $auditTripEvidence = [];
+
+    public function audit(string $merchantUuid, string $from, string $to, ?string $runUuid = null, ?callable $progress = null): string
     {
         $merchant = Merchant::where('uuid', $merchantUuid)->firstOrFail();
         $start = $this->date($from);
@@ -32,6 +34,11 @@ class GeofenceShipmentCleanupService
         $run = $runUuid ? Run::where('merchant_id', $merchant->id)->where('uuid', $runUuid)->firstOrFail() : null;
         $scope = ['merchant' => $merchantUuid, 'from' => $start->toIso8601String(), 'to' => $end->toIso8601String(), 'run' => $runUuid, 'polygon_basis' => 'current', 'maximum_sample_gap_seconds' => self::GAP_SECONDS];
         $batch = $this->batch('audit', $merchant->id, $scope);
+        $this->auditTripEvidence = [];
+        $processed = 0;
+        if ($progress) {
+            $progress($batch, $processed);
+        }
         try {
             // Select by the immutable creation EVENT, never backdated shipment.created_at.
             Shipment::where('merchant_id', $merchant->id)->where('auto_created', true)
@@ -52,12 +59,12 @@ class GeofenceShipmentCleanupService
                                 }
                             });
                     });
-                })->orderBy('id')->chunkById(100, function ($shipments) use ($batch) {
+                })->orderBy('id')->chunkById(100, function ($shipments) use ($batch, $progress, &$processed) {
                     foreach ($shipments as $shipment) {
                         $result = DB::transaction(function () use ($shipment) {
                             $this->lockContext($shipment);
 
-                            return $this->inspect($shipment->id);
+                            return $this->inspect($shipment->id, true);
                         }, 3);
                         DB::table('geofence_cleanup_items')->insert([
                             'batch_uuid' => $batch, 'shipment_uuid' => $shipment->uuid,
@@ -65,32 +72,57 @@ class GeofenceShipmentCleanupService
                             'evidence' => $this->json($result['evidence']), 'fingerprint' => $this->fingerprint($result['state']),
                             'created_at' => now(), 'updated_at' => now(),
                         ]);
+                        $processed++;
+                        if ($processed === 1 || $processed % 25 === 0) {
+                            if ($progress) {
+                                $progress($batch, $processed);
+                            }
+                        }
                     }
                 });
+            if ($progress) {
+                $progress($batch, $processed);
+            }
             DB::table('geofence_cleanup_batches')->where('uuid', $batch)->update(['status' => 'complete', 'updated_at' => now()]);
         } catch (Throwable $e) {
             DB::table('geofence_cleanup_batches')->where('uuid', $batch)->update(['status' => 'failed', 'updated_at' => now()]);
             throw $e;
+        } finally {
+            $this->auditTripEvidence = [];
         }
 
         return $batch;
     }
 
-    public function apply(string $auditUuid, array $shipmentUuids): string
+    public function apply(string $auditUuid, array $shipmentUuids, bool $allCandidates = false): string
     {
-        if (! $shipmentUuids) {
-            throw new InvalidArgumentException('Select at least one reviewed --shipment UUID.');
+        if ($allCandidates && $shipmentUuids) {
+            throw new InvalidArgumentException('Use either --all-candidates or --shipment, not both.');
+        }
+        if (! $allCandidates && ! $shipmentUuids) {
+            throw new InvalidArgumentException('Select --all-candidates or at least one reviewed --shipment UUID.');
         }
         $audit = DB::table('geofence_cleanup_batches')->where('uuid', $auditUuid)->where('mode', 'audit')->where('status', 'complete')->first();
         if (! $audit) {
             throw new InvalidArgumentException('A completed audit UUID is required.');
         }
         $selected = array_values(array_unique($shipmentUuids));
-        $items = DB::table('geofence_cleanup_items')->where('batch_uuid', $auditUuid)->whereIn('shipment_uuid', $selected)->get();
-        if ($items->count() !== count($selected) || $items->contains(fn ($item) => $item->classification !== 'cleanup_candidate')) {
-            throw new InvalidArgumentException('Every selected shipment must be a cleanup candidate in this audit.');
+        $query = DB::table('geofence_cleanup_items')->where('batch_uuid', $auditUuid);
+        if ($allCandidates) {
+            $query->where('classification', 'cleanup_candidate');
+        } else {
+            $query->whereIn('shipment_uuid', $selected);
+            if ((clone $query)->count() !== count($selected) || (clone $query)->where('classification', '!=', 'cleanup_candidate')->exists()) {
+                throw new InvalidArgumentException('Every selected shipment must be a cleanup candidate in this audit.');
+            }
         }
-        $batch = $this->batch('apply', $audit->merchant_id, ['selected_shipments' => $selected], $auditUuid);
+        $count = (clone $query)->count();
+        if ($count === 0) {
+            throw new InvalidArgumentException('This audit has no cleanup candidates to apply.');
+        }
+        $batch = $this->batch('apply', $audit->merchant_id, ['selection' => $allCandidates ? 'all_candidates' : 'explicit', 'selected_shipments' => $selected, 'candidate_count' => $count], $auditUuid);
+        // Bound memory for large audits; each item retains the same transactional checks.
+        $items = $query->lazyById(100);
         foreach ($items as $item) {
             try {
                 DB::transaction(function () use ($audit, $item, $batch) {
@@ -169,7 +201,7 @@ class GeofenceShipmentCleanupService
         return $outcomes;
     }
 
-    public function inspect(int $shipmentId): array
+    public function inspect(int $shipmentId, bool $reuseAuditEvidence = false): array
     {
         $shipment = Shipment::withTrashed()->findOrFail($shipmentId);
         $state = ['shipment' => $shipment->getRawOriginal()];
@@ -302,6 +334,45 @@ class GeofenceShipmentCleanupService
                 $protect[] = 'activity_scope_mismatch';
             }
         }
+        $trip = $this->tripEvidence($shipment, $run, $polygon, $location?->polygon_wkt, $reuseAuditEvidence);
+        $state += $trip['state'];
+        $e['coverage'] = $trip['coverage'];
+        $e['interior_observations'] = $trip['interior_observations'];
+        $protect = array_merge($protect, $trip['protect']);
+        if ($creation && $polygon && $run?->started_at && $run->completed_at
+            && $creation['latitude'] !== null && $creation['longitude'] !== null && $creation['occurred_at']) {
+            $at = CarbonImmutable::parse($creation['occurred_at']);
+            if ($at >= $run->started_at && $at <= $run->completed_at && $polygon->contains((float) $creation['latitude'], (float) $creation['longitude'])) {
+                $e['interior_observations'][] = ['time' => $creation['occurred_at'], 'source' => 'creation', 'latitude' => $creation['latitude'], 'longitude' => $creation['longitude']];
+            }
+        }
+        if ($protect) {
+            $e['reasons'] = array_values(array_unique($protect));
+        } elseif ($e['interior_observations']) {
+            $e['classification'] = 'keep';
+            $e['reasons'] = ['interior_evidence_in_same_run'];
+        } elseif (! $creation || ! $this->validCoordinates($creation['latitude'], $creation['longitude']) || ! $e['coverage']['sample_endpoints'] || $e['coverage']['gaps'] || $e['coverage']['compressed_or_unknown_time']) {
+            $e['classification'] = 'insufficient_evidence';
+            $e['reasons'] = ['missing_ambiguous_creation_or_incomplete_gps'];
+        } else {
+            $e['classification'] = 'cleanup_candidate';
+            $e['reasons'] = ['creation_outside_polygon_no_recorded_interior_observation'];
+            $e['proposed_changes'] = ['soft_delete_shipment', 'soft_delete_internal_bookings', 'remove_run_assignment', 'hide_automatic_shipment_markers'];
+        }
+
+        return ['evidence' => $e, 'state' => $state];
+    }
+
+    private function tripEvidence(Shipment $shipment, ?Run $run, ?GeofencePolygon $polygon, ?string $wkt, bool $reuse): array
+    {
+        // Audit snapshots only. Apply/restore always reread and fingerprint live evidence.
+        $key = $this->fingerprint([$shipment->account_id, $shipment->merchant_id, $run?->getRawOriginal(), $shipment->dropoff_location_id, $wkt]);
+        if ($reuse && isset($this->auditTripEvidence[$key])) {
+            return $this->auditTripEvidence[$key];
+        }
+        $state = [];
+        $e = ['interior_observations' => []];
+        $protect = [];
         $state['history'] = [];
         $state['run_activities'] = [];
         if ($run?->started_at && $run->completed_at && $run->vehicle_id) {
@@ -341,9 +412,6 @@ class GeofenceShipmentCleanupService
                 $observe($a['latitude'], $a['longitude'], $a['occurred_at'], 'activity');
             }
         }
-        if ($creation) {
-            $observe($creation['latitude'], $creation['longitude'], $creation['occurred_at'], 'creation');
-        }
         $gaps = [];
         if ($run?->started_at && $run->completed_at) {
             sort($times, SORT_NUMERIC);
@@ -356,26 +424,25 @@ class GeofenceShipmentCleanupService
             }
         }
         $e['coverage'] = ['sample_endpoints' => count(array_unique($times)), 'maximum_allowed_gap_seconds' => self::GAP_SECONDS, 'gaps' => $gaps, 'compressed_or_unknown_time' => $compressed];
-        if ($protect) {
-            $e['reasons'] = array_values(array_unique($protect));
-        } elseif ($e['interior_observations']) {
-            $e['classification'] = 'keep';
-            $e['reasons'] = ['interior_evidence_in_same_run'];
-        } elseif (! $creation || ! $this->validCoordinates($creation['latitude'], $creation['longitude']) || ! $times || $gaps || $compressed) {
-            $e['classification'] = 'insufficient_evidence';
-            $e['reasons'] = ['missing_ambiguous_creation_or_incomplete_gps'];
-        } else {
-            $e['classification'] = 'cleanup_candidate';
-            $e['reasons'] = ['creation_outside_polygon_no_recorded_interior_observation'];
-            $e['proposed_changes'] = ['soft_delete_shipment', 'soft_delete_internal_bookings', 'remove_run_assignment', 'hide_automatic_shipment_markers'];
-        }
         // GPS and unrelated physical activities are preserved in their source tables.
         // Persist digests instead of duplicating a whole trip in every cleanup snapshot.
         foreach (['history', 'run_activities'] as $source) {
             $state[$source] = ['count' => count($state[$source]), 'fingerprint' => $this->fingerprint($state[$source])];
         }
 
-        return ['evidence' => $e, 'state' => $state];
+        $result = ['state' => $state, 'coverage' => $e['coverage'], 'interior_observations' => $e['interior_observations'], 'protect' => array_values(array_unique($protect))];
+        if ($reuse) {
+            // Bound retained evidence by both entry count and serialized size (8 MiB).
+            $bytes = strlen($this->json($result));
+            if ($bytes <= 1048576) {
+                if (count($this->auditTripEvidence) >= 8) {
+                    array_shift($this->auditTripEvidence);
+                }
+                $this->auditTripEvidence[$key] = $result;
+            }
+        }
+
+        return $result;
     }
 
     private function validCoordinates($lat, $lng): bool

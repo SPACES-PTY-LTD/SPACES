@@ -46,7 +46,15 @@ php artisan shipments:cleanup-geofence apply \
   --shipment=<another-reviewed-shipment-uuid>
 ```
 
-Only named candidates from that completed audit are accepted; there is no apply-all default. The command prints a **cleanup batch UUID** and reports each outcome in its CSV/JSON report.
+To apply every cleanup candidate in a reviewed audit without listing shipment IDs:
+
+```bash
+php artisan shipments:cleanup-geofence apply --audit=<audit-uuid> --all-candidates
+```
+
+Use either `--all-candidates` or explicit `--shipment` options, never both. The flag is valid only for apply and selects only `cleanup_candidate` rows from that completed audit. Keep/protected/insufficient-evidence rows and other audits/merchants are excluded. Every candidate is still revalidated; changed records are skipped. An audit with no candidates returns an error without creating a cleanup batch. Large selections are read in chunks of 100.
+
+There is no apply-all default; omitting both selection options is an error. The command prints a **cleanup batch UUID** and reports each outcome in its CSV/JSON report.
 
 For each candidate it locks the vehicle/run/shipment context and related records, checks the merchant and current eligibility, and compares evidence fingerprints. Changed records are skipped and require a new audit. Successful changes commit together per shipment; a failure rolls that shipment back while allowing other selected candidates to be processed. A partial batch returns a non-zero exit status.
 
@@ -74,3 +82,17 @@ Keep the cleanup ledger and normal database backups. The migration refuses rollb
 ## Verification
 
 Automated tests cover classification, merchant/run scope, date validation, review selection, changed evidence, transaction rollback, multiple shipments on one run, JSON key ordering, apply/restore commands and exports, idempotency, restoration conflicts and lifecycle resurrection prevention. API tests verify shipment reports, run counts/markers and booking lists after cleanup. Production-engine locking/spatial behaviour and live UI review remain deployment checks.
+
+## Audit performance
+
+Deploy the lookup-index migration before rerunning a large audit:
+
+```bash
+php artisan migrate
+```
+
+The audit prints its batch UUID immediately, then processed counts after the first shipment, every 25 shipments and on completion. It does not run an expensive total-count query.
+
+Shipments sharing a run, location and polygon reuse calculated trip evidence within that audit. The cache retains at most eight entries, each limited to 1 MiB of serialized evidence, and is cleared when the audit finishes or fails. Larger evidence sets are evaluated without caching. This limit describes serialized cache data, not total PHP memory. Shipment-specific checks still run for every item. Apply and restore bypass the cache and check current source fingerprints under locks, so late GPS or edits cause stale candidates to be skipped. Start a new audit to incorporate late history.
+
+Composite indexes cover merchant/automatic/deleted shipment selection, shipment creation events, run activities and entity logs. Existing vehicle/time indexes support GPS lookups. Index creation can take time on large tables; deploy during a suitable maintenance window. These optimizations reduce repeated work but do not impose a CPU limit. Production query plans and CPU impact still require measurement.

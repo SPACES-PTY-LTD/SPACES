@@ -20,6 +20,24 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: geofence-cleanup-audit-performance-v1
+
+- **Summary:** Reduce repeated trip processing in geofence cleanup audits and print progress counts.
+- **API Changes:** None. CLI audit prints its batch UUID at startup and processed counts after the first shipment, every 25 shipments and at completion.
+- **Database Changes:** Add four composite lookup indexes for automatic shipment selection, shipment creation events, run activities and entity logs. Deploy the new migration to enable the database improvements; allow for index-build time on large production tables.
+- **Behavior Changes:** Audit reuses derived run/location/polygon evidence in a bounded cache (eight entries, each at most 1 MiB serialized). Shipment checks remain individual; cache clears between audits and after failure. Apply/restore always reread evidence under locks and reject stale fingerprints. No eligibility-rule or historical-data changes.
+- **Breaking Changes:** None.
+- **Verification:** 69 cleanup/lifecycle/run API tests passed (860 assertions). Ten shipments sharing a run/location use one GPS-history query instead of ten, with evidence matching uncached inspection. Tests cover late GPS rejection, cache reset and index rollback/reapply. PHP formatting and diff checks passed. Production query plans, index build time and CPU improvement remain unverified; no production cleanup run.
+
+## 2026-09-22 | Version: geofence-cleanup-all-candidates-v1
+
+- **Summary:** Add `--all-candidates` to apply every eligible candidate in a reviewed geofence cleanup audit.
+- **API Changes:** None. CLI apply accepts either `--all-candidates` or repeated `--shipment` options.
+- **Database Changes:** None.
+- **Behavior Changes:** Select only cleanup candidates from the specified completed audit, read in chunks of 100 and retain transaction locks, eligibility checks and fingerprint revalidation for each shipment. Reject conflicting flags, use in other modes and audits without candidates. Protected and insufficient-evidence records remain excluded; stale candidates are skipped.
+- **Breaking Changes:** None. Explicit shipment selection remains supported; selection is still required.
+- **Verification:** All 23 cleanup tests passed (115 assertions), including bulk selection, stale records, merchant isolation, restoration and invalid options. PHP formatting and diff checks passed. No production cleanup executed.
+
 ## 2026-09-22 | Version: geofence-shipment-cleanup-command-v1
 
 - **Summary:** Add `shipments:cleanup-geofence audit|apply|restore` for reviewed cleanup of false automatic geofence shipments.

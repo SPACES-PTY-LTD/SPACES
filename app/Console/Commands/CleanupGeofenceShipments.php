@@ -16,6 +16,7 @@ class CleanupGeofenceShipments extends Command
         {--to= : Exclusive ISO 8601 creation-event time with zone}
         {--run= : Optional run UUID for audit}
         {--audit= : Completed audit UUID for apply}
+        {--all-candidates : Apply every cleanup candidate in the specified audit}
         {--shipment=* : Explicit reviewed shipment UUID; repeat to select multiple}
         {--batch= : Cleanup batch UUID for restore}';
 
@@ -27,11 +28,11 @@ class CleanupGeofenceShipments extends Command
             $mode = $this->argument('mode');
             $allowed = match ($mode) {
                 'audit' => ['merchant', 'from', 'to', 'run'],
-                'apply' => ['audit', 'shipment'],
+                'apply' => ['audit', 'shipment', 'all-candidates'],
                 'restore' => ['batch'],
                 default => throw new \InvalidArgumentException('Mode must be audit, apply or restore.'),
             };
-            foreach (['merchant', 'from', 'to', 'run', 'audit', 'shipment', 'batch'] as $option) {
+            foreach (['merchant', 'from', 'to', 'run', 'audit', 'shipment', 'batch', 'all-candidates'] as $option) {
                 if ($this->option($option) && ! in_array($option, $allowed, true)) {
                     throw new \InvalidArgumentException("--$option is not valid for $mode.");
                 }
@@ -42,12 +43,14 @@ class CleanupGeofenceShipments extends Command
                         throw new \InvalidArgumentException("--$required is required for audit.");
                     }
                 }
-                $id = $service->audit($this->option('merchant'), $this->option('from'), $this->option('to'), $this->option('run'));
+                $id = $service->audit($this->option('merchant'), $this->option('from'), $this->option('to'), $this->option('run'), function (string $batch, int $processed) {
+                    $this->line("Audit $batch: $processed shipments processed");
+                });
             } elseif ($mode === 'apply') {
                 if (! $this->option('audit')) {
                     throw new \InvalidArgumentException('--audit is required for apply.');
                 }
-                $id = $service->apply($this->option('audit'), $this->option('shipment'));
+                $id = $service->apply($this->option('audit'), $this->option('shipment'), (bool) $this->option('all-candidates'));
             } else {
                 if (! $this->option('batch')) {
                     throw new \InvalidArgumentException('--batch is required for restore.');

@@ -58,6 +58,60 @@ class GeofenceShipmentCleanupTest extends TestCase
         return app(GeofenceShipmentCleanupService::class)->inspect($f['shipment']->id)['evidence'];
     }
 
+    public function test_cleanup_lookup_indexes_can_be_rolled_back_and_reapplied(): void
+    {
+        $migration = require database_path('migrations/2026_09_22_130000_add_geofence_cleanup_lookup_indexes.php');
+        $indexes = ['shipments' => 'shipments_geofence_audit', 'vehicle_activity' => 'va_cleanup_creation', 'activity_logs' => 'activity_logs_entity_lookup'];
+        foreach ($indexes as $table => $name) {
+            $this->assertTrue(\Illuminate\Support\Facades\Schema::hasIndex($table, $name));
+        }
+        $migration->down();
+        foreach ($indexes as $table => $name) {
+            $this->assertFalse(\Illuminate\Support\Facades\Schema::hasIndex($table, $name));
+        }
+        $migration->up();
+        foreach ($indexes as $table => $name) {
+            $this->assertTrue(\Illuminate\Support\Facades\Schema::hasIndex($table, $name));
+        }
+        $this->assertTrue(\Illuminate\Support\Facades\Schema::hasIndex('vehicle_activity', 'va_cleanup_run'));
+    }
+
+    public function test_audit_reuses_trip_queries_preserves_evidence_and_apply_reads_fresh_history(): void
+    {
+        $f = $this->fixture();
+        for ($i = 0; $i < 9; $i++) {
+            $copy = $f['shipment']->replicate(['uuid']);
+            $copy->merchant_order_ref = 'COPY-'.$i;
+            $copy->save();
+            RunShipment::create(['run_id' => $f['run']->id, 'shipment_id' => $copy->id, 'status' => 'done']);
+            $event = $f['activity']->replicate(['uuid']);
+            $event->shipment_id = $copy->id;
+            $event->save();
+        }
+        $service = app(GeofenceShipmentCleanupService::class);
+        DB::enableQueryLog();
+        $progress = [];
+        $audit = $service->audit($f['merchant']->uuid, '2026-09-01T00:00:00Z', '2026-09-02T00:00:00Z', null, function ($batch, $count) use (&$progress) {
+            $progress[] = $count;
+        });
+        $queries = DB::getQueryLog();
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+        $this->assertCount(1, array_filter($queries, fn ($q) => str_contains($q['query'], 'select * from "vehicle_location_history"')));
+        $this->assertSame([0, 1, 10], $progress);
+        foreach (DB::table('geofence_cleanup_items')->where('batch_uuid', $audit)->get() as $item) {
+            $id = Shipment::where('uuid', $item->shipment_uuid)->value('id');
+            $this->assertEquals($service->inspect($id)['evidence'], json_decode($item->evidence, true));
+        }
+        // New interior evidence after the cached audit must prevent cleanup.
+        DB::table('vehicle_location_history')->where('vehicle_id', $f['vehicle']->id)->update(['longitude' => 28, 'last_longitude' => 28]);
+        $batch = $service->apply($audit, [$f['shipment']->uuid]);
+        $this->assertSame('skipped', DB::table('geofence_cleanup_items')->where('batch_uuid', $batch)->value('status'));
+        $this->assertNotNull(Shipment::find($f['shipment']->id));
+        $freshAudit = $service->audit($f['merchant']->uuid, '2026-09-01T00:00:00Z', '2026-09-02T00:00:00Z');
+        $this->assertSame(10, DB::table('geofence_cleanup_items')->where('batch_uuid', $freshAudit)->where('classification', 'keep')->count());
+    }
+
     public function test_audit_uses_creation_event_and_makes_no_domain_changes(): void
     {
         $f = $this->fixture();
@@ -334,6 +388,59 @@ class GeofenceShipmentCleanupTest extends TestCase
             }
         }
         $this->assertSame(0, DB::table('geofence_cleanup_batches')->count());
+    }
+
+    public function test_all_candidates_command_applies_only_audit_candidates_and_rechecks_stale_rows(): void
+    {
+        $f = $this->fixture();
+        $other = $this->fixture();
+        $copies = [];
+        foreach (['stale', 'protected', 'insufficient'] as $kind) {
+            $copy = $f['shipment']->replicate(['uuid']);
+            $copy->merchant_order_ref = $kind;
+            if ($kind === 'protected') {
+                $copy->invoice_number = 'INVOICED';
+            }
+            $copy->save();
+            RunShipment::create(['run_id' => $f['run']->id, 'shipment_id' => $copy->id, 'status' => 'done']);
+            if ($kind !== 'insufficient') {
+                $event = $f['activity']->replicate(['uuid']);
+                $event->shipment_id = $copy->id;
+                $event->save();
+            }
+            $copies[$kind] = $copy;
+        }
+        $audit = $this->audit($f);
+        $copies['stale']->update(['notes' => 'Changed after audit']);
+        $this->artisan('shipments:cleanup-geofence', ['mode' => 'apply', '--audit' => $audit, '--all-candidates' => true])->assertFailed();
+        $batch = DB::table('geofence_cleanup_batches')->where('mode', 'apply')->sole();
+        $this->assertSame(2, DB::table('geofence_cleanup_items')->where('batch_uuid', $batch->uuid)->count());
+        $this->assertSame(1, DB::table('geofence_cleanup_items')->where('batch_uuid', $batch->uuid)->where('status', 'applied')->count());
+        $this->assertSame(1, DB::table('geofence_cleanup_items')->where('batch_uuid', $batch->uuid)->where('status', 'skipped')->count());
+        $this->assertSame('all_candidates', json_decode($batch->scope, true)['selection']);
+        $this->assertNull(Shipment::find($f['shipment']->id));
+        foreach ([...array_values($copies), $other['shipment']] as $kept) {
+            $this->assertNotNull(Shipment::find($kept->id));
+        }
+        $this->assertSame('restored', app(GeofenceShipmentCleanupService::class)->restore($batch->uuid)[$f['shipment']->uuid]);
+        $directory = storage_path('app/private/geofence-cleanup/'.$batch->uuid);
+        unlink($directory.'/report.json');
+        unlink($directory.'/report.csv');
+        rmdir($directory);
+    }
+
+    public function test_all_candidates_rejects_conflicting_flags_wrong_modes_and_empty_audits(): void
+    {
+        $f = $this->fixture();
+        $audit = $this->audit($f);
+        $this->artisan('shipments:cleanup-geofence', ['mode' => 'apply', '--audit' => $audit, '--all-candidates' => true, '--shipment' => [$f['shipment']->uuid]])->assertFailed();
+        $this->artisan('shipments:cleanup-geofence', ['mode' => 'audit', '--all-candidates' => true])->assertFailed();
+        $this->artisan('shipments:cleanup-geofence', ['mode' => 'restore', '--all-candidates' => true])->assertFailed();
+        $f['shipment']->update(['invoice_number' => 'INV']);
+        $empty = $this->audit($f);
+        $this->artisan('shipments:cleanup-geofence', ['mode' => 'apply', '--audit' => $empty, '--all-candidates' => true])->expectsOutput('This audit has no cleanup candidates to apply.')->assertFailed();
+        $this->assertSame(0, DB::table('geofence_cleanup_batches')->where('mode', 'apply')->count());
+        $this->assertNotNull(Shipment::find($f['shipment']->id));
     }
 
     public function test_command_validates_scope_and_exports_reports(): void
