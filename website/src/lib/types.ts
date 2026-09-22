@@ -463,6 +463,7 @@ export interface Booking {
 
 export interface RunShipment {
   shipment_id: UUID
+  created_at?: string | null
   merchant_order_ref?: string | null
   shipment_status?: string
   run_status?: string

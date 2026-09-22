@@ -643,7 +643,7 @@ function JourneyTimeline({ journey, run, accessToken }: { journey: RunJourney; r
       <div className="flex justify-between gap-4 py-4 text-sm"><span className="text-muted-foreground">{journey.checkpoints.length} journey checkpoints</span><span className="font-semibold tabular-nums">Run total · {formatKm(journey.totalKm)}</span></div>
       <details className="mt-3 rounded-lg border p-4" onToggle={(event) => setShowMap(event.currentTarget.open)}>
         <summary className="cursor-pointer text-sm font-medium">Run route and stops</summary>
-        {showMap ? <RunActualMap runId={run.run_id} accessToken={accessToken} stops={run.actual_stops ?? []} activities={run.stops} /> : null}
+        {showMap ? <RunActualMap tripStart={run.started_at} tripEnd={run.completed_at} runId={run.run_id} accessToken={accessToken} stops={run.actual_stops ?? []} activities={run.stops} /> : null}
       </details>
     </section>
   )
@@ -759,7 +759,7 @@ export function RunStopJourney({ run, layout = "table", accessToken }: { run: Ru
         </CardContent>
       </Card>
 
-      <RunActualMap runId={run.run_id} accessToken={accessToken} stops={run.actual_stops ?? []} activities={run.stops} />
+      <RunActualMap tripStart={run.started_at} tripEnd={run.completed_at} runId={run.run_id} accessToken={accessToken} stops={run.actual_stops ?? []} activities={run.stops} />
     </div>
   )
 }

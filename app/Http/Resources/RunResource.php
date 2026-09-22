@@ -166,6 +166,7 @@ class RunResource extends JsonResource
                     return [
                         'shipment_id' => optional($runShipment->shipment)->uuid,
                         'merchant_order_ref' => optional($runShipment->shipment)->merchant_order_ref,
+                        'created_at' => $this->formatDateForMerchantTimezone($runShipment->shipment?->created_at, $request),
                         'shipment_status' => optional($runShipment->shipment)->status,
                         'run_status' => $runShipment->status,
                         'sequence' => $runShipment->sequence,

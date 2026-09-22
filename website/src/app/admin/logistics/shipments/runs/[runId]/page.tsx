@@ -76,7 +76,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
         actions={<StatusBadge status={run.status ?? "unknown"} />}
       />
 
-      <RunActualMap runId={run.run_id} accessToken={session.accessToken} stops={run.actual_stops ?? []} activities={run.stops} />
+      <RunActualMap tripStart={run.started_at} tripEnd={run.completed_at} runId={run.run_id} accessToken={session.accessToken} stops={run.actual_stops ?? []} activities={run.stops} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Total duration" value={duration(stats?.duration_seconds)} />
@@ -117,11 +117,12 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
         <CardHeader><CardTitle>Shipments</CardTitle></CardHeader>
         <CardContent>
           <Table>
-            <TableHeader><TableRow><TableHead>Reference</TableHead><TableHead>Sequence</TableHead><TableHead>Pickup</TableHead><TableHead>Drop-off</TableHead><TableHead>Parcels</TableHead><TableHead>Shipment status</TableHead><TableHead>Run status</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Reference</TableHead><TableHead>Created at</TableHead><TableHead>Sequence</TableHead><TableHead>Pickup</TableHead><TableHead>Drop-off</TableHead><TableHead>Parcels</TableHead><TableHead>Shipment status</TableHead><TableHead>Run status</TableHead></TableRow></TableHeader>
             <TableBody>
               {(run.shipments ?? []).length ? (run.shipments ?? []).map((shipment) => (
                 <TableRow key={shipment.shipment_id}>
                   <TableCell><Link className="font-medium underline-offset-4 hover:underline" href={AdminRoute.shipmentDetails(shipment.shipment_id)}>{shipment.merchant_order_ref ?? shipment.shipment_id}</Link></TableCell>
+                  <TableCell className="whitespace-nowrap">{dateTime(shipment.created_at)}</TableCell>
                   <TableCell>{shipment.sequence ?? "-"}</TableCell>
                   <TableCell>{shipment.pickup_location ? formatAddress(shipment.pickup_location) : "-"}</TableCell>
                   <TableCell>{shipment.dropoff_location ? formatAddress(shipment.dropoff_location) : "-"}</TableCell>
@@ -129,7 +130,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
                   <TableCell><StatusBadge status={shipment.shipment_status ?? "unknown"} /></TableCell>
                   <TableCell><StatusBadge status={shipment.run_status ?? "unknown"} /></TableCell>
                 </TableRow>
-              )) : <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No shipments are attached to this run.</TableCell></TableRow>}
+              )) : <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">No shipments are attached to this run.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>

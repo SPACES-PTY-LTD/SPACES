@@ -13,9 +13,9 @@ import { ChevronDown, Filter } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { buildRunMapMarkers, eventLabel, markerDetails, markerAppearance, latestStopMarker } from "./run-map-markers"
 
-type Props = { runId: string; accessToken?: string | null; stops: ShipmentStop[]; activities?: ShipmentStop[] }
+type Props = { runId: string; accessToken?: string | null; stops: ShipmentStop[]; activities?: ShipmentStop[]; tripStart?: string | null; tripEnd?: string | null }
 
-export function RunActualMap({ runId, accessToken, stops, activities }: Props) {
+export function RunActualMap({ runId, accessToken, stops, activities, tripStart, tripEnd }: Props) {
   const [mapElement, setMapElement] = React.useState<HTMLDivElement | null>(null)
   const [visible, setVisible] = React.useState(false)
   const container = React.useRef<HTMLDivElement>(null)
@@ -43,7 +43,7 @@ export function RunActualMap({ runId, accessToken, stops, activities }: Props) {
   const [selection, setSelection] = React.useState<{ key: string; time: number | null } | null>(null)
   const selected = selection?.key === key ? selection.time : null
   const isReplaying = selected !== null
-  const replay = React.useMemo(() => model && selected !== null ? replayAt(model, Math.max(model.start, Math.min(model.end, selected))) : null, [model, selected])
+  const replay = React.useMemo(() => model && selected !== null ? replayAt(model, selected) : null, [model, selected])
   const replayCar = React.useRef<google.maps.Marker | null>(null)
   const [mapRevision, setMapRevision] = React.useState(0)
   const [filter, setFilter] = React.useState<{ runId: string; hidden: string[] }>({ runId, hidden: [] })
@@ -188,11 +188,10 @@ export function RunActualMap({ runId, accessToken, stops, activities }: Props) {
           </DropdownMenu>
         </div>
         {shownCount === 0 && markers.length > 0 && <p role="status" className="absolute bottom-16 left-3 rounded bg-background px-3 py-2 text-xs shadow">Event markers hidden. Use Marker types to show them.</p>}
-        {selected !== null && <div className="pointer-events-none absolute left-3 bottom-6 rounded-md bg-background px-3 py-2 text-xs font-medium shadow-sm">{replay?.position ? "Replay position" : "Replay · Position unavailable"}</div>}
         </div>
-        <RunTripTimeline model={model} selected={selected} onSelect={time => setSelection({ key, time })} loading={loading} error={error} onRetry={() => setRetry(value => value + 1)} limited={track?.source === "limited_history"} />
+        <RunTripTimeline key={key} tripStart={tripStart} tripEnd={tripEnd} model={model} selected={selected} onSelect={time => setSelection({ key, time })} loading={loading} error={error} onRetry={() => setRetry(value => value + 1)} limited={track?.source === "limited_history"} />
       </div> : <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">No mapped positions available.</div>}
-      {!hasMap && <RunTripTimeline model={model} selected={selected} onSelect={time => setSelection({ key, time })} loading={loading} error={error} onRetry={() => setRetry(value => value + 1)} limited={track?.source === "limited_history"} />}
+      {!hasMap && <RunTripTimeline key={key} tripStart={tripStart} tripEnd={tripEnd} model={model} selected={selected} onSelect={time => setSelection({ key, time })} loading={loading} error={error} onRetry={() => setRetry(value => value + 1)} limited={track?.source === "limited_history"} />}
       <div className="flex flex-wrap gap-2">
         {(error || mapError || stale) && <Button variant="outline" onClick={() => setRetry(v => v + 1)}>Retry</Button>}
       </div>

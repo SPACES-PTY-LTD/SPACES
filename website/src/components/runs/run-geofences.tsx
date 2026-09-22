@@ -7,6 +7,8 @@ import { isApiErrorResponse } from "@/lib/api/client"
 import type { Location } from "@/lib/types"
 import { loadGeofenceLocations } from "./run-geofence-data"
 
+const geofenceColors = ["#7c3aed", "#0d9488", "#ea580c", "#db2777", "#0284c7", "#65a30d", "#b45309", "#4f46e5", "#dc2626", "#0891b2", "#a21caf", "#059669"]
+
 export function RunGeofences({ map, locationIds, accessToken }: {
   map: google.maps.Map | null
   locationIds: string[]
@@ -44,22 +46,61 @@ export function RunGeofences({ map, locationIds, accessToken }: {
 
   React.useEffect(() => {
     if (!enabled || !map) return
+    // Assign from the complete, sorted ID list so partial loads cannot shift colours.
+    const ids: string[] = JSON.parse(idsKey)
+    const colors = new Map([...new Set(ids)].sort().map((id, index) => [id, geofenceColors[index % geofenceColors.length]]))
     const overlays: (google.maps.Polygon | google.maps.Circle)[] = []
+    const listeners: google.maps.MapsEventListener[] = []
+    const label = document.createElement("div")
+    label.className = "pointer-events-none absolute max-w-60 rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white shadow-md"
+    label.setAttribute("role", "tooltip")
+    label.style.transform = "translate(-50%, calc(-100% - 12px))"
+    label.style.display = "none"
+    let position: google.maps.LatLng | null = null
+    const tooltip = new google.maps.OverlayView()
+    tooltip.onAdd = () => { tooltip.getPanes()?.floatPane.appendChild(label) }
+    tooltip.draw = () => {
+      if (!position) return
+      const point = tooltip.getProjection()?.fromLatLngToDivPixel(position)
+      if (!point) return
+      label.style.left = `${point.x}px`
+      label.style.top = `${point.y}px`
+    }
+    tooltip.onRemove = () => label.remove()
+    tooltip.setMap(map)
+    const hideTooltip = () => { position = null; label.style.display = "none" }
+    listeners.push(map.addListener("dragstart", hideTooltip), map.addListener("zoom_changed", hideTooltip))
+    const addOverlay = (overlay: google.maps.Polygon | google.maps.Circle, location: Location) => {
+      overlays.push(overlay)
+      const showTooltip = (event: google.maps.MapMouseEvent) => {
+        if (!event.latLng) return
+        position = event.latLng
+        label.textContent = location.name || location.company || location.code || "Unnamed geofence"
+        label.style.display = "block"
+        tooltip.draw()
+      }
+      listeners.push(overlay.addListener("mouseover", showTooltip), overlay.addListener("mousemove", showTooltip), overlay.addListener("mouseout", hideTooltip))
+    }
     for (const location of locations) {
-      const options = { map, clickable: false, strokeColor: "#7c3aed", strokeOpacity: 0.8, strokeWeight: 2, fillColor: "#8b5cf6", fillOpacity: 0.1, zIndex: -1 }
+      const color = colors.get(location.location_id) ?? geofenceColors[0]
+      const options = { map, clickable: true, strokeColor: color, strokeOpacity: 0.8, strokeWeight: 2, fillColor: color, fillOpacity: 0.12, zIndex: -1 }
       const points = location.polygon_bounds
       if (points && points.length >= 3 && points.every(p => p.length >= 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]) && Math.abs(p[0]) <= 90 && Math.abs(p[1]) <= 180)) {
-        overlays.push(new google.maps.Polygon({ ...options, paths: points.map(([lat, lng]) => ({ lat, lng })) }))
+        addOverlay(new google.maps.Polygon({ ...options, paths: points.map(([lat, lng]) => ({ lat, lng })) }), location)
       }
       // Lifecycle detection also uses a radius around the saved location centre.
       const lat = location.latitude, lng = location.longitude
       const radius = Number(location.metadata?.geofence_radius_meters ?? 150)
       if (lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && Math.abs(Number(lat)) <= 90 && Math.abs(Number(lng)) <= 180 && Number.isFinite(radius) && radius > 0) {
-        overlays.push(new google.maps.Circle({ ...options, center: { lat: Number(lat), lng: Number(lng) }, radius }))
+        addOverlay(new google.maps.Circle({ ...options, center: { lat: Number(lat), lng: Number(lng) }, radius }), location)
       }
     }
-    return () => overlays.forEach(overlay => overlay.setMap(null))
-  }, [enabled, map, locations])
+    return () => {
+      listeners.forEach(listener => listener.remove())
+      tooltip.setMap(null)
+      overlays.forEach(overlay => overlay.setMap(null))
+    }
+  }, [enabled, map, locations, idsKey])
 
   return <div className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-md border bg-background px-3 py-2 shadow-sm">
     <div className="flex items-center gap-2">

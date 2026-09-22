@@ -20,6 +20,69 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: run-map-replay-badge-removal-v1
+
+- **Summary:** Removed the replay-position badge from the run map.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** The map no longer overlays Replay position or Replay · Position unavailable. Timeline context and GPS-gap behavior remain available.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and diff whitespace checks passed.
+
+## 2026-09-22 | Version: run-timeline-clear-filter-v1
+
+- **Summary:** Add Clear filter beside Time range when a trip time range is applied.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Clear filter removes the selected range, restores the whole-trip timeline and latest view, then hides itself.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and diff whitespace checks passed.
+
+## 2026-09-22 | Version: run-timeline-hint-removal-v1
+
+- **Summary:** Removed “Drag through the trip” from the replay timeline.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** The replay footer no longer shows this instruction.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and diff whitespace checks passed.
+
+## 2026-09-22 | Version: run-trip-time-range-v1
+
+- **Summary:** Replace Back to latest with a Time range dialog in admin run replay.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Separate From/To date and time inputs restrict selection to the run start/end, with recorded-time fallback and latest recorded time for active runs. Apply narrows the slider, ticks, events and gap bands and selects the range start. Whole trip restores the full timeline/latest view. Dates use local time; invalid, reversed and outside-trip ranges cannot be applied. Run/auth changes reset selection; the complete map route remains visible for context.
+- **Breaking Changes:** None.
+- **Verification:** Nine range/replay tests passed, covering overnight ranges, exact limits, out-of-bounds, invalid and reversed times, interpolation and GPS gaps. Focused ESLint, website TypeScript and diff whitespace checks passed. Live browser verification pending.
+
+## 2026-09-22 | Version: run-geofence-colours-v1
+
+- **Summary:** Use different colours for run-map geofences.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Assign a 12-colour palette using the complete sorted run location-ID list, preserving colours through partial loads, retries and toggles. A location's polygon and radius share the same outline and translucent fill. Colours repeat after 12 locations.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint, website TypeScript and diff whitespace checks passed. Live visual verification remains pending.
+
+## 2026-09-22 | Version: run-geofence-name-tooltip-v1
+
+- **Summary:** Show geofence names when hovering over run-map geofences.
+- **API Changes:** None; uses already loaded location data.
+- **Database Changes:** None.
+- **Behavior Changes:** Polygon and circle overlays show a plain-text name tooltip beside the pointer, falling back to company/code or Unnamed geofence. Tooltips do not intercept pointer events and disappear on exit, map dragging/zooming, toggle-off or cleanup.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint, website TypeScript and diff whitespace checks passed. Live browser verification remains pending.
+
+## 2026-09-22 | Version: run-shipment-created-at-column-v1
+
+- **Summary:** Add Created at immediately after Reference in the run detail Shipments table.
+- **API Changes:** RunResource shipment entries now include the shipment's stored `created_at`, formatted with the merchant timezone.
+- **Database Changes:** None.
+- **Behavior Changes:** Show the shipment creation date/time using the page's existing date formatter, or a dash when unavailable. This uses the stored shipment timestamp, including any backdating applied by automation.
+- **Breaking Changes:** None.
+- **Verification:** Run API regression suite, focused ESLint, website TypeScript and diff whitespace checks passed.
+
 ## 2026-09-22 | Version: admin-run-map-label-contrast-v1
 
 - **Summary:** Improve street-name contrast on the admin run map at close zoom.
