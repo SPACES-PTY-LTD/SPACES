@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 1.44
+Version: 1.45
 Last updated: 2026-09-22
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -68,8 +68,8 @@ Run queries, shipments, documents, telemetry and mutations must stay scoped to t
 - Admin simulated arrival requires a valid polygon and uses a verified interior point, including for concave polygons or a centre outside the fence. Missing/invalid polygons return validation errors. Existing manual simulated exit remains available.
 - Verification: polygon geometry, lifecycle, tracking and simulator regressions pass locally; production spatial-engine and live map checks remain pending. No mobile Figma screen changes.
 
-- Automatic geofence visits stay open while the truck remains inside the current location, including overlaps with nearer or higher-priority locations. Repeated positions reuse that visit and its shipment; selecting an overlapping geofence must not create another shipment, mark delivery, or restart a run. Once the truck leaves the current fence, normal exit and entry rules apply. Existing per-run/location shipment reuse remains in place after a return visit.
-- Implementation (1.28): active-geofence retention and regression coverage are implemented locally. The overlapping-radius regression reproduced premature delivery and a second shipment before the fix. Production deployment and investigation/cleanup of historical records are not included. This backend rule changes no Figma screen or control.
+- Automatic geofence processing (1.45, implemented locally) tracks one continuous visit per containing polygon, including nested and partially overlapping locations. Each newly entered location runs its configured entry automation once; each departed polygon runs its normal exit workflow independently. Remaining inside an outer fence never suppresses an inner entry or closes the outer visit. Repeated samples reuse each visit and existing per-run/location shipments; re-entry opens a new visit while retaining shipment reuse rules.
+- On one GPS update, process departures before new arrivals. New arrivals retain the existing collection+delivery, collection, delivery, other priority, then centre distance and location ID as execution order. All matches are processed, not just a winner. Existing merchant automation settings and driver-planned-run safeguards remain effective. Raw motion/speeding is recorded once per GPS sample. Existing visits are reconciled on the next sample; no history is replayed. Simulator reports the requested location when it has an open visit. No Figma controls change; live production verification remains pending.
 - New runs created by upload start **Ready to start**.
 - Automatically start when the assigned vehicle departs a collection point linked to the run.
 - If the run has no linked collection point, departure from any recognised collection point can be the fallback. Newly prepared runs should use the explicit collection location chosen in Step 3.
@@ -353,7 +353,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 - [ ] Visually verify admin street-label readability at close zoom on the live map. Explicit dark fill/white outline is implemented; TypeScript and lint checks pass.
 - [x] Admin geofences default on, automatically load stop-linked locations on mount and clean up independently of route/replay. Loader tests cover deduplication, cache reuse, partial failures/retry and cancellation. Live authenticated browser verification remains pending.
 - [x] Admin Runs requests lightweight row summaries with unchanged table values, pagination and sorting; detail-only relationships are omitted. Verified with Run API tests; production timing pending.
-- [x] Repeated positions and movement inside overlapping geofences retain one continuous visit and shipment until departure; leaving the active fence permits the next location visit and shipment. Verified by run-lifecycle regression tests.
+- [x] Nested/overlapping polygons retain independent visits and automation; repeated interior samples do not duplicate shipments, inner exits leave outer visits open, and simultaneous arrivals use deterministic priority. Lifecycle regression tests cover three nested fences and collection/delivery ordering.
 - [x] Runs without a final destination expose Choose final destination in All stops; selection saves through a scoped bottom sheet and refreshes the planned end/route without changing lifecycle or overwriting a concurrent destination.
 
 - [x] Initial loading contains only the indicator and checking message.
@@ -398,6 +398,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-22 | 1.45 | Track all containing polygons independently; run entry/exit automation per location and retain duplicate prevention. Simulator prefers requested open visit. Local regressions cover nested and overlapping fences; live verification pending. Figma unchanged. |
 | 2026-09-22 | 1.44 | Optimize cleanup audits with bounded evidence reuse, lookup indexes and progress counts. Fresh apply/restore validation retained; production timing remains unverified. Figma unchanged. |
 | 2026-09-22 | 1.43 | Add explicit --all-candidates selection for a completed cleanup audit, with bounded iteration, unchanged per-item checks and rejection of mixed/empty selection. Regression tests pass; no production cleanup executed. Figma unchanged. |
 | 2026-09-22 | 1.42 | Added scoped historical geofence shipment audit/apply/restore with protected records, reversible ledger, hidden invalidated shipment markers and lifecycle restoration guard. Local regression/API tests pass; production cleanup not executed. Figma unchanged. |

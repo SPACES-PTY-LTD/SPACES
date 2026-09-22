@@ -153,7 +153,7 @@ class AdminAutorunTestControllerTest extends TestCase
             ->assertJsonPath('data.simulated_coordinates.longitude', 18.43);
     }
 
-    public function test_overlapping_geofences_report_the_location_selected_by_the_normal_resolver(): void
+    public function test_overlapping_geofences_report_requested_location_and_retain_both_visits(): void
     {
         [$admin, $merchant, $vehicle] = $this->context('super_admin');
         $winner = $this->location($merchant, 'First depot', -33.9249, 18.4241);
@@ -166,8 +166,12 @@ class AdminAutorunTestControllerTest extends TestCase
             'action' => 'enter',
         ])->assertOk()
             ->assertJsonPath('data.requested_location.location_id', $requested->uuid)
-            ->assertJsonPath('data.resolved_location.location_id', $winner->uuid)
-            ->assertJsonPath('data.location_mismatch', true);
+            ->assertJsonPath('data.resolved_location.location_id', $requested->uuid)
+            ->assertJsonPath('data.location_mismatch', false);
+
+        foreach ([$winner, $requested] as $location) {
+            $this->assertSame(1, VehicleActivity::where('location_id', $location->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->whereNull('exited_at')->count());
+        }
     }
 
     public function test_unexpected_failures_return_a_safe_error(): void

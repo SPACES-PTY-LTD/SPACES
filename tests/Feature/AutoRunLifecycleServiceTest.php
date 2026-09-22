@@ -250,12 +250,12 @@ class AutoRunLifecycleServiceTest extends TestCase
         $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.4308, $at->copy()->addMinutes(11));
         $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(12));
 
-        $this->assertDatabaseCount('shipments', 1);
-        $this->assertDatabaseCount('bookings', 1);
+        $this->assertDatabaseCount('shipments', 2);
+        $this->assertDatabaseCount('bookings', 2);
         $this->assertNull($visit->fresh()->exited_at);
-        $this->assertSame('in_transit', Shipment::sole()->status);
-        $this->assertSame(0, VehicleActivity::where('location_id', $neighbour->id)->count());
-        $this->assertSame(1, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_COLLECTION)->count());
+        $this->assertSame(2, Shipment::where('status', 'in_transit')->count());
+        $this->assertSame(1, VehicleActivity::where('location_id', $neighbour->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->whereNull('exited_at')->count());
+        $this->assertSame(2, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_COLLECTION)->count());
 
         // Now outside the first fence but still inside the neighbour's fence.
         $exitAt = $at->copy()->addMinutes(20);
@@ -264,6 +264,56 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertDatabaseCount('shipments', 2);
         $this->assertSame('delivered', Shipment::where('dropoff_location_id', $destination->id)->sole()->status);
         $this->assertSame('in_transit', Shipment::where('dropoff_location_id', $neighbour->id)->sole()->status);
+    }
+
+    public function test_three_nested_geofences_enter_and_exit_independently_without_duplicate_shipments(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
+        $outer = $this->createLocation($merchant, 'Site', false, -33.93, 18.43);
+        $inner = $this->createLocation($merchant, 'Warehouse', false, -33.93, 18.43);
+        $inner->update(['polygon_bounds' => 'POLYGON((18.4295 -33.9305,18.4305 -33.9305,18.4305 -33.9295,18.4295 -33.9295,18.4295 -33.9305))']);
+        $deep = $this->createLocation($merchant, 'Loading bay', false, -33.93, 18.43);
+        $deep->update(['polygon_bounds' => 'POLYGON((18.4298 -33.9302,18.4302 -33.9302,18.4302 -33.9298,18.4298 -33.9298,18.4298 -33.9302))']);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-09-22 08:00:00');
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at);
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.4308, $at->copy()->addMinutes(10));
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(11));
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(12));
+        $this->assertDatabaseCount('shipments', 3);
+        $this->assertDatabaseCount('bookings', 3);
+        $this->assertSame(3, VehicleActivity::where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->whereNull('exited_at')->count());
+        $this->assertSame(3, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_COLLECTION)->count());
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.4308, $at->copy()->addMinutes(13));
+        $this->assertSame('in_transit', Shipment::where('dropoff_location_id', $outer->id)->sole()->status);
+        foreach ([$inner, $deep] as $location) {
+            $this->assertSame('delivered', Shipment::where('dropoff_location_id', $location->id)->sole()->status);
+            $visit = VehicleActivity::where('location_id', $location->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->sole();
+            $this->assertTrue($visit->exited_at->equalTo($at->copy()->addMinutes(13)));
+        }
+        $this->assertTrue($service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(14)));
+        $this->assertSame(2, VehicleActivity::where('location_id', $inner->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->count());
+        $this->assertDatabaseCount('shipments', 3);
+        $this->assertFalse($service->processVehiclePosition($vehicle, $merchant, -34, 19, $at->copy()->addMinutes(15)));
+        $this->assertSame(0, VehicleActivity::where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->whereNull('exited_at')->count());
+    }
+
+    public function test_simultaneous_collection_and_delivery_geofences_execute_in_priority_order(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        // Create delivery first to ensure ID ordering alone cannot make it miss the run.
+        $delivery = $this->createLocation($merchant, 'Bay', false, -33.92, 18.42);
+        $collection = $this->createLocation($merchant, 'Depot', true, -33.92, 18.42);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-09-22 08:00:00');
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at);
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at->copy()->addMinute());
+        $this->assertDatabaseCount('runs', 1);
+        $this->assertDatabaseCount('shipments', 1);
+        $this->assertSame($collection->id, Run::sole()->origin_location_id);
+        $this->assertSame($delivery->id, Shipment::sole()->dropoff_location_id);
+        $this->assertSame(2, VehicleActivity::where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->whereNull('exited_at')->count());
     }
 
     public function test_internal_booking_backfill_keeps_collection_odometer_for_shipment_km(): void

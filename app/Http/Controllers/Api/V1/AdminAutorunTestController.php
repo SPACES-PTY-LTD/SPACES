@@ -89,7 +89,9 @@ class AdminAutorunTestController extends Controller
                 ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
                 ->whereNull('exited_at')
                 ->with('location')
+                ->orderByRaw('CASE WHEN location_id = ? THEN 0 ELSE 1 END', [$location->id])
                 ->latest('entered_at')
+                ->orderByDesc('id')
                 ->first();
 
             return ApiResponse::success([

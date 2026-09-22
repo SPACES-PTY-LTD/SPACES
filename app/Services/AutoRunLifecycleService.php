@@ -81,36 +81,39 @@ class AutoRunLifecycleService
                 providerPosition: $providerPosition,
             );
 
-            $activeVisit = VehicleActivity::query()
+            $activeVisits = VehicleActivity::query()
                 ->where('merchant_id', $merchant->id)
                 ->where('vehicle_id', $vehicle->id)
                 ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)
                 ->whereNull('exited_at')
                 ->with('location')
-                ->orderByDesc('entered_at')
+                ->orderBy('id')
                 ->lockForUpdate()
-                ->first();
+                ->get();
 
-            $location = $this->resolveGeofencedLocation($merchant, $latitude, $longitude, $activeVisit?->location_id);
+            $locations = $this->resolveGeofencedLocations($merchant, $latitude, $longitude);
+            $containingIds = array_fill_keys(array_map(fn (Location $location) => $location->id, $locations), true);
+            $activeLocationIds = [];
 
-            if ($activeVisit && $location && $activeVisit->location_id === $location->id) {
-                $this->updateActivitySnapshot(
-                    $activeVisit,
-                    latitude: $latitude,
-                    longitude: $longitude,
-                    speedKph: $speedKph,
-                    speedLimitKph: $speedLimitKph,
-                    metadata: [
-                        'driver_intergration_id' => $driverIntegrationId,
-                        'odometer_kilometres' => $odometerKilometres,
-                        'provider_position' => $providerPosition,
-                    ],
-                );
+            // Each polygon owns its visit. Entering another fence is never an exit.
+            foreach ($activeVisits as $activeVisit) {
+                if (isset($containingIds[$activeVisit->location_id])) {
+                    $activeLocationIds[$activeVisit->location_id] = true;
+                    $this->updateActivitySnapshot(
+                        $activeVisit,
+                        latitude: $latitude,
+                        longitude: $longitude,
+                        speedKph: $speedKph,
+                        speedLimitKph: $speedLimitKph,
+                        metadata: [
+                            'driver_intergration_id' => $driverIntegrationId,
+                            'odometer_kilometres' => $odometerKilometres,
+                            'provider_position' => $providerPosition,
+                        ],
+                    );
 
-                return true;
-            }
-
-            if ($activeVisit && (! $location || $activeVisit->location_id !== $location->id)) {
+                    continue;
+                }
                 $this->exitActiveVisit(
                     activeVisit: $activeVisit,
                     vehicle: $vehicle,
@@ -126,89 +129,91 @@ class AutoRunLifecycleService
                 );
             }
 
-            if (! $location) {
-                return false;
-            }
-
-            $visit = $this->recordVehicleActivity(
-                vehicle: $vehicle,
-                merchant: $merchant,
-                eventType: VehicleActivity::EVENT_ENTERED_LOCATION,
-                occurredAt: $occurredAt,
-                latitude: $latitude,
-                longitude: $longitude,
-                location: $location,
-                runId: null,
-                speedKph: $speedKph,
-                speedLimitKph: $speedLimitKph,
-                metadata: [
-                    'driver_intergration_id' => $driverIntegrationId,
-                    'odometer_kilometres' => $odometerKilometres,
-                    'provider_position' => $providerPosition,
-                ],
-                enteredAt: $occurredAt,
-            );
-
-            $this->activityLogService->log(
-                action: 'vehicle_entered',
-                entityType: 'vehicle_activity',
-                entity: $visit,
-                accountId: $merchant->account_id,
-                merchantId: $merchant->id,
-                title: 'Vehicle entered location geofence',
-                metadata: [
-                    'vehicle_id' => $vehicle->uuid,
-                    'location_id' => $location->uuid,
-                    'visit_id' => $visit->uuid,
-                    'entered_at' => optional($visit->entered_at)?->toIso8601String(),
-                ]
-            );
-
-            $arrivingRun = Run::query()
-                ->where('merchant_id', $merchant->id)
-                ->where('environment_id', $location->environment_id)
-                ->where('vehicle_id', $vehicle->id)
-                ->where('status', Run::STATUS_IN_PROGRESS)
-                ->orderByDesc('started_at')->orderByDesc('id')->lockForUpdate()->first();
-            if ($arrivingRun) {
-                app(RunCostService::class)->applyVisit($arrivingRun, $location, $visit);
-            }
-
-            // Driver-planned runs keep the physical visit but are closed only by dispatch.
-            if (!$arrivingRun) {
-                $arrivingRun = Run::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)->where('vehicle_id', $vehicle->id)->where('driver_workflow', true)->whereIn('status', [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED])->where('origin_location_id', $location->id)->lockForUpdate()->first();
-            }
-            if ($arrivingRun?->driver_workflow) {
-                $visit->update(['run_id' => $arrivingRun->id]);
-                return true;
-            }
-            if (! $merchant->allow_auto_shipment_creations_at_locations) {
-                return true;
-            }
-
-            if (! $location->locationType) {
-                return true;
-            }
-
-            $this->executeConfiguredLocationAutomation(
-                merchant: $merchant,
-                vehicle: $vehicle,
-                location: $location,
-                visit: $visit,
-                occurredAt: $occurredAt,
-                event: self::AUTOMATION_EVENT_ENTRY,
-                driverIntegrationId: $driverIntegrationId,
-                odometerKilometres: $odometerKilometres,
-            );
-
-            if (! $arrivingRun && $visit->run_id) {
-                $startedRun = Run::whereKey($visit->run_id)->where('status', Run::STATUS_IN_PROGRESS)->first();
-                if ($startedRun) {
-                    app(RunCostService::class)->applyVisit($startedRun, $location, $visit);
+            foreach ($locations as $location) {
+                if (isset($activeLocationIds[$location->id])) {
+                    continue;
                 }
+                $visit = $this->recordVehicleActivity(
+                    vehicle: $vehicle,
+                    merchant: $merchant,
+                    eventType: VehicleActivity::EVENT_ENTERED_LOCATION,
+                    occurredAt: $occurredAt,
+                    latitude: $latitude,
+                    longitude: $longitude,
+                    location: $location,
+                    runId: null,
+                    speedKph: $speedKph,
+                    speedLimitKph: $speedLimitKph,
+                    metadata: [
+                        'driver_intergration_id' => $driverIntegrationId,
+                        'odometer_kilometres' => $odometerKilometres,
+                        'provider_position' => $providerPosition,
+                    ],
+                    enteredAt: $occurredAt,
+                );
+
+                $this->activityLogService->log(
+                    action: 'vehicle_entered',
+                    entityType: 'vehicle_activity',
+                    entity: $visit,
+                    accountId: $merchant->account_id,
+                    merchantId: $merchant->id,
+                    title: 'Vehicle entered location geofence',
+                    metadata: [
+                        'vehicle_id' => $vehicle->uuid,
+                        'location_id' => $location->uuid,
+                        'visit_id' => $visit->uuid,
+                        'entered_at' => optional($visit->entered_at)?->toIso8601String(),
+                    ]
+                );
+
+                $arrivingRun = Run::query()
+                    ->where('merchant_id', $merchant->id)
+                    ->where('environment_id', $location->environment_id)
+                    ->where('vehicle_id', $vehicle->id)
+                    ->where('status', Run::STATUS_IN_PROGRESS)
+                    ->orderByDesc('started_at')->orderByDesc('id')->lockForUpdate()->first();
+                if ($arrivingRun) {
+                    app(RunCostService::class)->applyVisit($arrivingRun, $location, $visit);
+                }
+
+                // Driver-planned runs keep the physical visit but are closed only by dispatch.
+                if (!$arrivingRun) {
+                    $arrivingRun = Run::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)->where('vehicle_id', $vehicle->id)->where('driver_workflow', true)->whereIn('status', [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED])->where('origin_location_id', $location->id)->lockForUpdate()->first();
+                }
+                if ($arrivingRun?->driver_workflow) {
+                    $visit->update(['run_id' => $arrivingRun->id]);
+                    continue;
+                }
+                if (! $merchant->allow_auto_shipment_creations_at_locations) {
+                    continue;
+                }
+
+                if (! $location->locationType) {
+                    continue;
+                }
+
+                $this->executeConfiguredLocationAutomation(
+                    merchant: $merchant,
+                    vehicle: $vehicle,
+                    location: $location,
+                    visit: $visit,
+                    occurredAt: $occurredAt,
+                    event: self::AUTOMATION_EVENT_ENTRY,
+                    driverIntegrationId: $driverIntegrationId,
+                    odometerKilometres: $odometerKilometres,
+                );
+
+                if (! $arrivingRun && $visit->run_id) {
+                    $startedRun = Run::whereKey($visit->run_id)->where('status', Run::STATUS_IN_PROGRESS)->first();
+                    if ($startedRun) {
+                        app(RunCostService::class)->applyVisit($startedRun, $location, $visit);
+                    }
+                }
+
             }
 
-            return true;
+            return $locations !== [];
         }, self::TRANSACTION_ATTEMPTS);
     }
 
@@ -1071,7 +1076,8 @@ class AutoRunLifecycleService
         };
     }
 
-    private function resolveGeofencedLocation(Merchant $merchant, float $latitude, float $longitude, ?int $activeLocationId = null): ?Location
+    /** @return list<Location> */
+    private function resolveGeofencedLocations(Merchant $merchant, float $latitude, float $longitude): array
     {
         $driver = DB::connection()->getDriverName();
 
@@ -1091,33 +1097,27 @@ class AutoRunLifecycleService
 
         $locations = $query->get();
 
-        $winner = null;
-        $winnerDistance = null;
-
+        $matches = [];
         foreach ($locations as $location) {
             $polygon = GeofencePolygon::fromWkt($location->polygon_wkt ?? null);
-            if (! $polygon || ! $polygon->contains($latitude, $longitude)) {
-                continue;
-            }
-
-            // A nearer or higher-priority overlapping fence is not evidence of
-            // departure. Keep this visit until the vehicle leaves its fence.
-            if ($activeLocationId !== null && (int) $location->id === $activeLocationId) {
-                return $location;
-            }
-
-            $distance = $this->distanceMeters($latitude, $longitude, (float) ($location->latitude ?? $latitude), (float) ($location->longitude ?? $longitude));
-
-            $winnerPriority = $winner ? $this->locationPointPriority($winner) : -1;
-            $locationPriority = $this->locationPointPriority($location);
-
-            if ($winner === null || $locationPriority > $winnerPriority || ($locationPriority === $winnerPriority && $distance < $winnerDistance)) {
-                $winner = $location;
-                $winnerDistance = $distance;
+            if ($polygon && $polygon->contains($latitude, $longitude)) {
+                $matches[] = $location;
             }
         }
 
-        return $winner;
+        // Preserve priority as execution order, rather than suppressing other matches.
+        usort($matches, function (Location $a, Location $b) use ($latitude, $longitude) {
+            $priority = $this->locationPointPriority($b) <=> $this->locationPointPriority($a);
+            if ($priority !== 0) {
+                return $priority;
+            }
+            $distanceA = $this->distanceMeters($latitude, $longitude, (float) ($a->latitude ?? $latitude), (float) ($a->longitude ?? $longitude));
+            $distanceB = $this->distanceMeters($latitude, $longitude, (float) ($b->latitude ?? $latitude), (float) ($b->longitude ?? $longitude));
+
+            return ($distanceA <=> $distanceB) ?: ($a->id <=> $b->id);
+        });
+
+        return $matches;
     }
 
     private function distanceMeters(float $lat1, float $lng1, float $lat2, float $lng2): float

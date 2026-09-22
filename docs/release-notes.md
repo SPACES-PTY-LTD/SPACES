@@ -20,6 +20,24 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: independent-geofence-visits-v1
+
+- **Summary:** Trigger configured automation for every containing geofence, including nested and overlapping locations.
+- **API Changes:** No response-shape changes. Admin simulator prefers the requested location when it has an open visit, instead of an arbitrary concurrent visit.
+- **Database Changes:** None.
+- **Behavior Changes:** Maintain independent visits per polygon, execute entry once per new visit and exit only polygons the truck leaves. Preserve vehicle locking, per-run/location shipment reuse, merchant settings and driver-run safeguards. Simultaneous entries use existing type priority, then centre distance and ID; exits run before entries. Raw motion/speeding is processed once per sample. Existing open visits reconcile on the next update; history is not replayed.
+- **Breaking Changes:** Multiple containing locations can now execute automation on the same update; the former single-location winner behavior is replaced. Each location's configured actions still affect shared run state in execution order.
+- **Verification:** 91 lifecycle, tracking, simulator, cleanup and run API tests passed (970 assertions), including three nested polygons, independent exit/re-entry, repeat-sample duplicate prevention and collection-before-delivery ordering. PHP syntax and diff checks passed. Live production verification remains pending.
+
+## 2026-09-22 | Version: vehicle-activities-run-link-v1
+
+- **Summary:** Link the vehicle activities Run ID column to the corresponding run details page.
+- **API Changes:** None; use the existing run UUID.
+- **Database Changes:** None.
+- **Behavior Changes:** Run IDs open run details instead of activity details. Activities without a run have no run link.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and TypeScript checks; live browser verification not performed.
+
 ## 2026-09-22 | Version: geofence-cleanup-audit-performance-v1
 
 - **Summary:** Reduce repeated trip processing in geofence cleanup audits and print progress counts.

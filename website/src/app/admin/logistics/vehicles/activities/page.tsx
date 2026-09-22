@@ -110,6 +110,7 @@ export default async function VehicleActivitiesPage({ searchParams }: VehicleAct
   const rows = activities.map((item) => ({
     ...item,
     activity_href: item.activity_id ? AdminRoute.vehicleActivityDetails(item.activity_id) : "",
+    run_href: item.run_id ? AdminRoute.runDetails(item.run_id) : "",
     event_type_display: item.event_type ? formatEventType(item.event_type) : "-",
     vehicle_display: item.vehicle?.plate_number ?? item.vehicle?.ref_code ?? item.vehicle_id ?? "-",
     driver_display: item.driver?.name ?? item.driver?.email ?? item.driver?.driver_id ?? "-",
@@ -261,7 +262,7 @@ export default async function VehicleActivitiesPage({ searchParams }: VehicleAct
           { key: "shipment_display", label: "Shipment", link: "shipment_href" },
           { key: "coordinates_display", label: "Coordinates", link: "activity_href" },
           { key: "speed_display", label: "Speed / Limit", link: "activity_href" },
-          { key: "run_id", label: "Run ID", link: "activity_href" } 
+          { key: "run_id", label: "Run ID", link: "run_href" }
         ]}
       />
     </div>
