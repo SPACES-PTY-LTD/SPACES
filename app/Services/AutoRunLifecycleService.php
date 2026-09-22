@@ -521,6 +521,11 @@ class AutoRunLifecycleService
             ->where('merchant_order_ref', $this->autoOrderReference($run, $location))
             ->first();
 
+        // Cleanup records may only be restored through the audited restore command.
+        if ($shipment && ! empty($shipment->metadata['geofence_cleanup_batch_uuid'])) {
+            return;
+        }
+
         $createdShipment = false;
         if (! $shipment) {
             $shipment = Shipment::create([

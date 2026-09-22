@@ -20,6 +20,16 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: geofence-shipment-cleanup-command-v1
+
+- **Summary:** Add `shipments:cleanup-geofence audit|apply|restore` for reviewed cleanup of false automatic geofence shipments.
+- **API Changes:** Response shapes unchanged. Normal vehicle activity queries omit cleanup-invalidated shipment markers; physical visits remain visible.
+- **Database Changes:** Add durable `geofence_cleanup_batches` / `geofence_cleanup_items` ledgers and nullable indexed `vehicle_activity.geofence_cleanup_batch_uuid`. Apply this migration before deploying code that queries activity records. Migration rollback is refused while applied cleanup items remain unrestored.
+- **Behavior Changes:** Audit requires merchant/time scope, uses original creation events and current polygons, and retains later genuine-entry shipments. Incomplete GPS and protected operational/billing/manual records cannot be applied. Apply requires explicit reviewed shipment UUIDs, revalidates fingerprints under locks, soft-deletes shipments/internal bookings, removes run assignments and hides automatic shipment markers atomically per shipment. Restore verifies ownership and refuses intervening edits. Lifecycle cannot silently resurrect cleanup-deleted shipments. No raw GPS, physical visit, run lifecycle or odometer rewriting, carrier calls or notifications.
+- **Breaking Changes:** No cleanup runs automatically. Database migration is required before this code is activated.
+- **Verification:** 100 cleanup/lifecycle/simulator/tracking/run/report/activity tests passed (1,276 assertions). Includes command exports, rollback, repeat execution, JSON storage ordering, protection cases, restoration conflicts and API visibility. PHP syntax and diff whitespace checks passed. Production execution, spatial-engine locking and live UI review remain pending.
+- **Usage:** See [audit, apply and restore instructions](geofence-shipment-cleanup.md), including conservative coverage limits and private report locations.
+
 ## 2026-09-22 | Version: polygon-only-geofence-detection-v1
 
 - **Summary:** Require the truck to be strictly inside a valid drawn geofence for automatic location detection; remove radius circles from run maps.

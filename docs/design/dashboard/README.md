@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 1.41
+Version: 1.42
 Last updated: 2026-09-22
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -57,6 +57,9 @@ On dashboard entry, check the authenticated driver's current run. While the firs
 Run queries, shipments, documents, telemetry and mutations must stay scoped to the authenticated driver and authorised account/merchant. Recheck when returning from import or after a run-state change; avoid showing an older request over a newer result.
 
 ## 3. Run lifecycle
+
+- Historical geofence shipment cleanup (1.42, implemented locally): the explicitly invoked `shipments:cleanup-geofence` command audits a bounded merchant/date/run scope against current drawn polygons, then applies only selected reviewed candidates. Original creation events and retained trip samples determine candidacy; later interior evidence keeps a shipment. Incomplete/compressed GPS, known polygon changes, open/ambiguous runs and operational/manual/billing evidence prevent cleanup. No cleanup occurs during deployment or ordinary detection.
+- Cleanup soft-deletes eligible shipments/internal bookings, marks assignments removed and hides only their automatic shipment markers. Physical visits, runs and GPS remain. Durable batches record evidence/fingerprints and reversible changes; stale inputs and intervening restore edits are refused. Lifecycle cannot silently restore cleanup-deleted shipments. [Command usage and coverage limits](../../geofence-shipment-cleanup.md). Local command/API regressions pass; production execution and engine verification remain pending. This administrative command changes no Figma screen.
 
 - Polygon-only detection (1.41, implemented locally): match a location only when the truck is strictly inside its valid saved polygon. Edges/vertices are outside; no radius or distance buffer is used. Ignore missing, malformed, degenerate or self-intersecting polygons. Convert WKT longitude/latitude into latitude/longitude correctly; support spatial production storage and SQLite WKT fixtures. Centre coordinates only break ties between containing locations, never establish membership.
 - Apply this rule to future GPS processing only. Existing open visits exit through the normal workflow on the next outside sample, including visits previously retained by a radius. Do not rewrite past visits or shipments. Raw GPS, motion and speeding recording continues outside polygons. Stored radius metadata is retained but ignored.
@@ -322,6 +325,9 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 ### Acceptance checklist
 
+- [x] Cleanup audit is non-destructive to domain data, scoped and evidence-based; apply requires explicit reviewed candidates. Cleanup/restore preserve physical history, reject changed records and prevent silent resurrection. Command, rollback, report/run/booking visibility and regression tests pass locally.
+- [ ] Verify cleanup reports against a real selected run and production-engine transaction/spatial behavior before any production apply.
+
 - [x] Only valid drawn polygons admit automatic location visits; outside/edge points and radius-only locations do not. Coordinate ordering, concave interiors, invalid geometry, repeated visits, overlap retention and polygon exits are regression-tested. Simulator uses verified polygon interiors. Historical records remain unchanged.
 - [ ] Verify polygon-only overlays and nested tooltips on the live map and run spatial-storage checks against the deployment database engine before rollout.
 
@@ -388,6 +394,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-22 | 1.42 | Added scoped historical geofence shipment audit/apply/restore with protected records, reversible ledger, hidden invalidated shipment markers and lifecycle restoration guard. Local regression/API tests pass; production cleanup not executed. Figma unchanged. |
 | 2026-09-22 | 1.41 | Require strict polygon-only location detection, fix WKT coordinate ordering, remove map radius circles and use verified polygon interiors for simulated arrival. Local regressions pass; production spatial/live visual verification pending. Historical records and mobile Figma unchanged. |
 | 2026-09-22 | 1.40 | Draw the admin blue GPS route progressively with timeline selection, preserve gaps and restore the full route in latest view. Automated checks pass; live visual verification pending. Mobile Figma unchanged. |
 | 2026-09-22 | 1.39 | Show admin run geofences by default and load their boundaries on mount. The switch still hides them. Static checks passed; live visual verification pending. Mobile Figma unchanged. |

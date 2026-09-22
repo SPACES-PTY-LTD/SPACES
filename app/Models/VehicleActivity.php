@@ -65,6 +65,16 @@ class VehicleActivity extends Model
         'metadata' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::addGlobalScope('valid_geofence_activity', function ($query) {
+            $from = $query->getQuery()->from;
+            $table = preg_split('/\s+as\s+/i', $from);
+            $alias = end($table);
+            $query->whereNull($alias.'.geofence_cleanup_batch_uuid');
+        });
+    }
+
     public function merchant(): BelongsTo
     {
         return $this->belongsTo(Merchant::class);
