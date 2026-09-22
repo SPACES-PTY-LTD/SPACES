@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 import { getRunTrack, type RunTrack } from "@/lib/api/runs"
@@ -9,13 +10,16 @@ import { RunTripTimeline } from "./run-trip-timeline"
 import { RunGeofences } from "./run-geofences"
 import { buildReplayModel, loadTrackPages, replayAt } from "./run-replay"
 import type { ShipmentStop } from "@/lib/types"
-import { ChevronDown, Filter } from "lucide-react"
+import { ChevronDown, Filter, RefreshCw } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { buildRunMapMarkers, eventLabel, markerDetails, markerAppearance, latestStopMarker } from "./run-map-markers"
 
 type Props = { runId: string; accessToken?: string | null; stops: ShipmentStop[]; activities?: ShipmentStop[]; tripStart?: string | null; tripEnd?: string | null }
 
 export function RunActualMap({ runId, accessToken, stops, activities, tripStart, tripEnd }: Props) {
+  const router = useRouter()
+  const [refreshingDetails, startRefresh] = React.useTransition()
+  const [refreshVersion, setRefreshVersion] = React.useState(0)
   const [mapElement, setMapElement] = React.useState<HTMLDivElement | null>(null)
   const [visible, setVisible] = React.useState(false)
   const container = React.useRef<HTMLDivElement>(null)
@@ -61,39 +65,34 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
   const hasTrack = Boolean(track?.segments.some(segment => segment.length))
   const hasMap = hasTrack || markers.length > 0
   React.useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting))
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setVisible(true); observer.disconnect() }
+    })
     if (container.current) observer.observe(container.current)
     return () => observer.disconnect()
   }, [])
   React.useEffect(() => {
     if (!visible) return
-    let cancelled = false, pending = false, active = true
+    let cancelled = false
     const refresh = async () => {
-      if (pending || document.hidden) return
-      pending = true
       setLoadingKey(key)
       const response = await loadTrackPages(async before => {
         const page = await getRunTrack(runId, accessToken, before)
         if (isApiErrorResponse(page)) throw new Error(page.message)
         return page
-      }, () => !cancelled && !document.hidden)
-      pending = false
+      }, () => !cancelled)
       if (cancelled) return
       setLoadingKey(null)
       setCheckedAt(Date.now())
       if (response.interrupted) return
       if (response.track) {
-        active = response.track.active
         const nextTrack = response.track
         setResult(previous => response.error && previous?.key === key ? previous : { key, track: nextTrack })
       }
       setFailure({ key, message: response.error })
     }
     void refresh()
-    const timer = window.setInterval(() => { if (active) void refresh() }, 60000)
-    const onVisible = () => { if (active) void refresh() }
-    document.addEventListener("visibilitychange", onVisible)
-    return () => { cancelled = true; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible) }
+    return () => { cancelled = true }
   }, [runId, accessToken, key, visible, retry])
   React.useEffect(() => {
     const car = replayCar.current
@@ -169,6 +168,15 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
     }).catch(() => { if (!cancelled) setMapError("Map unavailable. Try again.") })
     return () => { cancelled = true; listeners.forEach(listener => listener.remove()); infoWindow.current?.close(); infoWindow.current = null; markerHandles.current = []; replayCar.current = null; overlays.forEach(overlay => overlay.setMap(null)) }
   }, [mapElement, track, markers, hasMap, retry, key])
+  const refreshLatest = () => {
+    if (loading || refreshingDetails) return
+    setRetry(value => value + 1)
+    setRefreshVersion(value => value + 1)
+    startRefresh(() => router.refresh())
+  }
+  const refreshButton = <Button variant="outline" className="bg-background shadow-sm" onClick={refreshLatest} disabled={loading || refreshingDetails}>
+    <RefreshCw className={`size-4 ${loading || refreshingDetails ? "animate-spin" : ""}`} />{loading || refreshingDetails ? "Refreshing…" : "Refresh"}
+  </Button>
   const stale = track?.active && track.latest_observed_at && checkedAt - Date.parse(track.latest_observed_at) > 300000
   return <div ref={container} className="space-y-3">
       {(error || stale) && <p role="status" className="text-sm text-amber-700">{error ? `${track ? "Showing previous data. " : ""}${error}` : "Tracking is stale; showing the last recorded route."}</p>}
@@ -177,8 +185,11 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
       {hasMap ? <div className="overflow-hidden rounded-lg border">
         <div className="relative">
         <div ref={setMapElement} className="h-[380px] w-full sm:h-[480px]" aria-label="Run stops and recorded GPS route map" />
-        <RunGeofences key={key} map={readyMap} locationIds={geofenceLocationIds} accessToken={accessToken} />
-        <div className="absolute right-3 top-16 sm:top-3">
+        <div className="absolute left-3 top-3 flex items-start gap-2">
+          <RunGeofences key={key} map={readyMap} locationIds={geofenceLocationIds} accessToken={accessToken} refreshVersion={refreshVersion} />
+          {refreshButton}
+        </div>
+        <div className="absolute right-3 top-16 lg:top-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="outline" className="bg-background shadow-sm"><Filter className="size-4" />Marker types ({shownCount}/{markers.length})<ChevronDown className="size-4" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -198,6 +209,7 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
       </div> : <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">No mapped positions available.</div>}
       {!hasMap && <RunTripTimeline key={key} tripStart={tripStart} tripEnd={tripEnd} model={model} selected={selected} onSelect={time => setSelection({ key, time })} loading={loading} error={error} onRetry={() => setRetry(value => value + 1)} limited={track?.source === "limited_history"} />}
       <div className="flex flex-wrap gap-2">
+        {!hasMap && refreshButton}
         {(error || mapError || stale) && <Button variant="outline" onClick={() => setRetry(v => v + 1)}>Retry</Button>}
       </div>
   </div>

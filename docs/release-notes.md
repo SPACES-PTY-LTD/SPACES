@@ -20,6 +20,34 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-22 | Version: run-shipment-location-names-v1
+
+- **Summary:** Include location names in the run detail shipment Pickup and Drop-off columns.
+- **API Changes:** None; use existing location fields.
+- **Database Changes:** None.
+- **Behavior Changes:** Show the location name (or company fallback) above the address. Preserve address-only display when unnamed and show a dash if neither is available.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint, website TypeScript and diff whitespace checks passed.
+
+## 2026-09-22 | Version: run-map-manual-refresh-v1
+
+- **Summary:** Replace automatic admin run-map refresh with a Refresh button beside Geofences.
+- **API Changes:** None; reuse existing run-detail, track and location endpoints.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove one-minute polling, tab-focus refresh and repeat loads on viewport re-entry. Initial history loads when first visible; Refresh updates GPS history, server-rendered run details and enabled geofences. Preserve existing map/replay/filter state, disable repeated clicks while history/details load, and offer Refresh when the map is empty. Mobile polling is unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint, replay/geofence loader tests and diff whitespace checks passed. Live browser verification remains pending.
+
+## 2026-09-22 | Version: commit-message-draft-policy-v1
+
+- **Summary:** Require a ready-to-use commit title and body after every change.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None at runtime.
+- **Internal Changes:** AGENTS.md requires agents to refresh root COMMIT_MESSAGE.txt from the full pending diff, record accurate verification, and replace stale drafts without automatically committing or amending history.
+- **Breaking Changes:** None.
+- **Verification:** Reviewed the instructions and initial draft; diff whitespace check passed. No runtime tests needed for this documentation-only change.
+
 ## 2026-09-22 | Version: run-geofence-nested-hover-v1
 
 - **Summary:** Show nested and overlapping geofence names even when another overlay captures the hover.

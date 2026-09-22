@@ -10,10 +10,11 @@ import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 
 const geofenceColors = ["#7c3aed", "#0d9488", "#ea580c", "#db2777", "#0284c7", "#65a30d", "#b45309", "#4f46e5", "#dc2626", "#0891b2", "#a21caf", "#059669"]
 
-export function RunGeofences({ map, locationIds, accessToken }: {
+export function RunGeofences({ map, locationIds, accessToken, refreshVersion = 0 }: {
   map: google.maps.Map | null
   locationIds: string[]
   accessToken?: string | null
+  refreshVersion?: number
 }) {
   const [enabled, setEnabled] = React.useState(false)
   const [locations, setLocations] = React.useState<Location[]>([])
@@ -22,6 +23,7 @@ export function RunGeofences({ map, locationIds, accessToken }: {
   const [retry, setRetry] = React.useState(0)
   const [geometryReady, setGeometryReady] = React.useState(false)
   const cache = React.useRef(new Map<string, Location>())
+  const cacheVersion = React.useRef(refreshVersion)
   const labelId = React.useId()
   const idsKey = JSON.stringify(locationIds)
 
@@ -30,6 +32,10 @@ export function RunGeofences({ map, locationIds, accessToken }: {
     let cancelled = false
     const ids: string[] = JSON.parse(idsKey)
     const load = async () => {
+      if (cacheVersion.current !== refreshVersion) {
+        cache.current.clear()
+        cacheVersion.current = refreshVersion
+      }
       setLoading(true)
       setError(false)
       try {
@@ -52,7 +58,7 @@ export function RunGeofences({ map, locationIds, accessToken }: {
     }
     void load()
     return () => { cancelled = true }
-  }, [enabled, idsKey, accessToken, retry])
+  }, [enabled, idsKey, accessToken, retry, refreshVersion])
 
   React.useEffect(() => {
     if (!enabled || !map || !geometryReady) return
@@ -126,7 +132,7 @@ export function RunGeofences({ map, locationIds, accessToken }: {
     }
   }, [enabled, map, locations, idsKey, geometryReady])
 
-  return <div className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-md border bg-background px-3 py-2 shadow-sm">
+  return <div className="max-w-60 rounded-md border bg-background px-3 py-2 shadow-sm">
     <div className="flex items-center gap-2">
       <Switch id={labelId} checked={enabled} onCheckedChange={setEnabled} />
       <label htmlFor={labelId} className="cursor-pointer text-sm font-medium">Geofences</label>

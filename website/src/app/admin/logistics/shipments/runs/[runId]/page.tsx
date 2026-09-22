@@ -12,7 +12,18 @@ import { getRun } from "@/lib/api/runs"
 import { requireAuth } from "@/lib/auth"
 import { formatAddress } from "@/lib/address"
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
-import type { ShipmentStop } from "@/lib/types"
+import type { Location, ShipmentStop } from "@/lib/types"
+
+function ShipmentLocation({ location }: { location?: Location | null }) {
+  if (!location) return <>-</>
+  const name = location.name?.trim() || location.company?.trim()
+  const address = formatAddress(location)
+  return <div className="space-y-1">
+    {name && <div className="font-medium">{name}</div>}
+    {address && <div className={name ? "text-muted-foreground" : undefined}>{address}</div>}
+    {!name && !address && "-"}
+  </div>
+}
 
 function dateTime(value?: string | null) {
   if (!value) return "-"
@@ -124,8 +135,8 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
                   <TableCell><Link className="font-medium underline-offset-4 hover:underline" href={AdminRoute.shipmentDetails(shipment.shipment_id)}>{shipment.merchant_order_ref ?? shipment.shipment_id}</Link></TableCell>
                   <TableCell className="whitespace-nowrap">{dateTime(shipment.created_at)}</TableCell>
                   <TableCell>{shipment.sequence ?? "-"}</TableCell>
-                  <TableCell>{shipment.pickup_location ? formatAddress(shipment.pickup_location) : "-"}</TableCell>
-                  <TableCell>{shipment.dropoff_location ? formatAddress(shipment.dropoff_location) : "-"}</TableCell>
+                  <TableCell><ShipmentLocation location={shipment.pickup_location} /></TableCell>
+                  <TableCell><ShipmentLocation location={shipment.dropoff_location} /></TableCell>
                   <TableCell>{shipment.total_parcel_count ?? "-"}</TableCell>
                   <TableCell><StatusBadge status={shipment.shipment_status ?? "unknown"} /></TableCell>
                   <TableCell><StatusBadge status={shipment.run_status ?? "unknown"} /></TableCell>

@@ -23,3 +23,15 @@ Rules:
    - Verification
 3. If no user-facing/runtime impact, still add a short `Internal Changes` note.
 4. Do not finish a task until release notes are updated.
+
+## Commit Message Draft (Required)
+
+Maintain `COMMIT_MESSAGE.txt` at the repository root so a relevant commit title and body are ready before the user commits.
+
+1. After every change, including documentation, configuration and tests, refresh the draft before finishing the task.
+2. Inspect `git status --short`, the staged and unstaged diffs, and relevant untracked files. Summarize the complete pending change set, not just the last edit. Do not stage, discard or modify unrelated changes to prepare the draft.
+3. Write a plain-text Git commit message: a concise imperative title on the first line (aim for 72 characters or fewer), a blank line, then a short body explaining the concrete changes and their purpose. No Markdown title headings or code fences.
+4. Include verification actually performed and material remaining limitations. Never claim tests passed or changes were deployed without evidence. Avoid generic titles such as “debug” or “updates”.
+5. Rewrite the draft as the pending scope changes; do not append a history of earlier drafts. After a commit, replace stale content when the next change is made. Use the current diff as the source of truth, excluding `COMMIT_MESSAGE.txt` itself from the functional change summary.
+6. If asked to commit only a subset of changes, refresh the draft to describe exactly that subset before committing.
+7. This requirement maintains a draft only. Do not create commits, amend existing commit messages or push changes unless the user requests it. When authorized, the draft can be used with `git commit -F COMMIT_MESSAGE.txt`.
