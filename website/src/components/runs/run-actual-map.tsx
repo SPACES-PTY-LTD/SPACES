@@ -12,7 +12,7 @@ import { buildReplayModel, loadTrackPages, replayAt, replayRouteAt } from "./run
 import type { ShipmentStop } from "@/lib/types"
 import { ChevronDown, Filter, RefreshCw } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
-import { buildRunMapMarkers, eventLabel, markerDetails, markerAppearance, latestStopMarker } from "./run-map-markers"
+import { buildRunMapMarkers, eventLabel, markerDetails, markerAppearance, latestStopMarker, visibleRunMapMarkers, type RunMapMarker } from "./run-map-markers"
 
 type Props = { runId: string; accessToken?: string | null; stops: ShipmentStop[]; activities?: ShipmentStop[]; tripStart?: string | null; tripEnd?: string | null }
 
@@ -54,15 +54,17 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
   const [filter, setFilter] = React.useState<{ runId: string; hidden: string[] }>({ runId, hidden: [] })
   const hiddenTypes = React.useMemo(() => filter.runId === runId ? filter.hidden : [], [filter, runId])
   const markerTypes = React.useMemo(() => [...new Set(markers.map(marker => marker.type))], [markers])
-  const shownCount = markers.filter(marker => !hiddenTypes.includes(marker.type)).length
-  const markerHandles = React.useRef<{ marker: google.maps.Marker; type: string }[]>([])
+  const shownCount = visibleRunMapMarkers(markers, hiddenTypes, isReplaying).size
+  const totalPins = visibleRunMapMarkers(markers, [], isReplaying).size
+  const markerHandles = React.useRef<{ marker: google.maps.Marker; item: RunMapMarker }[]>([])
   const infoWindow = React.useRef<google.maps.InfoWindow | null>(null)
   const hiddenRef = React.useRef(hiddenTypes)
   React.useEffect(() => {
     hiddenRef.current = hiddenTypes
-    markerHandles.current.forEach(({ marker, type }) => marker.setVisible(!hiddenTypes.includes(type) && !(type === "latest_stop" && isReplaying)))
+    const visible = visibleRunMapMarkers(markers, hiddenTypes, isReplaying)
+    markerHandles.current.forEach(({ marker, item }) => marker.setVisible(visible.has(item)))
     infoWindow.current?.close()
-  }, [hiddenTypes, isReplaying, mapRevision])
+  }, [hiddenTypes, isReplaying, mapRevision, markers])
   const hasTrack = Boolean(track?.segments.some(segment => segment.length))
   const hasMap = hasTrack || markers.length > 0
   React.useEffect(() => {
@@ -145,13 +147,14 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
         overlays.push(line)
         return line
       })
+      const visible = visibleRunMapMarkers(markers, hiddenRef.current)
       markerHandles.current = markers.map(item => {
         bounds.extend(item.position)
         const appearance = markerAppearance(item.type)
         const isVehicle = item.type === "latest_stop"
         const marker = new google.maps.Marker({
           map, position: item.position, title: item.title,
-          visible: !hiddenRef.current.includes(item.type),
+          visible: visible.has(item),
           zIndex: isVehicle ? 1000 : item.type === "speeding" ? 900 : undefined,
           label: isVehicle ? undefined : { text: item.label || appearance.symbol, color: "#ffffff", fontSize: "12px", fontWeight: "600" },
           icon: isVehicle ? vehicleIcon() : {
@@ -166,7 +169,7 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
           details.setContent(markerDetails(atPosition))
           details.open({ map, anchor: marker })
         }))
-        return { marker, type: item.type }
+        return { marker, item }
       })
       const fitKey = `${key}:${track ? "history" : "stops"}`
       if (!bounds.isEmpty() && fittedKey.current !== fitKey) { map.fitBounds(bounds, 64); fittedKey.current = fitKey }
@@ -197,14 +200,14 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
         </div>
         <div className="absolute right-3 top-16 lg:top-3">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="outline" className="bg-background shadow-sm"><Filter className="size-4" />Marker types ({shownCount}/{markers.length})<ChevronDown className="size-4" /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button variant="outline" className="bg-background shadow-sm"><Filter className="size-4" />Marker types ({shownCount}/{totalPins})<ChevronDown className="size-4" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Show markers by activity</DropdownMenuLabel>
               <DropdownMenuItem onSelect={() => setFilter({ runId, hidden: [] })}>Show all</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setFilter({ runId, hidden: markerTypes })}>Hide all</DropdownMenuItem>
               <DropdownMenuSeparator />
               {markerTypes.map(type => <DropdownMenuCheckboxItem key={type} checked={!hiddenTypes.includes(type)} onSelect={event => event.preventDefault()} onCheckedChange={checked => setFilter({ runId, hidden: checked ? hiddenTypes.filter(value => value !== type) : [...hiddenTypes, type] })}>
-                <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: type === "latest_stop" ? "#0f172a" : markerAppearance(type).color }} />{type === "latest_stop" ? "Latest mapped stop" : type === "stationary_gps" ? "Stationary GPS" : eventLabel(type)} ({markers.filter(marker => marker.type === type).length})
+                <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: type === "latest_stop" ? "#0f172a" : markerAppearance(type).color }} />{type === "latest_stop" ? "Latest mapped stop" : type === "stationary_gps" ? "Stationary GPS" : eventLabel(type)} ({visibleRunMapMarkers(markers.filter(marker => marker.type === type)).size})
               </DropdownMenuCheckboxItem>)}
             </DropdownMenuContent>
           </DropdownMenu>

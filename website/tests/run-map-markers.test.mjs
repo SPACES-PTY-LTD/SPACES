@@ -5,7 +5,7 @@ import ts from "typescript"
 
 const source = await readFile(new URL("../src/components/runs/run-map-markers.ts", import.meta.url), "utf8")
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
-const { buildRunMapMarkers, elapsed, markerDetails, markerAppearance, latestStopMarker } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`)
+const { buildRunMapMarkers, elapsed, markerDetails, markerAppearance, latestStopMarker, visibleRunMapMarkers } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`)
 const start = "2026-09-21T08:00:00Z", end = "2026-09-21T09:15:30Z"
 const stop = { latitude: -26, longitude: 28, event_type: "stopped", occurred_at: start, vehicle: { vehicle_id: "truck" }, run_id: "run" }
 const rows = marker => Object.fromEntries(marker.rows)
@@ -77,4 +77,19 @@ test("speeding activities appear once and use a distinct warning colour", () => 
   assert.equal(markers[1].label, undefined)
   assert.equal(markerAppearance("speeding").color, "#dc2626")
   assert.notEqual(markerAppearance("shipment_collection").color, markerAppearance("shipment_delivery").color)
+})
+
+test("coincident observations share a pin while filters reveal remaining types", () => {
+  const markers = buildRunMapMarkers([stop, { ...stop, event_type: "shipment_collection" }], null)
+  const gps = { ...markers[0], type: "recorded_position" }
+  const nearby = { ...gps, position: { lat: -26.000001, lng: 28 } }
+  const all = [gps, ...markers, nearby]
+  assert.deepEqual([...visibleRunMapMarkers(all)], [markers[0], nearby])
+  assert.deepEqual([...visibleRunMapMarkers(all, ["stopped"])], [markers[1], nearby])
+  assert.deepEqual([...visibleRunMapMarkers(all, ["stopped", "shipment_collection"])], [gps, nearby])
+  assert.equal(all.length, 4)
+  assert.equal(visibleRunMapMarkers(all, ["stopped", "shipment_collection", "recorded_position"]).size, 0)
+  const car = { ...markers[0], type: "latest_stop" }
+  assert.deepEqual([...visibleRunMapMarkers([...all, car])], [car, nearby])
+  assert.deepEqual([...visibleRunMapMarkers([...all, car], [], true)], [markers[0], nearby])
 })

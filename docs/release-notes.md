@@ -20,6 +20,15 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-09-23 | Version: run-map-coincident-pins-v1
+
+- **Summary:** Show one pin per exact GPS coordinate instead of stacked unreadable event markers.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Preserve all recorded events in popup details and replay. Select a visible representative after marker filtering, preferring latest-stop car, speeding and stop events over GPS-only observations. Pin counts use distinct coordinates; nearby coordinates remain separate.
+- **Breaking Changes:** None.
+- **Verification:** Nine marker tests passed, including duplicate coordinates, filters, nearby positions and replay/latest-stop selection. Focused ESLint, TypeScript and diff checks passed. Live visual verification pending.
+
 ## 2026-09-22 | Version: independent-geofence-visits-v1
 
 - **Summary:** Trigger configured automation for every containing geofence, including nested and overlapping locations.

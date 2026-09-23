@@ -1,7 +1,7 @@
 # Driver dashboard plan
 
-Version: 1.45
-Last updated: 2026-09-22
+Version: 1.46
+Last updated: 2026-09-23
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
 ## Purpose and maintenance
@@ -79,6 +79,8 @@ Run queries, shipments, documents, telemetry and mutations must stay scoped to t
 - Define and verify departure detection, GPS quality, geofence thresholds and backend run-state mappings before implementing automatic start. No specific threshold is prescribed by this design.
 
 ## 4. Map and full planned trip
+
+Admin marker grouping (1.46, implemented locally): display one event pin per exact GPS coordinate. Preserve all original events in click details and replay; apply type filters before selecting a visible representative. Prefer the latest-stop car, then speeding, then stop events over GPS-only observations. Counts reflect distinct coordinate pins (type counts may overlap). Different coordinates remain separate. Local marker tests and static checks pass; live visual verification pending. Mobile Figma screens unchanged.
 
 Admin Runs list performance (1.29, implemented locally): request the opt-in run-list summary for table rows. Do not load or transmit activity details, route stops, parcels, bookings or document imports for this table. Keep existing displayed counts, costs, dates, odometer/GPS distance fallback and shipment-based endpoint fallback. Load activity coordinates only for runs without complete odometers. Default API consumers and run detail remain unchanged. API regression tests cover summary parity and all sort columns; production latency/deployment remain unverified. No Figma screen or interaction changes.
 
@@ -327,6 +329,8 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 ### Acceptance checklist
 
+- [x] Coincident map events share one visible pin; all details remain accessible, filters reveal remaining types and nearby distinct positions remain separate.
+
 - [x] Repeated audit shipments reuse trip evidence, preserve classifications and reject newly changed GPS during apply; cache clears between audits and CLI reports progress.
 
 - [x] Cleanup audit is non-destructive to domain data, scoped and evidence-based; apply requires explicit reviewed candidates via shipment UUIDs or `--all-candidates`; all-candidate selection remains audit-scoped and revalidates every row. Cleanup/restore preserve physical history, reject changed records and prevent silent resurrection. Command, rollback, report/run/booking visibility and regression tests pass locally.
@@ -398,6 +402,7 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-09-23 | 1.46 | Group exact-coordinate run-map pins, retain popup events/replay and update filtered pin counts. Automated checks pass; live visual verification pending. Figma unchanged. |
 | 2026-09-22 | 1.45 | Track all containing polygons independently; run entry/exit automation per location and retain duplicate prevention. Simulator prefers requested open visit. Local regressions cover nested and overlapping fences; live verification pending. Figma unchanged. |
 | 2026-09-22 | 1.44 | Optimize cleanup audits with bounded evidence reuse, lookup indexes and progress counts. Fresh apply/restore validation retained; production timing remains unverified. Figma unchanged. |
 | 2026-09-22 | 1.43 | Add explicit --all-candidates selection for a completed cleanup audit, with bounded iteration, unchanged per-item checks and rejection of mixed/empty selection. Regression tests pass; no production cleanup executed. Figma unchanged. |

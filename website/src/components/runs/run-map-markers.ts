@@ -154,3 +154,18 @@ export function latestStopMarker(markers: RunMapMarker[]) {
     && Number.isFinite(Date.parse(marker.observedAt ?? "")))
     .reduce<RunMapMarker | null>((latest, marker) => !latest || Date.parse(marker.observedAt!) > Date.parse(latest.observedAt!) ? marker : latest, null)
 }
+
+// Keep every observation for details/replay, but display one pin per exact coordinate.
+export function visibleRunMapMarkers(markers: RunMapMarker[], hiddenTypes: string[] = [], isReplaying = false) {
+  const byPosition = new Map<string, RunMapMarker>()
+  const priority = (marker: RunMapMarker) => marker.type === "latest_stop" ? 4
+    : marker.type === "speeding" ? 3
+    : ["recorded_position", "stationary_gps"].includes(marker.type) ? 1 : 2
+  for (const marker of markers) {
+    if (hiddenTypes.includes(marker.type) || (isReplaying && marker.type === "latest_stop")) continue
+    const key = `${marker.position.lat},${marker.position.lng}`
+    const current = byPosition.get(key)
+    if (!current || priority(marker) > priority(current)) byPosition.set(key, marker)
+  }
+  return new Set(byPosition.values())
+}
