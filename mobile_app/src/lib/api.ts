@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+
 import { getEnvironmentConfig } from '@/src/config/env';
 
 export type ApiEnvelope<T> = {
@@ -745,11 +747,7 @@ export const driverApi = {
   ) {
     const body = new FormData();
     body.append('file_type_id', payload.file_type_id);
-    body.append('file', {
-      uri: payload.file.uri,
-      name: payload.file.name,
-      type: payload.file.type ?? 'application/octet-stream',
-    } as never);
+    body.append('file', new File(payload.file.uri), payload.file.name);
 
     if (payload.expires_at) {
       body.append('expires_at', payload.expires_at);
@@ -779,11 +777,7 @@ export const driverApi = {
   ) {
     const body = new FormData();
     body.append('file_type_id', payload.file_type_id);
-    body.append('file', {
-      uri: payload.file.uri,
-      name: payload.file.name,
-      type: payload.file.type ?? 'application/octet-stream',
-    } as never);
+    body.append('file', new File(payload.file.uri), payload.file.name);
 
     if (payload.expires_at) {
       body.append('expires_at', payload.expires_at);

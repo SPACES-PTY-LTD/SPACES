@@ -5,7 +5,7 @@ import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { PersistentBottomSheet } from '@/component/ui/PersistentBottomSheet';
 import { RunMap } from '@/src/components/dashboard/RunMap';
 import { Feather } from '@expo/vector-icons';

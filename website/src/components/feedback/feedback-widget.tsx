@@ -271,7 +271,7 @@ export function FeedbackWidget({
       <Button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-4 z-40 h-12 rounded-full bg-black px-5 text-white shadow-xl hover:bg-black/85 md:right-6 md:bottom-6"
+        className="fixed left-1/2 bottom-4 z-40 h-12 -translate-x-1/2 rounded-full bg-black px-5 text-white shadow-xl hover:bg-black/85 md:bottom-6"
         aria-label="Give feedback"
       >
         <MessageSquareText className="size-4" />

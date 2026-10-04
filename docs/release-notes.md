@@ -20,6 +20,42 @@ Add new entries at the top (newest first).
 
 ---
 
+## 2026-10-04 | Version: crm-feedback-bottom-center-v1
+
+- **Summary:** Move the CRM Give feedback button to the bottom center of the page.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Center the fixed feedback button horizontally on all screen sizes, keeping the existing bottom spacing.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and diff checks passed; live browser appearance not verified.
+
+## 2026-10-02 | Version: mobile-light-default-v1
+
+- **Summary:** Start the mobile app in light mode regardless of the device theme.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Set the native appearance default and initialise NativeWind to light before rendering. Keep the existing manual theme toggle; a fresh app launch defaults to light.
+- **Breaking Changes:** None. Native appearance configuration takes effect in rebuilt clients.
+- **Verification:** TypeScript and focused root-layout lint checked locally; physical-device appearance not verified.
+
+## 2026-10-02 | Version: mobile-expo-57-v1
+
+- **Summary:** Upgrade the driver app from Expo SDK 54 to SDK 57 (57.0.26), React Native 0.86.3 and React 19.2.3.
+- **API Changes:** Server contracts unchanged. Multipart fetch uploads now use Expo File blobs instead of unsupported URI objects.
+- **Database Changes:** None.
+- **Behavior Changes:** Align native modules and development tools, register required config plugins, remove obsolete config flags, and migrate navigation imports to Expo Router's shared contexts. Correct map POI prop and provide Material icon mappings for all tabs.
+- **Breaking Changes:** Requires SDK 57-compatible Expo Go or rebuilt native clients. iOS minimum is 16.4; local native iOS builds require Xcode 26.4 or newer. Existing SDK 54 binaries cannot use this JavaScript update.
+- **Verification:** Expo Doctor passed 21/21 checks; TypeScript and focused migration lint passed. Android and iOS bundles passed; web export generated all 24 static routes. Full lint exposes 16 existing-code React Compiler errors under the newer rules; native/device interaction and upload smoke tests remain unverified. npm reports 31 dependency advisories; no forced unrelated dependency upgrades applied.
+
+## 2026-09-23 | Version: run-header-location-names-v1
+
+- **Summary:** Include origin and destination location names alongside addresses in the run detail header.
+- **API Changes:** None; use existing location fields.
+- **Database Changes:** None.
+- **Behavior Changes:** Display name (or company fallback) followed by address for each endpoint; retain unknown-location fallbacks.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and TypeScript checks passed; live visual verification not performed.
+
 ## 2026-09-23 | Version: run-map-coincident-pins-v1
 
 - **Summary:** Show one pin per exact GPS coordinate instead of stacked unreadable event markers.

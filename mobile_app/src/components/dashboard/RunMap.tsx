@@ -1,4 +1,4 @@
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from 'expo-router/react-navigation';
 import { Feather } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, View } from 'react-native';
@@ -87,7 +87,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   return <View style={styles.container}>
     <MapView provider={PROVIDER_GOOGLE} customMapStyle={runMapStyle} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => setReady(true)} onLayout={fit}
       initialRegion={{ latitude: 0, longitude: 0, latitudeDelta: 100, longitudeDelta: 100 }}
-      userInterfaceStyle="light" showsPointsOfInterest={false} showsCompass={false} rotateEnabled={false} pitchEnabled={false}
+      userInterfaceStyle="light" showsPointsOfInterests={false} showsCompass={false} rotateEnabled={false} pitchEnabled={false}
       accessibilityLabel="Current run shipment locations">
       {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor="#f54a4a" strokeWidth={4} /> : null}
       {mode === 'planned' && endpointPins.map(p => <Marker key={p.role} coordinate={p.coordinate} title={`${p.role} · ${p.name}`} description={p.address} pinColor={p.role === 'Run starting point' ? '#2563eb' : '#71717a'} />)}

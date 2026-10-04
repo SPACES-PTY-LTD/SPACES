@@ -14,6 +14,12 @@ import { formatAddress } from "@/lib/address"
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import type { Location, ShipmentStop } from "@/lib/types"
 
+function runLocationLabel(location: Location | null | undefined, fallback: string) {
+  if (!location) return fallback
+  const name = location.name?.trim() || location.company?.trim()
+  return [name, formatAddress(location)].filter(Boolean).join(" · ") || fallback
+}
+
 function ShipmentLocation({ location }: { location?: Location | null }) {
   if (!location) return <>-</>
   const name = location.name?.trim() || location.company?.trim()
@@ -83,7 +89,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
       <Breadcrumbs items={[{ label: "Runs", href: AdminLinks.runs }, { label: run.run_id }]} />
       <PageHeader
         title={`Run ${run.run_id}`}
-        description={`${run.origin ? formatAddress(run.origin) : "Unknown origin"} → ${run.destination ? formatAddress(run.destination) : "Unknown destination"}`}
+        description={`${runLocationLabel(run.origin, "Unknown origin")} → ${runLocationLabel(run.destination, "Unknown destination")}`}
         actions={<StatusBadge status={run.status ?? "unknown"} />}
       />
 

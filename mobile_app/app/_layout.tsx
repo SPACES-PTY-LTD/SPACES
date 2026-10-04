@@ -1,16 +1,18 @@
 import "@/global.css";
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Redirect, Stack, useRootNavigationState, useSegments } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider, Redirect, Stack, useRootNavigationState, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ActivityIndicator, View } from 'react-native';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { colorScheme as appColorScheme, useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/src/providers/auth-provider';
+
+// Start in light mode; the in-app theme toggle can still change it afterwards.
+appColorScheme.set('light');
 
 export const unstable_settings = {
   anchor: '(tabs)',
