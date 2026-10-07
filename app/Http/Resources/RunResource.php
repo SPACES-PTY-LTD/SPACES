@@ -62,6 +62,8 @@ class RunResource extends JsonResource
 
         return [
             'run_id' => $this->uuid,
+            'end_request' => $this->latestEndRequest?->toSummary(),
+            'can_review_end_request' => $request->user()?->role !== 'driver' && ($request->user()?->can('update', $this->resource) ?? false),
             'additional_cost_totals' => $this->whenLoaded('additionalCosts', fn () => \App\Support\CostMoney::totals($this->additionalCosts)),
             'additional_costs' => $this->when($request->route('run_uuid') !== null && $this->relationLoaded('additionalCosts'), fn () => AdditionalCostResource::collection($this->additionalCosts)),
             'merchant_id' => optional($this->merchant)->uuid,

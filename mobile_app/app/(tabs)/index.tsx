@@ -1,32 +1,31 @@
+import { RunActionForm, type RunAction } from '@/src/components/dashboard/RunActionForm';
 import { MessageSheet, type MessageSheetRef } from '@/component/ui/MessageSheet';
 import { FinalDestinationSheet } from '@/src/components/dashboard/FinalDestinationSheet';
 import { filterRunStops } from '@/src/components/dashboard/run-stop-filter';
 import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { PersistentBottomSheet } from '@/component/ui/PersistentBottomSheet';
 import { RunMap } from '@/src/components/dashboard/RunMap';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
-import { type EffectCallback, useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/component/ui/Text';
 import { ApiRequestError, DeliveryOffer, DriverDashboard, driverApi, documentImportApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
-
-function useDashboardFocus(effect: EffectCallback) {
-  useFocusEffect(effect);
-}
+import { useRequiredDocuments } from '@/src/providers/required-documents-provider';
 
 export default function HomeScreen() {
   const { run_id } = useLocalSearchParams<{ run_id?: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const messageSheet = useRef<MessageSheetRef>(null);
+  const runActionsSheet = useRef<ActionSheetRef>(null);
+  const [runAction, setRunAction] = useState<RunAction | null>(null);
   const runFilterSheet = useRef<ActionSheetRef>(null);
   const [choosingDestination, setChoosingDestination] = useState(false);
   const [runFilter, setRunFilter] = useState<'all' | 'shipments' | 'speeding'>('all');
@@ -39,6 +38,7 @@ export default function HomeScreen() {
     ],
   });
   const { session } = useAuth();
+  const { updateCount } = useRequiredDocuments();
   const dark = false; // This dashboard sheet stays white, matching the selected design.
   const { height } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
@@ -59,7 +59,7 @@ export default function HomeScreen() {
   const [lastUpdated, setLastUpdated] = useState<string>();
   const [starting, setStarting] = useState(false);
   const requestNumber = useRef(0);
-  useEffect(() => { requestNumber.current++; setDashboard(null); setOffers([]); setError(null); setLastUpdated(undefined); }, [session?.token]);
+  useEffect(() => { requestNumber.current++; setRunAction(null); setDashboard(null); setOffers([]); setError(null); setLastUpdated(undefined); }, [session?.token]);
 
   const load = useCallback(async (isCurrent: () => boolean = () => true) => {
     if (!session?.token) return;
@@ -69,6 +69,7 @@ export default function HomeScreen() {
       const result = await driverApi.dashboard(session.token, run_id);
       if (!isCurrent() || version !== requestNumber.current) return;
       setDashboard(result);
+      updateCount(result.documents.missing_required_count, result.documents.expired_count);
       setLastUpdated(new Date().toLocaleTimeString());
       setError(null);
       // Offers remain actionable when assigned by dispatch; this screen never changes availability.
@@ -79,32 +80,27 @@ export default function HomeScreen() {
     } finally {
       if (isCurrent() && version === requestNumber.current) setLoading(false);
     }
-  }, [session?.token, run_id]);
+  }, [session, run_id, updateCount]);
 
   useFocusEffect(useCallback(() => {
     let current = true;
     void load(() => current);
-    return () => { current = false; };
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') void load(() => current); });
+    return () => { current = false; listener.remove(); };
   }, [load]));
+
+  useEffect(() => { setRunAction(null); }, [dashboard?.current_run?.run_id]);
+  const openRunActions = () => runActionsSheet.current?.present({ title: '', actions: [
+    { id: 'end', label: 'End Run', variant: 'destructive', disabled: dashboard?.current_run?.end_request?.status === 'pending', onPress: () => setRunAction('end') },
+    { id: 'edit', label: 'Edit Run', onPress: () => setRunAction('edit') },
+    { id: 'cost', label: 'Add additional cost', onPress: () => setRunAction('cost') },
+  ] });
 
   const shipments = dashboard?.run_shipments ?? [];
   const needsDestination = !!dashboard?.current_run && !dashboard.current_run.destination_location_id && !dashboard.trip_endpoints?.some(endpoint => endpoint.role === 'Planned end location');
   const showDestinationEntry = needsDestination && runFilter === 'all';
   const visibleStops = filterRunStops([...(dashboard?.recorded_stops ?? []), ...(dashboard?.planned_delivery_stops ?? [])], runFilter);
   const offer = offers[0];
-
-  async function contactDispatch() {
-    const email = dashboard?.dispatch_email;
-    if (!email) {
-      messageSheet.current?.present('Contact dispatch', 'Your team has not added a dispatch contact yet. Ask your administrator for their contact details.');
-      return;
-    }
-    try {
-      await Linking.openURL(`mailto:${encodeURIComponent(email)}`);
-    } catch {
-      messageSheet.current?.present('Dispatch contact', email);
-    }
-  }
 
   async function respondToOffer(accept: boolean) {
     if (!offer || !session) return;
@@ -128,11 +124,11 @@ export default function HomeScreen() {
       <Animated.View style={mapStyle}>
         <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={insets.top} onOpenShipment={id => router.push(`/shipments/${id}`)} />
       </Animated.View>
-      <PersistentBottomSheet topInset={insets.top} animatedPosition={sheetPosition}>
-      <BottomSheetScrollView
+      <PersistentBottomSheet topInset={insets.top} containerHeight={containerHeight} animatedPosition={sheetPosition}>
+      <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: 24 }}
-        focusHook={useDashboardFocus}
-        refreshing={loading && !!dashboard} onRefresh={() => void load()}
+        refreshControl={<RefreshControl refreshing={loading && !!dashboard} onRefresh={() => void load()} />}
         showsVerticalScrollIndicator={false}>
 
 
@@ -148,39 +144,24 @@ export default function HomeScreen() {
           </Pressable>
         ) : null}
 
-        {dashboard?.documents?.missing_required_count ? (
-          <Pressable style={[styles.documentNotice, { backgroundColor: dark ? '#382b13' : '#fff4d6' }]} onPress={() => router.push('/(tabs)/documents')} accessibilityRole="button">
-            <Feather name="file-text" size={22} color={dark ? '#fcd34d' : '#8a5700'} />
-            <View style={{ flex: 1, gap: 5 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: dark ? '#fde68a' : '#744700' }}>You have {dashboard.documents.missing_required_count} required {dashboard.documents.missing_required_count === 1 ? 'document' : 'documents'} to upload</Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={dark ? '#fcd34d' : '#8a5700'} />
-          </Pressable>
-        ) : null}
-        {dashboard?.documents?.expired_count ? (
-          <Pressable style={[styles.documentNotice, { backgroundColor: dark ? '#401e22' : '#ffebed' }]} onPress={() => router.push('/(tabs)/documents')} accessibilityRole="button">
-            <Feather name="alert-circle" size={22} color={dark ? '#fda4af' : '#a32136'} />
-            <View style={{ flex: 1, gap: 5 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: dark ? '#fda4af' : '#a32136' }}>You have {dashboard.documents.expired_count} expired {dashboard.documents.expired_count === 1 ? 'document' : 'documents'}</Text>
-              <Text style={{ fontSize: 13, lineHeight: 19, color: dark ? '#fda4af' : '#a32136' }}>Review your documents and upload current replacements where needed.</Text>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: dark ? '#fda4af' : '#a32136' }}>Review documents</Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={dark ? '#fda4af' : '#a32136'} />
-          </Pressable>
-        ) : null}
-
         {error ? <Pressable accessibilityRole="button" accessibilityLabel="Retry loading dashboard" onPress={() => void load()} style={styles.error}><Text style={{ color: '#991b1b' }}>{dashboard ? `Showing saved data${lastUpdated ? ` from ${lastUpdated}` : ''}. ` : ''}{error} Tap to retry.</Text></Pressable> : null}
 
         {loading && !dashboard ? <ActivityIndicator style={{ paddingVertical: 70 }} size="large" color="#f54a4a" /> : dashboard?.current_run ? (
           <View style={[styles.deliveryCard, { backgroundColor: dark ? '#18181b' : '#ffffff' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <Text style={[styles.runTitle, { color: ink, flexShrink: 1 }]}>{dashboard.current_run.status === 'in_progress' ? 'Current run' : 'Ready to start'}</Text>
-              <Pressable onPress={openRunFilter} accessibilityRole="button" accessibilityLabel={`Current run view: ${runFilter === 'all' ? 'All stops' : runFilter === 'speeding' ? 'Speeding events' : 'Shipment deliveries'}`}
-                style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: muted }}>{runFilter === 'all' ? 'All stops' : runFilter === 'speeding' ? 'Speeding events' : 'Shipment deliveries'}</Text>
-                <Feather name="chevron-down" size={16} color={muted} />
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              {dashboard.current_run.status === 'in_progress' && <Pressable
+                accessibilityRole="button" accessibilityLabel="Run actions"
+                onPress={openRunActions}
+                style={{ minHeight: 24, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 10, borderColor: line }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: muted }}>Actions</Text>
+                </Pressable>}
+              </View>
             </View>
+            {dashboard.current_run.end_request?.status === 'pending' && <Text style={{ color: '#92400e', marginTop: 8 }}>End run requested — awaiting dispatch approval</Text>}
+            {dashboard.current_run.end_request?.status === 'rejected' && <Text style={{ color: '#991b1b', marginTop: 8 }}>End run request rejected: {dashboard.current_run.end_request.review_reason}</Text>}
             <Text style={{ color: muted, marginTop: 8 }}>{shipments.length} shipments · {shipments.filter(s => !['delivered', 'failed', 'cancelled'].includes(s.status)).length} remaining · {shipments.filter(s => s.status === 'delivered').length} delivered</Text>
             {shipments.length > 0 && shipments.every(s => s.status === 'delivered') && <Text style={{ color: '#24753a', marginTop: 12 }}>Deliveries completed — awaiting dispatch closure.</Text>}
             {['draft', 'dispatched'].includes(dashboard.current_run.status) && <Pressable style={[styles.primary, { marginTop: 16 }]} disabled={starting} onPress={async () => {
@@ -188,7 +169,13 @@ export default function HomeScreen() {
               setStarting(true); try { await documentImportApi.startRun(session.token, dashboard.current_run.run_id); await load(); } catch (e) { setError((e as Error).message); } finally { setStarting(false); }
             }} accessibilityRole="button"><Text style={styles.primaryText}>{starting ? 'Starting…' : 'Start run'}</Text></Pressable>}
             <View style={{ marginTop: 10 }}>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: muted, marginBottom: 12 }}>{visibleStops.length + (showDestinationEntry ? 1 : 0)} {runFilter === 'speeding' ? (visibleStops.length === 1 ? 'speeding event' : 'speeding events') : (visibleStops.length + (showDestinationEntry ? 1 : 0) === 1 ? 'timeline entry' : 'timeline entries')}{runFilter === 'shipments' ? ' for deliveries' : ''}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: muted, flexShrink: 1 }}>{visibleStops.length + (showDestinationEntry ? 1 : 0)} {runFilter === 'speeding' ? (visibleStops.length === 1 ? 'speeding event' : 'speeding events') : (visibleStops.length + (showDestinationEntry ? 1 : 0) === 1 ? 'timeline entry' : 'timeline entries')}{runFilter === 'shipments' ? ' for deliveries' : ''}</Text>
+              <Pressable onPress={openRunFilter} accessibilityRole="button" accessibilityLabel={`Current run view: ${runFilter === 'all' ? 'All stops' : runFilter === 'speeding' ? 'Speeding events' : 'Shipment deliveries'}`}
+                style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: muted }}>{runFilter === 'all' ? 'Filter timeline' : runFilter === 'speeding' ? 'Speeding events' : 'Shipment deliveries'}</Text>
+              </Pressable>
+              </View>
               {visibleStops.length ? visibleStops.map((stop, index, stops) => <View key={stop.stop_id} style={styles.timelineRow}>
                 <View style={styles.timelineRail}>
                   <View style={[styles.timelineMarker, { backgroundColor: stop.kind === 'Speeding' ? '#dc2626' : stop.kind?.toLowerCase().includes('delivery') ? '#24753a' : stop.kind === 'Collection' ? '#2563eb' : '#71717a' }]}><Feather name={stop.kind === 'Speeding' ? 'alert-triangle' : 'map-pin'} size={14} color="#ffffff" /></View>
@@ -220,15 +207,14 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        {dashboard && !dashboard.current_run ? <View style={{ paddingVertical: 24, gap: 12 }}><Text style={[styles.runTitle, { color: ink }]}>No current run</Text><Text style={{ color: muted }}>Upload a delivery note to prepare your next run.</Text></View> : null}
-        <Pressable style={[styles.linkRow, { borderTopColor: line }]} onPress={() => router.push('/shipments/load')} accessibilityRole="button">
-          <Feather name="upload-cloud" size={23} color={muted} /><Text style={{ color: ink, fontSize: 16, flex: 1 }}>Upload delivery note</Text><Feather name="chevron-right" size={22} color={muted} />
-        </Pressable>
-
-        <Pressable style={[styles.contactRow, { borderTopColor: line }]} onPress={() => void contactDispatch()} accessibilityRole="button">
-          <Feather name="headphones" size={24} color={muted} /><Text style={{ color: ink, fontSize: 16, flex: 1 }}>Contact dispatch</Text><Feather name="chevron-right" size={22} color={muted} />
-        </Pressable>
-
+        {dashboard && !dashboard.current_run ? <View style={{ paddingTop: 24, paddingBottom: 16, gap: 12 }}>
+          <Text style={{ color: muted, fontSize: 12, fontWeight: '600' }}>YOUR DAY</Text>
+          <Text style={[styles.runTitle, { color: ink }]}>No current run</Text>
+          <Text style={{ color: muted }}>Upload a delivery note to prepare your next run.</Text>
+          <Pressable style={[styles.primary, { marginTop: 4 }]} onPress={() => router.push('/shipments/load')} accessibilityRole="button">
+            <Text style={styles.primaryText}>Upload delivery note</Text>
+          </Pressable>
+        </View> : null}
         {offer ? <View style={[styles.offer, { borderColor: line }]}>
           <Text style={[styles.name, { color: ink }]}>New delivery offer</Text>
           <Text style={{ color: muted, marginTop: 8 }}>{offer.shipment?.merchant_order_ref || 'Delivery from dispatch'}</Text>
@@ -240,10 +226,12 @@ export default function HomeScreen() {
           </View>
         </View> : null}
         </>}
-      </BottomSheetScrollView>
+      </ScrollView>
       </PersistentBottomSheet>
       <MessageSheet ref={messageSheet} />
       <ActionSheet ref={runFilterSheet} />
+      <ActionSheet ref={runActionsSheet} />
+      {runAction && session && dashboard?.current_run?.status === 'in_progress' && <RunActionForm key={`${session.user.user_id}:${dashboard.current_run.run_id}:${runAction}`} action={runAction} token={session.token} run={dashboard.current_run} onDismiss={() => setRunAction(null)} onSaved={() => void load()} />}
       {choosingDestination && session && dashboard?.current_run && <FinalDestinationSheet key={`${session.user.user_id}:${dashboard.current_run.run_id}`} token={session.token} runId={dashboard.current_run.run_id} onDismiss={() => setChoosingDestination(false)} onSaved={() => void load()} />}
     </GestureHandlerRootView>
   );
@@ -275,8 +263,6 @@ const styles = StyleSheet.create({
   openShipment: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   primary: { minHeight: 50, borderRadius: 10, backgroundColor: '#f54a4a', flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   primaryText: { color: '#ffffff', fontSize: 17, fontWeight: '600' },
-  linkRow: { minHeight: 68, flexDirection: 'row', gap: 15, alignItems: 'center',borderTopWidth: 1, },
-  contactRow: { borderTopWidth: 1, minHeight: 70, flexDirection: 'row', gap: 15, alignItems: 'center' },
   error: { backgroundColor: '#fee2e2', padding: 14, borderRadius: 10, marginBottom: 16 },
   offer: { marginTop: 14, paddingTop: 20, borderTopWidth: 1 },
 });

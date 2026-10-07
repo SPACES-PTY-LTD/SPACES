@@ -1,7 +1,7 @@
 # Driver dashboard plan
 
-Version: 1.46
-Last updated: 2026-09-23
+Version: 1.76
+Last updated: 2026-10-08
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
 ## Purpose and maintenance
@@ -14,6 +14,7 @@ This is the canonical behaviour plan for the Spaces driver dashboard and deliver
 
 - [Scenario guide and implementation notes](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=32-980)
 - [Active-run dashboard](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=28-294)
+- [No-current-run dashboard](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=28-213)
 - [Step 3: confirm collection and end locations](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=28-1233)
 - [Step 5: no current run](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=28-1308)
 - [Step 5: another eligible run](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=32-2024)
@@ -27,6 +28,8 @@ Figma simulates file selection, AI reading, GPS, searches and server responses. 
 
 ## 1. Dashboard layout
 
+- Remove the secondary **Upload delivery note** and **Contact dispatch** rows from the dashboard. Retain the no-run primary upload action and the delivery-note-required notice; dispatch messaging is available through Messages.
+
 - Use an Uber-inspired light grey basemap: pale grey land/parks, white roads, grey water and subdued readable street labels. Hide POI/transit clutter; keep route, truck and shipment markers in their existing colours. Centralise the native Google map styling in `mobile_app/src/components/dashboard/run-map-style.ts`.
 - Show delivery counts in the current-run summary only. Do not show the separate Today’s deliveries summary, progress bar or View shipments shortcut on the dashboard; shipment navigation remains available through the Shipments tab and timeline links.
 - Map above a white persistent bottom sheet, with a visible but restrained shadow and drag handle.
@@ -34,17 +37,26 @@ Figma simulates file selection, AI reading, GPS, searches and server responses. 
 - At 25%, reveal more map. The map must never shrink below its 50% minimum; the 92% sheet overlays it.
 - Keep the bottom navigation and scroll long sheet content without obscuring controls. Respect safe areas and the keyboard.
 - App-owned information, confirmations and error dialogs use the shared `MessageSheet` built on `BottomSheet`, including timeline event details, dispatch contact, permission guidance, photo confirmation and action errors. Preserve all actions; execute them after sheet dismissal. Native operating-system permission prompts and pickers remain native.
+- Android floating sheets leave a visible 16-point gap above the bottom safe-area inset so gesture and three-button system navigation do not touch the sheet. Dynamic height accounts for this clearance. Implemented locally; physical Android verification pending.
 - Use shared `BottomSheet`, `PersistentBottomSheet`, `ActionSheet`, and sheet theme controls so styling can be maintained centrally.
 - Modal upload sheets fit their content, growing only as needed and scrolling when content exceeds the available height.
 - Do not restore the online/offline control or the avatar/name/role in the dashboard's top-right corner.
 
+### Navigation and driver messaging (1.53)
+
+The five tabs are **Dashboard / Shipments / Messages / Documents / Account**. Messages replaces Vehicles and opens the authenticated driver's private conversation with authorized merchant dispatch staff directly. Account includes **Vehicles assigned to me**, opening `/account/vehicles` with back navigation and the existing vehicle-detail links. Messages shows a red received-unread count badge (99+ above 99); hide it at zero. Refresh every ten seconds while foregrounded, on navigation/foreground and after read acknowledgement. Preserve required-document badges and all dashboard/run behavior.
+
+Text and private attachments are available on mobile and website `/admin/messages`. Normal conversations use explicit active membership and remain website/API-only initially. Visible chat refreshes every ten seconds and on focus; stop background polling, ignore stale responses, and retain failed drafts. Notifications use generic text, authorize taps and suppress banners for the visible chat. See [messaging handoff](../../messaging.md) for access rules, API, storage and push rollout.
+
+Implementation status: mobile/API/website and notification integration implemented locally; the new migrations are applied to local MAMP. Focused backend and client checks pass. Figma navigation updated across 61 dashboard/scenario screens and the guide describes account vehicle access. iOS simulator verifies direct chat entry, saving a local test message and account vehicle navigation. FCM/APNs credentials, rebuilt device clients, live push delivery, authenticated website visual review and production-engine concurrency remain acceptance gates; no production deployment is claimed.
+
 ## 2. Checking the driver's run
 
-On dashboard entry, check the authenticated driver's current run. While the first check is pending, the sheet contains only a loading indicator and **Checking your current run…**. Do not flash document reminders, an empty-run message or a previous driver's work.
+On dashboard entry, check the authenticated driver's current run. While the first check is pending, the sheet contains only a loading indicator and **Checking your current run…**. Do not flash an empty-run message or a previous driver's work.
 
 | Result/state | Dashboard behaviour |
 | --- | --- |
-| No current run | Show **No current run** and **Upload delivery note**. Open the upload bottom sheet. |
+| No current run | Keep the map above the persistent bottom sheet, centred on the current assigned truck when GPS is known. Show **YOUR DAY**, **No current run**, the preparation guidance and a primary **Upload delivery note** button. Keep all five bottom tabs and the required-document badge available; document summaries live on Documents. |
 | Ready run | Show the assigned timeline and **Start run**, plus an upload action. |
 | Active run | Show **Current run**, summary, timeline, filter and upload action. |
 | Active run with no shipments | Show **We noticed you are on the road and have no shipments on this run. Upload a delivery note now.** The message/action opens upload for that run. Keep recorded collection/other stops visible. |
@@ -74,9 +86,27 @@ Run queries, shipments, documents, telemetry and mutations must stay scoped to t
 - Automatically start when the assigned vehicle departs a collection point linked to the run.
 - If the run has no linked collection point, departure from any recognised collection point can be the fallback. Newly prepared runs should use the explicit collection location chosen in Step 3.
 - Retain **Start run** as a manual fallback.
-- Delivering all shipments does not close the run. Dispatch closes it; there is no driver **Finish run** action.
+- Delivering all shipments does not close the run. Dispatch closes it. Driver **End Run** submits a required-reason request for dispatch approval; the run remains active until approved.
 - Arrival at the planned end does not itself close the run. Actual visit events and planned endpoints are different information.
 - Define and verify departure detection, GPS quality, geofence thresholds and backend run-state mappings before implementing automatic start. No specific threshold is prescribed by this design.
+
+### Active-run Actions (1.52)
+
+**Actions** appears beside the timeline filter only for `in_progress` runs. Its shared action sheet contains **End Run**, **Edit Run**, **Add additional cost**, and Cancel. Open the selected form after dismissal. Preserve map, filter, timeline and navigation.
+
+Actions button styling (1.55, implemented locally): use 10-point rounded corners and a thin soft grey `#dedee1` border matching the dashboard separators. iOS simulator appearance verified; Figma header aligned. Android visual verification remains pending.
+
+- **End Run** requires a trimmed nonblank free-text reason (maximum 2,000 characters). **Request approval** records a request without closing the run. Show **End run requested — awaiting dispatch approval** and disable duplicate requests while pending. Rejection displays its reason and permits resubmission. Editing endpoints and adding costs remain available while pending.
+- CRM runs list displays a Pending approval badge; run details show requester, time, reason and unfinished-delivery count. Authorised dispatch users approve only after explicitly confirming closure even with unfinished deliveries, or reject with a required reason. Approval can close an empty or unfinished run, sets `completed`/completion time and preserves shipment/booking statuses, assignments and recorded visits. No email notifications or automatic reassignment. Ordinary completion rules remain unchanged. Other supported closure resolves pending requests.
+- **Edit Run** preloads the selected planned origin/end, with names and addresses. Reuse authorised saved-location/address search. Save both endpoints in one transaction; accept identical endpoints for round trips. Compare the original endpoint IDs under a run lock; stale conflicting edits receive 409 and must be refreshed/reviewed. Expired draft locations require reselection. Never rewrite departure times, physical visits or shipment destinations. Refresh the planned route after saving.
+- **Shared location search (1.75):** Choose final destination and Edit Run planned start/end use `mobile_app/src/components/LocationSearchPicker.tsx`. Start/end search opens with an empty rounded name/address input and no initial result fetch. Keyboard Enter/Search accepts any nonblank query; share routable cards, paginated loading/deduplication, clear/reset, loading/empty/retry states, selection previews and fill-parent keyboard avoidance. Confirm with **Use starting point** or **Use planned end location** to update the edit draft; **Back to endpoints** discards an unconfirmed selection. **Save endpoints** still persists both endpoints together with existing conflict protection. Final destination retains its explicit save action. Implemented locally; mobile TypeScript and focused lint pass, Figma run-action handoff aligned; native iOS/Android interaction, keyboard and dark-theme checks remain pending.
+- **Pinned search (1.76):** In all three shared location pickers, keep the title/close control and rounded search input pinned at the top while results, feedback and pagination scroll underneath. Use an opaque theme-matched sticky header so cards do not show through. Preserve keyboard avoidance, pagination and selection/confirmation behavior. Implemented locally; TypeScript/focused lint pass; native scroll/keyboard verification remains pending.
+- **Add additional cost** requires **Description** (CRM `title`, maximum 255 characters) and **Amount (ZAR)**. Require a positive decimal-string amount with at most two fractional digits. Persist `source=manual`, `currency=ZAR`, actor and a unique retry UUID in the existing run-cost ledger; retries return the prior charge without duplication. No receipts or mobile cost edit/delete flow.
+- Forms use shared keyboard/safe-area-aware sheets, preserve drafts on recoverable errors, disable duplicate saves and reset on driver/run changes. Focus/foreground and successful mutations refresh the dashboard; closure transitions to the next eligible run or no-current-run view.
+- Driver contracts: `POST /driver/runs/{run_uuid}/end-requests` (`reason`); `PATCH /driver/runs/{run_uuid}/endpoints` (both selected endpoint UUIDs and nullable `expected_origin_location_id`/`expected_destination_location_id`); `POST /driver/runs/{run_uuid}/additional-costs` (`title`, decimal-string `amount`, `client_request_id`). Source/currency/geofence overrides are prohibited. All mutations require the active assigned driver and matching account/merchant/environment.
+- CRM contract: `POST /runs/{run_uuid}/end-requests/{request_uuid}/review` with `decision=approved|rejected`, rejection `reason`, and `confirm_early_closure=true` for approval. Review requires existing run-update permission. Lock run/request, reject conflicting decisions and audit changes. Dashboard/run resources expose `end_request`; CRM summaries eager-load the latest request without embedding activity history.
+
+Implementation status: mobile/API/CRM flows are implemented locally, migrations applied to the local development database. Targeted API regressions and Actions TypeScript checks pass. Full mobile and website TypeScript now pass after messaging dependencies and generated routes are available. iOS menu/form handoff, endpoint selection, reason gating, cost validation and cancellation are verified; Android native interaction, CRM authenticated visual review and production deployment remain acceptance gates. [Figma flow handoff](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=131-1445) uses existing component instances and SF Pro; the active-run header and scenario guide are aligned.
 
 ## 4. Map and full planned trip
 
@@ -92,12 +122,17 @@ Use Google map routing for road directions. The full planned trip is:
 - A return to the collection location is valid. Do not reject it merely because the two endpoint locations match.
 - Include shipment stops, the collection point and planned end in the route bounds and distinguish the endpoint roles.
 - Show the truck's current GPS position when known. Do not show the old truck timestamp/status banner when the position is available.
+- Without a current run, show only the assigned truck marker: no shipment pins, planned endpoints, route line, Planned/Recorded switch or route-information control. Resolve position independently through `GET /api/v1/driver/position`; refresh every 30 seconds while the dashboard is focused and foregrounded. Prefer the latest logged-in active truck scoped to the driver's account/merchant, then an unclaimed assigned truck. Never reuse another driver's truck or a closed run as a location fallback.
 - When position is unavailable, show a clear unavailable state; do not fabricate a truck position. Demo coordinates belong only in clearly identified demo data.
 - Put an info icon at the map's bottom right to show/hide route distance and estimated duration. Keep it at the visible map edge as the sheet resizes.
 - Planned-trip distance/time includes collection through to the chosen end. If remaining-trip metrics are also added, label them separately; do not replace the full planned route silently with truck-to-next-stop directions.
 - Missing coordinates must not remove a stop or shipment from the timeline. Keep its address and explain that its position is unavailable; omit its pin until resolved.
 - A Google routing failure must preserve the run and timeline. Show a routing retry/unavailable state rather than treating a straight line as verified road directions.
 - Do not infer that planned endpoints have been visited. Recorded visits and events remain factual history.
+
+Map diagnostics (2026-10-07): development-only `[RunMap]` logs report platform/host, native Google view registration, layout size, ready/loaded events, coordinate availability and directions status. A 15-second missing-event watchdog is a diagnostic, not an SDK error. Do not log credentials, keys, run identifiers or raw GPS data. On the local iOS 26.1 simulator with Expo Go 57.0.9, Google never reported ready/loaded despite nonzero layout, valid truck GPS and ready directions. A temporary Apple Maps comparison rendered the same data; Google remains the configured provider. No Maps authorization error was captured. Verify Google with a rebuilt native app using the configured iOS key and `com.spaces.logistics`; native initialization remains unresolved in this Expo Go host. Screen design and routing behavior are unchanged.
+
+Native map verification setup (2026-10-07): Expo development client and EAS development/device/simulator profiles are configured locally. The unsigned iOS simulator profile will test Google Maps with the app's own native configuration. After explicit user approval, both Maps keys and development API settings are configured on EAS and an Android development build retry is submitted (1fb1ff0a-dd1d-4929-98d8-1f1d3ae3c433). Build completion and successful native Google rendering are not yet verified. Existing map acceptance gates remain pending.
 
 ### Recorded GPS history (1.21)
 
@@ -107,7 +142,7 @@ Admin basemap labels (1.31): use dark slate text with an explicit thin white out
 
 Admin geofence overlay (1.30, implemented locally): a top-left Geofences switch starts on (1.39). Mounting the map automatically fetches each distinct location linked to recorded run stops/activities using the existing authorised location-details endpoint, with at most four requests in flight. Draw only saved polygons, with no centre-radius circles (1.41), in translucent colours from a 12-colour palette. Assign colours by the complete sorted run location-ID list so partial fetches/retries do not shift them; each location’s polygon uses its assigned colour. The palette repeats after 12 locations (1.33, implemented locally). Disabling removes overlays and stops queued loads; ignore late responses. Cache successful responses for this run/auth context and retry failures only. Changing run or auth resets to on. Preserve map viewport, marker filters and replay. Stack controls on narrow screens. These are current saved boundaries, not historical boundary snapshots or every location along the route. No mobile/Figma screen change.
 
-Add **Planned / Recorded** above the map, with Planned selected initially. Planned routing and its distance/time information remain unchanged. Recorded uses a separate lazy route endpoint and the current truck position. Label it **Recorded GPS**; never run directions or road matching to fill missing roads. Break lines across gaps longer than five minutes. Keep explicit loading, empty, stale, disabled and recoverable failure states. Preserve prior data for the same run/window on refresh failure.
+**Temporary mobile visibility (1.59, implemented locally):** hide the **Planned / Recorded** buttons and keep the map in Planned mode. Retain the switch, mode state, Recorded rendering, lazy fetching, refresh and paging for later re-enabling via `SHOW_MAP_MODE_SWITCH` in `RunMap.tsx`. While hidden, Recorded history is not fetched by the mobile map. Figma switch is hidden and the handoff aligned; TypeScript/focused lint verification is recorded in release notes. Native visual verification remains pending. Planned routing and its distance/time information remain unchanged. Recorded uses a separate lazy route endpoint and the current truck position. Label it **Recorded GPS**; never run directions or road matching to fill missing roads. Break lines across gaps longer than five minutes. Keep explicit loading, empty, stale, disabled and recoverable failure states. Preserve prior data for the same run/window on refresh failure.
 
 On mobile, refresh the active run every minute only while Recorded is visible and the app is foregrounded. Stop fetching when hidden/backgrounded. Bound each response to 2,000 displayed coordinates while preserving segment endpoints and stop boundaries; provide Earlier route / Latest route controls on mobile for large histories; admin maps aggregate the bounded pages for trip replay. Older activity-only traces must say **Limited historical data**. No history is embedded in the general dashboard payload.
 
@@ -127,13 +162,15 @@ Admin history loads every available cursor page once when the map first becomes 
 
 Verification: fifteen focused marker/replay tests, website TypeScript and focused lint pass. Browser fixture checks cover desktop/mobile layouts, drag and keyboard replay, movement, stationary delivery context, GPS-gap hiding, Back to latest and marker filtering; no browser console errors. The requested real run requires browser authentication and has not been verified with its live data. A development-only preview at `/dev-run-replay-preview` uses labelled illustrative data and returns not found outside development.
 
-Implementation: migration, ingestion, scoped API and admin/mobile consumers are implemented behind independent recording/display flags, both default off. Figma active-run map includes the default toggle; its scenario guide documents Recorded states and behavior. Native device behavior and production-engine load checks remain rollout gates. See [capture contract, rollout and monitoring](../../vehicle-location-history.md).
+Implementation: migration, ingestion, scoped API and admin/mobile consumers are implemented behind independent recording/display flags, both default off. Figma active-run map retains the temporarily hidden toggle; its scenario handoff documents Planned-only visibility and retained Recorded behavior. Native device behavior and production-engine load checks remain rollout gates. See [capture contract, rollout and monitoring](../../vehicle-location-history.md).
 
 ## 5. Timeline
 
 Replace the single next-delivery card with the current run timeline and a summary of shipment counts. Show all recorded run stops, including collection stops and stops without shipments. Follow recorded chronology, then show outstanding planned delivery stops in run order.
 
-The action-sheet filter beside **Current run** offers:
+Implementation fix (1.51): use the shared Gorhom floating bottom action sheet with dynamic sizing, rounded outlined options, safe-area spacing, optional handle/close controls, Cancel and swipe/backdrop dismissal. Present after populated content commits; run actions after dismissal. A scoped Babel compatibility transform replaces Gorhom references to the removed React Native 0.86 `StyleSheet.absoluteFillObject` alias with `StyleSheet.absoluteFill`, restoring container/background/backdrop layout without editing installed dependencies. This supersedes the 1.50 native-modal workaround and restores the existing intended Figma filter flow. iOS Expo Go simulator verifies the floating card/dimmed backdrop, reopening/selection, both filters and Cancel preserving the filter. TypeScript, focused lint and scoped Babel transform checks pass; Android/web, swipe/backdrop interaction and document-source handoff remain rollout checks.
+
+The **Filter timeline** button sits beside the timeline-entry count below the shipment summary. **Actions** remains beside **Current run**. The filter offers:
 
 | Filter | Includes |
 | --- | --- |
@@ -148,19 +185,23 @@ The action-sheet filter beside **Current run** offers:
 - Opening an event shows the corresponding stop, shipments or speeding details. Returning should retain filter and scroll position.
 - Every filter has a clear empty state. Filtering the timeline must not silently remove locations from the full planned route.
 - When an assigned run has no planned final destination, append a grey flag entry to **All stops** labelled **Planned final destination**, with **Choose final destination**. It is a planning action, not a visited stop or shipment; exclude it from Shipment deliveries and Speeding events. Show it even when there are no recorded stops.
-- The button opens the shared bottom sheet with saved-location/address search, full address preview and **Save final destination**. Save only after explicit selection; allow dismissal without changes and preserve selection on retry. Require authorised, routable locations. Refresh the map route and timeline after saving, replacing the action with the planned end entry. Do not change run status, origin, shipment addresses or recorded visits. A destination saved concurrently must not be overwritten; show a conflict and refresh guidance.
+- The button opens the shared bottom sheet with a fully rounded pill-shaped icon-led name/address search field without a separate Find a location label, an initially empty list with no location fetch and keyboard Enter/Search submission for any non-empty query length, without a separate search button or minimum-length hint, and compact left-aligned location cards with 10-point padding/gaps and a 70-point minimum height under Search results (heading visible only when matches exist), without a Select one to continue hint, with pin icons, distinct name/address typography and chevrons. Selection shows a highlighted flag/check preview, full address, a primary **Save final destination** action and **Choose another location**, without the Your run’s planned end… explanation. Support light/dark themes and keyboard-aware input; the destination sheet expands to fill its safe parent area while the keyboard is shown and restores on blur, keeping search visible; preserve clear loading, empty, retry and disabled states. Search results load in pages of 20 saved locations; nearing the list end appends the next page with a Loading more… indicator inside a reserved 120-point footer with 16-point bottom padding, keeping loading/retry visible at the scroll boundary. Preserve loaded results on page failure with retry, deduplicate by UUID and ignore obsolete searches. Geocoding fallback is a terminal result set. Save only after explicit selection; allow dismissal without changes and preserve selection on retry. Require authorised, routable locations. Refresh the map route and timeline after saving, replacing the action with the planned end entry. Do not change run status, origin, shipment addresses or recorded visits. A destination saved concurrently must not be overwritten; show a conflict and refresh guidance.
 - API: `PATCH /driver/runs/{run_uuid}/final-destination` with `destination_location_id`. The run must still be active/ready and assigned to the authenticated driver. Repeated saving of the same location is idempotent; a different pre-existing destination returns 409.
 
 - Counts refer to shipments, not stop/event rows; a speeding event or planned end does not increase shipment totals.
 
-## 6. Driver document reminders
+## 6. Driver document summaries
 
-After the initial run check finishes, show nonblocking dashboard notices when needed:
+Show required and expired document summaries below the Documents screen header and above the uploaded file list. Do not show either summary card in the dashboard sheet.
 
-- **X required documents need uploading**.
-- **X documents have expired**.
+- Show **You have X required documents to upload** only when the authenticated driver's confirmed `missing_required_count` is greater than zero. Tapping it opens the existing Upload document form.
+- Show **You have X expired documents** only when confirmed `expired_count` is greater than zero, with guidance to review the files below and upload current replacements.
+- Use singular wording for one document; hide each summary at zero or before its first count is known.
+- Keep the red numeric Documents tab badge using the same missing-required count. Active driver file types without an uploaded file remain applicable requirements, including dispatch-managed types; inactive/deleted types are excluded.
 
-Use concise titles and a link to Documents. Do not list all document names in the dashboard notice. The Documents destination provides details and upload/renewal actions. Missing and expired counts must reflect the driver's applicable requirements and expiry dates. Do not add a run-start/upload lock solely because these notices exist; blocking policy is outside this approved plan.
+Share both server counts in the session-scoped mobile provider. Refresh on dashboard return/refresh, Documents return/list refresh, successful upload and app foreground. Clear on session changes, ignore superseded responses and preserve confirmed counts on refresh failure. Missing and expired counts reflect the driver's applicable requirements and expiry dates. Keep summaries nonblocking; do not add a run-start/upload lock.
+
+Implementation (1.49): dashboard cards removed and Documents summaries implemented locally. Shared provider now retains both counts; existing refresh and session guards remain. Figma dashboard examples, Documents destination and scenario notes updated. Mobile TypeScript and focused Documents/provider lint pass; dashboard retains its pre-existing synchronous state-reset lint error. Native layout/upload-refresh verification remains pending.
 
 ## 7. Delivery-note upload journey
 
@@ -270,6 +311,13 @@ Ask **Is this delivery note for your current run or a new run?** after the shipm
 
 ## 8. Implementation handoff
 
+### No-current-run dashboard (1.47)
+
+- Implemented locally: primary upload action and no-run copy match the existing Figma screen; dispatch contact and bottom tabs remain available; document summaries moved to Documents in 1.49. The persistent sheet uses native layout with a draggable/tappable handle and 25/50/92% snap positions, avoiding the invisible initial third-party sheet. Native scrolling retains pull-to-refresh and long content.
+- Truck position no longer requires a run. The new scoped position endpoint uses existing vehicle GPS fields and the same coordinate validation as the run-position endpoint. Missing assignment, missing GPS and request failure have explicit states; no demo position is used at runtime.
+- Existing Figma no-run screen now includes an illustrative truck marker, dispatch contact and a conditional Documents tab badge. The example count is illustrative; runtime uses actual document counts.
+- Verification: 30 driver API regressions (191 assertions) pass. Simulator and final static verification are recorded in the release notes; native active-run/map gestures remain separate acceptance gates.
+
 ### Implemented mobile/API contract (2026-09-16)
 
 - The Expo dashboard now distinguishes initial checking, no run, ready, active, stale/error and awaiting-dispatch states. Existing map/sheet/filter behavior is retained; planned endpoints are included in the map and the planned end appears in All stops.
@@ -321,13 +369,29 @@ These are the implementation entry points. Preserve unrelated local changes and 
 - [x] Scoped admin/assigned-driver track endpoints; bounded windows preserve stop/segment boundaries.
 - [x] Admin run and expanded Run KM maps consume history separately from lists/reports.
 - [x] Admin recorded-map bounds include every located stop and displayed GPS segment; stops remain visible without history and recorded lines preserve gaps (map API fixture verified).
-- [x] Mobile Planned / Recorded UI and foreground/visibility refresh guards implemented.
+- [x] Mobile Planned / Recorded functionality and foreground/visibility refresh guards retained; switch hidden and effective mode forced to Planned while `SHOW_MAP_MODE_SWITCH` is false.
+- [ ] Verify on native devices that both mode buttons are absent and the planned route/truck/route information remain usable.
 - [x] Retry, timestamp, authorization, large-dataset and concurrent-ingestion automated checks.
 - [x] Figma default toggle, scenario notes, this plan and release notes updated.
 - [ ] Native iOS/Android map/toggle/background/network-state interaction verified on a release build.
 - [ ] Production database load, row-lock behavior, indexes, monitoring alerts and storage capacity verified before enabling flags broadly.
 
 ### Acceptance checklist
+
+- [x] Edit Run uses compact themed endpoint cards with inline Change/Choose and clear Save/Cancel; iOS layout reviewed without saving.
+- [x] Secondary Upload delivery note and Contact dispatch rows are removed; no-run primary upload and required-note notice remain.
+- [x] Filter timeline sits beside the timeline-entry count; Actions remains in the Current run heading row.
+- [x] Messages tab unread badge counts received live messages, clears on read and resets between sessions; foreground polling pauses in background.
+- [x] Messages replaces Vehicles in the third tab; Account → Vehicles assigned to me retains assigned-vehicle details and back navigation.
+- [x] Driver chat and normal membership/merchant isolation, private attachments, retry deduplication and closed conversations are covered by focused backend tests.
+- [x] Figma dashboard/scenario navigation and guide agree with the new tabs and account vehicle access.
+- [ ] Verify website chat/member controls in an authenticated browser and production MySQL concurrency under load.
+- [ ] Configure FCM/APNs, rebuild signed clients and verify foreground/background/terminated notification delivery, authorized taps, permission denial and logout on iOS/Android devices.
+
+- [x] No-run truck location is available through a driver/account/merchant-scoped endpoint without an active run; invalid GPS and other drivers' vehicles are excluded by regression tests.
+- [x] Native simulator verifies the visible persistent sheet, initial loading/error states, five tabs, 25/50/92% resizing and handle drag.
+- [x] Local pending migrations applied; `vehicle_activity.geofence_cleanup_batch_uuid` exists and simulator dashboard retry loads the current run and five-required-documents notice.
+- [ ] Verify live no-run truck GPS and notification/upload/dispatch actions with a driver without a current run; the simulator's current driver has an active run.
 
 - [x] Coincident map events share one visible pin; all details remain accessible, filters reveal remaining types and nearby distinct positions remain separate.
 
@@ -366,7 +430,9 @@ These are the implementation entry points. Preserve unrelated local changes and 
 - [ ] Sheet positions work at 25/50/92%; map never shrinks below 50%; content and safe areas remain usable.
 - [x] All stops, Shipment deliveries and Speeding events contain the correct events and empty states.
 - [x] Counts exclude non-shipment events; multi-shipment visits and missing coordinates remain understandable.
-- [x] Required/expired document notices are concise and navigate to Documents.
+- [x] Required/expired summaries appear below the Documents header; neither card appears on the dashboard. Required notice opens Upload document; expired guidance points to the files below.
+- [x] API summaries distinguish missing requirements, completed uploads and no configured driver document types (2 regression tests, 10 assertions).
+- [ ] Visually verify Documents required summary and tab badge share the count, disappear at zero, refresh after uploads/foreground, and clear across driver sessions on native devices.
 - [ ] Choose/Change document opens Photo, File, Camera and Cancel; each source invokes its corresponding native picker/camera, with cancellation and permission recovery preserving draft state.
 - [x] Valid selection is required before Step 1 Continue; no recent uploads appear.
 - [x] Steps run in order: upload → reading → confirm locations → confirm/edit shipments → choose current/new run → completed.
@@ -395,13 +461,63 @@ These are the implementation entry points. Preserve unrelated local changes and 
 - [x] Missing vehicle, no extracted shipments, invalid fields, AI failure and submission failure are recoverable.
 - [x] Double taps and uncertain retries do not create duplicate shipments/runs or empty runs.
 - [x] Success returns to the correct run with updated counts, timeline, trip endpoints and route.
-- [x] Automatic start, manual fallback and dispatch-only closure are verified against real backend behaviour.
+- [x] Automatic start, manual fallback and dispatch-only closure remain covered by backend regressions; driver End Run requests approval rather than closing directly.
+- [x] Active-run Actions, required reasons, pending/rejected state, early dispatch approval and idempotent decisions have API coverage.
+- [x] Actions button has 10-point rounded corners and a thin soft grey border; iOS simulator and Figma appearance reviewed.
+- [x] Atomic endpoint changes enforce scope, round trips, stale-edit conflicts, expired selections and rollback; existing route keys refresh planned directions.
+- [x] Manual ZAR costs validate exact decimal values and prevent duplicate retries.
+- [ ] Verify CRM runs badge/review UI with authenticated dispatch, Android native form/keyboard handoff and production database concurrency.
+- [ ] Verify foreground dispatch-approval refresh and next/no-run transition on native devices.
+- [ ] Bottom action sheet opens/reopens with selected state, filters timeline correctly, cancels without changes and dismisses by swipe/backdrop; verify Android/web and document-source picker handoff.
 - [ ] README, Figma, tests, implementation status and release notes agree before completion.
+
+Edit Run presentation (1.72, implemented locally): show compact bordered start/end cards with map/flag markers, inline Change/Choose buttons and distinct name/address text. Use a soft context notice, rounded primary Save endpoints and neutral Cancel. Preserve endpoint validation, optimistic conflict checks and existing selection behavior. iOS layout reviewed without saving; Android/dark-theme verification pending.
+
+Additional cost presentation (1.74, implemented locally): use a soft expense notice, rounded themed description and amount inputs, an example expense placeholder, a prominent amount with an R prefix and cents hint, and red focus borders. Retain Description and Amount (ZAR) labels, the 255-character description limit, exact positive-decimal validation and retry protection. Use a rounded plus/Add cost action with a saving indicator and no bottom Cancel button; dismiss with the header close control, backdrop or swipe. Lock inputs and dismissal while saving. Existing Figma cost-sheet examples and native handoff are aligned. Mobile TypeScript and focused lint pass; native keyboard/layout and dark-theme verification remain pending.
+
+- [x] Additional cost form uses themed rounded inputs, explicit rand currency styling and a single Add cost action without a bottom Cancel button; Figma examples/handoff aligned.
+- [ ] Verify additional cost field focus, large text, keyboard visibility, saving/error states and light/dark appearance on native iOS/Android.
+
+- [x] Final destination and Edit Run start/end share one location-search component with keyboard search, paginated cards and explicit selection confirmation.
+- [ ] Verify shared start/end search, pagination, clear/retry, preview/back and endpoint-save behavior on native iOS/Android in light/dark themes.
+
+- [x] Shared location pickers pin the title and search input above scrolling result content.
+- [ ] Verify pinned input during long-list scrolling and keyboard use on iOS/Android in light/dark themes.
 
 ## 9. Revision history
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-08 | 1.76 | Pin the shared location search input and sheet title above scrolling result cards using an opaque themed sticky header. Preserve search, pagination and confirmation. Implemented locally; TypeScript/focused lint pass; native scroll/keyboard verification pending. |
+| 2026-10-08 | 1.75 | Extract final-destination search into LocationSearchPicker and reuse it for Edit Run planned start/end, including keyboard search, pagination and previews. Preserve atomic endpoint save/conflict checks. Implemented locally; TypeScript/focused lint pass, Figma handoff aligned; native verification pending. |
+| 2026-10-08 | 1.74 | Remove the additional-cost form’s bottom Cancel button; retain header close, backdrop/swipe dismissal and save protection. App/Figma aligned; focused lint and diff checks pass. |
+| 2026-10-08 | 1.73 | Improve the additional cost form with themed rounded fields, expense placeholder/notice, prominent rand amount, cents guidance, focus styling and clear Add cost/Cancel. Implemented locally; TypeScript/focused lint and Figma layout checks pass; native keyboard/layout and dark-theme checks pending. |
+| 2026-10-08 | 1.72 | Redesign Edit Run with compact themed endpoint cards, map/flag icons, inline Change/Choose actions, concise context notice and clear Save/Cancel. Implemented locally; iOS layout reviewed without saving, TypeScript/focused lint pass; Android/dark-theme checks pending. |
+| 2026-10-08 | 1.71 | Remove the planned-end explanatory sentence from the selected destination preview. Implemented locally; selection/save actions retained and targeted diff verified. |
+| 2026-10-08 | 1.70 | Reserve destination pagination footer space before loading so Loading more… and retry remain visible at the list end. Implemented locally; focused verification recorded in release notes. |
+| 2026-10-08 | 1.69 | Paginate saved destination search matches and append pages near the scroll end with Loading more… and retry. Implemented locally; focused verification recorded in release notes. |
+| 2026-10-08 | 1.68 | Enable fill-parent keyboard avoidance for destination search with safe top clearance and restore-on-blur. Implemented locally; physical Android keyboard verification pending. |
+| 2026-10-08 | 1.67 | Add 16 points of Android floating-sheet clearance beyond the bottom system safe area, including ActionSheet; bound dynamic height accordingly. Implemented locally; physical Android verification pending. |
+| 2026-10-07 | 1.66 | Show locations only after search, with Search results heading only for non-empty matches. Clear/empty submissions reset results; no-match feedback follows searches only. Implemented locally; focused verification recorded in release notes. |
+| 2026-10-07 | 1.65 | Reduce final-destination card padding/gaps to 10 points and minimum height to 70 points. Implemented locally; targeted diff verified. |
+| 2026-10-07 | 1.64 | Remove destination search minimum-length hint and accept one-character searches in client/API. Empty submission restores saved locations. Implemented locally; focused verification recorded in release notes. |
+| 2026-10-07 | 1.63 | Make the final-destination search field fully rounded. Implemented locally; search behavior unchanged and targeted diff verified. |
+| 2026-10-07 | 1.62 | Remove Select one to continue from the destination list heading; retain selectable location cards. Implemented locally; targeted diff verified. |
+| 2026-10-07 | 1.61 | Remove the redundant Find a location label from the final-destination picker; retain input placeholder/accessibility and keyboard search. Implemented locally; targeted diff verified. |
+| 2026-10-07 | 1.60 | Remove the final-destination search button; submit location search using the keyboard Enter/Search key with the existing three-character minimum. Implemented locally; TypeScript/focused lint verified. |
+| 2026-10-07 | 1.59 | Temporarily hide mobile Planned / Recorded buttons and force Planned while retaining all Recorded functionality. Figma switch/handoff aligned; native visual verification pending. |
+| 2026-10-07 | 1.58 | Redesign the final-destination sheet with searchable location cards and a highlighted selection/save preview. Implemented locally; iOS list/selection/return verified without saving, TypeScript/focused lint pass; Android/dark-theme/device keyboard checks pending. |
+| 2026-10-07 | 1.57 | Remove the dashboard secondary Upload delivery note and Contact dispatch rows, retaining contextual upload actions. Implemented locally; Figma handoff aligned. |
+| 2026-10-07 | 1.56 | Move Filter timeline beside the entry count and retain Actions beside Current run. Implemented locally; filter behavior unchanged; Figma active-run handoff aligned. |
+| 2026-10-07 | 1.55 | Round the active-run Actions button to 10 points and use the dashboard's soft grey border. Implemented locally and verified in the iOS simulator; Figma aligned. Android visual verification pending. |
+| 2026-10-07 | 1.54 | Add the Expo Messages unread count badge, driver-only unread summary endpoint and session-safe foreground refresh. Implemented locally; physical-device verification remains pending. |
+| 2026-10-07 | 1.53 | Replace Vehicles with Messages; move assigned fleet under Account. Add merchant-scoped driver chats, member-based normal chats, private attachments, website inbox and queued Expo notifications. Implemented locally; Figma navigation aligned; platform credentials/builds and production verification pending. |
+| 2026-10-07 | 1.52 | Add active-run Actions: reasoned dispatch closure requests/review, atomic planned endpoint edits and retry-safe Manual ZAR costs. Mobile/API/CRM implemented locally; Figma flows/guide aligned, targeted regressions pass; Android/CRM visual and production verification pending. |
+| 2026-10-07 | 1.51 | Restore the requested Gorhom bottom action sheet, outlined options and optional controls; fix React Native 0.86 absolute-fill compatibility at build time. Existing Figma bottom-sheet flow retained. |
+| 2026-10-07 | 1.50 | Restore visible All stops action-menu presentation through a native modal card; preserve existing filter flow and Figma design. iOS filter/reopen/cancel checks pass; Android/web verification pending. |
+| 2026-10-07 | 1.49 | Move required/expired summary cards from dashboard to Documents; retain required tab badge and share both confirmed server counts with session/stale-response guards. Figma examples and guide aligned; native visual verification pending. |
+| 2026-10-07 | 1.48 | Share the driver-required-document count between the dashboard notice and a red Documents tab badge; hide both at zero/unknown and refresh after uploads, dashboard return and foreground. Existing API count regressions pass; Figma examples/notes aligned. Native visual verification pending. |
+| 2026-10-07 | 1.47 | Implement the existing no-run dashboard with a primary upload action and independent truck GPS lookup; restore persistent-sheet layout. Keep document reminders, dispatch contact and bottom tabs. Existing Figma screen aligned; 30 API regressions pass. Local migrations subsequently applied and simulator dashboard loads successfully; live no-run acceptance remains pending. |
 | 2026-09-23 | 1.46 | Group exact-coordinate run-map pins, retain popup events/replay and update filtered pin counts. Automated checks pass; live visual verification pending. Figma unchanged. |
 | 2026-09-22 | 1.45 | Track all containing polygons independently; run entry/exit automation per location and retain duplicate prevention. Simulator prefers requested open visit. Local regressions cover nested and overlapping fences; live verification pending. Figma unchanged. |
 | 2026-09-22 | 1.44 | Optimize cleanup audits with bounded evidence reuse, lookup indexes and progress counts. Fresh apply/restore validation retained; production timing remains unverified. Figma unchanged. |

@@ -31,6 +31,7 @@ class RunService
         $query = Run::query()
             ->with([
                 'additionalCosts',
+                'latestEndRequest.requester', 'latestEndRequest.reviewer',
                 'merchant',
                 'environment',
                 'driver.user',
@@ -57,6 +58,7 @@ class RunService
                 'driver.user',
                 'vehicle',
                 'additionalCosts:id,run_id,currency,amount',
+                'latestEndRequest.requester', 'latestEndRequest.reviewer',
                 'originLocation',
                 'destinationLocation',
                 'runShipments.shipment.pickupLocation',
@@ -432,6 +434,10 @@ class RunService
         }
 
         return DB::transaction(function () use ($run, $odometerEndKm) {
+            $run = Run::whereKey($run->id)->lockForUpdate()->firstOrFail();
+            if ($run->status !== Run::STATUS_IN_PROGRESS) {
+                throw new ConflictHttpException('Only in-progress runs can be completed.');
+            }
             $runShipments = $run->runShipments()
                 ->with('shipment')
                 ->where('status', '!=', RunShipment::STATUS_REMOVED)
@@ -561,6 +567,7 @@ class RunService
     {
         $run->load([
             'additionalCosts',
+            'latestEndRequest.requester', 'latestEndRequest.reviewer',
             'merchant',
             'environment',
             'driver.user',

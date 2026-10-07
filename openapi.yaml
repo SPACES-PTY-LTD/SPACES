@@ -545,7 +545,148 @@ components:
           type: string
         signed_by:
           type: string
+    ChatAttachment:
+      type: object
+      properties:
+        attachment_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        filename:
+          type: string
+          nullable: true
+        mime_type:
+          type: string
+          nullable: true
+        size:
+          type: integer
+          nullable: true
+    ChatMessage:
+      type: object
+      properties:
+        message_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        sender_name:
+          type: string
+        type:
+          type: string
+        temporary_id:
+          type: string
+          nullable: true
+        body:
+          type: string
+          nullable: true
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatAttachment'
+    ConversationMember:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          type: string
+          enum:
+            - owner
+            - member
+        state:
+          type: string
+          enum:
+            - active
+            - removed
+        last_read_at:
+          type: string
+          format: date-time
+          nullable: true
+    Conversation:
+      type: object
+      properties:
+        conversation_id:
+          type: string
+          format: uuid
+        merchant_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - driver
+            - normal
+        driver_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum:
+            - active
+            - closed
+        is_private:
+          type: boolean
+        can_manage:
+          type: boolean
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationMember'
+        latest_message:
+          $ref: '#/components/schemas/ChatMessage'
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
 paths:
+  /driver/trip-locations/search:
+    post:
+      summary: Search routable locations for the authenticated driver
+      description: Saved matches are merchant/account scoped and paginated in ID order, 20 per page. Geocoding fallback returns a terminal first-page set.
+      tags: [Driver]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                page:
+                  type: integer
+                  minimum: 1
+                  default: 1
+      responses:
+        '200':
+          description: Location array in data and nullable next_page in meta
+        '422':
+          description: Invalid query or page
+        '503':
+          description: Address search unavailable
   /auth/register:
     post:
       summary: Register user
@@ -2029,3 +2170,779 @@ paths:
       responses:
         '200':
           description: OK
+
+  /conversations:
+    get:
+      summary: List authorized merchant conversations
+      tags:
+        - Conversations
+      parameters:
+        - in: query
+          name: merchant_id
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: per_page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Conversation'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+    post:
+      summary: Create a normal conversation and its members
+      tags:
+        - Conversations
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Conversation'
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Conversation'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - merchant_id
+                - title
+                - member_ids
+              properties:
+                merchant_id:
+                  type: string
+                  format: uuid
+                title:
+                  type: string
+                  maxLength: 255
+                description:
+                  type: string
+                  nullable: true
+                  maxLength: 10000
+                member_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: string
+                    format: uuid
+  /conversations/driver/unread:
+    get:
+      summary: Get the authenticated driver's received unread message count
+      description: Excludes outgoing messages and deleted messages/conversations. Does not create a conversation.
+      tags:
+        - Conversations
+      responses:
+        '200':
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [unread_count]
+                        properties:
+                          unread_count:
+                            type: integer
+                            minimum: 0
+        '403':
+          description: Authenticated user is not an authorized driver
+  /conversations/driver:
+    post:
+      summary: Get or create a single driver conversation
+      tags:
+        - Conversations
+      parameters: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Conversation'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: []
+              properties:
+                merchant_id:
+                  type: string
+                  format: uuid
+                  description: Required for staff; derived from authenticated profile for drivers.
+                driver_id:
+                  type: string
+                  format: uuid
+                  description: Required for staff; ignored for authenticated drivers.
+  /conversations/participants:
+    get:
+      summary: Search eligible normal-conversation members as merchant staff
+      tags:
+        - Conversations
+      parameters:
+        - in: query
+          name: merchant_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: search
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            user_id:
+                              type: string
+                              format: uuid
+                            name:
+                              type: string
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+  /conversations/{conversation_uuid}:
+    get:
+      summary: Show an authorized conversation
+      tags:
+        - Conversations
+      parameters:
+        - in: path
+          name: conversation_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Conversation'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+    patch:
+      summary: Manage conversation title, description or closure
+      tags:
+        - Conversations
+      parameters:
+        - in: path
+          name: conversation_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Conversation'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: []
+              properties:
+                title:
+                  type: string
+                  maxLength: 255
+                description:
+                  type: string
+                  nullable: true
+                  maxLength: 10000
+                status:
+                  type: string
+                  enum:
+                    - active
+                    - closed
+  /conversations/{conversation_uuid}/members:
+    post:
+      summary: Add or restore a normal-conversation member as owner
+      tags:
+        - Conversations
+      parameters:
+        - in: path
+          name: conversation_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Conversation'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+  /conversations/{conversation_uuid}/members/{user_uuid}:
+    delete:
+      summary: Remove a normal-conversation member as owner
+      tags:
+        - Conversations
+      parameters:
+        - in: path
+          name: conversation_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: user_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Conversation'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+  /conversations/{conversation_uuid}/messages:
+    get:
+      summary: Read a chronological message page; meta.next_before is the next cursor
+      tags:
+        - Conversations
+      parameters:
+        - in: path
+          name: conversation_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: before
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: per_page
+          required: false
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ChatMessage'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+    post:
+      summary: Send text/files with retry deduplication; closed conversations return 409
+      tags:
+        - Conversations
+      parameters:
+        - in: path
+          name: conversation_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChatMessage'
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChatMessage'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - temporary_id
+              properties:
+                temporary_id:
+                  type: string
+                  maxLength: 255
+                body:
+                  type: string
+                  maxLength: 10000
+                attachments:
+                  type: array
+                  maxItems: 5
+                  items:
+                    type: string
+                    format: binary
+                    description: Maximum 20 MB per file.
+          application/json:
+            schema:
+              type: object
+              required:
+                - temporary_id
+              properties:
+                temporary_id:
+                  type: string
+                  maxLength: 255
+                body:
+                  type: string
+                  maxLength: 10000
+  /conversations/{conversation_uuid}/read:
+    post:
+      summary: Mark displayed history read through this message
+      tags:
+        - Conversations
+      parameters:
+        - in: path
+          name: conversation_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          read:
+                            type: boolean
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message_id
+              properties:
+                message_id:
+                  type: string
+                  format: uuid
+  /conversations/{conversation_uuid}/attachments/{attachment_uuid}/download:
+    get:
+      summary: Authorize a private attachment and return a five-minute URL
+      tags:
+        - Conversations
+      parameters:
+        - in: path
+          name: conversation_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: attachment_uuid
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          url:
+                            type: string
+                            format: uri
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        nullable: true

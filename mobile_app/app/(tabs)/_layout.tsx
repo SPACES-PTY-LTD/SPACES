@@ -4,8 +4,19 @@ import React from 'react';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAuth } from '@/src/providers/auth-provider';
+import { RequiredDocumentsProvider, useRequiredDocuments } from '@/src/providers/required-documents-provider';
+
+import { UnreadMessagesProvider, useUnreadMessages } from '@/src/providers/unread-messages-provider';
 
 export default function TabLayout() {
+  const { session } = useAuth();
+  return <RequiredDocumentsProvider key={session?.token ?? 'signed-out'}><UnreadMessagesProvider><TabNavigator /></UnreadMessagesProvider></RequiredDocumentsProvider>;
+}
+
+function TabNavigator() {
+  const { count } = useRequiredDocuments();
+  const { count: unreadCount } = useUnreadMessages();
   const { colorScheme } = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
 
@@ -36,16 +47,22 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="vehicles"
+        name="messages"
         options={{
-          title: 'Vehicles',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="car.fill" color={color} />,
+          title: 'Messages',
+          tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#F54A4A', color: '#FFFFFF' },
+          tabBarAccessibilityLabel: unreadCount > 0 ? `Messages, ${unreadCount} unread messages` : 'Messages',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="documents"
         options={{
           title: 'Documents',
+          tabBarBadge: count != null && count > 0 ? count : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#F54A4A', color: '#FFFFFF' },
+          tabBarAccessibilityLabel: count != null && count > 0 ? `Documents, ${count} required ${count === 1 ? 'document' : 'documents'} to upload` : 'Documents',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="folder.fill" color={color} />,
         }}
       />

@@ -254,7 +254,7 @@ export default function ShipmentScanScreen() {
                   keyboardType="number-pad"
                   placeholder="Current kilometres"
                   placeholderTextColor={isDarkMode ? '#71717A' : '#A8A29E'}
-                  className="bg-input text-input-foreground mt-3 rounded-[18px] px-4 py-4 text-base"
+                  className="bg-input text-input-foreground mt-3 rounded-[9px] px-4 py-4 text-base"
                 />
               </View>
             ) : null}

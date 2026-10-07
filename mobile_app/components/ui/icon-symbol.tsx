@@ -17,6 +17,7 @@ const MAPPING = {
   'house.fill': 'home',
   'tray.full.fill': 'inventory',
   'car.fill': 'directions-car',
+  'bubble.left.and.bubble.right.fill': 'chat',
   'folder.fill': 'folder',
   'person.fill': 'person',
   'paperplane.fill': 'send',

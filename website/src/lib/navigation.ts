@@ -115,6 +115,12 @@ export const adminNavGroups: NavGroup[] = [
         icon: Waypoints,
       },
       {
+        title: "Messages",
+        href: "/admin/messages",
+        icon: MessageSquareText,
+        roles: ["user", "super_admin"],
+      },
+      {
         title: "Drivers",
         href: AdminLinks.drivers,
         icon: FileUser

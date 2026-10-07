@@ -62,6 +62,23 @@ Route::prefix('v1')->group(function () {
 
     Route::post('webhooks/carriers/{carrier_code}', [CarrierWebhookController::class, 'handle']);
 
+    Route::middleware(['auth.api', \App\Http\Middleware\ConversationApiErrors::class])->prefix('conversations')->group(function () {
+        $controller = \App\Http\Controllers\Api\V1\ConversationController::class;
+        Route::get('/', [$controller, 'index']);
+        Route::post('/', [$controller, 'store']);
+        Route::post('/driver', [$controller, 'driver']);
+        Route::get('/driver/unread', [$controller, 'driverUnread']);
+        Route::get('/participants', [$controller, 'participants']);
+        Route::get('/{conversation_uuid}', [$controller, 'show']);
+        Route::patch('/{conversation_uuid}', [$controller, 'update']);
+        Route::post('/{conversation_uuid}/members', [$controller, 'addMember']);
+        Route::delete('/{conversation_uuid}/members/{user_uuid}', [$controller, 'removeMember']);
+        Route::get('/{conversation_uuid}/messages', [$controller, 'messages']);
+        Route::post('/{conversation_uuid}/messages', [$controller, 'send'])->middleware('throttle:30,1');
+        Route::post('/{conversation_uuid}/read', [$controller, 'read']);
+        Route::get('/{conversation_uuid}/attachments/{attachment_uuid}/download', [$controller, 'download']);
+    });
+
     Route::middleware('auth.api')->group(function () {
         Route::get('me', [MeController::class, 'show']);
         Route::patch('me', [MeController::class, 'updateProfile']);
@@ -194,6 +211,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('runs/{run_uuid}/shipments/{shipment_uuid}', [RunController::class, 'detachShipment']);
         Route::post('runs/{run_uuid}/dispatch', [RunController::class, 'dispatch']);
         Route::post('runs/{run_uuid}/start', [RunController::class, 'start']);
+        Route::post('runs/{run_uuid}/end-requests/{request_uuid}/review', [\App\Http\Controllers\Api\V1\RunEndRequestController::class, 'review']);
         Route::post('runs/{run_uuid}/complete', [RunController::class, 'complete']);
 
         Route::get('bookings', [BookingController::class, 'index'])->middleware('merchant.context');
@@ -346,6 +364,10 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('role:driver')->prefix('driver')->group(function () {
+            Route::post('runs/{run_uuid}/end-requests', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'requestEnd']);
+            Route::patch('runs/{run_uuid}/endpoints', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'endpoints']);
+            Route::post('runs/{run_uuid}/additional-costs', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'cost']);
+            Route::get('position', [\App\Http\Controllers\Api\V1\DriverRunPositionController::class, 'current'])->middleware('throttle:30,1');
             Route::get('runs/{run_uuid}/track', [\App\Http\Controllers\Api\V1\RunTrackController::class, 'driver'])->middleware('throttle:30,1');
             Route::get('runs/{run_uuid}/position', \App\Http\Controllers\Api\V1\DriverRunPositionController::class)->middleware('throttle:30,1');
             Route::get('runs/{run_uuid}/directions', \App\Http\Controllers\Api\V1\DriverRunDirectionsController::class)->middleware('throttle:30,1');

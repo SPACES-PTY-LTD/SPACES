@@ -1,7 +1,7 @@
 import { MessageSheet, type MessageSheetRef } from './MessageSheet';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { TouchableOpacity, StyleSheet } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BottomSheet } from './BottomSheet';
 import { Text } from './Text';
@@ -19,6 +19,8 @@ export type ActionSheetConfig = {
   title?: string;
   actions: ActionSheetAction[];
   accessibilityLabel?: string;
+  showCloseButton?: boolean;
+  showHandle?: boolean;
   onDismiss?: () => void;
   onError?: (error: unknown) => void;
 };
@@ -38,11 +40,17 @@ export const ActionSheet = forwardRef<ActionSheetRef>(function ActionSheet(_, re
       if (running.current) return;
       selected.current = null;
       setConfig(next);
-      requestAnimationFrame(() => modalRef.current?.present());
     },
     dismiss: () => modalRef.current?.dismiss(),
   }), []);
-  return <><BottomSheet modalRef={modalRef} title={config?.title} accessibilityLabel={config?.accessibilityLabel || 'Actions'} scrollable={(config?.actions.length || 0) > 5} onDismiss={() => {
+  // Present after the updated options have committed so dynamic sizing can
+  // measure the populated sheet, including the first time it opens.
+  useEffect(() => {
+    if (!config) return;
+    const frame = requestAnimationFrame(() => modalRef.current?.present());
+    return () => cancelAnimationFrame(frame);
+  }, [config]);
+  return <><BottomSheet modalRef={modalRef} title={config?.title} showCloseButton={config?.showCloseButton ?? false} showHandle={config?.showHandle ?? false} accessibilityLabel={config?.accessibilityLabel || 'Actions'} scrollable={(config?.actions.length || 0) > 5} onDismiss={() => {
     const action = selected.current;
     selected.current = null;
     const previous = config;
@@ -54,15 +62,15 @@ export const ActionSheet = forwardRef<ActionSheetRef>(function ActionSheet(_, re
       else errorSheet.current?.present('Unable to complete action', error instanceof Error ? error.message : 'Please try again.');
     }).finally(() => { running.current = false; });
   }}>
-    {config?.actions.map(action => <Pressable key={action.id} disabled={action.disabled} accessibilityRole="button" accessibilityLabel={action.label} accessibilityHint={action.accessibilityHint} accessibilityState={{ disabled: Boolean(action.disabled), selected: action.selected }} onPress={() => {
+    {config?.actions.map(action => <TouchableOpacity key={action.id} disabled={action.disabled} accessibilityRole="button" accessibilityLabel={action.label} accessibilityHint={action.accessibilityHint} accessibilityState={{ disabled: Boolean(action.disabled), selected: action.selected }} onPress={() => {
       if (action.disabled || running.current) return;
       running.current = true;
       selected.current = action;
       modalRef.current?.dismiss();
-    }} style={[styles.action, { backgroundColor: action.variant === 'destructive' ? '#dc2626' : dark ? '#27272a' : '#f4f4f5', opacity: action.disabled ? 0.45 : 1 }]}>
+    }} style={[styles.action, { backgroundColor: action.variant === 'destructive' ? '#dc2626' : dark ? '#18181b' : '#ffffff', borderWidth: 1, borderColor: action.variant === 'destructive' ? '#dc2626' : dark ? '#3f3f46' : '#e4e4e7', opacity: action.disabled ? 0.45 : 1 }]}>
       <Text style={[styles.label, { color: action.variant === 'destructive' || dark ? '#fff' : '#18181b' }]}>{action.selected ? `✓  ${action.label}` : action.label}</Text>
-    </Pressable>)}
-    <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={() => modalRef.current?.dismiss()} style={styles.action}><Text style={[styles.label, { color: dark ? '#fff' : '#18181b' }]}>Cancel</Text></Pressable>
+    </TouchableOpacity>)}
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cancel" onPress={() => modalRef.current?.dismiss()} style={styles.action}><Text style={[styles.label, { color: dark ? '#fff' : '#18181b' }]}>Cancel</Text></TouchableOpacity>
   </BottomSheet><MessageSheet ref={errorSheet} /></>;
 });
 const styles = StyleSheet.create({

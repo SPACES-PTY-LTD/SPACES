@@ -44,6 +44,43 @@ class DriverDocumentImportTest extends TestCase
             'path' => 'test.png', 'original_name' => 'test.png', 'mime_type' => 'image/png', 'size_bytes' => 10, 'extracted_data' => $this->draft()]);
     }
 
+    public function test_location_search_accepts_a_single_character_and_keeps_merchant_scope(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $location = \App\Models\Location::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'address_line_1' => 'Alpha Street', 'city' => 'Johannesburg', 'province' => 'Gauteng', 'post_code' => '2196', 'name' => 'A Depot', 'full_address' => 'Alpha Street', 'latitude' => -26.2, 'longitude' => 28.0]);
+        [$otherUser, $otherMerchant] = $this->createDriverContext();
+        \App\Models\Location::create(['account_id' => $otherMerchant->account_id, 'merchant_id' => $otherMerchant->id,
+            'address_line_1' => 'Alpha Street', 'city' => 'Johannesburg', 'province' => 'Gauteng', 'post_code' => '2196', 'name' => 'A Other Depot', 'latitude' => -26.2, 'longitude' => 28.0]);
+        Http::fake();
+        $this->apiAs($user)->postJson('/api/v1/driver/trip-locations/search', ['query' => 'A'])
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.location_id', $location->uuid);
+        Http::assertNothingSent();
+    }
+
+    public function test_location_search_paginates_saved_matches_without_duplicates_or_geocoding_later_pages(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $ids = [];
+        for ($i = 0; $i < 41; $i++) {
+            $location = \App\Models\Location::create(array_merge($this->draft()['pickup_address'], [
+                'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+                'name' => 'Paged depot '.$i, 'latitude' => -26.1, 'longitude' => 28.1,
+            ]));
+            $ids[] = $location->uuid;
+        }
+        Http::fake();
+        $found = [];
+        foreach ([1 => 20, 2 => 20, 3 => 1, 4 => 0] as $page => $count) {
+            $response = $this->apiAs($user)->postJson('/api/v1/driver/trip-locations/search', ['query' => 'Paged', 'page' => $page])
+                ->assertOk()->assertJsonCount($count, 'data')->assertJsonPath('meta.next_page', $page < 3 ? $page + 1 : null);
+            $found = array_merge($found, array_column($response->json('data'), 'location_id'));
+        }
+        $this->assertSame($ids, $found);
+        Http::assertNothingSent();
+        $this->apiAs($user)->postJson('/api/v1/driver/trip-locations/search', ['query' => 'Paged', 'page' => 0])->assertUnprocessable();
+    }
+
     public function test_analysis_creates_nothing_and_confirmation_attaches_all_dates_and_is_idempotent(): void
     {
         $this->travelTo(\Carbon\Carbon::parse('2026-09-14 23:30:00', 'UTC'));

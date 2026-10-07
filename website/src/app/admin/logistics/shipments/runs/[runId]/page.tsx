@@ -1,3 +1,4 @@
+import { RunEndReview } from "@/components/runs/run-end-review"
 import { AdditionalCosts } from "@/components/costs/additional-costs"
 import Link from "next/link"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
@@ -93,6 +94,7 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
         actions={<StatusBadge status={run.status ?? "unknown"} />}
       />
 
+      {run.end_request && <RunEndReview key={run.end_request.request_id + run.end_request.status} runId={run.run_id} request={run.end_request} canReview={run.can_review_end_request === true} accessToken={session.accessToken} unfinished={Math.max(0, (stats?.shipment_count ?? run.shipment_count ?? 0) - (stats?.completed_shipments ?? 0) - (stats?.failed_shipments ?? 0))} />}
       <RunActualMap tripStart={run.started_at} tripEnd={run.completed_at} runId={run.run_id} accessToken={session.accessToken} stops={run.actual_stops ?? []} activities={run.stops} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

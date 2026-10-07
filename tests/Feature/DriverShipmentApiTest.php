@@ -57,6 +57,54 @@ class DriverShipmentApiTest extends TestCase
         $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($other))->assertOk()->assertJsonCount(0, 'data.recorded_stops');
     }
 
+    public function test_driver_position_works_without_a_run_and_is_scoped_to_the_driver(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $vehicle->update(['last_location_address' => ['latitude' => '-26.15', 'longitude' => '28.04'], 'location_updated_at' => now()]);
+        $this->getJson('/api/v1/driver/position', $this->driverAuthHeaders($user))->assertOk()
+            ->assertJsonPath('data.vehicle_id', $vehicle->uuid)
+            ->assertJsonPath('data.coordinate.latitude', -26.15)->assertJsonPath('data.coordinate.longitude', 28.04)
+            ->assertJsonPath('data.updated_at', $vehicle->location_updated_at->toIso8601String());
+        [$other] = $this->createDriverContext($merchant);
+        $this->getJson('/api/v1/driver/position', $this->driverAuthHeaders($other))->assertOk()
+            ->assertJsonPath('data.vehicle_id', null)->assertJsonPath('data.coordinate', null);
+        $vehicle->update(['last_location_address' => ['latitude' => 91, 'longitude' => 28]]);
+        $this->getJson('/api/v1/driver/position', $this->driverAuthHeaders($user))->assertOk()->assertJsonPath('data.coordinate', null);
+        $vehicle->update(['last_location_address' => ['latitude' => 0, 'longitude' => 0]]);
+        $this->getJson('/api/v1/driver/position', $this->driverAuthHeaders($user))->assertOk()->assertJsonPath('data.coordinate.latitude', 0);
+    }
+
+    public function test_driver_position_uses_an_unclaimed_assignment_but_not_another_drivers_truck(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        [$other] = $this->createDriverContext($merchant);
+        $vehicle = $this->createVehicle($merchant, $other->driver);
+        $user->driver->vehicles()->attach($vehicle);
+        $headers = $this->driverAuthHeaders($user);
+        $this->getJson('/api/v1/driver/position', $headers)->assertOk()->assertJsonPath('data.vehicle_id', null);
+        $vehicle->update(['last_driver_id' => null]);
+        $this->getJson('/api/v1/driver/position', $headers)->assertOk()->assertJsonPath('data.vehicle_id', $vehicle->uuid);
+        [, $foreignMerchant] = $this->createDriverContext();
+        $vehicle->update(['merchant_id' => $foreignMerchant->id]);
+        $this->getJson('/api/v1/driver/position', $headers)->assertOk()->assertJsonPath('data.vehicle_id', null);
+    }
+
+    public function test_driver_position_prefers_the_latest_logged_in_active_truck_and_rejects_inactive_drivers(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $latest = $this->createVehicle($merchant, $user->driver);
+        $latest->update(['driver_logged_at' => now()]);
+        $older = $this->createVehicle($merchant, $user->driver);
+        $older->update(['driver_logged_at' => now()->subDay()]);
+        $headers = $this->driverAuthHeaders($user);
+        $this->getJson('/api/v1/driver/position', $headers)->assertOk()->assertJsonPath('data.vehicle_id', $latest->uuid);
+        $latest->update(['is_active' => false]);
+        $this->getJson('/api/v1/driver/position', $headers)->assertOk()->assertJsonPath('data.vehicle_id', $older->uuid);
+        $user->driver->update(['is_active' => false]);
+        $this->getJson('/api/v1/driver/position', $headers)->assertForbidden();
+    }
+
     public function test_run_position_returns_only_the_assigned_trucks_reported_location(): void
     {
         [$user, $merchant] = $this->createDriverContext();

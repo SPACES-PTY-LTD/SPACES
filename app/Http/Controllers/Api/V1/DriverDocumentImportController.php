@@ -82,9 +82,9 @@ class DriverDocumentImportController extends Controller
     public function searchLocations(Request $request)
     {
         $driver = $this->driver($request);
-        $data = $request->validate(['query' => ['required', 'string', 'min:3', 'max:255']]);
-        $saved = Location::where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)->where(fn ($q) => $q->where('name', 'like', '%'.$data['query'].'%')->orWhere('full_address', 'like', '%'.$data['query'].'%')->orWhere('address_line_1', 'like', '%'.$data['query'].'%'))->whereNotNull('latitude')->whereNotNull('longitude')->limit(20)->get();
-        if ($saved->isNotEmpty()) return ApiResponse::success($saved->map(fn ($l) => $l->toAddressArray()));
+        $data = $request->validate(['query' => ['required', 'string', 'min:1', 'max:255'], 'page' => ['sometimes', 'integer', 'min:1']]);
+        $saved = Location::where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)->where(fn ($q) => $q->where('name', 'like', '%'.$data['query'].'%')->orWhere('full_address', 'like', '%'.$data['query'].'%')->orWhere('address_line_1', 'like', '%'.$data['query'].'%'))->whereNotNull('latitude')->whereNotNull('longitude')->orderBy('id')->simplePaginate(20, ['*'], 'page', $data['page'] ?? 1);
+        if ($saved->isNotEmpty() || ($data['page'] ?? 1) > 1) return ApiResponse::success($saved->getCollection()->map(fn ($l) => $l->toAddressArray()), ['next_page' => $saved->hasMorePages() ? $saved->currentPage() + 1 : null]);
         $key = config('services.google_maps.geocoding_api_key');
         abort_unless($key, 503, 'Address search is not configured. Choose a saved location or contact dispatch.');
         $response = Http::timeout(15)->get('https://maps.googleapis.com/maps/api/geocode/json', ['address' => $data['query'], 'key' => $key]);
@@ -101,7 +101,7 @@ class DriverDocumentImportController extends Controller
             Cache::put("driver-trip-location:{$driver->id}:$uuid", $location, now()->addHours(2));
             return (new Location($location))->toAddressArray();
         })->values();
-        return ApiResponse::success($results);
+        return ApiResponse::success($results, ['next_page' => null]);
     }
 
     public function preview(Request $request, string $id, DriverImportReviewService $review)

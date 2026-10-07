@@ -60,7 +60,7 @@ export default function ShipmentCompletedScreen() {
             textAlignVertical="top"
             placeholder="Add any notes about the delivery"
             placeholderTextColor={isDarkMode ? '#71717A' : '#8A8E93'}
-            className="bg-input text-input-foreground min-h-32 rounded-[16px] px-4 py-4 text-base"
+            className="bg-input text-input-foreground min-h-32 rounded-[8px] px-4 py-4 text-base"
           />
         </View>
 

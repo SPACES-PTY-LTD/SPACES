@@ -1,7 +1,8 @@
+import Constants from 'expo-constants';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { Feather } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, View } from 'react-native';
+import { AppState, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
 import { Text } from '@/component/ui/Text';
@@ -9,6 +10,9 @@ import { driverApi, type RunPosition, type RunDirections, type DriverShipment } 
 import { useRecordedRunTrack } from './useRecordedRunTrack';
 import { runMapStyle } from './run-map-style';
 import { groupRunMapStops, runMapStops } from './run-map-data';
+
+// Temporarily hide mode selection; keep Recorded available for re-enabling later.
+const SHOW_MAP_MODE_SWITCH = false;
 
 export type RunMapProps = {
   shipments: DriverShipment[];
@@ -28,33 +32,63 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   const [showRouteInfo, setShowRouteInfo] = useState(false);
   const [ready, setReady] = useState(false);
   const focused = useIsFocused();
-  const [mode, setMode] = useState<'planned' | 'recorded'>('planned');
+  const mapLifecycle = useRef({ ready: false, loaded: false, width: 0, height: 0 });
+  useEffect(() => {
+    if (!focused || !__DEV__) return;
+    const nativeGoogleView = UIManager.hasViewManagerConfig('RNMapsGoogleMapView') || UIManager.hasViewManagerConfig('AIRGoogleMap');
+    console.info('[RunMap] initialization', { platform: Platform.OS, provider: 'google', nativeGoogleView, executionEnvironment: Constants.executionEnvironment, sdkVersion: Constants.expoConfig?.sdkVersion });
+    const timer = setTimeout(() => {
+      if (!mapLifecycle.current.ready || !mapLifecycle.current.loaded) {
+        console.warn('[RunMap] load timeout after 15 seconds; this is a diagnostic, not an SDK error', {
+          ...mapLifecycle.current,
+          hint: 'Check native Google Maps support, API-key restrictions, enabled Maps SDK, billing and network. Native config changes require a rebuild.',
+        });
+      }
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [focused]);
+  const [selectedMode, setMode] = useState<'planned' | 'recorded'>('planned');
+  const mode = runId && SHOW_MAP_MODE_SWITCH ? selectedMode : 'planned';
   const recorded = useRecordedRunTrack(runId, token, focused && mode === 'recorded');
   const recordedPoints = useMemo(() => recorded.track?.segments.flat() ?? [], [recorded.track]);
-  const [positionResult, setPositionResult] = useState<{ runId: string; value: RunPosition } | null>(null);
+  const positionKey = JSON.stringify([token, runId ?? null]);
+  const [positionResult, setPositionResult] = useState<{ key: string; value: RunPosition } | null>(null);
   const [positionFailed, setPositionFailed] = useState(false);
-  const position = positionResult && positionResult.runId === runId ? positionResult.value : null;
+  const position = positionResult?.key === positionKey ? positionResult.value : null;
   const truckLatitude = position?.coordinate?.latitude;
   const truckLongitude = position?.coordinate?.longitude;
   const truck = useMemo(() => truckLatitude != null && truckLongitude != null ? { latitude: truckLatitude, longitude: truckLongitude } : null, [truckLatitude, truckLongitude]);
   useEffect(() => {
-    if (!focused || !runId || !token) return;
+    if (!focused || !token) return;
     let cancelled = false;
     let pending = false;
+    let failureReported = false;
     const refresh = async () => {
       if (pending || AppState.currentState !== 'active') return;
       pending = true;
       try {
-        const value = await driverApi.runPosition(token, runId);
-        if (!cancelled) { setPositionResult({ runId, value }); setPositionFailed(false); }
-      } catch { if (!cancelled) setPositionFailed(true); }
+        const value = await (runId ? driverApi.runPosition(token, runId) : driverApi.truckPosition(token));
+        if (!cancelled) {
+          setPositionResult({ key: positionKey, value }); setPositionFailed(false);
+          failureReported = false;
+          if (__DEV__) console.info('[RunMap] truck-position response', { hasVehicle: !!value.vehicle_id, hasCoordinate: !!value.coordinate });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setPositionFailed(true);
+          // Polling failures are recoverable; console.error opens Expo's red
+          // error overlay even though we already handle the unavailable state.
+          if (__DEV__ && !failureReported) console.info('[RunMap] truck-position temporarily unavailable; retrying automatically', { message: error instanceof Error ? error.message : 'Unknown error' });
+          failureReported = true;
+        }
+      }
       finally { pending = false; }
     };
     void refresh();
     const timer = setInterval(() => void refresh(), 30000);
     const subscription = AppState.addEventListener('change', state => { if (state === 'active') void refresh(); });
     return () => { cancelled = true; clearInterval(timer); subscription.remove(); };
-  }, [focused, runId, token]);
+  }, [focused, runId, token, positionKey]);
   const stops = useMemo(() => runMapStops(shipments), [shipments]);
   const groups = useMemo(() => groupRunMapStops(stops), [stops]);
   const routeKey = JSON.stringify([runId, endpointPins, stops.map(stop => [stop.shipment.shipment_id, stop.coordinate])]);
@@ -64,9 +98,15 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
     let cancelled = false;
     if (mode !== 'planned' || !runId || !token || (!stops.length && !endpointPins.length)) return;
     driverApi.runDirections(token, runId).then(route => {
-      if (!cancelled) setResult({ key: routeKey, route });
-    }).catch(() => {
-      if (!cancelled) setResult({ key: routeKey, route: { status: 'unavailable' } });
+      if (!cancelled) {
+        setResult({ key: routeKey, route });
+        if (__DEV__) console.info('[RunMap] directions response', { status: route.status, coordinateCount: route.coordinates?.length ?? 0 });
+      }
+    }).catch((error) => {
+      if (!cancelled) {
+        setResult({ key: routeKey, route: { status: 'unavailable' } });
+        if (__DEV__) console.error('[RunMap] directions request failed', { message: error instanceof Error ? error.message : 'Unknown error' });
+      }
     });
     return () => { cancelled = true; };
   }, [runId, token, routeKey, stops.length, endpointPins.length, routeRetry, mode]);
@@ -85,10 +125,22 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   useEffect(fit, [fit]);
   const missing = shipments.length - stops.length;
   return <View style={styles.container}>
-    <MapView provider={PROVIDER_GOOGLE} customMapStyle={runMapStyle} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => setReady(true)} onLayout={fit}
+    <MapView provider={PROVIDER_GOOGLE} customMapStyle={runMapStyle} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => {
+      mapLifecycle.current.ready = true;
+      setReady(true);
+      if (__DEV__) console.info('[RunMap] native map ready');
+    }} onMapLoaded={() => {
+      mapLifecycle.current.loaded = true;
+      if (__DEV__) console.info('[RunMap] map tiles loaded');
+    }} onLayout={event => {
+      const { width, height } = event.nativeEvent.layout;
+      mapLifecycle.current.width = width; mapLifecycle.current.height = height;
+      if (__DEV__) console.info('[RunMap] layout', { width, height });
+      fit();
+    }}
       initialRegion={{ latitude: 0, longitude: 0, latitudeDelta: 100, longitudeDelta: 100 }}
       userInterfaceStyle="light" showsPointsOfInterests={false} showsCompass={false} rotateEnabled={false} pitchEnabled={false}
-      accessibilityLabel="Current run shipment locations">
+      accessibilityLabel={runId ? 'Current run shipment locations' : 'Current truck location'}>
       {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor="#f54a4a" strokeWidth={4} /> : null}
       {mode === 'planned' && endpointPins.map(p => <Marker key={p.role} coordinate={p.coordinate} title={`${p.role} · ${p.name}`} description={p.address} pinColor={p.role === 'Run starting point' ? '#2563eb' : '#71717a'} />)}
       {truck ? <Marker coordinate={truck} zIndex={100} title={position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}
@@ -119,7 +171,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       {mode === 'recorded' && recorded.track?.stops.map((stop, index) => <Marker key={index} coordinate={stop} title="Stationary"
         description={`${new Date(stop.first_seen_at).toLocaleString()} – ${new Date(stop.last_seen_at).toLocaleString()}`} pinColor="#71717a" />)}
     </MapView>
-    {runId ? <View style={[styles.modeToggle, { top: topInset + 12 }]}>
+    {runId && SHOW_MAP_MODE_SWITCH ? <View style={[styles.modeToggle, { top: topInset + 12 }]}>
       {(['planned', 'recorded'] as const).map(value => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: mode === value }}
         onPress={() => setMode(value)} style={[styles.modeButton, mode === value && { backgroundColor: '#27272a' }]}>
         <Text style={{ color: mode === value ? '#ffffff' : '#27272a', fontSize: 13, fontWeight: '600' }}>{value === 'planned' ? 'Planned' : 'Recorded'}</Text>
@@ -140,19 +192,19 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
         {recorded.before && <Pressable accessibilityRole="button" onPress={() => recorded.setBefore(undefined)} style={{ padding: 8 }}><Text style={styles.captionText}>Latest route</Text></Pressable>}
       </View>
     </View> : null}
-    {mode === 'planned' && runId && !truck ? <View pointerEvents="none" style={[styles.truckStatus, { top: topInset + 60 }]}>
+    {mode === 'planned' && !truck ? <View pointerEvents="none" style={[styles.truckStatus, { top: topInset + (runId && SHOW_MAP_MODE_SWITCH ? 60 : 12) }]}>
       <Feather name="truck" size={18} color="#2563eb" />
-      <Text style={styles.truckStatusText}>{positionFailed ? 'Truck location unavailable' : position ? 'Truck location not reported yet' : 'Locating truck…'}</Text>
+      <Text style={styles.truckStatusText}>{positionFailed ? 'Truck location unavailable' : position ? (position.vehicle_id ? 'Truck location not reported yet' : 'No truck assigned') : 'Locating truck…'}</Text>
     </View> : null}
     <ActionSheet ref={actions} />
-    {mode === 'planned' && !stops.length && !truck && !endpointPins.length ? <View pointerEvents="none" style={styles.empty}>
+    {mode === 'planned' && runId && !stops.length && !truck && !endpointPins.length ? <View pointerEvents="none" style={styles.empty}>
       <Text style={styles.emptyTitle}>{shipments.length ? 'Run locations not mapped yet' : 'Your run map'}</Text>
       <Text style={styles.emptyText}>{shipments.length ? 'Shipment locations will appear when their map coordinates are available.' : 'Assigned shipment locations will appear here.'}</Text>
-    </View> : mode === 'planned' && showRouteInfo ? <View style={styles.caption}>
+    </View> : mode === 'planned' && runId && showRouteInfo ? <View style={styles.caption}>
       <Text style={styles.captionText}>{!stops.length && truck ? 'Last reported truck position' : missing ? `${stops.length} of ${shipments.length} shipment locations mapped` : road ? `Google route · ${(route!.distance_meters! / 1000).toFixed(1)} km · ~${Math.ceil(route!.duration_seconds! / 60)} min` : groups.length === 1 ? 'Shipment stop' : !route ? 'Finding road directions…' : 'Road directions unavailable'}</Text>
       {route?.status === 'unavailable' && <Pressable accessibilityRole="button" onPress={() => { setResult(null); setRouteRetry(v => v + 1); }} style={{ padding: 8 }}><Text style={styles.captionText}>Retry directions</Text></Pressable>}
     </View> : null}
-    {mode === 'planned' && (stops.length || truck || endpointPins.length) ? <Pressable style={styles.infoButton} onPress={() => setShowRouteInfo(value => !value)}
+    {mode === 'planned' && runId && (stops.length || truck || endpointPins.length) ? <Pressable style={styles.infoButton} onPress={() => setShowRouteInfo(value => !value)}
       accessibilityRole="button" accessibilityLabel={showRouteInfo ? 'Hide route information' : 'Show route information'}
       accessibilityState={{ expanded: showRouteInfo }}>
       <Feather name="info" size={20} color={showRouteInfo ? '#f54a4a' : '#52525b'} />

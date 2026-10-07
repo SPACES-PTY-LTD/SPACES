@@ -4,11 +4,12 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DarkTheme, DefaultTheme, ThemeProvider, Redirect, Stack, useRootNavigationState, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { ActivityIndicator, View } from 'react-native';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { colorScheme as appColorScheme, useColorScheme } from '@/hooks/use-color-scheme';
+import { BrandLoadingScreen } from '@/src/components/BrandLoadingScreen';
+import { MessageNotifications } from '@/src/providers/message-notifications';
 import { AuthProvider, useAuth } from '@/src/providers/auth-provider';
 
 // Start in light mode; the in-app theme toggle can still change it afterwards.
@@ -27,6 +28,7 @@ export default function RootLayout() {
         <AuthProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <RootNavigator />
+            <MessageNotifications />
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           </ThemeProvider>
         </AuthProvider>
@@ -47,11 +49,7 @@ function RootNavigator() {
   }, [isHydrating, navigationState?.key]);
 
   if (isHydrating || !navigationState?.key) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color="#F54A4A" size="large" />
-      </View>
-    );
+    return <BrandLoadingScreen />;
   }
 
   const inAuthGroup = segments[0] === '(auth)';
@@ -66,7 +64,8 @@ function RootNavigator() {
 
   return (
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(auth)/login" />
+        <Stack.Screen name="(auth)/register" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="shipments/load" options={{ presentation: 'transparentModal', animation: 'none', gestureEnabled: false, contentStyle: { backgroundColor: 'transparent' } }} />
         <Stack.Screen name="shipments/imports/[import_id]" options={{ presentation: 'transparentModal', animation: 'none', gestureEnabled: false, contentStyle: { backgroundColor: 'transparent' } }} />
@@ -74,6 +73,7 @@ function RootNavigator() {
         <Stack.Screen name="shipments/[shipment_id]/scan" />
         <Stack.Screen name="shipments/completed" />
         <Stack.Screen name="account/edit-profile" />
+        <Stack.Screen name="account/vehicles" />
         <Stack.Screen name="vehicles/[vehicle_id]" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>

@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
 import { useFocusEffect } from 'expo-router';
@@ -8,15 +9,17 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  TextInput,
+  StyleSheet,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/component/ui/Text';
+import { DateInput } from '@/component/ui/DateInput';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ApiRequestError, DriverEntityFile, DriverFileType, driverApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
+import { useRequiredDocuments } from '@/src/providers/required-documents-provider';
 
 function formatBytes(value?: number) {
   if (!value || value <= 0) {
@@ -46,6 +49,7 @@ function formatDate(value?: string | null) {
 export default function DocumentsScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
+  const { count: requiredDocumentCount, expiredCount, refresh: refreshRequiredDocuments } = useRequiredDocuments();
   const { colorScheme } = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
   const [files, setFiles] = useState<DriverEntityFile[]>([]);
@@ -89,6 +93,7 @@ export default function DocumentsScreen() {
         setFileTypes(typesResponse.data);
         setFiles(filesResponse.data);
         setErrorMessage(null);
+        void refreshRequiredDocuments();
       } catch (error) {
         const requestError = error as ApiRequestError;
         setErrorMessage(requestError.message || 'Unable to load driver files.');
@@ -97,7 +102,7 @@ export default function DocumentsScreen() {
         setIsRefreshing(false);
       }
     },
-    [session?.token],
+    [session, refreshRequiredDocuments],
   );
 
   useFocusEffect(
@@ -208,6 +213,32 @@ export default function DocumentsScreen() {
             <Text className="text-card-foreground text-sm font-semibold">Upload document</Text>
           </Pressable>
         </View>
+
+        {requiredDocumentCount != null && requiredDocumentCount > 0 ? (
+          <Pressable
+            style={[styles.notice, { backgroundColor: isDarkMode ? '#382b13' : '#fff4d6' }]}
+            accessibilityRole="button"
+            onPress={() => { resetUploadForm(); setModalVisible(true); }}>
+            <Feather name="file-text" size={22} color={isDarkMode ? '#fcd34d' : '#8a5700'} />
+            <Text style={{ flex: 1, fontSize: 16, fontWeight: '700', color: isDarkMode ? '#fde68a' : '#744700' }}>
+              You have {requiredDocumentCount} required {requiredDocumentCount === 1 ? 'document' : 'documents'} to upload
+            </Text>
+            <Feather name="chevron-right" size={20} color={isDarkMode ? '#fcd34d' : '#8a5700'} />
+          </Pressable>
+        ) : null}
+        {expiredCount != null && expiredCount > 0 ? (
+          <View style={[styles.notice, { backgroundColor: isDarkMode ? '#401e22' : '#ffebed' }]}>
+            <Feather name="alert-circle" size={22} color={isDarkMode ? '#fda4af' : '#a32136'} />
+            <View style={{ flex: 1, gap: 5 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: isDarkMode ? '#fda4af' : '#a32136' }}>
+                You have {expiredCount} expired {expiredCount === 1 ? 'document' : 'documents'}
+              </Text>
+              <Text style={{ fontSize: 13, lineHeight: 19, color: isDarkMode ? '#fda4af' : '#a32136' }}>
+                Review your documents below and upload current replacements where needed.
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         {errorMessage ? (
           <View className="border-destructive bg-destructive mt-6 rounded-xl border px-5 py-5">
@@ -335,15 +366,7 @@ export default function DocumentsScreen() {
             {selectedFileType?.requires_expiry ? (
               <View className="bg-card mt-4 rounded-xl px-5 py-5">
                 <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Expiry date</Text>
-                <TextInput
-                  autoCapitalize="none"
-                  keyboardType="numbers-and-punctuation"
-                  onChangeText={setExpiresAt}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={isDarkMode ? '#71717A' : '#A8A29E'}
-                  value={expiresAt}
-                  className="border-input-border bg-input text-input-foreground mt-4 rounded-[18px] border px-4 py-4 text-base"
-                />
+                <DateInput value={expiresAt} onChange={setExpiresAt} disabled={isUploading} />
               </View>
             ) : null}
 
@@ -378,3 +401,7 @@ function InfoLine({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  notice: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 16, borderRadius: 12, marginTop: 14 },
+});

@@ -72,6 +72,7 @@ export default async function RunsPage({
   const rows = runs.map((run) => ({
     ...run,
     href: AdminRoute.runDetails(run.run_id),
+    endRequestStatus: run.end_request?.status === "pending" ? "pending_approval" : "",
     additionalCostsLabel: run.additional_cost_totals?.length
       ? run.additional_cost_totals.map(({ currency, amount }) => `${currency}\u00a0${amount}`).join("\n")
       : "No costs",
@@ -141,6 +142,7 @@ export default async function RunsPage({
         columns={[
           { key: "run_id", label: "Run ID", link: "href", className: "w-[260px]" },
           { key: "status", label: "Status", type: "status", link: "href", className: "w-[130px]" },
+          { key: "endRequestStatus", label: "End request", type: "status", link: "href", className: "w-[170px]" },
           { key: "effectiveStart", label: "Start", type: "date_time", link: "href", className: "w-[170px]" },
           { key: "runDuration", label: "Duration", link: "href", className: "w-[120px]" },
           { key: "runDistance", label: "Distance", link: "href", className: "w-[140px]" },

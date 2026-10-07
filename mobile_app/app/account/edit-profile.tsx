@@ -79,7 +79,7 @@ export default function EditProfileScreen() {
             onChangeText={setName}
             placeholder="Full name"
             placeholderTextColor={isDarkMode ? '#71717A' : '#A8A29E'}
-            className="border-input-border bg-input text-input-foreground mt-2 rounded-xl border px-4 py-3 text-base"
+            className="border-input-border bg-input text-input-foreground mt-2 rounded-[6px] border px-4 py-3 text-base"
           />
 
           <Text className="text-muted-foreground mt-5 text-sm uppercase tracking-[2px]">Telephone</Text>
@@ -89,7 +89,7 @@ export default function EditProfileScreen() {
             placeholder="Telephone number"
             placeholderTextColor={isDarkMode ? '#71717A' : '#A8A29E'}
             keyboardType="phone-pad"
-            className="border-input-border bg-input text-input-foreground mt-2 rounded-xl border px-4 py-3 text-base"
+            className="border-input-border bg-input text-input-foreground mt-2 rounded-[6px] border px-4 py-3 text-base"
           />
 
           <Text className="text-muted-foreground mt-5 text-sm uppercase tracking-[2px]">Email</Text>

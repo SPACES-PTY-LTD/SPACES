@@ -1,0 +1,22 @@
+# EAS builds only need the Expo application in this monorepo.
+/*
+!/.easignore
+!/mobile_app
+!/mobile_app/**
+
+node_modules
+.git
+.DS_Store
+mobile_app/.expo
+mobile_app/dist
+mobile_app/web-build
+mobile_app/.env*
+mobile_app/ios
+mobile_app/android
+*.log
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision

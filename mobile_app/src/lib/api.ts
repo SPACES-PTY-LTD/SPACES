@@ -1,4 +1,4 @@
-import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
 
 import { getEnvironmentConfig } from '@/src/config/env';
 
@@ -241,7 +241,7 @@ export type DriverOnlineStatusResponse = {
 
 export type DriverDashboard = {
   trip_endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
-  current_run: { run_id: string; status: string; destination_location_id?: string | null } | null;
+  current_run: { run_id: string; status: string; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
   run_shipments: DriverShipment[];
   recorded_stops?: { stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
   planned_delivery_stops?: { stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
@@ -439,7 +439,8 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
     bodyType: isFormData ? 'form-data' : 'json',
     hasToken: Boolean(options.token),
   });
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const send = isFormData && Platform.OS !== 'web' ? sendNativeMultipart : fetch;
+  const response = await send(`${apiBaseUrl}${path}`, {
     method,
     headers: {
       Accept: 'application/json',
@@ -471,6 +472,36 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
   return payload;
 }
 
+// Expo's fetch reads File.bytes() before sending. Native XHR can upload the
+// picker's cached URI directly, without reopening it through expo-file-system.
+function sendNativeMultipart(url: string, options: RequestInit) {
+  return new Promise<Pick<Response, 'ok' | 'status' | 'json'>>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(options.method ?? 'POST', url);
+    new Headers(options.headers).forEach((value, key) => xhr.setRequestHeader(key, value));
+    xhr.timeout = 150000;
+    xhr.onerror = () => reject(new Error('Connection lost. Please try again.'));
+    xhr.ontimeout = () => reject(new Error('Upload took too long. Please try again.'));
+    xhr.onabort = () => reject(new Error('Upload canceled. Please try again.'));
+    xhr.onload = () => resolve({
+      ok: xhr.status >= 200 && xhr.status < 300,
+      status: xhr.status,
+      json: async () => JSON.parse(xhr.responseText),
+    });
+    xhr.send(options.body as FormData);
+  });
+}
+
+export async function appendUploadFile(body: FormData, file: { uri: string; name: string; type?: string | null }, field = 'file') {
+  if (Platform.OS === 'web') {
+    const response = await fetch(file.uri);
+    body.append(field, await response.blob(), file.name);
+  } else {
+    // React Native accepts URI parts; the DOM FormData typings only list Blob.
+    body.append(field, { ...file, type: file.type || 'application/octet-stream' } as unknown as Blob);
+  }
+}
+
 export const authApi = {
   apiBaseUrl,
   async login(credentials: { email: string; password: string }) {
@@ -497,6 +528,13 @@ export const authApi = {
       token,
     });
   },
+};
+
+export type RunEndRequest = { request_id: string; status: 'pending' | 'approved' | 'rejected' | 'resolved'; reason: string; requested_at: string; requested_by?: string; review_reason?: string | null };
+export const driverRunActionsApi = {
+  requestEnd: (token: string, runId: string, reason: string) => request<RunEndRequest>(`/driver/runs/${runId}/end-requests`, { token, method: 'POST', body: { reason } }),
+  endpoints: (token: string, runId: string, body: { origin_location_id: string; destination_location_id: string; expected_origin_location_id: string | null; expected_destination_location_id: string | null }) => request(`/driver/runs/${runId}/endpoints`, { token, method: 'PATCH', body }),
+  cost: (token: string, runId: string, body: { title: string; amount: string; client_request_id: string }) => request(`/driver/runs/${runId}/additional-costs`, { token, method: 'POST', body }),
 };
 
 export const driverApi = {
@@ -626,6 +664,9 @@ export const driverApi = {
   async runPosition(token: string, runId: string) {
     return request<RunPosition>(`/driver/runs/${encodeURIComponent(runId)}/position`, { token });
   },
+  async truckPosition(token: string) {
+    return request<RunPosition>('/driver/position', { token });
+  },
   async runDirections(token: string, runId: string) {
     return request<RunDirections>(`/driver/runs/${encodeURIComponent(runId)}/directions`, { token });
   },
@@ -747,7 +788,7 @@ export const driverApi = {
   ) {
     const body = new FormData();
     body.append('file_type_id', payload.file_type_id);
-    body.append('file', new File(payload.file.uri), payload.file.name);
+    await appendUploadFile(body, payload.file);
 
     if (payload.expires_at) {
       body.append('expires_at', payload.expires_at);
@@ -777,7 +818,7 @@ export const driverApi = {
   ) {
     const body = new FormData();
     body.append('file_type_id', payload.file_type_id);
-    body.append('file', new File(payload.file.uri), payload.file.name);
+    await appendUploadFile(body, payload.file);
 
     if (payload.expires_at) {
       body.append('expires_at', payload.expires_at);
@@ -819,6 +860,7 @@ export type ImportReviewRow = { index: number; reference: string; eligibility: '
 export type ImportReview = { rows: ImportReviewRow[]; review_token: string };
 export type ImportContext = { vehicles: { vehicle_id: string; label: string }[]; locations: ImportLocation[]; recent_imports: { import_id: string; filename: string; status: string }[]; today: string; timezone: string; runs: { run_id: string; label: string; status: string; origin_location_id?: string; destination_location_id?: string; vehicle_id?: string }[] };
 export const documentImportApi = {
+  searchLocationPage: (token: string, query: string, page = 1) => requestWithMeta<ImportLocation[]>('/driver/trip-locations/search', { token, method: 'POST', body: { query, page } }) as Promise<{ data: ImportLocation[]; meta: { next_page: number | null } }>,
   searchLocations: (token: string, query: string) => request<ImportLocation[]>('/driver/trip-locations/search', { token, method: 'POST', body: { query } }),
   chooseFinalDestination: (token: string, runId: string, locationId: string) => request(`/driver/runs/${encodeURIComponent(runId)}/final-destination`, { token, method: 'PATCH', body: { destination_location_id: locationId } }),
   startRun: (token: string, id: string) => request(`/driver/runs/${id}/start`, { token, method: 'POST' }),
@@ -872,4 +914,17 @@ export type RecordedRunTrack = {
   updated_at: string | null;
   latest_observed_at: string | null;
   coverage: { partial: boolean; next_before: string | null; displayed_coordinates: number; from?: string; to?: string };
+};
+
+export type ChatAttachment = { attachment_id: string; type: string; filename: string | null; mime_type: string | null; size: number | null };
+export type ChatMessage = { message_id: string; user_id: string | null; sender_name: string; type: string; temporary_id: string | null; body: string | null; created_at: string; attachments: ChatAttachment[] };
+export type ChatConversation = { conversation_id: string; title: string | null; status: 'active' | 'closed'; type: 'driver' | 'normal'; merchant_id: string };
+export const chatApi = {
+  unread: (token: string) => request<{ unread_count: number }>('/conversations/driver/unread', { token }),
+  openDriver: (token: string) => request<ChatConversation>('/conversations/driver', { token, method: 'POST' }),
+  messages: (token: string, id: string, before?: string) => requestWithMeta<ChatMessage[]>(`/conversations/${id}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`, { token }) as Promise<{ data: ChatMessage[]; meta: { next_before: string | null } }>,
+  show: (token: string, id: string) => request<ChatConversation>(`/conversations/${id}`, { token }),
+  send: (token: string, id: string, body: FormData) => request<ChatMessage>(`/conversations/${id}/messages`, { token, method: 'POST', body }),
+  read: (token: string, id: string, messageId: string) => request(`/conversations/${id}/read`, { token, method: 'POST', body: { message_id: messageId } }),
+  download: (token: string, id: string, attachmentId: string) => request<{ url: string }>(`/conversations/${id}/attachments/${attachmentId}/download`, { token }),
 };

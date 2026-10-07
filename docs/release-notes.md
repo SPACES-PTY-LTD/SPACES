@@ -1,5 +1,231 @@
 # Release Notes
 
+## 2026-10-08 | Version: location-search-sticky-header-v1
+
+- **Summary:** Keep the shared location-search input visible while results scroll.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Final destination and Edit Run planned start/end pin the title/close controls and search field above scrolling cards, errors and pagination. The header uses an opaque light/dark sheet background. Preserve keyboard search, pagination, retry and selection confirmation. Shared BottomSheet supports an optional sticky header; other sheets retain their scrolling behavior.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused ESLint pass for BottomSheet, LocationSearchPicker and both consumers; diff checks pass. Dashboard plan v1.76 and Figma handoff aligned. Native long-list scrolling/keyboard checks remain pending; no endpoint changes saved.
+
+## 2026-10-08 | Version: shared-run-location-picker-v1
+
+- **Summary:** Centralize final-destination and Edit Run planned start/end location search.
+- **API Changes:** None; reuse the existing paginated driver location-search endpoint.
+- **Database Changes:** None.
+- **Behavior Changes:** All three flows use LocationSearchPicker with an initially empty rounded input, keyboard Enter/Search for any nonblank query, themed location cards, pagination/deduplication, clear/reset and loading/empty/retry states. Start/end include a selected-location preview and Use starting point/Use planned end location confirmation; Back to endpoints discards an unconfirmed choice. Enable the same keyboard avoidance. Endpoint choices update the edit draft; Save endpoints retains atomic persistence and conflict protection. Final destination keeps its explicit save action.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused lint pass for the shared picker and both consumers. Dashboard plan v1.75 and Figma run-action handoff aligned. Native iOS/Android search, scrolling, keyboard, dark-theme and save interaction remain pending; no endpoint mutation submitted.
+
+## 2026-10-08 | Version: additional-cost-remove-cancel-v1
+
+- **Summary:** Remove the bottom Cancel button from the mobile additional-cost form.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** The form ends with Add cost. Header close, backdrop and swipe dismissal remain available when not saving; other run forms retain their Cancel actions.
+- **Breaking Changes:** None.
+- **Verification:** Focused RunActionForm lint and diff checks pass; dashboard plan v1.74 and Figma cost-sheet examples aligned. Native visual check remains pending.
+
+## 2026-10-08 | Version: additional-cost-form-design-v1
+
+- **Summary:** Improve the mobile additional-cost form's field hierarchy and styling.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Add a concise expense notice, rounded theme-aware fields, an expense placeholder, prominent rand amount with R prefix and cents guidance, and visible focus borders. Use a rounded Add cost action with plus/saving indicator and neutral Cancel. Limit description input to the existing 255-character contract and lock fields during saving. Preserve exact amount validation, drafts on errors and retry deduplication.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused RunActionForm ESLint pass. Updated Figma cost-sheet examples visually inspected; dashboard plan v1.73 and handoff aligned. Native layout/keyboard, accessibility text sizes and dark-theme visual checks remain pending; no cost submitted.
+
+## 2026-10-08 | Version: edit-run-sheet-design-v1
+
+- **Summary:** Improve the Expo Edit Run sheet with compact endpoint cards and clearer actions.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use themed bordered start/end cards with colored map/flag icons, inline Change/Choose buttons, distinct location/address typography and helpful empty states. Show a compact context notice, rounded primary Save endpoints and neutral Cancel. Retain existing endpoint validation, conflict protection and selection flow; other run forms are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused RunActionForm lint pass. iOS simulator layout reviewed without saving; dashboard plan/Figma handoff aligned. Android/dark-theme verification pending.
+
+## 2026-10-08 | Version: destination-preview-copy-removal-v1
+
+- **Summary:** Remove the Your run’s planned end… explanation from the selected destination preview.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Keep the selected-location card, Save final destination and Choose another location actions.
+- **Breaking Changes:** None.
+- **Verification:** Inspected the targeted copy removal; diff check passes.
+
+## 2026-10-08 | Version: destination-pagination-footer-space-v1
+
+- **Summary:** Keep the destination Loading more… indicator in view at the list end.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reserve a 120-point footer with 16-point bottom padding whenever results exist, before loading starts. Render loading/retry inside that reserved space so it does not appear below the previous scroll boundary.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused picker lint and diff checks pass; dashboard plan/Figma handoff aligned.
+
+## 2026-10-08 | Version: destination-search-pagination-v1
+
+- **Summary:** Automatically load and append paginated destination search results.
+- **API Changes:** Driver trip-location search accepts optional positive `page` and returns `meta.next_page` (nullable). Saved matches use stable ID order and 20 results/page. Geocoding fallback remains a terminal set of up to five results, only on the first page.
+- **Database Changes:** None.
+- **Behavior Changes:** Near the list end, append the next page, deduplicate UUIDs and show Loading more…. Preserve results after page failures with retry; prevent duplicate requests and discard stale responses after a new/cleared search or dismissal.
+- **Breaking Changes:** None; existing array clients keep receiving their first page.
+- **Verification:** 3 focused location-search tests pass (23 assertions), covering single-character/merchant isolation, multi-page order/no duplicates/end-of-list, page validation and geocoding fallback. Mobile TypeScript and focused sheet/picker lint pass; OpenAPI YAML and diff checks pass. Dashboard plan/Figma handoff aligned. Physical Android scroll/keyboard verification pending.
+
+## 2026-10-08 | Version: destination-keyboard-avoidance-v1
+
+- **Summary:** Keep the destination search input visible while the keyboard is open.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Destination picker opts into Gorhom fill-parent keyboard avoidance with top safe-area clearance, Android resize mode and restore-on-blur. Keep the integrated BottomSheetTextInput and scrollable results. Other sheets retain their keyboard behavior.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused sheet/picker lint and diff checks pass. Physical Android keyboard verification pending.
+
+## 2026-10-08 | Version: android-action-sheet-bottom-gap-v1
+
+- **Summary:** Separate Android floating action sheets from the system navigation bar.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Shared floating BottomSheet (including ActionSheet) adds 16 points beyond the Android bottom safe-area inset, instead of using the inset as the entire margin. Bound dynamic height to the resulting space. iOS/web bottom spacing remains unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused shared-sheet lint pass; diff checks pass. Physical Android gesture/three-button navigation verification pending.
+
+## 2026-10-07 | Version: destination-search-results-only-v1
+
+- **Summary:** Show destination locations only after an explicit search.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Open the picker with an empty list and no heading. Show Search results only when matches exist. Clear/empty submission removes results instead of loading saved locations. Show no-match feedback only after a search; discard stale search responses.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused picker lint and diff checks pass. iOS simulator confirms the initial empty picker with no results heading. Dashboard plan and Figma handoff aligned.
+
+## 2026-10-07 | Version: destination-card-padding-v1
+
+- **Summary:** Reduce final-destination location-card padding.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use 10-point card padding/gaps and a 70-point minimum height, retaining readable address wrapping and selection behavior.
+- **Breaking Changes:** None.
+- **Verification:** Inspected the card spacing change; diff check passes.
+
+## 2026-10-07 | Version: destination-search-any-length-v1
+
+- **Summary:** Remove the minimum-length hint and allow destination searches of any non-empty length.
+- **API Changes:** Driver trip-location search accepts 1–255 characters instead of 3–255.
+- **Database Changes:** None.
+- **Behavior Changes:** Enter/Search submits even single-character queries; empty input restores saved locations. Retry preserves short queries. Remove the Enter at least… hint.
+- **Breaking Changes:** None.
+- **Verification:** Single-character/merchant-scope regression passes (1 test, 4 assertions); mobile TypeScript and focused picker lint pass. Diff check passes; dashboard plan and Figma handoff aligned.
+
+## 2026-10-07 | Version: destination-search-pill-v1
+
+- **Summary:** Make the final-destination search input fully rounded.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use pill-shaped input corners; search behavior is unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Inspected the search-only radius change; diff check passes.
+
+## 2026-10-07 | Version: destination-list-hint-removal-v1
+
+- **Summary:** Remove Select one to continue from the destination list heading.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Keep Available locations and the selectable cards; remove the extra instruction.
+- **Breaking Changes:** None.
+- **Verification:** Inspected the text removal and retained selection actions; diff check passes.
+
+## 2026-10-07 | Version: destination-search-label-removal-v1
+
+- **Summary:** Remove the redundant Find a location label above the destination search field.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** The search field retains its placeholder and accessibility label; Enter/Search submission is unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Inspected the targeted label removal and retained accessible input; diff check passes.
+
+## 2026-10-07 | Version: destination-keyboard-search-v1
+
+- **Summary:** Remove the separate Search locations button from the final-destination picker.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Submit using keyboard Enter/Search, retaining the three-character minimum. Add a short input hint; keep clear, loading and retry actions.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused picker lint and diff checks pass; dashboard plan and Figma handoff aligned.
+
+## 2026-10-07 | Version: mobile-planned-map-only-v1
+
+- **Summary:** Temporarily hide the mobile dashboard Planned / Recorded map buttons.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Keep the mobile map on Planned while `SHOW_MAP_MODE_SWITCH` is false. Preserve the buttons, mode state and all Recorded GPS rendering/fetching/refresh/paging code for later re-enabling. Move the unavailable-truck notice up to use the freed space. GPS recording and admin maps are unchanged. Dashboard plan v1.59 and Figma switch/handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript passes. Focused RunMap lint reports the existing `react-hooks/purity` error for `Date.now()` in the retained Recorded status rendering; no new lint errors. Native visual verification remains pending.
+
+## 2026-10-07 | Version: final-destination-picker-design-v1
+
+- **Summary:** Improve the Expo final-destination picker’s search, location list and selection preview.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use compact location cards with pin icons and separate name/address text, a keyboard-aware search field with clear/search actions, a highlighted selected destination and prominent save button. Add themed loading, empty and retry states. Keep existing authorized location search and explicit save behavior.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused picker lint pass. iOS simulator list and selected-destination layouts reviewed; selection/return verified without saving a destination. Dashboard plan and Figma handoff aligned. Android, dark-theme and physical keyboard checks pending.
+
+## 2026-10-07 | Version: dashboard-secondary-actions-removal-v1
+
+- **Summary:** Remove the secondary Upload delivery note and Contact dispatch dashboard rows.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Retain the no-run primary upload action and required-delivery-note notice. Drivers can contact dispatch through Messages. Remove unused contact handler and row styles.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript passes. Dashboard lint reports the same two existing effect-state errors at lines 62/92, with no new errors. Diff checks pass; dashboard plan and affected Figma scenarios/handoff updated.
+
+## 2026-10-07 | Version: driver-timeline-filter-placement-v1
+
+- **Summary:** Move Filter timeline beside the timeline-entry count on the Expo current-run card.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Actions stays beside Current run. Filter choices and timeline counts are unchanged; the count/filter row wraps on narrow screens.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript passes. Dashboard lint reports two pre-existing set-state-in-effect errors at lines 62/92; no new errors from this layout change. Dashboard plan and Figma handoff updated.
+
+## 2026-10-07 | Version: driver-actions-button-style-v1
+
+- **Summary:** Soften the dashboard Actions button with rounded corners and a neutral border.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use 10-point corners and a 1-point `#dedee1` border matching dashboard separators.
+- **Breaking Changes:** None.
+- **Verification:** iOS simulator appearance verified; Figma header aligned. Focused dashboard lint reports two existing `react-hooks/set-state-in-effect` errors at lines 62 and 92, outside this style change. Android visual verification pending.
+
+## 2026-10-07 | Version: driver-message-unread-badge-v1
+
+- **Summary:** Show received unread messages on the Expo Messages tab.
+- **API Changes:** Add authenticated driver-only `GET /api/v1/conversations/driver/unread`, returning `unread_count` without creating a conversation.
+- **Database Changes:** None.
+- **Behavior Changes:** Show a red count badge (99+ above 99), hide it at zero, refresh every ten seconds while foregrounded and on navigation/foreground, and refresh immediately after read acknowledgement. Reset state between sessions; exclude outgoing, deleted and other drivers' messages.
+- **Breaking Changes:** None.
+- **Verification:** 9 conversation tests pass (132 assertions), including unread count/read clearing, tenant isolation, outgoing/deleted exclusions and driver-only access. Mobile TypeScript and focused navigation/chat/provider lint pass; PHP formatting and diff checks pass. Figma navigation guide updated. Physical-device notification checks remain pending.
+
+## 2026-10-07 | Version: driver-messaging-v1
+
+- **Summary:** Add driver/dispatch messaging and a website conversation inbox; move assigned vehicles into Expo Account.
+- **API Changes:** Add authenticated `/api/v1/conversations` list/create/detail/update, driver get-or-create, participants, members, messages, read and private attachment-download endpoints. Existing feedback remains separate. Stable `temporary_id` deduplicates retries; sends are limited to 30/minute.
+- **Database Changes:** Add conversations, conversation_members, messages and message_attachments with UUIDs, soft deletes, account/merchant scope, driver-chat/message retry uniqueness and private storage metadata. Use `merchant_id` throughout. Deduplicate legacy push tokens and add nullable token uniqueness. New migrations applied to local MAMP only.
+- **Behavior Changes:** Messages replaces Vehicles as the third mobile tab. Account → Vehicles assigned to me opens the assigned fleet. Driver chat permits the specific driver and merchant account holders/members/modifiers or super admins. Normal conversations require explicit active members. Text/private attachments, owner membership controls, closed chats, ten-second foreground polling, failed-draft retry and queued generic driver notifications are implemented. Register SDK-compatible Expo tokens, authorize notification taps, suppress active-chat banners, invalidate bad tokens and clear tokens on logout. Add optional Android `GOOGLE_SERVICES_JSON` build configuration. Figma/dashboard handoff updated to revision 1.53.
+- **Breaking Changes:** Mobile vehicle-list route moves from `/(tabs)/vehicles` to `/account/vehicles`; vehicle details and existing vehicle APIs remain unchanged. Notifications require rebuilt development clients plus FCM/APNs credentials. The token migration clears stale duplicate tokens; clients register again.
+- **Verification:** 48 focused conversation/auth/device/run-action/shipment tests pass (376 assertions); mobile/website TypeScript and focused lint pass. Tested tenant/member isolation, closed/deleted chats, pagination/read tracking, retry deduplication, attachment validation/private downloads/upload cleanup, migration rollback/uniqueness, post-commit/rollback push behavior, recipient payloads, invalid receipts and token ownership/logout. Two overlapping local MySQL opens return one driver chat, including nested REPEATABLE READ transactions. Local simulator saves a test message; navigation/layout checks and Figma screenshots reviewed. Credentials, signed device builds/live push, authenticated website visual review and production-engine concurrency remain pending. Full-repository SQLite rollback has a pre-existing unrelated geofence-index error; messaging migrations are verified independently. See [messaging rollout](messaging.md).
+
+
+## 2026-10-07 | Version: driver-run-actions-v1
+
+- **Summary:** Add active-run Actions beside All stops with dispatch-reviewed End Run requests, planned endpoint editing and Manual ZAR additional costs.
+- **API Changes:** Add driver end-request, endpoint PATCH and cost POST routes plus authorised CRM end-request review. Dashboard/run resources expose latest request status/reason/actors; driver current run includes planned origin UUID. Endpoint saves compare original UUIDs; costs use a persisted client retry UUID. Existing ordinary completion requirements are retained.
+- **Database Changes:** Add `run_end_requests` with request/reviewer state, reason, timestamps and run index; add nullable unique `run_costs.client_request_id`. Migration applied to the local development MySQL database; test schema passes SQLite migrations. Production migration is pending.
+- **Behavior Changes:** End Run keeps the run active pending dispatch approval. CRM list badges/detail review support confirmation of empty/unfinished closure or rejection with reason. Approval preserves shipment statuses, bookings, assignments and visits. Other supported closures resolve outstanding requests. Edit changes planned endpoints atomically with conflict/expiry handling. Description becomes CRM title; costs are positive exact ZAR Manual entries with retry deduplication. Dashboard refreshes on focus/foreground and after saves. Figma active header, component-based flow and guide synchronized.
+- **Breaking Changes:** None; new routes/resources are additive. Native development clients need rebuilding for the newly added Expo crypto dependency.
+- **Verification:** 90 targeted Laravel tests / 1,050 assertions pass across driver actions/dashboard, run API, costs and automatic lifecycle; refreshed driver-action coverage passes 7 tests / 57 assertions, including self-approval denial. Mobile and website TypeScript passed for the Actions implementation; focused new-form/CRM lint passes. A later full mobile check is blocked by concurrent messaging work (missing expo-device/expo-notifications dependencies and ungenerated messages/vehicles route types); no Actions-file errors were reported. iOS simulator verifies Actions placement/options, Edit Run saved-location picker/selected address, End Run reason gating, Manual ZAR fields, blank-cost validation and Cancel without saving. Figma structural validation confirms reusable instances, SF Pro and no raster UI; flow composition reviewed. Android native interaction, authenticated CRM visual review (local preview redirects to sign-in), production row-lock concurrency and live approval foreground refresh remain pending. `git diff --check` passes.
+
 Use this document to track every shipped backend/frontend change.
 Add new entries at the top (newest first).
 
@@ -19,6 +245,249 @@ Add new entries at the top (newest first).
 4. Link important files/endpoints changed.
 
 ---
+
+## 2026-10-07 | Version: mobile-position-connection-recovery-v1
+
+- **Summary:** Restore the simulator's local API connection and prevent recoverable truck-position polling failures from opening Expo's red error overlay.
+- **API Changes:** None; restart the local Laravel development server on port 8001.
+- **Database Changes:** None.
+- **Behavior Changes:** Keep the existing unavailable state, last confirmed position and automatic 30-second/foreground retries. Log one informational diagnostic per failed polling episode instead of repeated `console.error` calls; reset the diagnostic guard after a successful response.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript passes. The configured API address responds (401 for an unauthenticated position request), and simulator dashboard retry restores the current run, shipment counts and timeline. Focused RunMap lint passes with its existing `react-hooks/purity` violation disabled; normal lint still flags the pre-existing render-time `Date.now()` expression. A controlled outage/recovery cycle and physical-device network switching remain unverified.
+
+## 2026-10-07 | Version: mobile-eas-development-environment-v1
+
+- **Summary:** Fix the missing Maps-key environment configuration and retry the Android development build.
+- **API Changes:** No endpoint changes; configure the existing development API URL in EAS.
+- **Database Changes:** None.
+- **Behavior Changes:** With explicit user approval, add `GOOGLE_MAPS_ANDROID_API_KEY` and `GOOGLE_MAPS_IOS_API_KEY` as Sensitive project variables, and `EXPO_PUBLIC_API_BASE_URL`/`EXPO_PUBLIC_APP_ENV` as Plaintext variables, in the EAS development environment. Retry Android `development` using the existing remote keystore. Keep actual Maps keys out of source control and log output; update setup/implementation status.
+- **Breaking Changes:** None.
+- **Verification:** Confirmed the previous Android build used the development profile/environment and failed because no variables were configured. EAS listing confirms all four variables and expected visibility; build submission loaded them, uploaded the app-only archive and completed fingerprinting. [Android retry](https://expo.dev/accounts/leroyg/projects/spaces-digital/builds/1fb1ff0a-dd1d-4929-98d8-1f1d3ae3c433) submitted; build completion, installation and Google rendering remain pending. Documentation diff checks pass.
+
+## 2026-10-07 | Version: mobile-floating-action-sheet-v1
+
+- **Summary:** Restore the requested floating bottom action sheet for dashboard and shared action options.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the native-modal workaround with Gorhom's dynamically sized detached bottom sheet. Use outlined rounded actions, selected indicators and optional handle/close controls; retain Cancel, swipe/backdrop dismissal and callbacks after dismissal. Present after options commit. Fix Gorhom's container/background/backdrop layout on React Native 0.86 with a dependency-scoped Babel rewrite from removed `StyleSheet.absoluteFillObject` to `StyleSheet.absoluteFill`; preserve the iOS full-window overlay and app NativeWind styling. No installed dependency files are edited.
+- **Breaking Changes:** None. Restart Metro with `--clear` after pulling the Babel change.
+- **Verification:** TypeScript, focused ESLint and scoped source/module Babel transform checks pass. iOS Expo Go simulator verifies visible floating card/dimmed backdrop, reopening/selection, Speeding events (2 entries), Shipment deliveries (3 entries) and Cancel preserving the filter. Android/web, long menus and document-source picker handoff remain unverified. Dashboard plan 1.51 retains the existing Figma bottom-sheet flow.
+
+## 2026-10-07 | Version: mobile-eas-development-client-v1
+
+- **Summary:** Configure Spaces Digital for native Expo development clients and EAS Build.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Install Expo SDK 57-compatible `expo-dev-client` 57.0.19 and register its launcher plugin. Link `@leroyg/spaces-digital` to EAS project `497d04a7-b1e5-48b9-a4fa-84c67c26f325`. Add development APK/device, unsigned iOS simulator, preview and production profiles. Default npm start to the development client, retain an explicit Expo Go command and add build scripts. Preserve both `com.spaces.logistics` identifiers and current platform-specific Maps plugin options; fail remote builds when their platform key is missing. Limit EAS archives to mobile app sources and exclude environment/native/generated files, backend and website. Document profiles, environment variables, signing and rebuild steps.
+- **Breaking Changes:** `npm start` now targets a custom development client; install its build first or use `npm run start:go` for Expo Go.
+- **Verification:** Dependency installation, Expo account/project linkage, TypeScript, config ESLint and resolved dev-client/name/identifier configuration pass. EAS profile schema/inheritance and missing-key validation pass. Generated and inspected the local EAS archive: mobile sources/config/assets are present; backend, website, logs, dependencies and `.env.local` are excluded. Cloud environment upload was rejected by automatic approval review pending explicit user approval for sending existing Maps keys and API URL to Expo EAS. No cloud build was submitted and native Google map verification remains pending.
+
+## 2026-10-07 | Version: mobile-action-sheet-visible-v1
+
+- **Summary:** Restore the dashboard All stops filter menu and shared action-menu presentation.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Present ActionSheet in a native transparent modal with a bottom-aligned, safe-area-aware card instead of the invisible animated portal. Keep All stops, Speeding events, Shipment deliveries, current-selection indicators, disabled/destructive actions, Cancel/close/backdrop dismissal and scrollable long menus. Run selected callbacks after dismissal; iOS waits for native onDismiss, while Android/web finish after the hidden modal commits. Shared document-source and map action menus use the same component.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused ActionSheet ESLint and diff checks pass. iOS simulator verifies visible options, reopening/current selection, Speeding events (2 entries), Shipment deliveries (3 entries), cancellation without changing the filter and returning to All stops. Android/web, long menus and document-source picker handoff remain unverified. Existing Figma filter design remains applicable.
+
+## 2026-10-07 | Version: mobile-google-map-diagnostics-v1
+
+- **Summary:** Diagnose the blank Google map and add focused development logging.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Emit `[RunMap]` logs for native provider/host registration, layout, ready/loaded events, truck coordinate availability, directions status and request failures. Warn after 15 seconds if native ready/loaded events are missing, explicitly identifying this as a diagnostic rather than an SDK error. Logs omit credentials, API keys, identifiers and GPS coordinates. Preserve Google as the provider and existing unavailable states; a temporary Apple Maps comparison was reverted. Update dashboard implementation notes without changing the design plan.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript passes. Focused lint reports only the pre-existing `Date.now()` render-purity error; new diagnostic code passes with that existing rule disabled. Simulator logs confirm a 440 × 495.7 view, registered native Google component, valid truck coordinates and ready directions (967 points), but no Google ready/loaded events. Apple Maps rendered the same route/markers immediately in a controlled comparison. Expo configuration confirms both Maps keys are present without printing their values. No Google Maps authorization/SDK error was captured; Google initialization in Expo Go 57.0.9 remains unresolved and requires native-build verification. Diff checks pass.
+
+## 2026-10-07 | Version: mobile-document-summaries-location-v1
+
+- **Summary:** Move required and expired document summaries from the dashboard to Documents.
+- **API Changes:** None; reuse the existing scoped dashboard document counts.
+- **Database Changes:** None.
+- **Behavior Changes:** Show both notices below the Documents header and above uploaded files, with singular/plural wording and zero/unknown hiding. Required notice opens Upload document; expired guidance directs drivers to the files below. Retain the required Documents tab badge. Share both counts with existing return/refresh/upload/foreground refresh, session reset and stale-response guards. Update dashboard plan 1.49 and matching Figma examples/guide.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused Documents/provider ESLint pass. Dashboard lint reports only the pre-existing synchronous state-reset error. Diff checks pass; Figma Documents composition visually reviewed with SF Pro fonts. Native layout and upload-refresh verification remain pending.
+
+## 2026-10-07 | Version: mobile-expiry-date-picker-v1
+
+- **Summary:** Replace typed expiry dates with a shared date picker for driver-document and shipment-file uploads.
+- **API Changes:** None; keep the `expires_at` YYYY-MM-DD payload and existing required-expiry validation.
+- **Database Changes:** None.
+- **Behavior Changes:** Tap the expiry field/calendar icon to open Android's native date dialog or expand an iOS calendar with Cancel/Done. Keep the previous date on cancellation and reopen at the selected date. Web uses the browser date input. Format calendar dates locally to avoid timezone day shifts; disable the field during upload. Install Expo SDK 57-compatible datetimepicker 9.1.0 and register its config plugin.
+- **Breaking Changes:** None. Existing development/standalone binaries need rebuilding to include the new native module; Expo Go supplies it.
+- **Verification:** Mobile TypeScript, focused DateInput/date-helper/Documents/config ESLint and diff checks pass. Valid/leap-year dates round-trip and malformed/impossible dates are rejected in Johannesburg, Los Angeles and Kiritimati timezones; plugin registration verified. Shipment screen retains existing memoization/state-effect lint errors. Native picker interaction, web visual appearance and new native builds remain unverified.
+
+## 2026-10-07 | Version: mobile-spaces-digital-branding-v1
+
+- **Summary:** Adopt the selected Figma logo 08 “Destination” and name the mobile app Spaces Digital.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use the exact green Destination vector on login, its outlined Spaces Digital lockup on the splash and shared authentication loading screen, and matching iOS/general, Android adaptive/themed and web icons. Update the approved Figma login branding. Set the iOS bundle identifier and Android package to `com.spaces.logistics`; rename the Expo slug/npm package to `spaces-digital` and update photo/camera permission copy. Preserve the existing deep-link scheme.
+- **Breaking Changes:** Native application identity changes to `com.spaces.logistics`; installed builds must be rebuilt, and builds with a different previous identifier are separate applications.
+- **Verification:** Mobile TypeScript and focused login/root/loading-screen ESLint pass. Resolved Expo configuration confirms the display name, both platform identifiers and all branding assets. Reviewed the rasterized Figma lockup and verified the new login logo on the iOS simulator after reloading Expo Go. Icon dimensions and opaque iOS artwork verified; Android foreground/themed assets retain transparency. Native installation/icon/splash verification requires new iOS and Android builds; Expo Go cannot verify those native properties.
+
+## 2026-10-07 | Version: mobile-document-upload-permission-v1
+
+- **Summary:** Fix Documents and shipment attachment uploads failing with `FileSystemFile.bytes` missing read permission.
+- **API Changes:** None; retain the existing multipart endpoints, fields and error handling.
+- **Database Changes:** None.
+- **Behavior Changes:** Send picked cached file URIs through native XMLHttpRequest multipart upload instead of reading Expo File bytes. Preserve original filename and MIME type, use an octet-stream fallback, and retain expiry/type metadata and authentication. Web uploads use a browser Blob. Surface connection, timeout and cancellation errors.
+- **Breaking Changes:** None.
+- **Verification:** Mocked transport regression checks pass for iOS/Android URI multipart, shipment files, metadata/authentication, automatic multipart boundary, API validation details, network/timeout/abort failures and web Blob uploads. Mobile TypeScript, focused API ESLint and diff checks pass. Live device file selection/upload remains unverified.
+
+## 2026-10-07 | Version: mobile-required-document-badge-v1
+
+- **Summary:** Show required-document reminders only for confirmed missing uploads and add a matching Documents tab badge.
+- **API Changes:** None; reuse the existing driver-scoped dashboard document summary.
+- **Database Changes:** None.
+- **Behavior Changes:** Dashboard notice and red numeric Documents badge share a count; both hide at zero or before the count is known. Refresh on dashboard return/refresh, document-list refresh and successful upload, and app foreground. Session changes reset the count, superseded requests are ignored, and failures preserve confirmed requirements. Keep expired reminders separate. Update dashboard plan 1.48 and Figma examples/guide.
+- **Breaking Changes:** None.
+- **Verification:** Existing missing/uploaded/no-configured-document API regressions pass (2 tests, 10 assertions). Mobile TypeScript and focused tab-layout/Documents/provider ESLint pass; dashboard lint reports only its pre-existing synchronous state-reset error. Diff checks pass. Native badge and upload-refresh visual verification remains pending.
+
+## 2026-10-07 | Version: mobile-login-scroll-actions-v1
+
+- **Summary:** Move login actions into the scrolling content for keyboard layouts.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Place the Log in button and “Need access? Contact your dispatcher.” text inside the login ScrollView. Keep bottom placement when space permits using an automatic top margin; with the keyboard open, both scroll with the form instead of consuming fixed footer space. Retain keyboard avoidance and handled keyboard taps.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused login ESLint and git diff checks pass. Confirmed both actions are inside the ScrollView. Device keyboard interaction not rechecked in this task.
+
+## 2026-10-07 | Version: mobile-login-road-alignment-v1
+
+- **Summary:** Align the On the move login illustration route and current-location marker with its roads.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Follow the existing white road centre lines, turn at their calculated intersections and centre the blue location dot and halo on the route's upper intersection. Retain the dashed blue route, palette and SVG dimensions; use rounded route joins. This updates the local decorative login SVG only.
+- **Breaking Changes:** None.
+- **Verification:** SVG XML parses; every route segment aligns with a road centre line within 0.002 SVG units and the marker shares an intersection coordinate. Rendered and visually reviewed the SVG against the login background; diff checks pass. Native device appearance not rechecked for this asset adjustment.
+
+## 2026-10-07 | Version: mobile-nativewind-safe-area-v1
+
+- **Summary:** Remove NativeWind's startup access to React Native's deprecated SafeAreaView export.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Apply a targeted Babel transform to react-native-css-interop 0.2.1's compiled component registry, removing only its core SafeAreaView registration. Preserve all other component registrations, including react-native-safe-area-context; login already uses the supported component. Restart Metro with `npx expo start --clear` to apply the Babel change.
+- **Breaking Changes:** None.
+- **Verification:** Execute the installed dependency after transforming it with the app's Babel configuration: a guarded React Native export confirms no deprecated SafeAreaView access and all 17 supported registrations remain. Confirm unrelated files are unchanged. TypeScript, focused Babel/plugin lint and diff checks pass. Live device warning disappearance remains unverified.
+
+## 2026-10-07 | Version: mobile-login-on-the-move-v1
+
+- **Summary:** Implement selected Figma login concept 03, “On the move”.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Add the exact local Figma map and blue brand SVGs, “Ready for your next move?” heading, labelled blank rounded inputs, blue login button and dispatcher-access guidance. Extend the map behind the status bar with dark status icons and inset the brand chip below the notch. Retain authentication, errors, password visibility, safe-area-context and Android/iOS keyboard avoidance. Keep the login button in a fixed footer while the form scrolls.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused login lint and diff checks pass. iOS simulator visually verifies both SVGs, the map behind the status bar, form layout, blank inputs, visible button with the software keyboard and password-toggle state. Android and dark-theme appearance not visually verified; authentication request handling retained.
+
+## 2026-10-07 | Version: mobile-native-maps-key-plugin-v1
+
+- **Summary:** Pass native Google Maps keys through the current react-native-maps config plugin.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Native builds read GOOGLE_MAPS_ANDROID_API_KEY and GOOGLE_MAPS_IOS_API_KEY into the plugin's androidGoogleMapsApiKey and iosGoogleMapsApiKey options instead of legacy config fields. Keys stay in the build environment. Existing binaries must be rebuilt; Expo Go retains its own native Maps configuration.
+- **Breaking Changes:** None.
+- **Verification:** Expo configuration resolves both plugin key options from the local environment without printing key values. Missing-key behavior and preservation of existing config verified; focused config lint and diff checks pass. No native build or live tile verification performed.
+
+## 2026-10-07 | Version: mobile-auth-stack-routes-v1
+
+- **Summary:** Correct root stack authentication screen names to remove the post-login route warning.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Register `(auth)/login` and `(auth)/register` as the root stack's actual child routes. The auth folder has no nested layout, so `(auth)` alone is not a registered screen. Existing authentication redirects and hidden headers are retained.
+- **Breaking Changes:** None.
+- **Verification:** Focused root-layout lint, TypeScript and diff checks pass. Route declarations match the registered children reported by Expo. Connected Android app reloaded and bundle rebuilt; repeat post-login warning verification remains pending.
+
+## 2026-10-07 | Version: mobile-login-password-visibility-v1
+
+- **Summary:** Add a password visibility toggle to the Expo login field.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Passwords start hidden. Tap the eye on the right of the password input to reveal the value, then tap the crossed-out eye to hide it. Reserve space for the icon and provide accessible Show password/Hide password labels with theme-aware colour.
+- **Breaking Changes:** None.
+- **Verification:** Focused login lint, TypeScript and diff checks pass. Source inspection confirms hidden-by-default masking, both toggle states and icon spacing. Live device toggle interaction remains unverified (simulator is signed in).
+
+## 2026-10-07 | Version: mobile-login-android-keyboard-v1
+
+- **Summary:** Keep the login submit button above the Android keyboard.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Enable height avoidance on Android and account for the top safe-area inset. Keep the Log in button in a fixed footer within keyboard avoidance, with the form scrolling independently when keyboard space is limited. Retain padding avoidance on iOS.
+- **Breaking Changes:** None.
+- **Verification:** Focused login lint, TypeScript and diff checks pass. Source inspection confirms Android height avoidance and a non-shrinking footer outside the form scroll view. Android SDK/emulator unavailable locally; live Android keyboard and iOS regression appearance remain unverified.
+
+## 2026-10-07 | Version: mobile-input-radius-half-v1
+
+- **Summary:** Halve Expo text input corner radii, including the login email and password fields.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Login radius changes from 22 to 11 points; profile, document, shipment, scanning, delivery notes and import-review input radii are halved from their existing values.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and diff checks pass. Login, profile, delivery-notes and import-field lint pass; seven lint errors in documents/shipment/scan screens also reproduce against HEAD. Live device appearance not visually verified.
+
+## 2026-10-07 | Version: mobile-login-native-layout-v1
+
+- **Summary:** Restore login text, input sizing and button placement inside the safe-area layout.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Keep `SafeAreaView` from `react-native-safe-area-context`; use explicit native styles for login layout and theme colours. Add scrollable content within keyboard avoidance so the form and submit button remain reachable. Preserve blank inputs and add accessible input labels.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused login lint and diff checks pass. Signed-out iOS simulator visually verifies heading, labels, full-sized blank inputs and bottom login button; software-keyboard verification confirms the button remains above the keyboard. Dark theme and Android appearance not visually verified.
+
+## 2026-10-07 | Version: mobile-login-no-placeholders-v1
+
+- **Summary:** Remove placeholder text from the login inputs.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Empty email and password inputs display no placeholder; their visible labels remain.
+- **Breaking Changes:** None.
+- **Verification:** Focused login lint and diff checks pass; source inspection confirms both placeholder props are removed.
+
+## 2026-10-07 | Version: local-laravel-migrations-v1
+
+- **Summary:** Apply pending migrations to restore the local driver dashboard.
+- **API Changes:** None.
+- **Database Changes:** Apply existing vehicle-location-history, geofence-cleanup-tables and geofence-cleanup-lookup-index migrations to the configured local database.
+- **Behavior Changes:** Dashboard queries can use the previously missing `vehicle_activity.geofence_cleanup_batch_uuid` column.
+- **Breaking Changes:** None.
+- **Verification:** All three migrations completed; no pending migrations remain. Schema check confirms the column exists. Simulator dashboard retry loads the current run and five-required-documents notice successfully. Live no-run acceptance still requires a driver without an active run.
+
+## 2026-10-07 | Version: mobile-logbox-contrast-v1
+
+- **Summary:** Restore readable developer error popup text in the Expo app.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Keep React Native internals on React's JSX runtime so NativeWind does not strip LogBox's callback-based background styles. Application JSX retains NativeWind styling. Error messages, inspection and dismissal remain enabled.
+- **Breaking Changes:** None.
+- **Verification:** iOS simulator displays white error text on a dark popup after a clean Expo restart. Babel checks confirm the separate JSX runtimes and filename-free Metro config loading; TypeScript and Babel-config lint pass. The dashboard API still returns its existing HTTP 500 for missing `vehicle_activity.geofence_cleanup_batch_uuid`.
+
+## 2026-10-07 | Version: mobile-login-safe-area-v1
+
+- **Summary:** Respect device safe areas on the mobile login page.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Wrap login and hydration layouts in `react-native-safe-area-context` SafeAreaView, replacing fixed top clearance with safe-area insets plus normal content spacing. Retain keyboard avoidance.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused login lint and diff checks pass; live signed-out simulator appearance not verified.
+
+## 2026-10-07 | Version: mobile-local-api-network-v1
+
+- **Summary:** Point the local Expo app at Laravel on the Mac's current network address.
+- **API Changes:** None; local base URL is `http://192.168.10.151:8001/api/v1` in ignored `mobile_app/.env.local`.
+- **Database Changes:** None.
+- **Behavior Changes:** Local mobile requests use the reachable development server instead of `172.20.10.4:8001`.
+- **Breaking Changes:** None; local configuration only.
+- **Verification:** Laravel listens on port 8001 and returns HTTP 401 for an unauthenticated driver-position request. Expo restarted with its bundle cache cleared. Simulator confirms requests reach the new URL; dashboard returns HTTP 500 because the local database lacks `vehicle_activity.geofence_cleanup_batch_uuid`.
+
+## 2026-10-07 | Version: driver-no-run-dashboard-v1
+
+- **Summary:** Implement the existing no-current-run dashboard with its truck map, persistent sheet and primary delivery-note upload action.
+- **API Changes:** Add authenticated, throttled `GET /api/v1/driver/position`, returning the assigned truck's ID, plate, validated coordinate and observation time without requiring a run. Existing run-position contract retained.
+- **Database Changes:** None; use existing truck login, assignment and GPS fields.
+- **Behavior Changes:** Show only the truck on the no-run map; keep no-run guidance, document reminders, dispatch contact and all five tabs. Use native persistent-panel layout with a draggable/tappable 25/50/92% handle to prevent an invisible initial sheet; retain scrolling and pull-to-refresh. Poll truck position only while focused and foregrounded. Align the existing Figma no-run screen and dashboard plan.
+- **Breaking Changes:** None.
+- **Verification:** 30 driver API tests pass (191 assertions), including no-run GPS, missing/invalid coordinates, assignment/merchant isolation and inactive profiles. TypeScript and persistent-sheet/API-client lint pass. Focused dashboard/map lint reports three existing React Compiler errors in unchanged lines. Simulator verifies visible initial loading/error sheet, five tabs, 25/50/92% resizing and handle drag. Initial live verification was blocked by the old API address. After updating the local URL, the dashboard responds with HTTP 500 for the missing `vehicle_activity.geofence_cleanup_batch_uuid` column; live no-run GPS/notification/upload acceptance remains pending. Existing Figma screen visually verified.
 
 ## 2026-10-04 | Version: crm-feedback-bottom-center-v1
 

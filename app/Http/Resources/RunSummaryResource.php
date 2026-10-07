@@ -28,6 +28,7 @@ class RunSummaryResource extends JsonResource
 
         return [
             'run_id' => $this->uuid,
+            'end_request' => $this->latestEndRequest?->toSummary(),
             'status' => $this->status,
             'planned_start_at' => $this->formatDateForMerchantTimezone($this->planned_start_at, $request),
             'started_at' => $this->formatDateForMerchantTimezone($this->started_at, $request),

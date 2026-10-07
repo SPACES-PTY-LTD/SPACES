@@ -43,6 +43,6 @@ const s = StyleSheet.create({
   choice: { borderWidth: 1, borderColor: '#ddd', padding: 15, borderRadius: 10 }, selected: { borderColor: '#f54a4a', backgroundColor: '#fff0f0' },
   error: { color: '#a32222', backgroundColor: '#ffe8e8', padding: 14, borderRadius: 10, lineHeight: 22 },
   note: { fontSize: 13, lineHeight: 20, color: '#666' }, label: { fontSize: 13, color: '#555' },
-  input: { minHeight: 46, borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 8, padding: 12, color: '#111', backgroundColor: '#fff', fontSize: 15 },
+  input: { minHeight: 46, borderWidth: 1, borderColor: '#d4d4d8', borderRadius: 4, padding: 12, color: '#111', backgroundColor: '#fff', fontSize: 15 },
 });
 export const importStyles = s;

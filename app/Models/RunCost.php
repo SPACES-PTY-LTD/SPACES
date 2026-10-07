@@ -10,7 +10,7 @@ class RunCost extends Model
 {
     use HasUuid, SoftDeletes;
 
-    protected $fillable = ['title', 'amount', 'currency', 'run_id', 'location_id', 'location_cost_id', 'vehicle_activity_id', 'location_name', 'visited_at', 'source', 'created_by', 'updated_by'];
+    protected $fillable = ['client_request_id', 'title', 'amount', 'currency', 'run_id', 'location_id', 'location_cost_id', 'vehicle_activity_id', 'location_name', 'visited_at', 'source', 'created_by', 'updated_by'];
 
     protected $casts = ['amount' => 'decimal:4', 'visited_at' => 'datetime'];
 

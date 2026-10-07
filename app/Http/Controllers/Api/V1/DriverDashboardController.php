@@ -181,7 +181,7 @@ class DriverDashboardController extends Controller
             'remaining' => $remaining,
             'total' => $delivered + $remaining,
             'trip_endpoints' => $currentRun ? collect([['role' => 'Run starting point', 'location' => $currentRun->originLocation], ['role' => 'Planned end location', 'location' => $currentRun->destinationLocation]])->filter(fn ($item) => $item['location'])->map(fn ($item) => ['role' => $item['role'], 'name' => $item['location']->name, 'address' => $item['location']->full_address, 'latitude' => $item['location']->latitude !== null ? (float) $item['location']->latitude : null, 'longitude' => $item['location']->longitude !== null ? (float) $item['location']->longitude : null])->values() : [],
-            'current_run' => $currentRun ? ['run_id' => $currentRun->uuid, 'status' => $currentRun->status, 'destination_location_id' => $currentRun->destinationLocation?->uuid] : null,
+            'current_run' => $currentRun ? ['run_id' => $currentRun->uuid, 'status' => $currentRun->status, 'destination_location_id' => $currentRun->destinationLocation?->uuid, 'origin_location_id' => $currentRun->originLocation?->uuid, 'end_request' => $currentRun->latestEndRequest?->toSummary()] : null,
             'recorded_stops' => $recordedStops,
             'planned_delivery_stops' => $plannedDeliveryStops,
             'run_shipments' => DriverShipmentResource::collection($runShipments),

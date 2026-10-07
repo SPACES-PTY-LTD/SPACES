@@ -37,7 +37,7 @@ export default function AccountScreen() {
             {session?.user.name ?? 'Driver account'}
           </Text>
           <Text className="text-secondary-foreground mt-3 text-base leading-6 opacity-80">
-            This screen holds session details for now. More driver-specific settings can be added here later.
+            Manage your profile, assigned vehicles and app preferences.
           </Text>
         </View>
 
@@ -51,6 +51,12 @@ export default function AccountScreen() {
           <Text className="text-muted-foreground mt-5 text-sm uppercase tracking-[2px]">Role</Text>
           <Text className="text-card-foreground mt-1 text-lg font-semibold capitalize">{session?.user.role}</Text>
         </View>
+
+        <Pressable accessibilityRole="button" onPress={() => router.push('/account/vehicles')}
+          className="border-border bg-card mt-6 rounded-xl border px-5 py-4">
+          <Text className="text-card-foreground text-lg font-semibold">Vehicles assigned to me</Text>
+          <Text className="text-muted-foreground mt-1">View your assigned vehicles and their details.</Text>
+        </Pressable>
 
         <Pressable
           onPress={toggleColorScheme}

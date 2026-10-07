@@ -1,8 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetModal, BottomSheetScrollView, BottomSheetView } from '@gorhom/bottom-sheet';
-import { createContext, useContext, PropsWithChildren, RefObject, useCallback, useEffect, useState } from 'react';
-import { BackHandler, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { createContext, useContext, PropsWithChildren, RefObject, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { BackHandler, Platform, Pressable, StyleSheet, useWindowDimensions, View, type ScrollViewProps } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -15,10 +14,14 @@ export type BottomSheetProps = PropsWithChildren<{
   onDismiss?: () => void;
   accessibilityLabel?: string;
   scrollable?: boolean;
+  /** Search/tool controls pinned together with the title above scrolling content. */
+  stickyHeader?: ReactNode;
+  onScroll?: ScrollViewProps['onScroll'];
   dismissible?: boolean;
   showCloseButton?: boolean;
   showHandle?: boolean;
   maxDynamicContentSize?: number;
+  keyboardBehavior?: 'interactive' | 'extend' | 'fillParent';
 }>;
 
 const SheetDismissibleContext = createContext(true);
@@ -28,18 +31,20 @@ function SheetBackdrop(props: BottomSheetBackdropProps) {
 }
 
 function ModalContainer({ children }: PropsWithChildren) {
-  return Platform.OS === 'ios' ? <FullWindowOverlay><GestureHandlerRootView style={{ flex: 1 }}>{children}</GestureHandlerRootView></FullWindowOverlay> : <>{children}</>;
+  return Platform.OS === 'ios' ? <FullWindowOverlay>{children}</FullWindowOverlay> : <>{children}</>;
 }
 
 /** Shared floating sheet appearance, safe-area spacing, keyboard and dismissal behavior. */
 export function BottomSheet({ modalRef, title, children, onDismiss, accessibilityLabel,
-  scrollable = false, dismissible = true, showCloseButton = true, showHandle = true,
-  maxDynamicContentSize }: BottomSheetProps) {
+  onScroll, stickyHeader, scrollable = false, dismissible = true, showCloseButton = true, showHandle = true,
+  maxDynamicContentSize, keyboardBehavior = 'interactive' }: BottomSheetProps) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const maximumHeight = Math.min(maxDynamicContentSize ?? height * 0.88, height - insets.top - insets.bottom - 24);
+  // Keep a visible gap above Android's gesture/three-button navigation area.
+  const bottomInset = Platform.OS === 'android' ? insets.bottom + 16 : Math.max(insets.bottom, 12);
+  const maximumHeight = Math.min(maxDynamicContentSize ?? height * 0.88, height - insets.top - (Platform.OS === 'android' ? bottomInset + 12 : insets.bottom + 24));
   const background = dark ? sheetTheme.darkBackground : sheetTheme.background;
   const ink = dark ? '#fafafa' : '#18181b';
   const backSubscription = useCallback(() => {
@@ -53,32 +58,31 @@ export function BottomSheet({ modalRef, title, children, onDismiss, accessibilit
     const subscription = BackHandler.addEventListener('hardwareBackPress', backSubscription);
     return () => subscription.remove();
   }, [visible, backSubscription]);
-  const content = <>
-    <View style={styles.header}>
+  const header = <View style={styles.header}>
       {!!title && <Text style={[styles.title, { color: ink }]} accessibilityRole="header">{title}</Text>}
       {showCloseButton && <Pressable accessibilityRole="button" accessibilityLabel={`Close ${accessibilityLabel || title || 'sheet'}`} accessibilityState={{ disabled: !dismissible }} disabled={!dismissible} onPress={() => modalRef.current?.dismiss()} style={[styles.close, { backgroundColor: dark ? '#303036' : '#f4f4f5', opacity: dismissible ? 1 : 0.4 }]}><Feather name="x" size={22} color={ink} /></Pressable>}
-    </View>
-    {children}
-  </>;
+    </View>;
+  const pinnedHeader = stickyHeader ? <View style={[styles.stickyHeader, { backgroundColor: background }]}>{header}{stickyHeader}</View> : header;
   return <SheetDismissibleContext.Provider value={dismissible}><BottomSheetModal
     ref={modalRef} accessible={false} containerComponent={ModalContainer} index={0} enableDynamicSizing
-    maxDynamicContentSize={maximumHeight} detached bottomInset={Math.max(insets.bottom, 12)}
+    maxDynamicContentSize={maximumHeight} topInset={keyboardBehavior === 'fillParent' ? insets.top + 12 : 0} detached bottomInset={bottomInset}
     style={styles.sheet} backgroundStyle={{ backgroundColor: background, borderRadius: sheetTheme.radius }}
     handleComponent={showHandle ? undefined : null} handleIndicatorStyle={{ backgroundColor: dark ? '#71717a' : sheetTheme.handleColor, width: sheetTheme.handleWidth, height: sheetTheme.handleHeight }}
-    enablePanDownToClose={dismissible} enableBlurKeyboardOnGesture keyboardBehavior="interactive"
+    enablePanDownToClose={dismissible} enableBlurKeyboardOnGesture keyboardBehavior={keyboardBehavior}
     keyboardBlurBehavior="restore" android_keyboardInputMode="adjustResize"
     onChange={index => setVisible(index >= 0)}
     onDismiss={() => { setVisible(false); onDismiss?.(); }}
     backdropComponent={SheetBackdrop}>
-    {scrollable ? <BottomSheetScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{content}</BottomSheetScrollView>
-      : <BottomSheetView style={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{content}</BottomSheetView>}
+    {scrollable ? <BottomSheetScrollView stickyHeaderIndices={stickyHeader ? [0] : undefined} onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{pinnedHeader}{children}</BottomSheetScrollView>
+      : <BottomSheetView style={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</BottomSheetView>}
   </BottomSheetModal></SheetDismissibleContext.Provider>;
 }
 
 const styles = StyleSheet.create({
   sheet: { marginHorizontal: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 18, elevation: 12 },
   content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 16 },
+  stickyHeader: { gap: 16, paddingBottom: 16, marginBottom: -16 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  title: { fontSize: 22, lineHeight: 28, fontWeight: '700', flex: 1 },
+  title: { fontSize: 18, lineHeight: 28, fontWeight: '700', flex: 1 },
   close: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' },
 });

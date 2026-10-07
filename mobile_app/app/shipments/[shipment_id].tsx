@@ -7,6 +7,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, TextInput, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/component/ui/Text';
+import { DateInput } from '@/component/ui/DateInput';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ApiRequestError, CancelReason, DriverEntityFile, DriverFileType, DriverShipment, driverApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
@@ -621,15 +622,7 @@ export default function ShipmentDetailScreen() {
             {selectedShipmentFileType?.requires_expiry ? (
               <View className="bg-card mt-4 rounded-xl px-5 py-5">
                 <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Expiry date</Text>
-                <TextInput
-                  autoCapitalize="none"
-                  keyboardType="numbers-and-punctuation"
-                  onChangeText={setFileExpiresAt}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor={isDarkMode ? '#71717A' : '#A8A29E'}
-                  value={fileExpiresAt}
-                  className="border-input-border bg-input text-input-foreground mt-4 rounded-[18px] border px-4 py-4 text-base"
-                />
+                <DateInput value={fileExpiresAt} onChange={setFileExpiresAt} disabled={isMutating} />
               </View>
             ) : null}
 
@@ -741,7 +734,7 @@ function Input({
         textAlignVertical={multiline ? 'top' : 'center'}
         placeholder={placeholder}
         placeholderTextColor="#A8A29E"
-        className={`bg-input text-input-foreground rounded-[18px] px-4 py-4 text-base ${multiline ? 'min-h-24' : ''}`}
+        className={`bg-input text-input-foreground rounded-[9px] px-4 py-4 text-base ${multiline ? 'min-h-24' : ''}`}
       />
     </View>
   );

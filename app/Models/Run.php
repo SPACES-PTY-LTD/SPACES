@@ -60,6 +60,28 @@ class Run extends Model
         'driver_workflow' => 'boolean',
     ];
 
+    protected static function booted(): void
+    {
+        static::updated(function (Run $run) {
+            if ($run->wasChanged('status') && in_array($run->status, [self::STATUS_COMPLETED, self::STATUS_CANCELLED], true)) {
+                foreach ($run->endRequests()->where('status', 'pending')->get() as $entry) {
+                    $entry->update(['status' => 'resolved', 'reviewed_by' => request()->user()?->id, 'reviewed_at' => now(), 'review_reason' => 'Run closed through another supported workflow.']);
+                    app(\App\Services\ActivityLogService::class)->log(action: 'run_end_resolved', entityType: 'run', entity: $run, changes: ['after' => $entry->toSummary()], title: 'Run end request resolved');
+                }
+            }
+        });
+    }
+
+    public function endRequests()
+    {
+        return $this->hasMany(RunEndRequest::class);
+    }
+
+    public function latestEndRequest()
+    {
+        return $this->hasOne(RunEndRequest::class)->latestOfMany();
+    }
+
     public function additionalCosts()
     {
         return $this->hasMany(RunCost::class)->orderBy('id');

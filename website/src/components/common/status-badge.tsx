@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-100 text-emerald-700 border-emerald-200",
   inactive: "bg-slate-100 text-slate-600 border-slate-200",
+  pending_approval: "bg-amber-100 text-amber-700 border-amber-200",
   pending: "bg-amber-100 text-amber-700 border-amber-200",
   paused: "bg-sky-100 text-sky-700 border-sky-200",
   failed: "bg-rose-100 text-rose-700 border-rose-200",
