@@ -98,7 +98,8 @@ class EntityFileController extends Controller
     public function download(Request $request, string $file_uuid, EntityFileService $service)
     {
         try {
-            $payload = $service->downloadForUser($request->user(), $file_uuid);
+            $request->validate(['run_id' => ['sometimes', 'uuid']]);
+            $payload = $service->downloadForUser($request->user(), $file_uuid, $request->query('run_id'));
             if ($request->query('format') === 'url') {
                 if ($payload['type'] === 'redirect') {
                     return ApiResponse::success(['url' => $payload['url']]);
@@ -163,7 +164,8 @@ class EntityFileController extends Controller
     public function ownDriverShipmentIndex(Request $request, string $shipment_uuid, EntityFileService $service)
     {
         try {
-            $files = $service->listOwnDriverShipmentFiles($request->user(), $shipment_uuid);
+            $request->validate(['run_id' => ['sometimes', 'uuid']]);
+            $files = $service->listOwnDriverShipmentFiles($request->user(), $shipment_uuid, $request->query('run_id'));
             return ApiResponse::paginated($files, EntityFileResource::collection($files));
         } catch (Throwable $e) {
             Log::error('Own driver shipment file list failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);

@@ -1,6 +1,5 @@
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { useEffect, useImperativeHandle, useRef, useState, type Ref, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View, type ScrollViewProps } from 'react-native';
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View, type ScrollViewProps } from 'react-native';
 import { Text } from '@/component/ui/Text';
 import { ApiRequestError, documentImportApi, ImportLocation } from '@/src/lib/api';
 import { Feather } from '@expo/vector-icons';
@@ -13,7 +12,7 @@ const routable = (location: ImportLocation) => location.latitude != null && loca
 export type LocationSearchPickerHandle = { onScroll: NonNullable<ScrollViewProps['onScroll']> };
 
 /** Shared search, pagination and selection preview; callers own endpoint persistence. */
-export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedLabel = 'SELECTED LOCATION', selectionIcon = 'map-pin', onBusyChange, ref, children }: {
+export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedLabel = 'SELECTED LOCATION', selectionIcon = 'map-pin', onBusyChange, ref }: {
   token: string;
   onConfirm: (location: ImportLocation) => Promise<void> | void;
   confirmLabel: string;
@@ -21,7 +20,6 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
   selectionIcon?: 'map-pin' | 'flag';
   onBusyChange?: (busy: boolean) => void;
   ref?: Ref<LocationSearchPickerHandle>;
-  children: (parts: { searchHeader: ReactNode; content: ReactNode }) => ReactNode;
 }) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
@@ -94,7 +92,7 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
       <View style={{ gap: 8 }}>
         <View style={[styles.search, { backgroundColor: surface, borderColor: border }]}>
           <Feather name="search" size={19} color={muted} />
-          <BottomSheetTextInput accessibilityLabel="Location name or address" accessibilityHint="Press Search on the keyboard to find locations" placeholder="Location name or address" placeholderTextColor={muted} value={query} onChangeText={setQuery} style={[styles.input, { color: ink }]} returnKeyType="search" autoCorrect={false} onSubmitEditing={() => void load(query)} />
+          <TextInput accessibilityLabel="Location name or address" accessibilityHint="Press Search on the keyboard to find locations" placeholder="Location name or address" placeholderTextColor={muted} value={query} onChangeText={setQuery} style={[styles.input, { color: ink }]} returnKeyType="search" autoCorrect={false} onSubmitEditing={() => void load(query)} />
           {!!query && <Pressable accessibilityRole="button" accessibilityLabel="Clear location search" onPress={() => { setQuery(''); void load(); }} style={styles.clear}><Feather name="x" size={18} color={muted} /></Pressable>}
         </View>
       </View>
@@ -130,7 +128,7 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
       </>}
     </>}
   </>;
-  return children({ searchHeader, content });
+  return <>{searchHeader}{content}</>;
 }
 
 const styles = StyleSheet.create({

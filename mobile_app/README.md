@@ -98,3 +98,32 @@ See [messaging API, permissions and rollout](../docs/messaging.md) for migration
 Messages shows the received unread count on its tab (99+ above 99). The count refreshes every ten seconds while foregrounded, on navigation/foreground and after successful read acknowledgement; it clears when read and resets on session changes.
 
 Final-destination search uses `POST /api/v1/driver/trip-locations/search` with `{ query, page }`. The array response includes `meta.next_page`; saved locations are paginated in stable ID order, 20 per page. The picker appends/deduplicates pages near the scroll end, shows Loading more… and retains existing results with a retry action on pagination failure. Geocoding fallback returns a terminal first page.
+
+### Mobile Messages design
+
+Selected [Figma option 1 — Calm conversation](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0?node-id=169-1477) is implemented locally. An illustrated, centred empty state replaces the plain empty-list text. The Dispatch avatar/title/subtitle and default composer helper text are omitted. The fully rounded multiline composer includes attachment and send buttons with 44-point targets, selected-file removal, a sending spinner, retry feedback and closed-conversation guidance. Send is disabled until the active chat has text or an attachment. The screen follows the app theme, keeps the composer above the keyboard and preserves history, downloads, polling and unread counts. Bundled SVG icons have no runtime Figma dependency.
+
+Verification: mobile TypeScript/focused lint and iOS empty-state, input/clear/send gating and software-keyboard visual checks pass. No message was sent during this UI verification. Android, dark mode and attachment/send/retry/closed interactions still need device verification.
+
+### Shared tab header
+
+Messages, Runs, Documents and Account use `component/ui/PageHeader.tsx` with `title` and optional `status`. It stays outside scrolling content and exposes an accessibility heading. Screens own the top safe-area inset; do not add it in the component or scrolling body. Upload document is a top-right Documents header action; the account name is in profile details. Messages passes Closed only for closed chats. Theme-aware title/status/divider colours follow the existing theme hook.
+
+TypeScript passes; focused lint passes excluding an existing unchanged Shipments memoization warning. iOS light-mode Shipments/Documents/Account headers and upload-form entry verified. All-tab scrolling/refresh, latest Messages keyboard, dark-mode and Android checks remain pending after simulator interruption.
+
+Tab page surfaces: Runs, Documents and Account use a white light-mode canvas with `#F5F5F8` cards and white nested detail panels/selected run filters. Dark mode retains existing dark card/muted colours. Messages is already white; the dashboard and document-upload modal are unchanged. Native light/dark contrast checks remain pending.
+
+
+## Runs and completed history
+
+Runs replaces the Shipments tab with Active (draft/dispatched/in_progress) and Completed (dispatch-closed only) filters. Cards show trip endpoints, vehicle, progress and dates; lists paginate and refresh on focus/foreground or pull-to-refresh. `/runs/[run_id]` shows attached shipments and recorded timeline. Active details open the selected dashboard for existing actions. Completed run/linked shipment views are read-only, including scoped file reads after reassignment; shipment fields remain current records. `/bookings` redirects to Runs. Shipment and upload routes remain available.
+
+Driver API list/detail: `GET /api/v1/driver/runs?status=active|completed&page=…` and `/driver/runs/{run_uuid}`. Historical shipment/file GET/download requests pass `run_id` for an owned completed run; mutation access is unchanged. Shared run-data assembly and timeline UI keep dashboard behavior consistent. See the canonical [dashboard handoff](../docs/design/dashboard/README.md) and [Figma Runs screens](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0?node-id=187-1490).
+
+Verification: 61 focused Laravel tests/430 assertions, TypeScript, five map/filter tests and focused lint pass (existing effect rule excluded on dashboard/shipment detail). iOS active/pending summary, completed empty state, details, shipment links and Open dashboard verified. Android, native dark mode, completed-content, pagination/network/session checks remain pending; Account theme toggle did not respond during the simulator review. Figma static screens and navigation are aligned; prototype reaction wiring was rejected by Figma.
+
+### Compact Documents and details
+
+Selected Figma option 1 uses conditional required/expired count tiles and minimal document rows (type, filename, expired badge and chevron). Tapping a row opens `/documents/[file_id]` inside a nested Documents stack so the tab/badge remain visible. Details resolves the UUID from the existing authenticated driver file list, showing metadata, expiry, uploader and authorized Download with progress/error handling. A 44-point back control sits beside the title; deep-link fallback returns to Documents. Upload and pull-to-refresh remain available. The shared PageHeader accepts optional `leading` and `action` slots; screens still own safe-area padding. Figma SVGs are bundled locally at their source dimensions. No API/database changes.
+
+Verification: mobile TypeScript and focused Documents/header lint pass. Native visual/navigation verification is recorded in release notes; upload submission, download, dark mode and Android need device verification.

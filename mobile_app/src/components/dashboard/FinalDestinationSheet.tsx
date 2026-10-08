@@ -14,13 +14,11 @@ export function FinalDestinationSheet({ token, runId, onDismiss, onSaved }: {
     const frame = requestAnimationFrame(() => modal.current?.present());
     return () => cancelAnimationFrame(frame);
   }, [token, runId]);
-  return <LocationSearchPicker key={`${token}:${runId}`} ref={picker} token={token} selectedLabel="SELECTED DESTINATION" selectionIcon="flag" confirmLabel="Save final destination" onBusyChange={setSaving} onConfirm={async location => {
-    await documentImportApi.chooseFinalDestination(token, runId, location.location_id);
-    modal.current?.dismiss();
-    onSaved();
-  }}>
-    {({ searchHeader, content }) => <BottomSheet keyboardBehavior="fillParent" stickyHeader={searchHeader} onScroll={event => picker.current?.onScroll(event)} showHandle={false} modalRef={modal} title="Choose final destination" scrollable dismissible={!saving} onDismiss={onDismiss}>
-      {content}
-    </BottomSheet>}
-  </LocationSearchPicker>;
+  return <BottomSheet plainScroll onScroll={event => picker.current?.onScroll(event)} showHandle={false} modalRef={modal} title="Choose final destination" scrollable dismissible={!saving} onDismiss={onDismiss}>
+    <LocationSearchPicker key={`${token}:${runId}`} ref={picker} token={token} selectedLabel="SELECTED DESTINATION" selectionIcon="flag" confirmLabel="Save final destination" onBusyChange={setSaving} onConfirm={async location => {
+      await documentImportApi.chooseFinalDestination(token, runId, location.location_id);
+      modal.current?.dismiss();
+      onSaved();
+    }} />
+  </BottomSheet>;
 }

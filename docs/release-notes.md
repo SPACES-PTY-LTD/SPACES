@@ -1,5 +1,78 @@
 # Release Notes
 
+## 2026-10-08 | Version: compact-documents-details-v1
+
+- **Summary:** Implement selected refined Figma Documents design and separate document details.
+- **API Changes:** None; reuse authenticated driver file listing and authorized download URL.
+- **Database Changes:** None.
+- **Behavior Changes:** Top-right coral Upload document action, conditional required/expired tiles, compact tappable type/filename/status rows. Nested `/documents/[file_id]` shows full metadata, expiry, uploader and Download with loading/error feedback, keeping Documents selected. Add back icon beside details title. Preserve upload form, refresh, badges and dashboard styling. Bundle six Figma SVGs and extend shared header with optional leading/action slots.
+- **Breaking Changes:** None; `/documents` remains the list route.
+- **Verification:** Mobile TypeScript, focused Documents/header lint and diff checks pass. iOS list/details/back/header-upload entry verified without upload; upload submission, download, dark mode and Android require device verification. Dashboard plan v1.84 and mobile documentation updated.
+
+## 2026-10-08 | Version: driver-runs-tab-v1
+
+- **Summary:** Replace Expo Shipments with Runs, showing active assignments and dispatch-completed history with run details.
+- **API Changes:** Add paginated driver-role `GET /api/v1/driver/runs` (active/completed filters) and `GET /api/v1/driver/runs/{run_uuid}`. Optional `run_id` on shipment GET, driver shipment-file list and file download permits scoped completed-run reads after reassignment without granting mutation access.
+- **Database Changes:** None; no migration.
+- **Behavior Changes:** Default Active includes ready-to-start draft/dispatched and in-progress runs; Completed excludes cancelled runs and sorts latest closure first. Cards show reference, status, vehicle, endpoints, progress and dates. Add detail summary/shipments/shared recorded timeline, Open dashboard for active actions, read-only completed shipment views, pagination/refresh/retry and stale-response/session guards. Redirect legacy /bookings to Runs; preserve shipment/scan/import routes and existing run lifecycle.
+- **Internal Changes:** Extract shared driver run-data assembly and RunTimeline presentation; use lightweight summary counts without loading GPS/activity or shipment detail on list requests.
+- **Breaking Changes:** None; new mobile screens require the updated API deployment before use.
+- **Verification:** 61 focused Laravel tests (430 assertions), mobile TypeScript, five map/filter tests and new-screen focused lint pass. Legacy dashboard/shipment-detail lint passes with existing set-state-in-effect errors excluded. iOS active/pending list, Completed empty state, run details, shipment entry and Open dashboard verified without mutations. Android, native dark mode, completed-content, long-list pagination and network/session race checks remain pending; existing Account theme control did not respond in the simulator. Dashboard plan v1.83 and Figma static list/detail/dark examples plus 69 existing navigation labels/icons aligned. Figma rejected new prototype-link reactions; static design handoff records this limitation.
+
+## 2026-10-08 | Version: white-tab-surfaces-v1
+
+- **Summary:** Use white page backgrounds with contrasting cards on Shipments, Documents and Account.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** White light-mode canvas, soft grey cards/loading/empty panels, white nested address/document metadata panels and selected shipment filter. Preserve dark-mode surfaces, semantic status/required/expired colours and actions. Messages is already white. Dashboard and document-upload modal styling remain unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, diff checks and focused lint excluding the existing Shipments memoization warning pass. Native light/dark visual verification remains pending. Dashboard plan v1.82 and Figma surface handoff aligned.
+
+## 2026-10-08 | Version: shared-tab-page-header-v1
+
+- **Summary:** Standardise Messages, Shipments, Documents and Account with a reusable clean fixed header.
+- **API Changes:** None; internal `PageHeader({ title, status? })` component added.
+- **Database Changes:** None.
+- **Behavior Changes:** Use consistent 28-point accessible page titles, spacing and theme-aware dividers above scrolling bodies. Each screen owns one safe-area inset. Replace introductory cards/subtitles; keep Upload document below the divider, account name in profile details and conditional Messages Closed status. Preserve page actions, filters, refresh and badges.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript passes; focused lint passes with the pre-existing Shipments memoization rule warning excluded (hook unchanged). iOS light-mode Shipments/Documents/Account layout and upload-form entry verified; no document uploaded. Simulator interruption prevented completing all-tab scrolling/refresh, latest Messages keyboard, dark-mode and Android checks. Figma shared component/examples and Messages/Documents instances aligned; dashboard plan v1.81 updated.
+
+## 2026-10-08 | Version: messages-header-title-only-v1
+
+- **Summary:** Remove the user-name subtitle beneath Messages.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show only the Messages heading for active chats; retain Closed status for closed chats and sender labels within history.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused Messages lint and diff checks pass. Selected Figma and dashboard plan v1.80 aligned.
+
+## 2026-10-08 | Version: messages-calm-conversation-v1
+
+- **Summary:** Implement selected Figma Messages option 1 (Calm conversation) in Expo.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Theme-aware white chat canvas, centred illustrated empty state, soft message bubbles, rounded multiline input and integrated 44-point attachment/send controls. Omit the Dispatch avatar/title/subtitle and default “Send a message or attach a file” helper text. Empty sends are disabled; preserve drafts/retries, selected-file removal, attachment downloads, older history, polling and unread badges. Show loading/error and read-only closed-chat guidance. Bundle selected Figma SVG icons locally.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused Messages ESLint pass. iOS simulator verifies empty state/icons, typing, clearing, send gating and composer above the software keyboard; no test message sent. Android, dark mode and attachment/send/retry/closed interactions remain pending. Dashboard plan v1.79, mobile/messaging documentation and selected Figma status aligned.
+
+## 2026-10-08 | Version: location-search-native-scroll-v1
+
+- **Summary:** Simplify shared location search to a regular native ScrollView and TextInput.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Title, search input and results scroll together in final destination and planned start/end pickers. Remove sticky/fixed headers, header-size measurements and picker render callbacks. Use a bounded sheet, iOS KeyboardAvoidingView and Android resize; disable sheet content-pan gestures for native scrolling. Preserve keyboard search, pagination, clear/retry, previews and endpoint confirmation. Other sheets retain their existing scroll implementation.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint for BottomSheet, LocationSearchPicker and both consumers, and diff checks pass. Dashboard plan v1.78 and Figma handoff aligned. iOS simulator confirms typed text is visible in the native search input. Search submission, keyboard avoidance, long-list scrolling/pagination and Android interaction remain pending; no endpoint save submitted.
+
+## 2026-10-08 | Version: location-search-fixed-input-v1
+
+- **Summary:** Repair the shared pinned location input that failed to display entered text.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the animated ScrollView sticky-header wrapper with a fixed sibling header. Keep the controlled BottomSheetTextInput and keyboard integration; scroll only results and feedback. Measure header/result content to size the sheet within its safe-area maximum. Applies to final destination and Edit Run planned start/end. Preserve pagination, clear/retry and confirmation.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint for the shared sheet/picker and both consumers, and diff checks pass. Dashboard plan v1.77 and Figma handoff aligned. Native typing/backspace, clear/submission, keyboard and long-list scrolling remain pending; simulator interaction could not confirm typing. No endpoint mutation submitted.
+
 ## 2026-10-08 | Version: location-search-sticky-header-v1
 
 - **Summary:** Keep the shared location-search input visible while results scroll.

@@ -15,9 +15,16 @@ import { useAuth } from '@/src/providers/auth-provider';
 const STATUS_FLOW = ['delivered', 'in_transit', 'failed'];
 
 export default function ShipmentDetailScreen() {
+  const params = useLocalSearchParams<{ shipment_id: string; run_id?: string }>();
+  const { session } = useAuth();
+  return <ShipmentDetail key={`${session?.token}:${params.shipment_id}:${params.run_id ?? ''}`} />;
+}
+
+function ShipmentDetail() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { shipment_id } = useLocalSearchParams<{ shipment_id: string }>();
+  const { shipment_id, run_id } = useLocalSearchParams<{ shipment_id: string; run_id?: string }>();
+  const readOnly = !!run_id;
   const { session } = useAuth();
   const { colorScheme } = useColorScheme();
   const isDarkMode = colorScheme === 'dark';
@@ -58,7 +65,7 @@ export default function ShipmentDetailScreen() {
     }
 
     try {
-      const response = await driverApi.getShipment(session.token, shipment_id);
+      const response = await driverApi.getShipment(session.token, shipment_id, run_id);
       setShipment(response);
       setErrorMessage(null);
     } catch (error) {
@@ -67,7 +74,7 @@ export default function ShipmentDetailScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, [session?.token, shipment_id]);
+  }, [session, shipment_id, run_id]);
 
   const loadShipmentFiles = useCallback(async () => {
     if (!session?.token || !shipment_id) {
@@ -78,7 +85,7 @@ export default function ShipmentDetailScreen() {
 
     try {
       const [filesResponse, typesResponse] = await Promise.all([
-        driverApi.listShipmentFiles(session.token, shipment_id),
+        driverApi.listShipmentFiles(session.token, shipment_id, run_id),
         driverApi.listFileTypes(session.token, 'shipment'),
       ]);
 
@@ -90,7 +97,7 @@ export default function ShipmentDetailScreen() {
       setShipmentFilesError(requestError.message || 'Unable to load shipment files.');
       setShipmentFiles([]);
     }
-  }, [session?.token, shipment_id]);
+  }, [session, shipment_id, run_id]);
 
   useEffect(() => {
     loadShipment();
@@ -145,7 +152,7 @@ export default function ShipmentDetailScreen() {
   }, [shipment]);
 
   async function runAction(action: (token: string) => Promise<DriverShipment>, successMessage: string) {
-    if (!session?.token || !shipment_id) {
+    if (readOnly || !session?.token || !shipment_id) {
       return;
     }
 
@@ -187,7 +194,7 @@ export default function ShipmentDetailScreen() {
   }
 
   async function uploadShipmentFile() {
-    if (!session?.token || !shipment_id) {
+    if (readOnly || !session?.token || !shipment_id) {
       return;
     }
 
@@ -238,7 +245,7 @@ export default function ShipmentDetailScreen() {
     }
 
     try {
-      const response = await driverApi.getFileDownloadUrl(session.token, fileId);
+      const response = await driverApi.getFileDownloadUrl(session.token, fileId, run_id);
       await WebBrowser.openBrowserAsync(response.url);
     } catch (error) {
       const requestError = error as ApiRequestError;
@@ -291,7 +298,9 @@ export default function ShipmentDetailScreen() {
           </View>
         ) : shipment ? (
           <>
-            {!shipment.booking ? (
+            {readOnly ? (
+              <View className="bg-card mt-6 rounded-xl px-5 py-5"><Text className="text-card-foreground font-semibold">Completed run · Read-only</Text><Text className="text-muted-foreground mt-2">Shipment information reflects its current record. Recorded visits are retained on the run.</Text></View>
+            ) : !shipment.booking ? (
               <View className="border-warning bg-warning mt-6 rounded-xl border px-5 py-5">
                 <Text className="text-warning-foreground text-base font-semibold">
                   Driver actions are unavailable because this shipment does not have a booking yet.
@@ -495,14 +504,14 @@ export default function ShipmentDetailScreen() {
             <View className="bg-card mt-6 rounded-xl px-5 py-5">
               <View className="flex-row items-center justify-between">
                 <Text className="text-card-foreground text-lg font-semibold">Shipment files</Text>
-                <Pressable
+                {!readOnly && <Pressable
                   onPress={() => {
                     resetShipmentFileForm();
                     setFileModalVisible(true);
                   }}
                   className="bg-secondary rounded-full px-4 py-3">
                   <Text className="text-secondary-foreground text-sm font-semibold">Upload</Text>
-                </Pressable>
+                </Pressable>}
               </View>
 
               {shipmentFilesError ? (
@@ -572,7 +581,7 @@ export default function ShipmentDetailScreen() {
         animationType="slide"
         presentationStyle="pageSheet"
         transparent={false}
-        visible={fileModalVisible}
+        visible={!readOnly && fileModalVisible}
         onRequestClose={() => setFileModalVisible(false)}>
         <View className="flex-1 bg-background">
           <ScrollView

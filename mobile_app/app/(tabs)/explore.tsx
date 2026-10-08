@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/component/ui/Text';
+import { PageHeader } from '@/component/ui/PageHeader';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuth } from '@/src/providers/auth-provider';
 
@@ -26,23 +27,16 @@ export default function AccountScreen() {
   };
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-white dark:bg-[#111111]" style={{ paddingTop: insets.top }}>
+      <PageHeader title="Account" />
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 18, paddingTop: insets.top + 8, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}>
-        <View className="rounded-xl bg-secondary px-6 py-6">
-          <Text className="text-primary text-sm uppercase tracking-[3px]">Account</Text>
-          <Text className="text-secondary-foreground mt-4 text-4xl font-semibold leading-tight">
-            {session?.user.name ?? 'Driver account'}
-          </Text>
-          <Text className="text-secondary-foreground mt-3 text-base leading-6 opacity-80">
-            Manage your profile, assigned vehicles and app preferences.
-          </Text>
-        </View>
-
-        <View className="mt-6 rounded-xl bg-card px-5 py-5">
-          <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Email</Text>
+        <View className="rounded-xl bg-[#F5F5F8] dark:bg-card px-5 py-5">
+          <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Name</Text>
+          <Text className="text-card-foreground mt-1 text-lg font-semibold">{session?.user.name ?? 'Driver account'}</Text>
+          <Text className="text-muted-foreground mt-5 text-sm uppercase tracking-[2px]">Email</Text>
           <Text className="text-card-foreground mt-1 text-lg font-semibold">{session?.user.email}</Text>
 
           <Text className="text-muted-foreground mt-5 text-sm uppercase tracking-[2px]">Telephone</Text>
@@ -53,14 +47,14 @@ export default function AccountScreen() {
         </View>
 
         <Pressable accessibilityRole="button" onPress={() => router.push('/account/vehicles')}
-          className="border-border bg-card mt-6 rounded-xl border px-5 py-4">
+          className="border-border bg-[#F5F5F8] dark:bg-card mt-6 rounded-xl border px-5 py-4">
           <Text className="text-card-foreground text-lg font-semibold">Vehicles assigned to me</Text>
           <Text className="text-muted-foreground mt-1">View your assigned vehicles and their details.</Text>
         </Pressable>
 
         <Pressable
           onPress={toggleColorScheme}
-          className="border-border bg-card mt-6 rounded-xl border px-5 py-4">
+          className="border-border bg-[#F5F5F8] dark:bg-card mt-6 rounded-xl border px-5 py-4">
           <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Theme</Text>
           <Text className="text-card-foreground mt-2 text-lg font-semibold">
             {isDarkMode ? 'Dark mode' : 'Light mode'}

@@ -40,10 +40,10 @@ function TabNavigator() {
         }}
       />
       <Tabs.Screen
-        name="bookings"
+        name="runs"
         options={{
-          title: 'Shipments',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="tray.full.fill" color={color} />,
+          title: 'Runs',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="point.topleft.down.to.point.bottomright.curvepath" color={color} />,
         }}
       />
       <Tabs.Screen

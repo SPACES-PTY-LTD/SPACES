@@ -364,6 +364,8 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::middleware('role:driver')->prefix('driver')->group(function () {
+            Route::get('runs', [\App\Http\Controllers\Api\V1\DriverRunController::class, 'index']);
+            Route::get('runs/{run_uuid}', [\App\Http\Controllers\Api\V1\DriverRunController::class, 'show']);
             Route::post('runs/{run_uuid}/end-requests', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'requestEnd']);
             Route::patch('runs/{run_uuid}/endpoints', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'endpoints']);
             Route::post('runs/{run_uuid}/additional-costs', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'cost']);

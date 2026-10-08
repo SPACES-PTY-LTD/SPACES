@@ -1,5 +1,5 @@
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -55,14 +55,9 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
   useEffect(() => {
     alive.current = true;
     const lifetime = request;
-    const frame = requestAnimationFrame(() => { if (action === 'edit') void loadEndpoints(); });
+    const frame = requestAnimationFrame(() => { modal.current?.present(); if (action === 'edit') void loadEndpoints(); });
     return () => { alive.current = false; lifetime.current++; cancelAnimationFrame(frame); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    // Switching between the form and picker changes the sheet's render owner.
-    const frame = requestAnimationFrame(() => modal.current?.present());
-    return () => cancelAnimationFrame(frame);
-  }, [choosing]);
   async function save() {
     if (submitting.current) return;
     if (action === 'end' && !reason.trim()) { setError('Enter a reason for ending this run.'); return; }
@@ -87,7 +82,7 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
     finally { submitting.current = false; if (alive.current) setBusy(false); }
   }
   const address = (location?: ImportLocation) => location?.full_address || [location?.address_line_1, location?.city, location?.province, location?.country].filter(Boolean).join(', ');
-  const renderForm = (searchHeader?: ReactNode, pickerContent?: ReactNode) => <BottomSheet stickyHeader={searchHeader} modalRef={modal} title={choosing ? choosing === 'origin' ? 'Search planned start location' : 'Search planned end location' : heading} keyboardBehavior={choosing ? 'fillParent' : 'interactive'} onScroll={event => picker.current?.onScroll(event)} showHandle={action !== 'edit'} scrollable dismissible={!busy} onDismiss={onDismiss}>
+  return <BottomSheet plainScroll={!!choosing} modalRef={modal} title={choosing ? choosing === 'origin' ? 'Search planned start location' : 'Search planned end location' : heading} keyboardBehavior="interactive" onScroll={event => picker.current?.onScroll(event)} showHandle={action !== 'edit'} scrollable dismissible={!busy} onDismiss={onDismiss}>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {action === 'end' && <>
       <Text style={s.subtitle}>Request dispatch approval to end this run. Your run stays active until dispatch approves it, even if deliveries remain unfinished.</Text>
@@ -112,7 +107,10 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
     </>}
     {action === 'edit' && <>
       {choosing ? <>
-        {pickerContent}
+        <LocationSearchPicker key={choosing} ref={picker} token={token} selectedLabel={choosing === 'origin' ? 'SELECTED STARTING POINT' : 'SELECTED PLANNED END'} selectionIcon={choosing === 'origin' ? 'map-pin' : 'flag'} confirmLabel={choosing === 'origin' ? 'Use starting point' : 'Use planned end location'} onConfirm={location => {
+          if (choosing === 'origin') setOrigin(location); else setDestination(location);
+          setChoosing(null); setError('');
+        }} />
         <ImportButton secondary label="Back to endpoints" onPress={() => setChoosing(null)} />
       </> : <>
         <View style={[styles.notice, { backgroundColor: surface }]}><Feather name="info" size={16} color={muted} /><Text style={[styles.note, { color: muted }]}>Update the planned start and end. Deliveries and recorded visits stay the same.</Text></View>
@@ -143,12 +141,6 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
     <ImportButton secondary label="Cancel" disabled={busy} onPress={() => modal.current?.dismiss()} />
     </>}
   </BottomSheet>;
-  return choosing ? <LocationSearchPicker key={choosing} ref={picker} token={token} selectedLabel={choosing === 'origin' ? 'SELECTED STARTING POINT' : 'SELECTED PLANNED END'} selectionIcon={choosing === 'origin' ? 'map-pin' : 'flag'} confirmLabel={choosing === 'origin' ? 'Use starting point' : 'Use planned end location'} onConfirm={location => {
-    if (choosing === 'origin') setOrigin(location); else setDestination(location);
-    setChoosing(null); setError('');
-  }}>
-    {({ searchHeader, content }) => renderForm(searchHeader, content)}
-  </LocationSearchPicker> : renderForm();
 }
 
 const styles = StyleSheet.create({

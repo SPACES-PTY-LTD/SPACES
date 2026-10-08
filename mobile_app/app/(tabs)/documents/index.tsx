@@ -1,7 +1,5 @@
-import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
-import * as WebBrowser from 'expo-web-browser';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,44 +7,21 @@ import {
   Pressable,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/component/ui/Text';
+import { PageHeader } from '@/component/ui/PageHeader';
 import { DateInput } from '@/component/ui/DateInput';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ApiRequestError, DriverEntityFile, DriverFileType, driverApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
+import { DocumentIcon, DocumentStatus } from '@/src/components/documents/DocumentUI';
 import { useRequiredDocuments } from '@/src/providers/required-documents-provider';
 
-function formatBytes(value?: number) {
-  if (!value || value <= 0) {
-    return '-';
-  }
-
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = value;
-  let unitIndex = 0;
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-
-  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-}
-
-function formatDate(value?: string | null) {
-  if (!value) {
-    return 'No expiry';
-  }
-
-  return value.slice(0, 10);
-}
-
 export default function DocumentsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { count: requiredDocumentCount, expiredCount, refresh: refreshRequiredDocuments } = useRequiredDocuments();
@@ -176,69 +151,44 @@ export default function DocumentsScreen() {
     }
   };
 
-  const handleDownload = async (fileId: string) => {
-    if (!session?.token) {
-      return;
-    }
-
-    try {
-      const response = await driverApi.getFileDownloadUrl(session.token, fileId);
-      await WebBrowser.openBrowserAsync(response.url);
-    } catch (error) {
-      const requestError = error as ApiRequestError;
-      setErrorMessage(requestError.message || 'Unable to open file.');
-    }
-  };
-
   return (
-    <View className="flex-1 bg-background">
+    <View className="flex-1 bg-white dark:bg-[#111111]" style={{ paddingTop: insets.top }}>
+      <PageHeader title="Documents" action={
+        <Pressable accessibilityRole="button" onPress={() => { resetUploadForm(); setModalVisible(true); }}
+          style={{ backgroundColor: '#F54A4A', borderRadius: 24, minHeight: 44, paddingHorizontal: 16, justifyContent: 'center' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>Upload document</Text>
+        </Pressable>
+      } />
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 18, paddingTop: insets.top + 8, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32 }}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => loadDocuments('refresh')} />}
         showsVerticalScrollIndicator={false}>
-        <View className="bg-secondary rounded-xl px-6 py-6">
-          <Text className="text-primary text-sm uppercase tracking-[3px]">Documents</Text>
-          <Text className="text-secondary-foreground mt-4 text-4xl font-semibold leading-tight">Driver files</Text>
-          <Text className="text-secondary-foreground mt-3 text-base leading-6 opacity-80">
-            Upload only the file types your merchant allows drivers to submit.
-          </Text>
-
-          <Pressable
-            onPress={() => {
-              resetUploadForm();
-              setModalVisible(true);
-            }}
-            className="bg-card mt-6 self-start rounded-full px-5 py-3">
-            <Text className="text-card-foreground text-sm font-semibold">Upload document</Text>
-          </Pressable>
-        </View>
-
-        {requiredDocumentCount != null && requiredDocumentCount > 0 ? (
-          <Pressable
-            style={[styles.notice, { backgroundColor: isDarkMode ? '#382b13' : '#fff4d6' }]}
-            accessibilityRole="button"
-            onPress={() => { resetUploadForm(); setModalVisible(true); }}>
-            <Feather name="file-text" size={22} color={isDarkMode ? '#fcd34d' : '#8a5700'} />
-            <Text style={{ flex: 1, fontSize: 16, fontWeight: '700', color: isDarkMode ? '#fde68a' : '#744700' }}>
-              You have {requiredDocumentCount} required {requiredDocumentCount === 1 ? 'document' : 'documents'} to upload
-            </Text>
-            <Feather name="chevron-right" size={20} color={isDarkMode ? '#fcd34d' : '#8a5700'} />
-          </Pressable>
-        ) : null}
-        {expiredCount != null && expiredCount > 0 ? (
-          <View style={[styles.notice, { backgroundColor: isDarkMode ? '#401e22' : '#ffebed' }]}>
-            <Feather name="alert-circle" size={22} color={isDarkMode ? '#fda4af' : '#a32136'} />
-            <View style={{ flex: 1, gap: 5 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: isDarkMode ? '#fda4af' : '#a32136' }}>
-                You have {expiredCount} expired {expiredCount === 1 ? 'document' : 'documents'}
-              </Text>
-              <Text style={{ fontSize: 13, lineHeight: 19, color: isDarkMode ? '#fda4af' : '#a32136' }}>
-                Review your documents below and upload current replacements where needed.
-              </Text>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {requiredDocumentCount != null && requiredDocumentCount > 0 ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={`${requiredDocumentCount} required uploads. Upload document`}
+              onPress={() => { resetUploadForm(); setModalVisible(true); }}
+              style={{ flex: 1, minHeight: 126, padding: 16, borderRadius: 20, backgroundColor: isDarkMode ? '#382B13' : '#FFF4D6' }}>
+              <DocumentIcon kind="required" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                <Text style={{ fontSize: 30, lineHeight: 42, fontWeight: '700', color: isDarkMode ? '#FDE68A' : '#744700' }}>{requiredDocumentCount}</Text>
+                <DocumentIcon kind="requiredChevron" />
+              </View>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: isDarkMode ? '#FDE68A' : '#744700' }}>Required uploads</Text>
+            </Pressable>
+          ) : null}
+          {expiredCount != null && expiredCount > 0 ? (
+            <View style={{ flex: 1, minHeight: 126, padding: 16, borderRadius: 20, backgroundColor: isDarkMode ? '#401E22' : '#FFEBED' }}>
+              <DocumentIcon kind="expired" />
+              <Text style={{ fontSize: 30, lineHeight: 42, marginTop: 8, fontWeight: '700', color: isDarkMode ? '#FDA4AF' : '#A32136' }}>{expiredCount}</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: isDarkMode ? '#FDA4AF' : '#A32136' }}>Expired {expiredCount === 1 ? 'document' : 'documents'}</Text>
             </View>
-          </View>
-        ) : null}
+          ) : null}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 28, marginBottom: 16 }}>
+          <Text accessibilityRole="header" style={{ fontSize: 20, fontWeight: '700' }}>Your documents</Text>
+          {!isLoading && <Text className="text-muted-foreground" style={{ fontSize: 14 }}>{files.length} {files.length === 1 ? 'file' : 'files'}</Text>}
+        </View>
 
         {errorMessage ? (
           <View className="border-destructive bg-destructive mt-6 rounded-xl border px-5 py-5">
@@ -247,57 +197,33 @@ export default function DocumentsScreen() {
         ) : null}
 
         {isLoading ? (
-          <View className="bg-card mt-6 items-center rounded-xl px-5 py-12">
+          <View className="bg-[#F5F5F8] dark:bg-card mt-6 items-center rounded-xl px-5 py-12">
             <ActivityIndicator color="#F54A4A" />
           </View>
         ) : files.length === 0 ? (
-          <View className="bg-card mt-6 rounded-xl px-5 py-5">
-            <Text className="text-card-foreground text-lg font-semibold">No uploaded files</Text>
-            <Text className="text-muted-foreground mt-2 text-base leading-7">
-              Uploaded driver documents will appear here once submitted.
+          <View className="bg-[#F5F5F8] dark:bg-card rounded-[20px] px-5 py-10 items-center">
+            <View className="bg-white dark:bg-muted rounded-[14px] p-4 mb-4"><DocumentIcon kind="file" /></View>
+            <Text className="text-card-foreground text-lg font-semibold">No documents yet</Text>
+            <Text className="text-muted-foreground mt-2 text-sm text-center leading-5">
+              Your uploaded documents will appear here. Tap Upload document to add your first file.
             </Text>
           </View>
         ) : (
-          <View className="mt-6 gap-4">
+          <View style={{ gap: 12 }}>
             {files.map((file) => (
-              <View key={file.file_id} className="bg-card rounded-xl px-5 py-5">
-                <View className="flex-row items-start justify-between gap-4">
-                  <View className="flex-1">
-                    <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">
-                      {file.file_type?.name || 'Driver document'}
-                    </Text>
-                    <Text className="text-card-foreground mt-2 text-xl font-semibold">
-                      {file.original_name || 'Unnamed file'}
-                    </Text>
-                    <Text className="text-muted-foreground mt-2 text-sm">
-                      Uploaded {formatDate(file.created_at)} by {file.uploaded_by_user?.name || file.uploaded_by_role || 'Unknown'}
-                    </Text>
-                  </View>
-                  <View
-                    className={`rounded-full px-4 py-2 ${
-                      file.is_expired ? 'bg-destructive' : file.expires_at ? 'bg-warning' : 'bg-muted'
-                    }`}>
-                    <Text
-                      className={`text-sm font-semibold uppercase ${
-                        file.is_expired ? 'text-destructive-foreground' : file.expires_at ? 'text-warning-foreground' : 'text-muted-foreground'
-                      }`}>
-                      {file.is_expired ? 'Expired' : file.expires_at ? 'Has expiry' : 'No expiry'}
-                    </Text>
-                  </View>
+              <Pressable key={file.file_id} accessibilityRole="button"
+                accessibilityLabel={`${file.file_type?.name || 'Driver document'}, ${file.original_name || 'Unnamed file'}${file.is_expired ? ', expired' : ''}. View details`}
+                onPress={() => router.push({ pathname: '/documents/[file_id]', params: { file_id: file.file_id } })}
+                className="bg-[#F5F5F8] dark:bg-card"
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, minHeight: 88, borderRadius: 20 }}>
+                <View className="bg-white dark:bg-muted" style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}><DocumentIcon kind="file" /></View>
+                <View style={{ flex: 1, gap: 6 }}>
+                  <Text numberOfLines={1} style={{ fontSize: 17, fontWeight: '600' }}>{file.file_type?.name || 'Driver document'}</Text>
+                  <Text numberOfLines={1} className="text-muted-foreground" style={{ fontSize: 13 }}>{file.original_name || 'Unnamed file'}</Text>
                 </View>
-
-                <View className="bg-muted mt-5 rounded-[24px] px-4 py-4">
-                  <InfoLine label="Size" value={formatBytes(file.size_bytes)} />
-                  <InfoLine label="Expiry" value={formatDate(file.expires_at)} />
-                  <InfoLine label="Type" value={file.mime_type || 'Unknown'} />
-                </View>
-
-                <Pressable
-                  onPress={() => handleDownload(file.file_id)}
-                  className="bg-secondary mt-4 items-center rounded-full px-4 py-4">
-                  <Text className="text-secondary-foreground text-base font-semibold">Download</Text>
-                </Pressable>
-              </View>
+                <DocumentStatus file={file} />
+                <DocumentIcon kind="chevron" />
+              </Pressable>
             ))}
           </View>
         )}
@@ -392,16 +318,3 @@ export default function DocumentsScreen() {
     </View>
   );
 }
-
-function InfoLine({ label, value }: { label: string; value: string }) {
-  return (
-    <View className="mt-3 first:mt-0">
-      <Text className="text-muted-foreground text-xs uppercase tracking-[2px]">{label}</Text>
-      <Text className="text-card-foreground mt-1 text-base font-medium">{value}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  notice: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 16, borderRadius: 12, marginTop: 14 },
-});

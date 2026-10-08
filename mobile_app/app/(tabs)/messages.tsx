@@ -1,6 +1,9 @@
 import { useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Crypto from 'expo-crypto';
+import { Image } from 'expo-image';
+import { Feather } from '@expo/vector-icons';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -10,11 +13,13 @@ import {
     Linking,
     Platform,
     Pressable,
+    StyleSheet,
     TextInput,
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/component/ui/Text';
+import { PageHeader } from '@/component/ui/PageHeader';
 import {
     appendUploadFile,
     chatApi,
@@ -34,6 +39,17 @@ function DriverChat() {
     const { refresh: refreshUnread } = useUnreadMessages();
     const { session } = useAuth();
     const insets = useSafeAreaInsets();
+    const { colorScheme } = useColorScheme();
+    const dark = colorScheme === 'dark';
+    const colors = {
+        background: dark ? '#111111' : '#FFFFFF',
+        ink: dark ? '#FAFAFA' : '#111111',
+        muted: dark ? '#A1A1AA' : '#71717A',
+        line: dark ? '#303036' : '#ECECF0',
+        soft: dark ? '#24242B' : '#F5F5F8',
+        shelf: dark ? '#19191E' : '#FAFAFC',
+        coral: dark ? '#362124' : '#FFF0F0',
+    };
     const [conversation, setConversation] = useState<ChatConversation | null>(
         null,
     );
@@ -277,35 +293,33 @@ function DriverChat() {
             );
         }
     }
+    const canCompose = !loading && !sending && conversation?.status === 'active';
+    const canSend = canCompose && (!!body.trim() || files.length > 0);
     return (
         <KeyboardAvoidingView
-            className="flex-1 bg-background"
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ flex: 1, paddingTop: insets.top }}
+            style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}
         >
-            <View className="px-5 py-4">
-                <Text className="text-foreground text-2xl font-semibold">
-                    Messages
-                </Text>
-                <Text className="text-muted-foreground">
-                    {conversation?.title || 'Contact dispatch'}
-                    {conversation?.status === 'closed' ? ' · Closed' : ''}
-                </Text>
-            </View>
+            <PageHeader title="Messages" status={conversation?.status === 'closed' ? 'Closed' : undefined} />
             {error && (
-                <View className="px-5 py-2">
-                    <Text className="text-destructive">{error}</Text>
-                    <Pressable onPress={() => setReload((n) => n + 1)}>
+                <View style={[styles.error, { backgroundColor: colors.coral }]}>
+                    <Text accessibilityRole="alert" style={{ color: colors.ink }}>{error}</Text>
+                    <Pressable accessibilityRole="button" style={styles.retry} onPress={() => setReload((n) => n + 1)}>
                         <Text className="text-primary">Retry loading</Text>
                     </Pressable>
                 </View>
             )}
             {loading ? (
-                <ActivityIndicator className="flex-1" color="#F54A4A" />
+                <View style={styles.loading}>
+                    <ActivityIndicator color="#F54A4A" />
+                    <Text style={[styles.subtitle, { color: colors.muted }]}>Loading your conversation…</Text>
+                </View>
             ) : (
                 <FlatList
                     style={{ flex: 1 }}
                     ref={list}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
                     onScroll={(event) => {
                         const {
                             contentOffset,
@@ -321,7 +335,7 @@ function DriverChat() {
                     scrollEventThrottle={100}
                     data={messages}
                     keyExtractor={(m) => m.message_id}
-                    contentContainerStyle={{ padding: 18, flexGrow: 1 }}
+                    contentContainerStyle={{ padding: 20, paddingTop: messages.length ? 20 : 0, flexGrow: 1 }}
                     ListHeaderComponent={
                         before ? (
                             <Pressable
@@ -337,26 +351,32 @@ function DriverChat() {
                             </Pressable>
                         ) : null
                     }
-                    ListEmptyComponent={
-                        <Text className="text-muted-foreground">
-                            Send a message to dispatch to start the
-                            conversation.
-                        </Text>
-                    }
+                    ListEmptyComponent={conversation ? (
+                        <View style={styles.empty}>
+                            <View style={styles.emptyMessage}>
+                                <View style={[styles.emptyIcon, { backgroundColor: colors.soft }]}>
+                                    <Image source={require('@/assets/images/messages/chat.svg')} style={styles.heroIcon} />
+                                </View>
+                                <Text style={[styles.emptyTitle, { color: colors.ink }]}>No messages yet</Text>
+                                <Text style={[styles.emptyCopy, { color: colors.muted }]}>
+                                    Have a question or an update?{'\n'}Send your first message to dispatch.
+                                </Text>
+                            </View>
+                        </View>
+                    ) : null}
                     renderItem={({ item }) => (
                         <View
-                            className={`mb-3 rounded-xl p-4 ${item.user_id === session?.user.user_id ? 'self-end bg-secondary' : 'self-start bg-card'}`}
-                            style={{ maxWidth: '90%' }}
+                            style={[styles.bubble, { alignSelf: item.user_id === session?.user.user_id ? 'flex-end' : 'flex-start', backgroundColor: item.user_id === session?.user.user_id ? colors.coral : colors.soft }]}
                         >
                             <Text
-                                className={`text-xs ${item.user_id === session?.user.user_id ? 'text-secondary-foreground opacity-75' : 'text-muted-foreground'}`}
+                                style={{ fontSize: 12, lineHeight: 17, color: colors.muted }}
                             >
                                 {item.sender_name} ·{' '}
                                 {new Date(item.created_at).toLocaleString()}
                             </Text>
                             {item.body && (
                                 <Text
-                                    className={`mt-1 ${item.user_id === session?.user.user_id ? 'text-secondary-foreground' : 'text-card-foreground'}`}
+                                    style={{ marginTop: 6, fontSize: 16, lineHeight: 23, color: colors.ink }}
                                 >
                                     {item.body}
                                 </Text>
@@ -365,68 +385,83 @@ function DriverChat() {
                                 <Pressable
                                     key={a.attachment_id}
                                     onPress={() => download(a.attachment_id)}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Open ${a.filename || 'attachment'}`}
+                                    style={styles.attachment}
                                 >
-                                    <Text className="text-primary mt-2">
-                                        📎 {a.filename || 'Attachment'}
+                                    <Feather name="file-text" size={18} color="#F54A4A" />
+                                    <Text style={{ color: '#F54A4A', flexShrink: 1 }}>
+                                        {a.filename || 'Attachment'}
                                     </Text>
+                                    <Feather name="download" size={16} color="#F54A4A" />
                                 </Pressable>
                             ))}
                         </View>
                     )}
                 />
             )}
-            <View className="border-border border-t px-4 py-3">
+            <View style={[styles.composerShelf, { backgroundColor: colors.shelf }]}>
                 {files.map((f, index) => (
-                    <Pressable
-                        disabled={sending}
-                        key={`${f.uri}-${index}`}
-                        onPress={() => {
-                            setFiles((prev) =>
-                                prev.filter((_, i) => i !== index),
-                            );
+                    <View key={`${f.uri}-${index}`} style={[styles.draftFile, { backgroundColor: colors.background, borderColor: colors.line }]}>
+                        <Feather name="file-text" size={18} color={colors.muted} />
+                        <Text numberOfLines={1} style={{ flex: 1, color: colors.ink }}>{f.name}</Text>
+                        <Pressable disabled={sending} accessibilityRole="button" accessibilityLabel={`Remove ${f.name}`} onPress={() => {
+                            setFiles((prev) => prev.filter((_, i) => i !== index));
                             retry.current = null;
-                        }}
-                    >
-                        <Text className="text-muted-foreground">
-                            📎 {f.name} · Remove
-                        </Text>
-                    </Pressable>
+                        }} style={styles.removeFile}>
+                            <Feather name="x" size={18} color={colors.muted} />
+                        </Pressable>
+                    </View>
                 ))}
-                <TextInput
-                    accessibilityLabel="Message"
-                    editable={!sending && conversation?.status === 'active'}
-                    value={body}
-                    onChangeText={(value) => {
-                        setBody(value);
-                        retry.current = null;
-                    }}
-                    maxLength={10000}
-                    multiline
-                    placeholder="Message dispatch…"
-                    className="text-foreground bg-card rounded-xl px-4 py-3"
-                    style={{ maxHeight: 120 }}
-                />
-                <View className="mt-3 flex-row justify-between">
-                    <Pressable
-                        disabled={sending || conversation?.status !== 'active'}
-                        onPress={pick}
-                    >
-                        <Text className="text-primary">Attach file</Text>
+                <View style={[styles.composer, { backgroundColor: colors.background, borderColor: colors.line }]}>
+                    <Pressable disabled={!canCompose} onPress={pick} accessibilityRole="button" accessibilityLabel="Attach file" accessibilityState={{ disabled: !canCompose }} style={[styles.roundButton, { backgroundColor: colors.soft, opacity: canCompose ? 1 : 0.5 }]}>
+                        <Image source={require('@/assets/images/messages/attachment.svg')} style={styles.attachmentIcon} />
                     </Pressable>
-                    <Pressable
-                        disabled={sending || conversation?.status !== 'active'}
-                        onPress={send}
-                    >
-                        <Text className="text-primary font-semibold">
-                            {sending
-                                ? 'Sending…'
-                                : failedSend
-                                  ? 'Retry send'
-                                  : 'Send'}
-                        </Text>
+                    <TextInput
+                        accessibilityLabel="Message dispatch"
+                        editable={canCompose}
+                        value={body}
+                        onChangeText={(value) => { setBody(value); retry.current = null; }}
+                        maxLength={10000}
+                        multiline
+                        placeholder="Message dispatch…"
+                        placeholderTextColor={colors.muted}
+                        style={[styles.input, { color: colors.ink }]}
+                    />
+                    <Pressable disabled={!canSend} onPress={send} accessibilityRole="button" accessibilityLabel={sending ? 'Sending message' : failedSend ? 'Retry send' : 'Send message'} accessibilityState={{ disabled: !canSend, busy: sending }} style={[styles.roundButton, { backgroundColor: canSend ? '#F54A4A' : dark ? '#633C40' : '#F5C6C6' }]}>
+                        {sending ? <ActivityIndicator color="#FFFFFF" size="small" /> : failedSend ? <Feather name="rotate-cw" size={22} color="#FFFFFF" /> : <Image source={require('@/assets/images/messages/send.svg')} style={styles.sendIcon} />}
                     </Pressable>
                 </View>
+                {(conversation?.status === 'closed' || failedSend) && (
+                    <Text style={[styles.composerHint, { color: colors.muted }]}>
+                        {conversation?.status === 'closed' ? 'This conversation is closed. You can still read its messages.' : 'Your draft is saved. Tap retry to send again.'}
+                    </Text>
+                )}
             </View>
         </KeyboardAvoidingView>
     );
 }
+
+const styles = StyleSheet.create({
+    subtitle: { fontSize: 14, lineHeight: 20 },
+    empty: { flex: 1, justifyContent: 'center', paddingVertical: 32 },
+    heroIcon: { width: 32, height: 32 },
+    emptyMessage: { alignItems: 'center', gap: 12 },
+    emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+    emptyTitle: { fontSize: 24, lineHeight: 34, fontWeight: '700', textAlign: 'center' },
+    emptyCopy: { fontSize: 16, lineHeight: 23, textAlign: 'center' },
+    loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+    error: { marginHorizontal: 20, marginTop: 12, padding: 14, borderRadius: 16 },
+    retry: { minHeight: 44, justifyContent: 'center' },
+    bubble: { maxWidth: '88%', padding: 14, borderRadius: 20, marginBottom: 12 },
+    attachment: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, minHeight: 44 },
+    composerShelf: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10, gap: 8 },
+    composer: { minHeight: 64, borderWidth: 1, borderRadius: 32, padding: 9, flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+    roundButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+    attachmentIcon: { width: 22, height: 22 },
+    sendIcon: { width: 24, height: 24 },
+    input: { flex: 1, fontSize: 16, lineHeight: 23, minHeight: 44, maxHeight: 120, paddingVertical: 10, paddingHorizontal: 0, textAlignVertical: 'center' },
+    composerHint: { fontSize: 12, lineHeight: 17, textAlign: 'center' },
+    draftFile: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, paddingLeft: 12 },
+    removeFile: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+});

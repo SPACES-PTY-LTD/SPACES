@@ -239,6 +239,28 @@ export type DriverOnlineStatusResponse = {
   last_seen_at: string | null;
 };
 
+export type DriverRunSummary = {
+  run_id: string;
+  reference: string;
+  status: 'draft' | 'dispatched' | 'in_progress' | 'completed';
+  timezone: string;
+  vehicle: { vehicle_id: string; plate_number: string | null; ref_code: string | null } | null;
+  origin: { location_id: string; name: string; address: string | null } | null;
+  destination: { location_id: string; name: string; address: string | null } | null;
+  planned_start_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  shipment_count: number;
+  delivered_count: number;
+  remaining_count: number;
+  end_request: RunEndRequest | null;
+};
+
+export type DriverRunDetail = DriverRunSummary & {
+  shipments: DriverShipment[];
+  recorded_stops: NonNullable<DriverDashboard['recorded_stops']>;
+};
+
 export type DriverDashboard = {
   trip_endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
   current_run: { run_id: string; status: string; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
@@ -538,6 +560,12 @@ export const driverRunActionsApi = {
 };
 
 export const driverApi = {
+  listRuns: (token: string, status: 'active' | 'completed', page = 1) =>
+    requestWithMeta<DriverRunSummary[]>(`/driver/runs?status=${status}&page=${page}`, { token }),
+  async getRun(token: string, runId: string): Promise<DriverRunDetail> {
+    const result = await request<DriverRunDetail>(`/driver/runs/${encodeURIComponent(runId)}`, { token });
+    return { ...result, shipments: result.shipments.map(normalizeShipment) };
+  },
   async updateProfile(
     token: string,
     payload: {
@@ -677,8 +705,8 @@ export const driverApi = {
       next_shipment: response.next_shipment ? normalizeShipment(response.next_shipment) : null,
     };
   },
-  async getShipment(token: string, shipmentId: string) {
-    const response = await request<DriverShipment>(`/driver/shipments/${shipmentId}`, { token });
+  async getShipment(token: string, shipmentId: string, runId?: string) {
+    const response = await request<DriverShipment>(`/driver/shipments/${shipmentId}${runId ? `?run_id=${encodeURIComponent(runId)}` : ''}`, { token });
     return normalizeShipment(response);
   },
   async updateShipmentStatus(
@@ -800,8 +828,8 @@ export const driverApi = {
       token,
     });
   },
-  async listShipmentFiles(token: string, shipmentId: string) {
-    return requestWithMeta<DriverEntityFile[]>(`/driver/shipments/${shipmentId}/files`, { token });
+  async listShipmentFiles(token: string, shipmentId: string, runId?: string) {
+    return requestWithMeta<DriverEntityFile[]>(`/driver/shipments/${shipmentId}/files${runId ? `?run_id=${encodeURIComponent(runId)}` : ''}`, { token });
   },
   async uploadShipmentFile(
     token: string,
@@ -830,8 +858,8 @@ export const driverApi = {
       token,
     });
   },
-  async getFileDownloadUrl(token: string, fileId: string) {
-    return request<{ url: string }>(`/files/${fileId}/download?format=url`, { token });
+  async getFileDownloadUrl(token: string, fileId: string, runId?: string) {
+    return request<{ url: string }>(`/files/${fileId}/download?format=url${runId ? `&run_id=${encodeURIComponent(runId)}` : ''}`, { token });
   },
 };
 

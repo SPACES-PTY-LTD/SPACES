@@ -1,3 +1,4 @@
+import { RunTimeline, runStopDescription } from '@/src/components/dashboard/RunTimeline';
 import { RunActionForm, type RunAction } from '@/src/components/dashboard/RunActionForm';
 import { MessageSheet, type MessageSheetRef } from '@/component/ui/MessageSheet';
 import { FinalDestinationSheet } from '@/src/components/dashboard/FinalDestinationSheet';
@@ -176,25 +177,9 @@ export default function HomeScreen() {
                 <Text style={{ fontSize: 12, fontWeight: '600', color: muted }}>{runFilter === 'all' ? 'Filter timeline' : runFilter === 'speeding' ? 'Speeding events' : 'Shipment deliveries'}</Text>
               </Pressable>
               </View>
-              {visibleStops.length ? visibleStops.map((stop, index, stops) => <View key={stop.stop_id} style={styles.timelineRow}>
-                <View style={styles.timelineRail}>
-                  <View style={[styles.timelineMarker, { backgroundColor: stop.kind === 'Speeding' ? '#dc2626' : stop.kind?.toLowerCase().includes('delivery') ? '#24753a' : stop.kind === 'Collection' ? '#2563eb' : '#71717a' }]}><Feather name={stop.kind === 'Speeding' ? 'alert-triangle' : 'map-pin'} size={14} color="#ffffff" /></View>
-                  {index < stops.length - 1 || showDestinationEntry || !!stop.shipments?.length ? <View style={[styles.timelineConnector, { backgroundColor: line }]} /> : null}
-                </View>
-                <View style={[styles.timelineContent, { paddingBottom: 20 }]}>
-                  <Text style={{ color: muted, fontSize: 11, fontWeight: '600', marginBottom: 4 }}>{stop.planned ? (stop.kind === 'Planned end' ? 'Planned end location' : 'Planned delivery') : stop.kind || 'Stop'}</Text>
-                  <Pressable accessibilityRole="button" accessibilityLabel={`View ${stop.kind} details: ${stop.name}`} onPress={() => messageSheet.current?.present(`${stop.kind} · ${stop.name}`, [stop.address, stop.planned ? 'Planned endpoint' : stop.occurred_at ? new Date(stop.occurred_at).toLocaleString() : 'Time unavailable', stop.exited_at ? `Left ${new Date(stop.exited_at).toLocaleString()}` : null, stop.kind === 'Speeding' ? `Speed: ${stop.speed_kph ?? 'unavailable'} km/h · Limit: ${stop.speed_limit_kph ?? 'unavailable'} km/h` : null].filter(Boolean).join('\n'))}><Text style={[styles.shipmentTitle, { color: ink }]}>{stop.name} <Feather name="chevron-right" size={14} color={muted} /></Text></Pressable>
-                  {stop.kind === 'Speeding' ? <Text style={{ color: '#b91c1c', fontSize: 13, marginTop: 6 }}>
-                    {stop.speed_kph != null ? `${stop.speed_kph} km/h` : 'Speed not recorded'}{stop.speed_limit_kph != null ? ` · Limit ${stop.speed_limit_kph} km/h` : ' · Speed limit not recorded'}
-                  </Text> : null}
-                  {stop.address ? <Text style={[styles.shipmentRoute, { color: muted }]}>{stop.address}</Text> : null}
-                  <Text style={{ fontSize: 12, color: muted, marginTop: 6 }}>{stop.planned ? 'Not visited yet' : stop.occurred_at ? new Date(stop.occurred_at).toLocaleString() : 'Time not recorded'}{stop.exited_at ? ` · Left ${new Date(stop.exited_at).toLocaleTimeString()}` : ''}</Text>
-                  {!!stop.shipments?.length && <View>{stop.shipments.map(shipment => <Pressable key={shipment.shipment_id} onPress={() => router.push(`/shipments/${shipment.shipment_id}`)} accessibilityRole="button" style={styles.timelineShipmentLink}>
-                    <View pointerEvents="none" accessible={false} style={[styles.timelineShipmentBranch, { borderColor: line }]} />
-                    <Text style={{ color: '#e43e3e', fontSize: 12 }}>Open shipment · {shipment.reference || shipment.shipment_id}</Text>
-                  </Pressable>)}</View>}
-                </View>
-              </View>) : <Text style={{ fontSize: 13, color: muted, marginBottom: 16 }}>{runFilter === 'speeding' ? 'No speeding events recorded for this run.' : runFilter === 'shipments' ? 'No visited or planned delivery stops for this run yet.' : 'No stops recorded or planned for this run yet.'}</Text>}
+              {visibleStops.length ? <RunTimeline stops={visibleStops} ink={ink} muted={muted} line={line} hasTrailingEntry={showDestinationEntry}
+                onOpenShipment={id => router.push(`/shipments/${id}`)}
+                onOpenStop={stop => messageSheet.current?.present(`${stop.kind} · ${stop.name}`, runStopDescription(stop))} /> : <Text style={{ fontSize: 13, color: muted, marginBottom: 16 }}>{runFilter === 'speeding' ? 'No speeding events recorded for this run.' : runFilter === 'shipments' ? 'No visited or planned delivery stops for this run yet.' : 'No stops recorded or planned for this run yet.'}</Text>}
               {showDestinationEntry && <View style={styles.timelineRow}>
                 <View style={styles.timelineRail}><View style={[styles.timelineMarker, { backgroundColor: '#71717a' }]}><Feather name="flag" size={14} color="#fff" /></View></View>
                 <View style={[styles.timelineContent, { paddingBottom: 20, gap: 10 }]}>

@@ -60,3 +60,9 @@ Verification: focused conversation/auth/device/run-action/shipment regressions: 
 ### Driver unread navigation badge
 
 `GET /api/v1/conversations/driver/unread` is driver-only and returns `{ unread_count: number }` in the standard API envelope without creating a chat. It counts live received messages with null `read_at` in the authenticated driver’s account/merchant/conversation. The Expo tab displays the count (99+ above 99), hides zero and refreshes on navigation, foreground, successful read acknowledgement and every ten seconds while foregrounded.
+
+### Mobile Messages design
+
+Selected [Figma option 1 — Calm conversation](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0?node-id=169-1477) is implemented locally. An illustrated, centred empty state replaces the plain empty-list text. The Dispatch avatar/title/subtitle and default composer helper text are omitted. The fully rounded multiline composer includes attachment and send buttons with 44-point targets, selected-file removal, a sending spinner, retry feedback and closed-conversation guidance. Send is disabled until the active chat has text or an attachment. The screen follows the app theme, keeps the composer above the keyboard and preserves history, downloads, polling and unread counts. Bundled SVG icons have no runtime Figma dependency.
+
+Verification: mobile TypeScript/focused lint and iOS empty-state, input/clear/send gating and software-keyboard visual checks pass. No message was sent during this UI verification. Android, dark mode and attachment/send/retry/closed interactions still need device verification.

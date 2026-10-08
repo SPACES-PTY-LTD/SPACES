@@ -92,9 +92,17 @@ class DriverShipmentController extends Controller
                 return ApiResponse::error('FORBIDDEN', 'Driver profile not found.', [], Response::HTTP_FORBIDDEN);
             }
 
-            $shipment = $this->queryDriverShipments($driver)
-                ->where('uuid', $shipment_uuid)
-                ->firstOrFail();
+            if ($request->query('run_id')) {
+                $request->validate(['run_id' => ['required', 'uuid']]);
+                $run = app(DriverRunController::class)->query($request)
+                    ->where('uuid', $request->query('run_id'))->where('status', Run::STATUS_COMPLETED)->firstOrFail();
+                $shipment = app(\App\Services\DriverRunDataService::class)->shipments($run, $driver)
+                    ->firstWhere('uuid', $shipment_uuid);
+                abort_unless($shipment, 404);
+            } else {
+                $shipment = $this->queryDriverShipments($driver)
+                    ->where('uuid', $shipment_uuid)->firstOrFail();
+            }
 
             return ApiResponse::success(new DriverShipmentResource($shipment));
         } catch (Throwable $e) {

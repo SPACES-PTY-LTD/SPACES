@@ -69,10 +69,10 @@ class EntityFileService
         );
     }
 
-    public function listOwnDriverShipmentFiles(User $user, string $shipmentUuid): LengthAwarePaginator
+    public function listOwnDriverShipmentFiles(User $user, string $shipmentUuid, ?string $runUuid = null): LengthAwarePaginator
     {
         $shipment = Shipment::with('merchant')->where('uuid', $shipmentUuid)->firstOrFail();
-        $this->assertShipmentAccess($user, $shipment);
+        $runUuid ? $this->assertHistoricalShipmentAccess($user, $shipment, $runUuid) : $this->assertShipmentAccess($user, $shipment);
 
         return $this->listForAttachable($shipment, $shipment->merchant_id);
     }
@@ -140,10 +140,17 @@ class EntityFileService
         );
     }
 
-    public function downloadForUser(User $user, string $fileUuid): array
+    public function downloadForUser(User $user, string $fileUuid, ?string $runUuid = null): array
     {
         $entityFile = EntityFile::with(['fileType', 'merchant', 'attachable'])->where('uuid', $fileUuid)->firstOrFail();
-        $this->assertEntityFileAccess($user, $entityFile);
+        if ($runUuid) {
+            if (!($entityFile->attachable instanceof Shipment) || $entityFile->account_id !== $user->account_id || $entityFile->merchant_id !== $user->driver?->merchant_id) {
+                throw (new \Illuminate\Database\Eloquent\ModelNotFoundException)->setModel(EntityFile::class);
+            }
+            $this->assertHistoricalShipmentAccess($user, $entityFile->attachable, $runUuid);
+        } else {
+            $this->assertEntityFileAccess($user, $entityFile);
+        }
 
         return $this->resolveDownloadPayload($entityFile);
     }
@@ -294,6 +301,18 @@ class EntityFileService
             'name' => $entityFile->original_name,
             'mime_type' => $entityFile->mime_type,
         ];
+    }
+
+    private function assertHistoricalShipmentAccess(User $user, Shipment $shipment, string $runUuid): void
+    {
+        $driver = $user->driver;
+        abort_unless($user->role === 'driver' && $driver && $driver->is_active && $driver->account_id === $user->account_id, 403);
+        if (!($shipment->account_id === $driver->account_id && $shipment->merchant_id === $driver->merchant_id &&
+            $shipment->runShipments()->where('status', '!=', \App\Models\RunShipment::STATUS_REMOVED)
+                ->whereHas('run', fn ($q) => $q->where('uuid', $runUuid)->where('status', \App\Models\Run::STATUS_COMPLETED)
+                    ->where('driver_id', $driver->id)->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id))->exists())) {
+            throw (new \Illuminate\Database\Eloquent\ModelNotFoundException)->setModel(Shipment::class);
+        }
     }
 
     private function assertShipmentAccess(User $user, Shipment $shipment): void
