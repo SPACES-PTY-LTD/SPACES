@@ -1,5 +1,55 @@
 # Release Notes
 
+## 2026-10-08 | Version: navigable-delivery-note-steps-v1
+
+- **Summary:** Use the segmented step UI throughout delivery-note upload and let drivers return to completed steps.
+- **API Changes:** None; reuse existing import filename, extraction, preview and confirmation APIs.
+- **Database Changes:** None.
+- **Behavior Changes:** Show five coral/grey rounded segments and a step label, with accessible 44-point completed-step buttons. Preserve draft locations, shipment edits and run choice on return; clear final confirmation readiness and retain normal forward validation. Current/future steps are inactive and network work locks navigation. Revisited Step 1 shows the original filename and document replacement; cancellation/failure offers return to the existing draft. Revisited Step 2 shows successful reading without replaying upload/AI.
+- **Internal Changes:** Shared ImportStepIndicator and step navigation policy; dashboard plan v1.96 and Figma step references/handoff updated.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, all 32 regression tests, focused lint with the existing import-page effect rule excluded and diff checks pass. iOS simulator visually verifies Step 1 and inactive current/future segments without uploading. Native completed-step navigation/draft retention, replacement round trips, VoiceOver, Android, dark mode and large text remain unverified. No upload, commit or push performed.
+
+## 2026-10-08 | Version: automatic-expo-go-apple-maps-v1
+
+- **Summary:** Automatically use Apple Maps in iOS Expo Go without requiring the recovery button.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Shared dashboard/stop-preview provider selection excludes unsupported Google in iOS Expo Go even when Fabric/legacy Google views appear registered. Use Expo’s native host check, keeping native development/release Google builds and Android behavior intact. Preserve coordinates, pins, routes, refitting, themes, missing-coordinate states and existing render-error recovery. No timeout-based tile-failure inference.
+- **Internal Changes:** Dashboard plan v1.95 and existing Figma provider handoff updated. Existing maps config plugin installs/initializes native iOS Google only with its build key; no key or manifest change required for this fix.
+- **Breaking Changes:** None. Silent Google key/billing/network failures in configured native builds still lack a general SDK tile-error callback; manual recovery remains available there. React boundaries cannot catch native SDK crashes.
+- **Verification:** All 30 mobile regression tests, TypeScript and focused provider lint pass. Tests cover misleading iOS Expo Go registrations, native development/release Google, Android Expo Go and failed-Apple exclusion. Fresh launch of Expo Go 57.0.9 on iPhone 17 Pro Max / iOS 26.1 verifies automatic Apple dashboard tiles, truck/starting-point markers and Engen Isando Depot1 stop preview tiles/coral pin/metadata, without pressing recovery. Native Google-equipped iOS, Android and dark-mode checks remain pending. Existing main Expo server remains on port 8081 with its API environment; no commit, push or deployment.
+
+## 2026-10-08 | Version: trip-location-selector-back-v1
+
+- **Summary:** Simplify navigation in delivery-note starting-point and planned-end location selectors.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Add a neutral 44-point back arrow before the title, returning to trip-location review and preserving prior endpoint choices. Remove the trailing close button, red content Back button and handle from these selectors.
+- **Internal Changes:** Add an optional shared BottomSheet header back action and forward it through ImportSheetPage. Update dashboard plan v1.94 and both Figma selector headers/handoff.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, all 28 mobile regression tests, diff checks and focused lint pass with the pre-existing import-page effect rule excluded. Both Figma selector headers visually verified. Native keyboard/back navigation, dark mode and large text remain unverified.
+
+## 2026-10-08 | Version: trip-location-review-ui-v1
+
+- **Summary:** Make delivery-note Step 3 easier to scan and reuse the shared location chooser.
+- **API Changes:** None; use the existing paginated authorised location search.
+- **Database Changes:** None.
+- **Behavior Changes:** Add compact themed route endpoint cards, distinct names/full addresses, pin/flag rail, step progress and Change location hints. Review shipments requires both endpoint map positions and shows checking feedback. Both endpoint selectors use LocationSearchPicker with keyboard search, pagination, retry and explicit selection confirmation. Preserve prior choices on Back and persist full confirmed location details with the draft; individual shipment addresses remain unchanged.
+- **Internal Changes:** ImportSheetPage forwards native-scroll and scroll-event options for shared picker keyboard/pagination support. Dashboard plan v1.93, Figma reference copy/actions and implementation handoff updated.
+- **Breaking Changes:** None.
+- **Verification:** All 28 mobile regression tests pass using Node type stripping; mobile TypeScript, diff checks and focused lint pass with the pre-existing import-page react-hooks/set-state-in-effect rule excluded. Figma reference visually checked; exact route-panel styling is specified in the handoff. Native Step 3, keyboard/pagination, long addresses, large text, short screens and dark-mode interaction remain unverified. No delivery-note submission, commit or push performed.
+
+## 2026-10-08 | Version: delivery-note-picker-handoff-v1
+
+- **Summary:** Keep native delivery-note Photo/File/Camera pickers above the app by serializing the upload sheet, source chooser and native UI.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Fully dismiss Step 1 before the source chooser, then dismiss the chooser before opening a native picker. Shared dismissal notifications occur after portal removal commits, without timeout guesses. Preserve selected run/context/file during cancellation, denial, invalid selection and source failure; restore Step 1 once without reopening the chooser or starting an upload. Block duplicate handoffs/Continue and ignore stale native results after unmount. Camera confirmation/retake stays suspended; Photo uses system chosen-asset access without requesting full-library permission.
+- **Internal Changes:** Add a reusable sheet handoff coordinator and optional ActionSheet/MessageSheet dismissal results, preserving existing action callbacks. Dashboard plan v1.92 and Figma handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, all 28 mobile tests (eight handoff regressions), diff checks and focused lint pass with the pre-existing import effect rule excluded. iOS simulator verifies chooser replacement, native Files navigation and cancellation, Photos presentation/cancellation, Camera presentation/cancellation, successful local selection of a stock simulator photo, retention after Change document cancellation, and closing without upload. Native screenshots show pickers unobscured by app sheets. No personal document selected and no upload/production mutation, commit or push performed for this fix. Physical capture/retake, denied camera permission/settings return, Android, native error injection, dark mode, large text and short-screen checks remain acceptance gates. Existing main Expo preview continues on port 8081.
+
 ## 2026-10-08 | Version: consolidated-main-run-workflows-v1
 
 - **Summary:** Consolidate the stop-details/map improvements and consecutive-shipment guard into the saved main checkout alongside existing run-card, timeline, location-search and admin shipment work.

@@ -12,6 +12,8 @@ export type BottomSheetProps = PropsWithChildren<{
   modalRef: RefObject<BottomSheetModal | null>;
   title?: string;
   onDismiss?: () => void;
+  /** Leading navigation control; the caller owns returning to the previous step. */
+  onBack?: () => void;
   accessibilityLabel?: string;
   scrollable?: boolean;
   /** Use native scrolling for location pickers without sheet pan gestures. */
@@ -36,7 +38,7 @@ function ModalContainer({ children }: PropsWithChildren) {
 
 /** Shared floating sheet appearance, safe-area spacing, keyboard and dismissal behavior. */
 export function BottomSheet({ modalRef, title, children, onDismiss, accessibilityLabel,
-  onScroll, plainScroll = false, scrollable = false, dismissible = true, showCloseButton = true, showHandle = true,
+  onBack, onScroll, plainScroll = false, scrollable = false, dismissible = true, showCloseButton = true, showHandle = true,
   maxDynamicContentSize, keyboardBehavior = 'interactive' }: BottomSheetProps) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
@@ -53,12 +55,21 @@ export function BottomSheet({ modalRef, title, children, onDismiss, accessibilit
   }, [dismissible, modalRef]);
   // Register only while presented so hidden reusable sheets never swallow Android Back.
   const [visible, setVisible] = useState(false);
+  const [dismissalCount, setDismissalCount] = useState(0);
+  // Gorhom calls onDismiss while removing its portal. Notify consumers after
+  // that React commit, when the iOS FullWindowOverlay has detached as well.
+  useEffect(() => {
+    if (dismissalCount > 0) onDismiss?.();
+    // Callback identity changes must not replay a completed dismissal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dismissalCount]);
   useEffect(() => {
     if (!visible) return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', backSubscription);
     return () => subscription.remove();
   }, [visible, backSubscription]);
   const header = <View style={styles.header}>
+      {onBack && <Pressable accessibilityRole="button" accessibilityLabel="Back" accessibilityState={{ disabled: !dismissible }} disabled={!dismissible} onPress={onBack} style={[styles.back, { opacity: dismissible ? 1 : 0.4 }]}><Feather name="arrow-left" size={22} color={ink} /></Pressable>}
       {!!title && <Text style={[styles.title, { color: ink }]} accessibilityRole="header">{title}</Text>}
       {showCloseButton && <Pressable accessibilityRole="button" accessibilityLabel={`Close ${accessibilityLabel || title || 'sheet'}`} accessibilityState={{ disabled: !dismissible }} disabled={!dismissible} onPress={() => modalRef.current?.dismiss()} style={[styles.close, { backgroundColor: dark ? '#303036' : '#f4f4f5', opacity: dismissible ? 1 : 0.4 }]}><Feather name="x" size={22} color={ink} /></Pressable>}
     </View>;
@@ -72,7 +83,7 @@ export function BottomSheet({ modalRef, title, children, onDismiss, accessibilit
     enablePanDownToClose={dismissible} enableBlurKeyboardOnGesture keyboardBehavior={keyboardBehavior}
     keyboardBlurBehavior="restore" android_keyboardInputMode="adjustResize"
     onChange={index => setVisible(index >= 0)}
-    onDismiss={() => { setVisible(false); onDismiss?.(); }}
+    onDismiss={() => { setVisible(false); setDismissalCount(count => count + 1); }}
     backdropComponent={SheetBackdrop}>
     {plainScroll ? <KeyboardAvoidingView style={styles.plainContent} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</ScrollView>
@@ -88,5 +99,6 @@ const styles = StyleSheet.create({
   plainContent: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { fontSize: 18, lineHeight: 28, fontWeight: '700', flex: 1 },
+  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   close: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' },
 });

@@ -1,13 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { Href, useRouter } from 'expo-router';
 import { PropsWithChildren, useEffect, useRef } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/component/ui/Text';
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { BottomSheet } from '@/component/ui/BottomSheet';
 
-export function ImportSheetPage({ title, children, backDisabled = false, destination }: PropsWithChildren<{ title: string; backDisabled?: boolean; destination?: Href }>) {
+export function ImportSheetPage({ title, children, backDisabled = false, destination, plainScroll = false, onScroll, onBack }: PropsWithChildren<{ title: string; backDisabled?: boolean; destination?: Href; plainScroll?: boolean; onScroll?: ScrollViewProps['onScroll']; onBack?: () => void }>) {
   const modalRef = useRef<BottomSheetModal>(null);
   const router = useRouter();
   useEffect(() => {
@@ -15,7 +15,7 @@ export function ImportSheetPage({ title, children, backDisabled = false, destina
     return () => cancelAnimationFrame(frame);
   }, []);
   useEffect(() => { if (destination) modalRef.current?.dismiss(); }, [destination]);
-  return <BottomSheet modalRef={modalRef} title={title} scrollable dismissible={!backDisabled} onDismiss={() => {
+  return <BottomSheet modalRef={modalRef} title={title} onBack={onBack} showCloseButton={!onBack} showHandle={!onBack} plainScroll={plainScroll} onScroll={onScroll} scrollable dismissible={!backDisabled} onDismiss={() => {
     if (destination) router.replace(destination);
     else if (router.canGoBack()) router.back(); else router.replace('/(tabs)');
   }}>{children}</BottomSheet>;

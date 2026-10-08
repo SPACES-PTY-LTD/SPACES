@@ -1,14 +1,14 @@
 export type NativeMapProvider = 'google' | 'apple' | 'unavailable';
 export type NativeMapCapabilities = { google: boolean; apple: boolean };
 
-/** Probe registered native views, including Fabric and legacy builds; not device/app names. */
-export function nativeMapCapabilities(platform: string, hasView: (name: string) => boolean): NativeMapCapabilities {
+/** Expo Go on iOS cannot use the app's native Google configuration, even if a view is registered. */
+export function nativeMapCapabilities(platform: string, hasView: (name: string) => boolean, runtime: { isExpoGo: boolean }): NativeMapCapabilities {
   const available = (name: string) => {
     try { return hasView(name); } catch { return false; }
   };
   const standard = available('RNMapsMapView') || available('AIRMap');
   return {
-    google: platform === 'android' ? standard : platform === 'ios' && (available('RNMapsGoogleMapView') || available('AIRGoogleMap')),
+    google: platform === 'android' ? standard : platform === 'ios' && !runtime.isExpoGo && (available('RNMapsGoogleMapView') || available('AIRGoogleMap')),
     apple: platform === 'ios' && standard,
   };
 }

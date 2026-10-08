@@ -10,9 +10,9 @@ type MessageAction = {
   onPress?: () => void | Promise<void>;
   style?: 'default' | 'cancel' | 'destructive';
 };
-type Message = { title: string; message: string; actions: MessageAction[] };
+type Message = { title: string; message: string; actions: MessageAction[]; onDismiss?: (actionText?: string) => void };
 export type MessageSheetRef = {
-  present: (title: string, message: string, actions?: MessageAction[]) => void;
+  present: (title: string, message: string, actions?: MessageAction[], onDismiss?: (actionText?: string) => void) => void;
 };
 
 /** Shared replacement for app-owned alerts; actions run after the sheet closes. */
@@ -24,10 +24,10 @@ export const MessageSheet = forwardRef<MessageSheetRef>(function MessageSheet(_,
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
   useImperativeHandle(ref, () => ({
-    present: (title, message, actions = [{ text: 'OK' }]) => {
+    present: (title, message, actions = [{ text: 'OK' }], onDismiss) => {
       selected.current = null;
       closing.current = false;
-      setContent({ title, message, actions });
+      setContent({ title, message, actions, onDismiss });
     },
   }), []);
   useEffect(() => {
@@ -40,6 +40,7 @@ export const MessageSheet = forwardRef<MessageSheetRef>(function MessageSheet(_,
     selected.current = null;
     closing.current = false;
     setContent(undefined);
+    content?.onDismiss?.(action?.text);
     if (action?.onPress) Promise.resolve().then(action.onPress).catch(error => {
       setContent({ title: 'Unable to complete action', message: error instanceof Error ? error.message : 'Please try again.', actions: [{ text: 'OK' }] });
     });

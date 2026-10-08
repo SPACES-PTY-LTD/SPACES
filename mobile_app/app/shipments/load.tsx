@@ -12,10 +12,12 @@ import {
     importStyles,
 } from "@/src/components/document-import-ui";
 import { Text } from "@/component/ui/Text";
+import { ImportStepIndicator } from "@/src/components/ImportStepIndicator";
 import { DeliveryNoteProgress } from "@/src/components/delivery-note-progress";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { BottomSheet } from "@/component/ui/BottomSheet";
 import { ActionSheet, ActionSheetRef } from "@/component/ui/ActionSheet";
+import { createSheetHandoff } from "@/component/ui/sheet-handoff";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function LoadShipment() {
@@ -23,6 +25,15 @@ export default function LoadShipment() {
     const modalRef = useRef<BottomSheetModal>(null);
     const messageSheet = useRef<MessageSheetRef>(null);
     const actionsRef = useRef<ActionSheetRef>(null);
+    const handoffRef = useRef<ReturnType<typeof createSheetHandoff> | null>(null);
+    useEffect(() => {
+        const handoff = createSheetHandoff(
+            () => modalRef.current?.dismiss(),
+            () => modalRef.current?.present(),
+        );
+        handoffRef.current = handoff;
+        return () => { handoff.dispose(); handoffRef.current = null; };
+    }, []);
     const reviewDestination = useRef<string | null>(null);
     const { colorScheme } = useColorScheme();
     const dark = colorScheme === "dark";
@@ -53,13 +64,16 @@ export default function LoadShipment() {
         modalRef.current?.dismiss();
     }
     function dismissUpload() {
+        if (handoffRef.current?.onDismiss()) return;
         if (reviewDestination.current)
             router.replace(`/shipments/imports/${reviewDestination.current}`);
+        else if (resumeImportId) router.replace(`/shipments/imports/${resumeImportId}`);
         else if (router.canGoBack()) router.back();
         else router.replace("/(tabs)");
     }
-    const { run_id: requestedRun } = useLocalSearchParams<{
+    const { run_id: requestedRun, resume_import_id: resumeImportId } = useLocalSearchParams<{
         run_id?: string;
+        resume_import_id?: string;
     }>();
     const { session } = useAuth();
     const [context, setContext] = useState<ImportContext>();
@@ -107,7 +121,7 @@ export default function LoadShipment() {
                 ],
                 copyToCacheDirectory: true,
             });
-            if (!result.canceled) {
+            if (handoffRef.current?.active && !result.canceled) {
                 if ((result.assets[0].size || 0) > 20 * 1024 * 1024) {
                     setError("Choose a document smaller than 20 MB.");
                     return;
@@ -116,37 +130,38 @@ export default function LoadShipment() {
                 setError("");
             }
         } catch {
-            setError("Unable to open your documents. Please try again.");
+            if (handoffRef.current?.active) setError("Unable to open your documents. Please try again.");
         }
     }
-    async function pickImage(camera: boolean) {
+    // Resolve only after the message overlay is removed, including swipe/backdrop.
+    function showPickerMessage(title: string, message: string, choices: string[]) {
+        return new Promise<string | undefined>(resolve => {
+            if (!handoffRef.current?.active || !messageSheet.current) return resolve(undefined);
+            messageSheet.current.present(title, message, choices.map(text => ({ text })), resolve);
+        });
+    }
+    async function pickImage(camera: boolean): Promise<void> {
         try {
-            const permission = camera
-                ? await ImagePicker.requestCameraPermissionsAsync()
-                : await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (!permission.granted) {
-                messageSheet.current?.present(
+            // The system photo picker grants access to the chosen asset only;
+            // this Expo SDK requires a permission request for camera capture.
+            const permission = camera ? await ImagePicker.requestCameraPermissionsAsync() : null;
+            if (!handoffRef.current?.active) return;
+            if (permission && !permission.granted) {
+                const choice = await showPickerMessage(
                     "Permission needed",
                     `Allow ${camera ? "camera" : "photo"} access in Settings, or choose File.`,
-                    [
-                        { text: "Cancel" },
-                        {
-                            text: "Open Settings",
-                            onPress: () => void Linking.openSettings(),
-                        },
-                    ],
+                    ["Cancel", "Open Settings"],
                 );
+                if (choice === "Open Settings" && handoffRef.current?.active) await Linking.openSettings();
                 return;
             }
             const options: ImagePicker.ImagePickerOptions = {
-                mediaTypes: ["images"],
-                quality: 0.9,
-                allowsEditing: false,
+                mediaTypes: ["images"], quality: 0.9, allowsEditing: false,
             };
             const result = camera
                 ? await ImagePicker.launchCameraAsync(options)
                 : await ImagePicker.launchImageLibraryAsync(options);
-            if (result.canceled) return;
+            if (!handoffRef.current?.active || result.canceled) return;
             const asset = result.assets[0];
             const mime = asset.mimeType || "image/jpeg";
             if (!["image/jpeg", "image/png", "image/webp"].includes(mime)) {
@@ -158,55 +173,50 @@ export default function LoadShipment() {
                 return;
             }
             const selected = {
-                lastModified: Date.now(),
-                uri: asset.uri,
+                lastModified: Date.now(), uri: asset.uri,
                 name: asset.fileName || `delivery-note.${mime.split("/")[1]}`,
-                mimeType: mime,
-                size: asset.fileSize,
+                mimeType: mime, size: asset.fileSize,
             };
-            if (camera)
-                messageSheet.current?.present(
+            if (camera) {
+                const choice = await showPickerMessage(
                     "Use this delivery note photo?",
                     "You can retake it if the document is not clear.",
-                    [
-                        { text: "Retake", onPress: () => void pickImage(true) },
-                        {
-                            text: "Use photo",
-                            onPress: () => {
-                                setFile(selected);
-                                setError("");
-                            },
-                        },
-                    ],
+                    ["Retake", "Use photo"],
                 );
-            else {
-                setFile(selected);
-                setError("");
+                if (!handoffRef.current?.active) return;
+                if (choice === "Retake") return await pickImage(true);
+                if (choice !== "Use photo") return;
             }
+            setFile(selected);
+            setError("");
         } catch {
-            setError("Unable to open this source. Try File or another source.");
+            if (handoffRef.current?.active) setError("Unable to open this source. Try File or another source.");
         }
     }
     function chooseDocument() {
-        actionsRef.current?.present({
-            title: "Choose document",
-            actions: [
-                {
-                    id: "photo",
-                    label: "Photo",
-                    onPress: () => pickImage(false),
-                },
-                { id: "file", label: "File", onPress: pick },
-                {
-                    id: "camera",
-                    label: "Camera",
-                    onPress: () => pickImage(true),
-                },
-            ],
+        if (busy || inFlight.current) return;
+        void handoffRef.current?.run(async () => {
+            const source = await new Promise<string | undefined>(resolve => {
+                if (!actionsRef.current) return resolve(undefined);
+                actionsRef.current.present({
+                    title: "Choose document",
+                    actions: [
+                        { id: "photo", label: "Photo", onPress: () => {} },
+                        { id: "file", label: "File", onPress: () => {} },
+                        { id: "camera", label: "Camera", onPress: () => {} },
+                    ],
+                    onDismiss: resolve,
+                });
+            });
+            if (!handoffRef.current?.active) return;
+            if (source === "file") await pick();
+            else if (source === "photo" || source === "camera") await pickImage(source === "camera");
+        }).catch(() => {
+            if (handoffRef.current?.active) setError("Unable to open this source. Please try again.");
         });
     }
     async function analyze() {
-        if (!file || !session || inFlight.current) return;
+        if (!file || !session || inFlight.current || handoffRef.current?.running) return;
         inFlight.current = true;
         setUploaded(false);
         setBusy(true);
@@ -256,7 +266,7 @@ export default function LoadShipment() {
                     </>
                 ) : (
                     <>
-                        <Text style={s.note}>STEP 1 OF 5 · CHOOSE FILE</Text>
+                        <ImportStepIndicator step={1} />
                         <Text style={s.subtitle}>
                             Upload a delivery note or manifest. AI will extract
                             the details for you to review before any shipments
@@ -288,6 +298,7 @@ export default function LoadShipment() {
                                 {error}
                             </Text>
                         )}
+                        {!!resumeImportId && <ImportButton secondary label="Return to existing draft" onPress={() => openReview(resumeImportId)} />}
                         {!context && (
                             <ImportButton
                                 secondary

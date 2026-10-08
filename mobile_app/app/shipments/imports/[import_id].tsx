@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { Href, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Linking, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { Text } from "@/component/ui/Text";
 import { ActionSheet, ActionSheetRef } from "@/component/ui/ActionSheet";
 import {
@@ -10,7 +10,6 @@ import {
     ImportContext,
     ImportDraft,
     ImportLine,
-    ImportLocation,
     ImportResult,
     ImportReview,
     documentImportApi,
@@ -22,6 +21,10 @@ import {
     ImportSheetPage,
     importStyles as s,
 } from "@/src/components/document-import-ui";
+import { LocationSearchPicker, type LocationSearchPickerHandle } from "@/src/components/LocationSearchPicker";
+import { ImportStepIndicator } from "@/src/components/ImportStepIndicator";
+import { canReturnToImportStep, type ImportStep } from "@/src/components/import-steps";
+import { TripLocationStep } from "@/src/components/TripLocationStep";
 import { DeliveryNoteProgress } from "@/src/components/delivery-note-progress";
 
 const addressFields = [
@@ -60,7 +63,8 @@ export default function ReviewImport() {
     const { session } = useAuth();
     const [context, setContext] = useState<ImportContext>();
     const [draft, setDraft] = useState<ImportDraft>();
-    const [stage, setStage] = useState<3 | 4 | 5>(3);
+    const [stage, setStage] = useState<ImportStep>(3);
+    const [filename, setFilename] = useState("");
     const [review, setReview] = useState<ImportReview>();
     const [result, setResult] = useState<ImportResult | null>(null);
     const [destination, setDestination] = useState<Href>();
@@ -74,8 +78,7 @@ export default function ReviewImport() {
     const [locationKind, setLocationKind] = useState<
         "origin_location_id" | "destination_location_id" | null
     >(null);
-    const [search, setSearch] = useState("");
-    const [searchResults, setSearchResults] = useState<ImportLocation[]>([]);
+    const locationPicker = useRef<LocationSearchPickerHandle>(null);
     const [choiceReady, setChoiceReady] = useState(false);
     const actions = useRef<ActionSheetRef>(null);
     const inFlight = useRef(false);
@@ -99,6 +102,7 @@ export default function ReviewImport() {
                 documentImportApi.context(session.token),
                 AsyncStorage.getItem(storageKey),
             ]);
+            setFilename(item.filename);
             setContext(available);
             setResult(item.confirmation_result);
             const run =
@@ -148,6 +152,12 @@ export default function ReviewImport() {
         if (draft && !result)
             void AsyncStorage.setItem(storageKey, JSON.stringify(draft));
     }, [draft, result, storageKey]);
+    function returnToStep(target: ImportStep) {
+        if (!canReturnToImportStep(stage, target, busy || creating || !!result)) return;
+        setError("");
+        setChoiceReady(false);
+        setStage(target);
+    }
     function update(patch: Partial<ImportDraft>) {
         setDraft((d) => (d ? { ...d, ...patch } : d));
         setChoiceReady(false);
@@ -259,9 +269,13 @@ export default function ReviewImport() {
             : failureIndex !== null
               ? "Failed Delivery"
               : locationKind
-                ? "Choose location"
-                : stage === 3
-                  ? "Confirm collection & end"
+                ? locationKind === "origin_location_id" ? "Choose starting point" : "Choose planned end"
+                : stage === 1
+                  ? "Upload a delivery note"
+                  : stage === 2
+                    ? "Reading file"
+                    : stage === 3
+                  ? "Confirm trip locations"
                   : stage === 4
                     ? "Confirm shipments found"
                     : "Current run or new run?";
@@ -271,6 +285,9 @@ export default function ReviewImport() {
                 title={title}
                 destination={destination}
                 backDisabled={creating}
+                onBack={locationKind ? () => setLocationKind(null) : undefined}
+                plainScroll={!!locationKind}
+                onScroll={event => locationPicker.current?.onScroll(event)}
             >
                 {!!error && (
                     <Text accessibilityRole="alert" style={s.error}>
@@ -356,105 +373,21 @@ export default function ReviewImport() {
                     </>
                 ) : locationKind ? (
                     <>
-                        <ImportField
-                            label="Search saved locations or addresses"
-                            value={search}
-                            onChange={setSearch}
-                        />
-                        <ImportButton
-                            secondary
-                            label={busy ? "Searching…" : "Search address"}
-                            disabled={busy || search.trim().length < 3}
-                            onPress={async () => {
-                                if (!session) return;
-                                setBusy(true);
-                                setError("");
-                                try {
-                                    const found =
-                                        await documentImportApi.searchLocations(
-                                            session.token,
-                                            search.trim(),
-                                        );
-                                    setSearchResults(found);
-                                    if (!found.length)
-                                        setError(
-                                            "No exact address found. Include the street, city and postal code.",
-                                        );
-                                } catch (e) {
-                                    setError(message(e));
-                                } finally {
-                                    setBusy(false);
-                                }
+                        <LocationSearchPicker
+                            key={locationKind}
+                            ref={locationPicker}
+                            token={session!.token}
+                            selectionIcon={locationKind === "origin_location_id" ? "map-pin" : "flag"}
+                            selectedLabel={locationKind === "origin_location_id" ? "SELECTED STARTING POINT" : "SELECTED PLANNED END"}
+                            confirmLabel={locationKind === "origin_location_id" ? "Use starting point" : "Use planned end location"}
+                            onConfirm={location => {
+                                setContext(current => current ? { ...current, locations: [...current.locations.filter(l => l.location_id !== location.location_id), location] } : current);
+                                update({
+                                    [locationKind]: location.location_id,
+                                    trip_locations: [...(draft.trip_locations || []).filter(l => l.location_id !== location.location_id), location],
+                                });
+                                setLocationKind(null);
                             }}
-                        />
-                        {searchResults.map((l) => (
-                            <View style={s.card} key={l.location_id}>
-                                <Text style={s.body}>{fullAddress(l)}</Text>
-                                <ImportButton
-                                    secondary
-                                    label="View map position"
-                                    onPress={() =>
-                                        void Linking.openURL(
-                                            `https://www.google.com/maps/search/?api=1&query=${l.latitude},${l.longitude}`,
-                                        )
-                                    }
-                                />
-                                <ImportButton
-                                    label="Use this location"
-                                    onPress={() => {
-                                        setContext({
-                                            ...context,
-                                            locations: [
-                                                ...context.locations,
-                                                l,
-                                            ],
-                                        });
-                                        update({
-                                            [locationKind]: l.location_id,
-                                            trip_locations: [...(draft.trip_locations || []), l],
-                                        });
-                                        setLocationKind(null);
-                                        setSearchResults([]);
-                                        setSearch("");
-                                    }}
-                                />
-                            </View>
-                        ))}
-
-                        {context.locations
-                            .filter((l) =>
-                                `${l.name} ${fullAddress(l)}`
-                                    .toLowerCase()
-                                    .includes(search.toLowerCase()),
-                            )
-                            .map((l) => (
-                                <ImportButton
-                                    key={l.location_id}
-                                    secondary
-                                    label={`${l.name}\n${fullAddress(l) || "Address unavailable"}${l.latitude == null || l.longitude == null ? "\nMap position unavailable" : ""}`}
-                                    disabled={
-                                        l.latitude == null ||
-                                        l.longitude == null
-                                    }
-                                    onPress={() => {
-                                        update({
-                                            [locationKind]: l.location_id,
-                                        });
-                                        setLocationKind(null);
-                                        setSearch("");
-                                    }}
-                                />
-                            ))}
-                        {!context.locations.length && (
-                            <Text style={s.note}>
-                                No saved locations. Ask dispatch to add the
-                                location and map position.
-                            </Text>
-                        )}
-                        <ImportButton
-                            secondary
-                            label="Back"
-                            onPress={() => setLocationKind(null)}
                         />
                     </>
                 ) : editing !== null && editValue ? (
@@ -567,67 +500,28 @@ export default function ReviewImport() {
                     </>
                 ) : (
                     <>
-                        <Text style={s.note}>
-                            STEP {stage} OF 5 ·{" "}
-                            {stage === 3
-                                ? "TRIP LOCATIONS"
-                                : stage === 4
-                                  ? "SHIPMENTS FOUND"
-                                  : "CHOOSE RUN"}
-                        </Text>
-                        {stage === 3 ? (
+                        <ImportStepIndicator step={stage} onBack={returnToStep} locked={busy || creating} />
+                        {stage === 1 ? (
                             <>
-                                <Text style={s.subtitle}>
-                                    Choose where the trip starts and where it
-                                    will end. Next, check the shipments against
-                                    this starting point.
-                                </Text>
-                                {(
-                                    [
-                                        [
-                                            "origin_location_id",
-                                            "Run starting point",
-                                            origin,
-                                        ],
-                                        [
-                                            "destination_location_id",
-                                            "Planned end location",
-                                            end,
-                                        ],
-                                    ] as const
-                                ).map(([key, label, location]) => (
-                                    <View
-                                        key={key}
-                                        style={[
-                                            s.card,
-                                            { backgroundColor: "#f7f7f9" },
-                                        ]}
-                                    >
-                                        <Text style={s.note}>{label}</Text>
-                                        <ImportButton
-                                            secondary
-                                            label={
-                                                location
-                                                    ? `${location.name}\n${fullAddress(location)}`
-                                                    : "Choose location"
-                                            }
-                                            onPress={() => setLocationKind(key)}
-                                        />
-                                    </View>
-                                ))}
-                                <Text style={s.note}>
-                                    Collection → shipment stops → planned end.
-                                    The end may differ from your last delivery.
-                                </Text>
-                                <ImportButton
-                                    label="Continue"
-                                    disabled={!origin || !end || busy}
-                                    onPress={async () => {
-                                        if (await refreshReview(draft))
-                                            setStage(4);
-                                    }}
-                                />
+                                <Text style={s.heading}>{filename || "Selected delivery note"}</Text>
+                                <Text style={s.subtitle}>This document has already been read. Your locations and shipment edits are saved in this draft.</Text>
+                                <ImportButton label="Continue" onPress={() => setStage(2)} />
+                                <ImportButton secondary label="Change document" onPress={() => setDestination({ pathname: "/shipments/load", params: { resume_import_id: import_id, run_id: draft.run_id || undefined } })} />
                             </>
+                        ) : stage === 2 ? (
+                            <>
+                                <Feather name="check-circle" size={28} color="#24753a" />
+                                <Text style={s.heading}>File read successfully</Text>
+                                <Text style={s.subtitle}>{draft.line_items.length} shipments found. Continue to review your trip locations.</Text>
+                                <ImportButton label="Continue" onPress={() => setStage(3)} />
+                            </>
+                        ) : stage === 3 ? (
+                            <TripLocationStep origin={origin} end={end} busy={busy}
+                                onChoose={setLocationKind}
+                                onContinue={async () => {
+                                    if (await refreshReview(draft)) setStage(4);
+                                }}
+                            />
                         ) : stage === 4 ? (
                             <>
                                 <Text style={s.subtitle}>

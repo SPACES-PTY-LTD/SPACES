@@ -1,4 +1,5 @@
 import { ActivityIndicator, View } from "react-native";
+import { ImportStepIndicator } from "./ImportStepIndicator";
 import { Text } from "@/component/ui/Text";
 
 /** Upload completion is reported by XHR; server processing remains indeterminate. */
@@ -19,11 +20,7 @@ export function DeliveryNoteProgress({
             accessibilityLiveRegion="polite"
             style={{ gap: 16, paddingVertical: 16, minHeight: 220 }}
         >
-            {!creating && (
-                <Text style={{ fontSize: 12, color: "#71717a" }}>
-                    STEP 2 OF 5 · READING FILE
-                </Text>
-            )}
+            <ImportStepIndicator step={creating ? 5 : 2} locked />
             <Text
                 style={{
                     minHeight: 60,

@@ -21,7 +21,7 @@ export type ActionSheetConfig = {
   accessibilityLabel?: string;
   showCloseButton?: boolean;
   showHandle?: boolean;
-  onDismiss?: () => void;
+  onDismiss?: (actionId?: string) => void;
   onError?: (error: unknown) => void;
 };
 export type ActionSheetRef = { present: (config: ActionSheetConfig) => void; dismiss: () => void };
@@ -55,7 +55,7 @@ export const ActionSheet = forwardRef<ActionSheetRef>(function ActionSheet(_, re
     selected.current = null;
     const previous = config;
     setConfig(null);
-    previous?.onDismiss?.();
+    previous?.onDismiss?.(action?.id);
     if (!action) return;
     Promise.resolve().then(() => action.onPress()).catch(error => {
       if (previous?.onError) previous.onError(error);

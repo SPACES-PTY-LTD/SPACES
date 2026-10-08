@@ -1,7 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { nativeMapCapabilities, selectNativeMapProvider } from '../src/components/dashboard/native-map-provider.ts';
-const choose = (platform, views, failed = new Set(), preferApple = false) => selectNativeMapProvider(nativeMapCapabilities(platform, name => views.includes(name)), failed, preferApple);
+const choose = (platform, views, failed = new Set(), preferApple = false, isExpoGo = false) => selectNativeMapProvider(nativeMapCapabilities(platform, name => views.includes(name), { isExpoGo }), failed, preferApple);
+
+test('iOS Expo Go selects Apple before mounting despite registered Google views', () => {
+  for (const views of [['RNMapsMapView', 'RNMapsGoogleMapView'], ['AIRMap', 'AIRGoogleMap']]) {
+    assert.equal(choose('ios', views, new Set(), false, true), 'apple');
+    assert.equal(choose('ios', views, new Set(['apple']), false, true), 'unavailable');
+  }
+  assert.equal(choose('ios', ['RNMapsGoogleMapView'], new Set(), false, true), 'unavailable');
+});
+test('native development/release builds retain Google; Android Expo Go remains Google', () => {
+  const views = ['RNMapsMapView', 'RNMapsGoogleMapView'];
+  assert.equal(choose('ios', views, new Set(), false, false), 'google');
+  assert.equal(choose('android', ['RNMapsMapView'], new Set(), false, true), 'google');
+  assert.equal(choose('android', ['AIRMap'], new Set(), false, true), 'google');
+});
 
 test('iOS without Google native view uses Apple before mounting', () => {
   assert.equal(choose('ios', ['RNMapsMapView']), 'apple');
@@ -35,6 +49,6 @@ test('failed Google probe still permits registered Apple map', () => {
   const capabilities = nativeMapCapabilities('ios', name => {
     if (name.includes('Google')) throw Error('View absent');
     return name === 'RNMapsMapView';
-  });
+  }, { isExpoGo: false });
   assert.equal(selectNativeMapProvider(capabilities, new Set()), 'apple');
 });
