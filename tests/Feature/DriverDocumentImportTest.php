@@ -379,8 +379,12 @@ class DriverDocumentImportTest extends TestCase
             ->assertJsonPath('data.status', 'analyzed')->assertJsonPath('data.failure_message', null)
             ->assertJsonPath('data.extracted_data.line_items.0.merchant_order_ref', $this->draft()['line_items'][0]['merchant_order_ref']);
         $this->assertDatabaseCount('shipments', 0);
-        $this->assertSame('document-imports', $job->connection);
-        $this->assertGreaterThan($job->timeout, config('queue.connections.document-imports.retry_after'));
+        $this->assertNull($job->connection);
+        $this->assertNull($job->queue);
+        $this->assertTrue($job->afterCommit);
+        foreach (['database', 'redis', 'beanstalkd'] as $connection) {
+            $this->assertGreaterThan($job->timeout, config("queue.connections.{$connection}.retry_after"));
+        }
     }
 
     public function test_async_worker_failure_is_available_through_status_and_cannot_overwrite_success(): void

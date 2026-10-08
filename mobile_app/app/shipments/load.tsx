@@ -84,6 +84,17 @@ export default function LoadShipment() {
     const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset>();
     const [busy, setBusy] = useState(false);
     const [uploaded, setUploaded] = useState(false);
+    const [analysisFailed, setAnalysisFailed] = useState(false);
+    // Temporary, visible diagnostics for investigating stalled background analysis.
+    const [diagnostics, setDiagnostics] = useState<Record<string, string>>({});
+    function recordResponse(phase: string, status: number, body: string) {
+        let formatted = body;
+        try { formatted = JSON.stringify(JSON.parse(body), null, 2); } catch { /* Show non-JSON gateway replies as text. */ }
+        setDiagnostics(previous => ({ ...previous, [phase]: `${new Date().toLocaleTimeString()} · HTTP ${status}\n${formatted.slice(0, 4000)}${formatted.length > 4000 ? '\n[Response truncated]' : ''}` }));
+    }
+    function recordTransportError(phase: string, error: unknown) {
+        setDiagnostics(previous => ({ ...previous, [phase]: `${new Date().toLocaleTimeString()} · No server response\n${(error as Error).message || 'Network request failed'}` }));
+    }
     const [pendingImport, setPendingImport] = useState<{ id: string; filename: string } | null>(null);
     const polling = useRef<AbortController | null>(null);
     const pendingStorageKey = session ? `delivery-note-processing:${session.user.user_id}` : null;
@@ -105,12 +116,24 @@ export default function LoadShipment() {
     async function checkProcessing(pending: { id: string; filename: string }, controller: AbortController) {
         if (!session || !handoffRef.current?.active || controller.signal.aborted) return;
         const result = await pollDocumentImport(
-            (signal) => documentImportApi.show(session.token, pending.id, signal), controller.signal,
+            async (signal) => {
+                try {
+                    return await documentImportApi.show(session.token, pending.id, signal,
+                        (status, body) => { if (!controller.signal.aborted) recordResponse('Processing status', status, body); });
+                } catch (error) {
+                    if (!controller.signal.aborted && !(error as { status?: number }).status) recordTransportError('Processing status', error);
+                    throw error;
+                }
+            }, controller.signal,
             () => setUploaded(true),
         );
         if (controller.signal.aborted || !handoffRef.current?.active) return;
         await clearPending();
-        if (result.status === 'failed') throw new Error(result.failure_message || 'Document analysis failed. Please try another document.');
+        if (result.status === 'failed') {
+            setAnalysisFailed(true);
+            setFile(undefined);
+            throw new Error(result.failure_message?.trim() || 'Document analysis failed.');
+        }
         openReview(result.import_id);
     }
 
@@ -247,6 +270,7 @@ export default function LoadShipment() {
                 if (source === "file") selected = await pick();
                 else if (source === "photo" || source === "camera") selected = await pickImage(source === "camera");
                 if (selected && handoff.active) {
+                    setAnalysisFailed(false);
                     setFile(selected);
                     setError("");
                     setUploaded(false);
@@ -274,6 +298,7 @@ export default function LoadShipment() {
                 return;
             }
             if (!selected) return;
+            setDiagnostics({});
             let uploadRun = run;
             if (!context) {
                 const available = await documentImportApi.context(session.token);
@@ -299,12 +324,13 @@ export default function LoadShipment() {
             if (controller.signal.aborted || !handoffRef.current?.active) return;
             setPendingImport(pending);
             try {
-                await documentImportApi.upload(session.token, body, () => { if (!controller.signal.aborted && handoffRef.current?.active) setUploaded(true); });
+                await documentImportApi.upload(session.token, body, () => { if (!controller.signal.aborted && handoffRef.current?.active) setUploaded(true); }, (status, body) => { if (!controller.signal.aborted) recordResponse('Upload', status, body); });
                 if (controller.signal.aborted) return;
                 setUploaded(true);
             } catch (error) {
                 if (controller.signal.aborted) return;
                 const status = (error as { status?: number }).status;
+                if (!status) recordTransportError('Upload', error);
                 if (status && status >= 400 && status < 500 && ![408, 429].includes(status)) {
                     await clearPending();
                     throw error;
@@ -336,24 +362,21 @@ export default function LoadShipment() {
                 }
                 scrollable
                 dismissible={!busy}
+                showCloseButton={!busy}
+                showHandle={!busy}
+                headerBottomSpacing={busy ? 16 : 4}
                 onDismiss={dismissUpload}
             >
                 {busy ? (
                     <>
                         <DeliveryNoteProgress uploaded={uploaded} />
-                        {pendingImport && uploaded && <ImportButton secondary label="Check later" onPress={() => {
-                            polling.current?.abort();
-                            inFlight.current = false;
-                            setBusy(false);
-                            setError('Your document is still saved for processing. Check its status when you are ready.');
-                        }} />}
                     </>
                 ) : (
                     <>
                         <ImportStepIndicator step={1} />
                         <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel={file || pendingImport ? "Change document" : "Choose document"}
+                            accessibilityLabel={analysisFailed ? "Upload another file" : file || pendingImport ? "Change document" : "Choose document"}
                             accessibilityHint="Opens photo, file and camera options"
                             accessibilityState={{ disabled: busy }}
                             onPress={chooseDocument}
@@ -389,14 +412,14 @@ export default function LoadShipment() {
                                 }}
                             >
                                 <Text style={{ fontSize: 16, fontWeight: "600", color: "#ffffff", textAlign: "center" }}>
-                                    {file || pendingImport ? "Change document" : "Choose document"}
+                                    {analysisFailed ? "Upload another file" : file || pendingImport ? "Change document" : "Choose document"}
                                 </Text>
                             </View>
                         </Pressable>
                         {!!pendingImport && !error && <Text style={s.note}>Your document is saved for processing. Check its status to continue without uploading again.</Text>}
                         {!!error && (
                             <Text accessibilityRole="alert" style={s.error}>
-                                {error}
+                                {error}{analysisFailed ? "\n\nPlease upload another file to continue." : ""}
                             </Text>
                         )}
                         {!!resumeImportId && <ImportButton secondary label="Return to existing draft" onPress={() => openReview(resumeImportId)} />}
@@ -407,7 +430,7 @@ export default function LoadShipment() {
                                 onPress={() => void load()}
                             />
                         )}
-                        {file || pendingImport ? (
+                        {!analysisFailed && (file || pendingImport) ? (
                             <ImportButton
                                 label={pendingImport ? "Check processing status" : "Retry reading document"}
                                 disabled={busy}
@@ -415,6 +438,18 @@ export default function LoadShipment() {
                             />
                         ) : null}
                     </>
+                )}
+                {Object.keys(diagnostics).length > 0 && (
+                    <View style={s.card}>
+                        <Text style={s.body}>Temporary server diagnostics</Text>
+                        {!!pendingImport && <Text selectable style={s.note}>Import: {pendingImport.id}</Text>}
+                        {Object.entries(diagnostics).map(([phase, response]) => (
+                            <View key={phase} style={{ gap: 4 }}>
+                                <Text style={s.body}>{phase}</Text>
+                                <Text selectable style={[s.note, { fontSize: 12, lineHeight: 17 }]}>{response}</Text>
+                            </View>
+                        ))}
+                    </View>
                 )}
             </BottomSheet>
             <MessageSheet ref={messageSheet} />

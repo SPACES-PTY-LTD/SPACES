@@ -22,14 +22,15 @@ Use the existing `jobs` and `failed_jobs` tables. No new schema or backfill is r
 Before routing clients to asynchronous analysis:
 
 1. Deploy backend routes, job, service and queue configuration together; clear/rebuild cached Laravel configuration and restart managed workers.
-2. Run a supervised worker on the dedicated **connection and queue** (the ordinary default worker does not consume this queue):
+2. Run the ordinary supervised worker on the configured default connection and its default queue:
 
    ```sh
-   php artisan queue:work document-imports --queue=document-imports --timeout=300 --tries=1
+   php artisan queue:work --timeout=300 --tries=1
    ```
 
-3. Ensure the database queue connection and private file disk are reachable by the worker. `document-imports` uses database queuing even if the default connection is `sync`. Its reservation is 330 seconds, longer than the 300-second job timeout. The worker must support Laravel process timeouts; supervise/restart it in deployment.
-4. Deploy mobile/website callers after verifying a real queued import progresses to analyzed and a controlled failure becomes failed. Confirm duplicate delivery and a lost HTTP response recover through the same UUID. A reverse proxy must still allow file transfer; AI latency no longer occupies that request.
+3. Ensure the database queue connection and private file disk are reachable by the worker. New jobs inherit QUEUE_CONNECTION and the connection's configured queue. Use an asynchronous default such as database (the local configuration); sync would run extraction inside the upload request. Database, Redis and Beanstalkd reservation settings have a 330-second minimum, longer than the 300-second job timeout. Configure SQS visibility above 300 seconds if using SQS. Analysis dispatch waits for database commit. The worker must support Laravel process timeouts; supervise/restart it in deployment.
+4. Drain any existing document-imports jobs with the old dedicated worker command before retiring that worker; the legacy connection remains available for this purpose. This change does not move or retry existing jobs.
+5. Deploy mobile/website callers after verifying a real queued import progresses to analyzed and a controlled failure becomes failed. Confirm duplicate delivery and a lost HTTP response recover through the same UUID. A reverse proxy must still allow file transfer; AI latency no longer occupies that request.
 
 The worker atomically claims queued imports once, streams private stored files into a temporary file compatible with extraction, cleans up the temporary file, and records failure reasons. Failed jobs do not overwrite terminal success. A status check expires queued/processing imports stale for 15 minutes with retry guidance, preventing indefinite waiting when a worker is unavailable. Monitor queue depth, failed jobs and job latency. Existing synchronous endpoints can still experience gateway timeouts until their callers migrate.
 

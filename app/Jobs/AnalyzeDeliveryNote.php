@@ -21,8 +21,7 @@ class AnalyzeDeliveryNote implements ShouldQueue
 
     public function __construct(public int $importId)
     {
-        $this->onConnection('document-imports');
-        $this->onQueue('document-imports');
+        $this->afterCommit();
     }
 
     public function handle(DeliveryNoteImportService $service): void

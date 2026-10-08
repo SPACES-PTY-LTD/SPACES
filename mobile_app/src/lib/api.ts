@@ -52,6 +52,7 @@ type RequestOptions = {
   method?: 'DELETE' | 'GET' | 'PATCH' | 'POST';
   token?: string;
   signal?: AbortSignal;
+  onResponse?: (status: number, body: string) => void;
 };
 
 type ApiMeta = {
@@ -479,7 +480,15 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
     body: options.body ? (isFormData ? options.body as FormData : JSON.stringify(options.body)) : undefined,
   });
 
-  const payload = (await response.json()) as ApiEnvelope<T>;
+  let payload: ApiEnvelope<T>;
+  if (options.onResponse && 'text' in response) {
+    const raw = await (response as Response).text();
+    options.onResponse(response.status, raw);
+    try { payload = JSON.parse(raw) as ApiEnvelope<T>; }
+    catch {
+      throw Object.assign(new Error(`Unable to read the server response (HTTP ${response.status}).`), { status: response.status });
+    }
+  } else payload = (await response.json()) as ApiEnvelope<T>;
 
   if (!response.ok || !payload.success) {
     console.error(`[api] request failed: ${method} ${url}`, {
@@ -900,7 +909,7 @@ export const documentImportApi = {
   startRun: (token: string, id: string) => request(`/driver/runs/${id}/start`, { token, method: 'POST' }),
   preview: (token: string, id: string, body: ImportDraft) => request<ImportReview>(`/driver/document-imports/${id}/preview`, { token, method: 'POST', body }),
   context: (token: string) => request<ImportContext>('/driver/document-imports/context', { token }),
-  upload: (token: string, body: FormData, onUploaded?: () => void) => new Promise<DocumentImport>((resolve, reject) => {
+  upload: (token: string, body: FormData, onUploaded?: () => void, onResponse?: (status: number, body: string) => void) => new Promise<DocumentImport>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${apiBaseUrl}/delivery-note-imports/analyze`);
     xhr.setRequestHeader('Accept', 'application/json');
@@ -910,6 +919,7 @@ export const documentImportApi = {
     xhr.onerror = () => reject(new Error('Connection lost. Please try again.'));
     xhr.ontimeout = () => reject(new Error('Reading took too long. No shipments have been created. Please try again.'));
     xhr.onload = () => {
+      onResponse?.(xhr.status, xhr.responseText);
       try {
         const payload = JSON.parse(xhr.responseText) as ApiEnvelope<DocumentImport>;
         if (xhr.status < 200 || xhr.status >= 300 || !payload.success) {
@@ -926,7 +936,7 @@ export const documentImportApi = {
     };
     xhr.send(body);
   }),
-  show: (token: string, id: string, signal?: AbortSignal) => request<DocumentImport>(`/delivery-note-imports/${id}/status`, { token, signal }),
+  show: (token: string, id: string, signal?: AbortSignal, onResponse?: (status: number, body: string) => void) => request<DocumentImport>(`/delivery-note-imports/${id}/status`, { token, signal, onResponse }),
   confirm: (token: string, id: string, body: ImportDraft) => request<ImportResult>(`/driver/document-imports/${id}/confirm`, { token, method: 'POST', body }),
 };
 

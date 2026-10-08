@@ -51,12 +51,35 @@ function DocumentScanner({ scanning, reduced, dark }: { scanning: boolean; reduc
     </View>;
 }
 
-function ReadingMessage({ ink }: { ink: string }) {
+function ReadingMessage({ ink, reduced }: { ink: string; reduced: boolean }) {
     const [index, setIndex] = useState(0);
+    const [visibleIndex, setVisibleIndex] = useState(0);
+    const opacity = useAnimatedValue(1);
     useEffect(() => startDeliveryNoteReading(setIndex), []);
-    return <Text accessibilityLiveRegion="polite" style={[styles.title, { color: ink }]}>
-        {DELIVERY_NOTE_READING_STAGES[index] ?? DELIVERY_NOTE_WRAPPING_UP}
-    </Text>;
+    useEffect(() => {
+        if (reduced || index === 0) {
+            opacity.setValue(1);
+            return;
+        }
+        let active = true;
+        const fadeOut = Animated.timing(opacity, {
+            toValue: 0, duration: 160, easing: Easing.in(Easing.quad), useNativeDriver: true,
+        });
+        const fadeIn = Animated.timing(opacity, {
+            toValue: 1, duration: 220, easing: Easing.out(Easing.quad), useNativeDriver: true,
+        });
+        fadeOut.start(({ finished }) => {
+            if (!active || !finished) return;
+            setVisibleIndex(index);
+            fadeIn.start();
+        });
+        return () => { active = false; fadeOut.stop(); fadeIn.stop(); };
+    }, [index, opacity, reduced]);
+    return <Animated.View style={[styles.readingMessage, { opacity }]}>
+        <Text accessibilityLiveRegion="polite" style={[styles.title, { color: ink }]}>
+            {DELIVERY_NOTE_READING_STAGES[reduced ? index : visibleIndex] ?? DELIVERY_NOTE_WRAPPING_UP}
+        </Text>
+    </Animated.View>;
 }
 
 /** Upload is a real XHR stage; rotating reading messages are indeterminate. */
@@ -70,19 +93,22 @@ export function DeliveryNoteProgress({ uploaded = false, creating = false }: { u
         <ImportStepIndicator step={creating ? 5 : 2} locked />
         {!creating && <DocumentScanner scanning={uploaded} reduced={reduced} dark={dark} />}
         <View style={styles.message}>
-            {!creating && uploaded ? <ReadingMessage ink={ink} /> : <Text accessibilityLiveRegion="polite" style={[styles.title, { color: ink }]}>
-                {creating ? 'Creating shipments…' : 'Uploading your file for analysis…'}
+            <View style={styles.statusRow}>
+                {!creating && <View style={styles.statusIndicator} accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                    {reduced ? <Feather name="loader" size={20} color="#f54a4a" /> : <ActivityIndicator size="small" color="#f54a4a" />}
+                </View>}
+                {!creating && uploaded ? <ReadingMessage ink={ink} reduced={reduced} /> : <Text accessibilityLiveRegion="polite" style={[styles.title, { color: ink }]}>
+                    {creating ? 'Creating shipments…' : 'Uploading your file for analysis…'}
+                </Text>}
+            </View>
+            {creating && <Text style={[styles.description, { color: muted }]}>
+                Saving your reviewed shipments and assigning them to the selected run.
             </Text>}
-            <Text style={[styles.description, { color: muted }]}>
-                {creating ? 'Saving your reviewed shipments and assigning them to the selected run.'
-                    : uploaded ? 'We’re working through your document. You’ll review the details before any shipments are created.'
-                    : 'Keep this screen open while we upload your document.'}
-            </Text>
         </View>
-        <View style={styles.working}>
+        {creating && <View style={styles.working}>
             {!reduced && <ActivityIndicator accessible={false} size="small" color="#f54a4a" />}
-            <Text style={[styles.workingLabel, { color: muted }]}>{creating ? 'Saving your changes' : 'Please keep this screen open'}</Text>
-        </View>
+            <Text style={[styles.workingLabel, { color: muted }]}>Saving your changes</Text>
+        </View>}
     </View>;
 }
 
@@ -96,7 +122,10 @@ const styles = StyleSheet.create({
     scanLine: { height: 2, backgroundColor: '#f54a4a' },
     scannerBadge: { position: 'absolute', left: '50%', marginLeft: 28, bottom: 12, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
     message: { gap: 8 },
-    title: { minHeight: 60, fontSize: 23, lineHeight: 30, fontWeight: '700' },
+    readingMessage: { flex: 1, minHeight: 60 },
+    statusRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 60 },
+    statusIndicator: { width: 20, height: 30, justifyContent: 'center' },
+    title: { flex: 1, minHeight: 60, fontSize: 23, lineHeight: 30, fontWeight: '700' },
     description: { fontSize: 14, lineHeight: 21 },
     working: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 24 },
     workingLabel: { flex: 1, fontSize: 12, lineHeight: 18 },

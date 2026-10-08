@@ -1,5 +1,73 @@
 # Release Notes
 
+## 2026-10-08 | Version: default-queue-delivery-note-analysis-v1
+
+- **Summary:** Process new delivery-note analysis jobs through the Laravel default queue.
+- **API Changes:** Endpoint contracts unchanged.
+- **Database Changes:** No schema or existing-job changes.
+- **Behavior Changes:** Inherit the configured default connection and queue, dispatch after commit, and use ordinary queue workers. Keep an asynchronous default; sync runs inside the request. Raise database/Redis/Beanstalkd reservation minimums to 330 seconds above the 300-second analysis timeout; this also affects retries of other jobs on those connections. Retain the legacy connection to drain existing dedicated jobs before retiring its worker.
+- **Breaking Changes:** No API break. Deploy queue configuration and restart workers; SQS requires visibility above 300 seconds. Existing dedicated jobs are not moved automatically.
+- **Verification:** Focused Laravel import regressions, PHP syntax and diff checks pass. Production deployment/default worker processing remain unverified. Update queue rollout guide, dashboard plan v2.21 and Figma handoff.
+
+## 2026-10-08 | Version: failed-delivery-note-replacement-v1
+
+- **Summary:** Guide drivers to upload another file after terminal analysis failure.
+- **API Changes:** None; use existing failed status and failure_message.
+- **Database Changes:** None.
+- **Behavior Changes:** End polling, clear the failed file and pending reference, display the server failure reason with a fallback, and ask the driver to upload another file. Label the upload card Upload another file and suppress failed-import retry/status actions. Preserve guidance if replacement is cancelled and retain temporary diagnostics.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused upload-page lint with the existing effect-rule exclusion, 10 polling regressions and diff checks pass. Figma failure-state example and handoff aligned and visually checked. Native replacement/cancellation remains pending.
+
+## 2026-10-08 | Version: compact-upload-header-spacing-v1
+
+- **Summary:** Bring upload step indicators closer to the main title.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reduce the gap after the choose-file/recovery header from 16 to 4 points. Preserve indicator touch targets and other content spacing; busy reading and other sheets retain default spacing.
+- **Internal Changes:** Add an optional shared BottomSheet headerBottomSpacing setting. Align dashboard plan v2.19 and Figma U01/U02/handoff.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused sheet/upload lint with the existing effect-rule exclusion and diff checks pass. Figma composition visually checked; native layout and large-text checks remain pending.
+
+## 2026-10-08 | Version: delivery-note-server-diagnostics-v1
+
+- **Summary:** Temporarily expose mobile delivery-note server replies to diagnose stalled analysis.
+- **API Changes:** No endpoint contract changes; optional client response observer captures status/body before parsing, including non-JSON gateway errors.
+- **Database Changes:** None.
+- **Behavior Changes:** Show selectable latest upload and processing-status replies, timestamps, HTTP status and pending UUID during processing and after timeout. Show no-response transport failures explicitly; cap each response at 4,000 characters. Keep replies in memory, reset on replacement, and preserve checking without reuploading.
+- **Internal Changes:** Dashboard plan v2.18 documents temporary diagnostics; permanent Figma flow unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused ESLint with the existing upload-page effect-rule exclusion, existing polling regressions and diff checks pass. Live device/server response and production queue-worker operation remain unverified.
+
+## 2026-10-08 | Version: compact-delivery-note-reading-copy-v1
+
+- **Summary:** Remove keep-this-screen-open text from mobile upload/reading.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove both the upload instruction and reading reassurance row, including its reserved space. Preserve separate shipment-saving feedback, the leading loading indicator and message fades.
+- **Internal Changes:** Align dashboard plan v2.17 and Figma upload/reading states and handoff.
+- **Breaking Changes:** None.
+- **Verification:** Progress-component ESLint and diff checks pass. Figma compact layout visually checked; native layout verification remains pending.
+
+## 2026-10-08 | Version: delivery-note-message-fades-v1
+
+- **Summary:** Fade between mobile delivery-note reading messages.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Fade the current reading text out over 160 ms, swap the message and fade in over 220 ms, including Wrapping up. Reduced Motion changes text instantly. Keep the spinner/layout steady, existing 3.2-second schedule and immediate navigation on real completion.
+- **Internal Changes:** Use native-driver opacity and stop animations on stage changes/unmount; preserve timer cleanup. Align dashboard plan v2.16 and Figma motion handoff.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, unmodified-rule progress-component ESLint, 13 existing reading/polling regressions and diff checks pass. These regressions verify scheduling and polling, not rendered animation. Native fade timing, early completion and Reduced Motion preference changes remain unverified.
+
+## 2026-10-08 | Version: locked-delivery-note-reading-v1
+
+- **Summary:** Keep the mobile delivery-note reading sheet open while processing and simplify loading feedback.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hide close and drag handle while busy; retain blocked backdrop, swipe-down and Android Back dismissal. Remove Check later and the working-through-your-document paragraph. Show a small coral spinner before upload/reading status text, with a static loader icon for Reduced Motion. Preserve immediate advance on real results, persisted pending imports and bounded timeout/failure recovery. Website behavior is unchanged.
+- **Internal Changes:** Align dashboard plan v2.15 and Figma loading states/handoff.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint (with the existing upload-page effect-rule exclusion), 13 reading-stage/polling regressions and diff checks pass. Figma visual check completed. Native busy-state, Reduced Motion and accessibility interaction remain unverified; the simulator had no saved pending job to resume.
+
 ## 2026-10-08 | Version: shared-async-delivery-note-analysis-v1
 
 - **Summary:** Avoid holding AI extraction inside new uploads; let drivers and admins recover processing through a shared status API.
