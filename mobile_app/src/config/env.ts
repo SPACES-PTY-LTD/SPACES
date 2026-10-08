@@ -6,9 +6,9 @@ type EnvironmentConfig = {
 };
 
 const apiBaseUrls: Record<EnvironmentName, string> = {
-  development: 'http://pickndrop.test/api/v1',
-  staging: 'https://pickndrop-main-ljjmtf.laravel.cloud/api/v1',
-  production: 'https://pickndrop.example/api/v1',
+  development: 'https://api.spaces.za.com/api/v1',
+  staging: 'https://api.spaces.za.com/api/v1',
+  production: 'https://api.spaces.za.com/api/v1',
 };
 
 function resolveEnvironmentName(): EnvironmentName {

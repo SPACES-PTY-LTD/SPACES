@@ -31,6 +31,16 @@ class DriverRunDataService
         })->unique('id')->values();
     }
 
+    private function coordinate($source): array
+    {
+        $lat = $source?->latitude;
+        $lng = $source?->longitude;
+        $valid = is_numeric($lat) && is_numeric($lng) && is_finite((float) $lat) && is_finite((float) $lng)
+            && abs((float) $lat) <= 90 && abs((float) $lng) <= 180;
+
+        return ['latitude' => $valid ? (float) $lat : null, 'longitude' => $valid ? (float) $lng : null];
+    }
+
     public function timeline(?Run $run, Driver $driver, Collection $runShipments): array
     {
         $activities = $run ? $run->vehicleActivities()
@@ -53,6 +63,7 @@ class DriverRunDataService
                     'stop_id' => $stop->uuid, 'kind' => 'Speeding',
                     'name' => $stop->location?->name ?: 'Speeding event',
                     'address' => $stop->location?->full_address,
+                    ...$this->coordinate($stop),
                     'occurred_at' => $stop->occurred_at?->toIso8601String(), 'exited_at' => null,
                     'speed_kph' => $stop->speed_kph !== null ? (float) $stop->speed_kph : null,
                     'speed_limit_kph' => $stop->speed_limit_kph !== null ? (float) $stop->speed_limit_kph : null,
@@ -81,6 +92,7 @@ class DriverRunDataService
                 'kind' => $kind,
                 'name' => $location?->name ?: 'Truck stop',
                 'address' => $location?->full_address,
+                ...$this->coordinate($location ?? $stop),
                 'occurred_at' => ($stop->entered_at ?? $stop->occurred_at)?->toIso8601String(),
                 'exited_at' => $events->pluck('exited_at')->filter()->max()?->toIso8601String(),
                 'shipments' => $linked->map(fn ($s) => ['shipment_id' => $s->uuid, 'reference' => $s->merchant_order_ref])->values(),
@@ -98,15 +110,18 @@ class DriverRunDataService
                     'kind' => 'Delivery', 'planned' => true,
                     'name' => $first->dropoffLocation?->name ?: 'Delivery location not provided',
                     'address' => $first->dropoffLocation?->full_address,
+                    ...$this->coordinate($first->dropoffLocation),
                     'occurred_at' => null, 'exited_at' => null,
                     'shipments' => $shipments->map(fn ($s) => ['shipment_id' => $s->uuid, 'reference' => $s->merchant_order_ref])->values(),
                 ];
             })->values();
 
-        if ($run?->destinationLocation) {
+        if ($run?->destinationLocation
+            && $run->destinationLocation->account_id === $driver->account_id
+            && $run->destinationLocation->merchant_id === $driver->merchant_id) {
             $end = $run->destinationLocation;
             $plannedDeliveryStops->push(['stop_id' => 'planned-end:'.$end->uuid, 'kind' => 'Planned end', 'planned' => true,
-                'name' => $end->name, 'address' => $end->full_address, 'occurred_at' => null, 'exited_at' => null, 'shipments' => collect()]);
+                'name' => $end->name, 'address' => $end->full_address, ...$this->coordinate($end), 'occurred_at' => null, 'exited_at' => null, 'shipments' => collect()]);
         }
 
         return ['recorded_stops' => $recordedStops, 'planned_delivery_stops' => $plannedDeliveryStops];

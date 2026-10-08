@@ -62,6 +62,7 @@ class RunResource extends JsonResource
 
         return [
             'run_id' => $this->uuid,
+            'can_add_shipments' => in_array($this->status, [\App\Models\Run::STATUS_DRAFT, \App\Models\Run::STATUS_DISPATCHED, \App\Models\Run::STATUS_IN_PROGRESS], true) && ($request->user()?->can('update', $this->resource) ?? false),
             'end_request' => $this->latestEndRequest?->toSummary(),
             'can_review_end_request' => $request->user()?->role !== 'driver' && ($request->user()?->can('update', $this->resource) ?? false),
             'additional_cost_totals' => $this->whenLoaded('additionalCosts', fn () => \App\Support\CostMoney::totals($this->additionalCosts)),

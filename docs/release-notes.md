@@ -1,5 +1,89 @@
 # Release Notes
 
+## 2026-10-08 | Version: native-map-fallback-and-legacy-stop-coordinates-v1
+
+- **Summary:** Restore native maps when the iOS Google provider is absent and map existing stops whose older timeline payload omits coordinates.
+- **API Changes:** None in this follow-up. Reuse the existing authorized shipment/endpoint location coordinates; retain the earlier nullable timeline-coordinate API addition.
+- **Database Changes:** None.
+- **Behavior Changes:** Dashboard and stop preview share registered-native-view capability checks. Keep Google where supported; select Apple on iOS when Google is absent or a catchable React map-render error occurs. Share recovery choice across mounted maps; Google-equipped iOS offers Use Apple Maps for silent tile failures. Android retains Google or shows Map unavailable. Apply Google JSON styles only to Google and mutedStandard to Apple; retain markers, routes, native theme and refitting. No timer guesses provider failure. Older timeline stops may use an exact, unambiguous name/address match from linked authorized shipment locations or authorized endpoints. Never replace speeding positions, explicit null/invalid coordinates or unrelated locations. Distinguish missing coordinate payload from unavailable map provider; no fabricated coordinates/geocoding.
+- **Breaking Changes:** None. Unlinked legacy stops still require deployment of the previously added timeline coordinates to display a pin. React boundaries cannot catch native SDK crashes; silent tile failures have no SDK error callback and require explicit recovery.
+- **Verification:** 17 mobile map/provider/coordinate/filter tests, TypeScript, focused lint excluding pre-existing dashboard effect and recorded-map purity rules, and diff checks pass. iOS simulator confirms automatic Apple readiness, dashboard tiles/markers, and actual William Nicol Convenience Cntr stop tiles/coral pin/metadata/close. Runtime diagnostics confirm the live stop payload omits timeline coordinates and resolves an exact linked saved-location match. Google-equipped iOS, Android, native fault injection, dark mode, large text and short-screen scrolling remain acceptance gates. Dashboard plan v1.91 and Figma handoff aligned. Expo remains on port 8097 using the existing API environment. No commit/push/deployment or production data edits performed by the agent.
+
+## 2026-10-08 | Version: timeline-location-details-v1
+
+- **Summary:** Replace generic timeline stop messages with a dedicated location details sheet on Dashboard and run history.
+- **API Changes:** Driver dashboard and run-detail timeline stops include nullable numeric `latitude`/`longitude`. Visits and planned stops use scoped saved locations; speeding and unlocated physical stops use recorded event positions. Invalid pairs return null; foreign planned endpoints are excluded. Older APIs remain readable with the unavailable-map state.
+- **Database Changes:** None.
+- **Behavior Changes:** Separate event kind, wrapping location name, full address and labelled local date/time; retain departure, planned and speeding metadata. Frame a native Google map with a coral location pin, reusing the run basemap. Missing/invalid coordinates show Location unavailable. Use shared scrolling, safe areas, theme surfaces and close/backdrop/swipe/Back dismissal; remove the oversized OK button. Clear open details on session changes. Web shows mobile-map guidance.
+- **Breaking Changes:** None. Deploy the API addition to populate real stop maps; no new dependency or migration.
+- **Verification:** 37 Laravel tests pass (267 assertions), including valid/zero/missing/invalid coordinates, recorded speeding position and foreign location/endpoint exclusion. Mobile TypeScript, five existing map/filter tests, focused lint with the existing dashboard effect rule excluded, PHP syntax and diff checks pass. Dashboard plan v1.91 and Figma scenario handoff aligned. Native map/sheet, Android, dark mode, long text and short-screen scrolling remain unverified: the worktree Metro server started and the simulator began bundling, but computer control became unavailable before inspection. No final native screenshot is claimed.
+
+## 2026-10-08 | Version: consecutive-geofence-shipment-guard-v1
+
+- **Summary:** Prevent consecutive automatic shipment creation at the same delivery geofence when mutable shipment records no longer satisfy existing reuse checks.
+- **API Changes:** None.
+- **Database Changes:** None; use existing `vehicle_activity` creation history.
+- **Behavior Changes:** Before creating a shipment, compare the location ID with the latest automatic creation activity by insertion ID scoped to account, merchant, vehicle and run. Block another consecutive creation there after destination/reference edits, assignment removal or soft deletion. Preserve physical visits, existing destination reuse/reference restoration and audited-cleanup protections. Different destinations sharing the run pickup and the same destination on a later run remain eligible. Manual/imported shipments and driver-planned workflow are unchanged. Dashboard plan v1.91 updated; no Figma screen/control changes.
+- **Breaking Changes:** None.
+- **Verification:** 61 Laravel lifecycle, geofence-cleanup and location-update tests pass (399 assertions). Three new regression cases fail against the original code and pass with the fix; coverage also checks different destinations, later runs and nonconsecutive creation. PHP syntax, test-file Pint and diff checks pass. Service-file Pint reports the same pre-existing formatting rules as the HEAD baseline; unrelated formatting was preserved. The supplied production run redirects to sign-in and has not been verified or modified; no deployment performed. “Same place” is interpreted as the automatic creation/delivery geofence, because pickups intentionally share the run origin.
+
+## 2026-10-08 | Version: admin-run-add-shipment-v1
+
+- **Summary:** Add a top-right Add shipment action to the admin run-detail Shipments card, supporting existing selection and new shipment creation.
+- **API Changes:** `POST /api/v1/runs/{run_uuid}/shipments` accepts in-progress attachments; new `POST /api/v1/runs/{run_uuid}/shipments/create` atomically creates and attaches a shipment using the existing shipment payload. Run detail adds `can_add_shipments` based on status/update permission.
+- **Database Changes:** None; existing shipment/parcel/run-assignment records and transactions, no migration.
+- **Behavior Changes:** Authorised users can add to draft/dispatched/in-progress runs; closed runs and viewers have no action. Existing reference search filters attached/terminal/other-active-run/different-environment matches. New creation inherits run environment, disables carrier auto-assignment and rolls back on attachment failure. Duplicate references direct users to existing selection. Preserve shipment statuses, recorded visits and closure behaviour; refresh run table/counts after success and retain errors for retry.
+- **Internal Changes:** Lock/recheck run before attaching; ignore stale shipment-search responses. Dashboard plan v1.90 records implementation and acceptance gates; mobile Figma unaffected.
+- **Breaking Changes:** None; attachment status remains planned for draft/dispatched and active for in-progress runs.
+- **Verification:** 61 Laravel tests pass (866 assertions) across run API, delivery-note import, automatic lifecycle and driver run actions, including active attachment/idempotency, scope/conflict rejection, atomic creation/rollback, closed-run rejection and viewer denial. Website TypeScript, focused ESLint and diff checks pass. Authenticated browser interaction not performed.
+
+## 2026-10-08 | Version: bold-run-route-card-v1
+
+- **Summary:** Implement selected Figma option 2, Bold route spine, for shared Runs list/detail cards.
+- **API Changes:** Driver run list/detail add nullable `current_location` (name/address/report time) and `recorded_end` (location ID/name/address). Current location requires recent in-progress-run vehicle evidence within 15 minutes; recorded end requires a scoped run-ended event at completion on the run's vehicle. Fields are optional in Expo for older-response compatibility.
+- **Database Changes:** None; add a bounded read relation, no migration.
+- **Behavior Changes:** Coral connected start/end markers, tinted current location, dashed unknown planned end, three shipment-count columns, rounded grey/white themed surfaces and merchant-timezone date. Incomplete runs without a destination show Starting point / Current location / Planned end—Unknown. Completed history uses recorded end evidence, preserves a solely planned label and never shows the truck's present location. Missing data shows Unknown; lifecycle, navigation and read-only history remain unchanged. Bundle eight exact Figma SVGs in light/dark themes.
+- **Breaking Changes:** None; deploying the updated API enables location evidence, while older APIs display Unknown where needed.
+- **Verification:** 63 focused Laravel tests pass (474 assertions), including recent/stale/future/pre-run/current-driver/tenant isolation and recorded-end evidence. Eight mobile route/map/filter tests, mobile TypeScript, focused card/API lint, Pint, iOS production bundle export (including all eight route SVGs) and diff checks pass. Figma selected family and affected Runs screens aligned and visually checked. Native iOS/Android light/dark, large-text/long-address, navigation and SVG rendering checks remain pending; simulator UI access timed out.
+
+## 2026-10-08 | Version: shipment-detail-designs-v1
+
+- **Summary:** Create five editable Figma shipment-detail directions for driver review and selection.
+- **API Changes:** None; navigation/call shortcuts and friendlier POD capture are proposals requiring integration checks.
+- **Database Changes:** None.
+- **Behavior Changes:** None in the app. Proposals prioritise destination/instructions, scanning, explicit delivery outcomes, proof/files and dispatch contact; completed-run examples stay read-only without changing the current shipment status.
+- **Internal Changes:** Dashboard plan v1.88 documents website/mobile findings, action safeguards, acceptance criteria and selection-pending status. Add ten active/completed screen concepts and five shared action/validation concepts in a separate Figma page; preserve existing implemented designs.
+- **Breaking Changes:** None.
+- **Verification:** Native editable layers, existing Spaces header/button instances, SF Pro, token bindings and horizontal layout checks verified. Five active directions and completed Next stop visually reviewed. Runtime unchanged; native/dark/accessibility validation and prototype/action integration await selection. Website review used local source, not a live authenticated session.
+
+## 2026-10-08 | Version: run-card-route-designs-v1
+
+- **Summary:** Add five Figma run-card directions for user selection, each with completed and active/unknown-planned-end examples.
+- **API Changes:** None; current-location and recorded-finish data remain an implementation handoff.
+- **Database Changes:** None.
+- **Behavior Changes:** None in the app. Proposed connected-route cards distinguish Starting point, Current location and Planned end / Unknown; no design selected or implemented.
+- **Internal Changes:** Dashboard plan v1.87 records proposal status, acceptance criteria and Figma comparison link. Preserve existing app cards and implemented screen designs.
+- **Breaking Changes:** None.
+- **Verification:** Five component families/two states each, ten review instances, SF Pro typography, token bindings, editable vector/text structure and visual comparison verified. Native/runtime tests are not applicable to this design-only change.
+
+## 2026-10-08 | Version: shared-run-timeline-spacing-v1
+
+- **Summary:** Match run detail timeline spacing to the dashboard through the existing shared `RunTimeline` component.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Contain timeline rows in one View so run detail section spacing applies around the timeline instead of between stops, preserving the continuous rail and dashboard row spacing. Retain markers, shipment branches, stop details, dashboard filtering and completed-run shipment navigation.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused timeline/run-detail ESLint and diff checks pass. Native visual verification blocked by the locked Mac. Dashboard plan v1.86 and Figma Runs handoff aligned.
+
+## 2026-10-08 | Version: location-search-autofocus-v1
+
+- **Summary:** Focus the shared location search input automatically when it appears.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Final destination and Edit Run planned start/end search use native TextInput autofocus, including returning through Choose another location. Keep existing keyboard avoidance, search submission and pagination.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused location-picker lint and diff checks pass. Physical iOS/Android keyboard verification pending. Dashboard plan v1.85 updated; existing keyboard-visible search design remains the visual target.
+
 ## 2026-10-08 | Version: admin-driver-password-merchant-context-v1
 
 - **Summary:** Fix website admin driver password updates returning `NOT_FOUND` when the driver belongs to a selected secondary merchant.

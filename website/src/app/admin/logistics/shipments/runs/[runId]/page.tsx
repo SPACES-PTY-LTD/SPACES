@@ -1,3 +1,4 @@
+import { NewShipmentButton } from "@/components/shipments/new-shipment-button"
 import { RunEndReview } from "@/components/runs/run-end-review"
 import { AdditionalCosts } from "@/components/costs/additional-costs"
 import Link from "next/link"
@@ -133,7 +134,10 @@ export default async function RunDetailPage({ params }: { params: Promise<{ runI
       </div>
 
       <Card>
-        <CardHeader><CardTitle>Shipments</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+          <CardTitle>Shipments</CardTitle>
+          {run.can_add_shipments && <NewShipmentButton merchantId={run.merchant_id} environmentId={run.environment_id} runId={run.run_id} shipmentIds={(run.shipments ?? []).map(shipment => shipment.shipment_id)} accessToken={session.accessToken} />}
+        </CardHeader>
         <CardContent>
           <Table>
             <TableHeader><TableRow><TableHead>Reference</TableHead><TableHead>Created at</TableHead><TableHead>Sequence</TableHead><TableHead>Pickup</TableHead><TableHead>Drop-off</TableHead><TableHead>Parcels</TableHead><TableHead>Shipment status</TableHead><TableHead>Run status</TableHead></TableRow></TableHeader>

@@ -1,8 +1,10 @@
+import { AddRunShipmentDialog } from "@/components/runs/add-run-shipment-dialog"
+import { apiFetch, isApiErrorResponse } from "@/lib/api/client"
+import type { ApiEnvelope, Run, CreateShipmentPayload } from "@/lib/types"
 import { ShipmentQuoteDialog, type ShipmentQuoteFormValues } from "@/components/shipments/shipment-quote-dialog"
-import { isApiErrorResponse } from "@/lib/api/client"
 import { createShipment } from "@/lib/api/shipments"
 import { requireAuth } from "@/lib/auth"
-import { AdminLinks } from "@/lib/routes/admin"
+import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import type { Location } from "@/lib/types"
 import { revalidatePath } from "next/cache"
 
@@ -30,42 +32,62 @@ function toShipmentAddress(location: Location) {
   }
 }
 
-export function NewShipmentButton({ merchantId }: { merchantId?: string }) {
+export function NewShipmentButton({ merchantId, runId, shipmentIds = [], accessToken, environmentId }: {
+  merchantId?: string; runId?: string; shipmentIds?: string[]; accessToken?: string; environmentId?: string | null
+}) {
   const createShipmentAction = async (values: ShipmentQuoteFormValues) => {
     "use server"
     const session = await requireAuth()
-    const result = await createShipment(
-      {
-        merchant_id: values.merchantId,
-        merchant_order_ref: values.merchantOrderRef ?? "",
-        delivery_note_number: values.deliveryNoteNumber ?? "",
-        invoice_number: values.invoiceInvoiceNumber ?? "",
-        collection_date: values.collectionDate,
-        pickup_location_id: values.pickupLocation.location_id,
-        dropoff_location_id: values.dropoffLocation.location_id,
-        pickup_address: values.pickupLocation.location_id
-          ? undefined
-          : toShipmentAddress(values.pickupLocation),
-        dropoff_address: values.dropoffLocation.location_id
-          ? undefined
-          : toShipmentAddress(values.dropoffLocation),
-        parcels: values.parcels.map((parcel) => ({
-          weight: parcel.weight_kg,
-          weight_measurement: "kg",
-          length_cm: parcel.length_cm,
-          width_cm: parcel.width_cm,
-          height_cm: parcel.height_cm,
-          contents_description: parcel.title || undefined,
-        })),
-      },
-      session.accessToken
-    )
+    const payload: CreateShipmentPayload = {
+      merchant_id: values.merchantId,
+      merchant_order_ref: values.merchantOrderRef ?? "",
+      delivery_note_number: values.deliveryNoteNumber ?? "",
+      invoice_number: values.invoiceInvoiceNumber ?? "",
+      collection_date: values.collectionDate,
+      pickup_location_id: values.pickupLocation.location_id,
+      dropoff_location_id: values.dropoffLocation.location_id,
+      pickup_address: values.pickupLocation.location_id
+        ? undefined
+        : toShipmentAddress(values.pickupLocation),
+      dropoff_address: values.dropoffLocation.location_id
+        ? undefined
+        : toShipmentAddress(values.dropoffLocation),
+      parcels: values.parcels.map((parcel) => ({
+        weight: parcel.weight_kg,
+        weight_measurement: "kg",
+        length_cm: parcel.length_cm,
+        width_cm: parcel.width_cm,
+        height_cm: parcel.height_cm,
+        contents_description: parcel.title || undefined,
+      })),
+    }
+    const result = runId
+      ? await apiFetch<ApiEnvelope<Run>>(`/api/v1/runs/${runId}/shipments/create`, { method: "POST", body: { ...payload, merchant_id: merchantId }, token: session.accessToken })
+      : await createShipment(payload, session.accessToken)
     if (isApiErrorResponse(result)) {
       return { error: true, message: result.message }
     }
+    if (runId) revalidatePath(AdminRoute.runDetails(runId))
+    revalidatePath(AdminLinks.runs)
     revalidatePath(AdminLinks.shipments)
     revalidatePath(AdminLinks.reportsShipments)
   }
+
+  const attachShipmentAction = async (shipmentId: string) => {
+    "use server"
+    const session = await requireAuth()
+    const result = await apiFetch<ApiEnvelope<Run>>(`/api/v1/runs/${runId}/shipments`, {
+      method: "POST", body: { shipment_ids: [shipmentId] }, token: session.accessToken,
+    })
+    if (!isApiErrorResponse(result)) {
+      revalidatePath(AdminRoute.runDetails(runId!))
+      revalidatePath(AdminLinks.runs)
+      revalidatePath(AdminLinks.shipments)
+    }
+    return result
+  }
+
+  if (runId) return <AddRunShipmentDialog merchantId={merchantId} accessToken={accessToken} shipmentIds={shipmentIds} runId={runId} environmentId={environmentId} onCreate={createShipmentAction} onAttach={attachShipmentAction} />
 
   return (
     <ShipmentQuoteDialog

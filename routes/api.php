@@ -204,6 +204,7 @@ Route::prefix('v1')->group(function () {
         Route::get('runs/{run_uuid}/track', [\App\Http\Controllers\Api\V1\RunTrackController::class, 'show']);
         Route::get('runs/{run_uuid}', [RunController::class, 'show']);
         Route::patch('runs/{run_uuid}', [RunController::class, 'update']);
+        Route::post('runs/{run_uuid}/shipments/create', [RunController::class, 'createShipment']);
         Route::post('runs/{run_uuid}/shipments', [RunController::class, 'attachShipments']);
         Route::post('runs/{run_uuid}/delivery-note-imports', [DeliveryNoteImportController::class, 'store']);
         Route::post('runs/{run_uuid}/delivery-note-imports/{import_uuid}/confirm', [DeliveryNoteImportController::class, 'confirm']);

@@ -42,7 +42,8 @@ export function RunTimeline({
     onOpenStop: (stop: RunStop) => void;
 }) {
     return (
-        <>
+        // Own row spacing so screen-level gaps cannot break the continuous rail.
+        <View>
             {stops.map((stop, index, stops) => (
                 <View key={stop.stop_id} style={styles.timelineRow}>
                     <View style={styles.timelineRail}>
@@ -188,7 +189,7 @@ export function RunTimeline({
                     </View>
                 </View>
             ))}
-        </>
+        </View>
     );
 }
 

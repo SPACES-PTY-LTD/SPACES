@@ -247,6 +247,8 @@ export type DriverRunSummary = {
   vehicle: { vehicle_id: string; plate_number: string | null; ref_code: string | null } | null;
   origin: { location_id: string; name: string; address: string | null } | null;
   destination: { location_id: string; name: string; address: string | null } | null;
+  current_location?: { name: string; address: string | null; reported_at: string } | null;
+  recorded_end?: { location_id: string; name: string; address: string | null } | null;
   planned_start_at: string | null;
   started_at: string | null;
   completed_at: string | null;
@@ -265,8 +267,8 @@ export type DriverDashboard = {
   trip_endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
   current_run: { run_id: string; status: string; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
   run_shipments: DriverShipment[];
-  recorded_stops?: { stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
-  planned_delivery_stops?: { stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
+  recorded_stops?: { latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
+  planned_delivery_stops?: { latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
   delivery_note_required_run_id: string | null;
   documents: {
     missing_required_count: number;

@@ -1,4 +1,5 @@
-import { RunTimeline, runStopDescription } from '@/src/components/dashboard/RunTimeline';
+import { StopDetailsSheet } from '@/src/components/dashboard/StopDetailsSheet';
+import { RunTimeline, type RunStop } from '@/src/components/dashboard/RunTimeline';
 import { RunActionForm, type RunAction } from '@/src/components/dashboard/RunActionForm';
 import { MessageSheet, type MessageSheetRef } from '@/component/ui/MessageSheet';
 import { FinalDestinationSheet } from '@/src/components/dashboard/FinalDestinationSheet';
@@ -24,6 +25,7 @@ export default function HomeScreen() {
   const { run_id } = useLocalSearchParams<{ run_id?: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const [selectedStop, setSelectedStop] = useState<RunStop | null>(null);
   const messageSheet = useRef<MessageSheetRef>(null);
   const runActionsSheet = useRef<ActionSheetRef>(null);
   const [runAction, setRunAction] = useState<RunAction | null>(null);
@@ -60,7 +62,7 @@ export default function HomeScreen() {
   const [lastUpdated, setLastUpdated] = useState<string>();
   const [starting, setStarting] = useState(false);
   const requestNumber = useRef(0);
-  useEffect(() => { requestNumber.current++; setRunAction(null); setDashboard(null); setOffers([]); setError(null); setLastUpdated(undefined); }, [session?.token]);
+  useEffect(() => { requestNumber.current++; setSelectedStop(null); setRunAction(null); setDashboard(null); setOffers([]); setError(null); setLastUpdated(undefined); }, [session?.token]);
 
   const load = useCallback(async (isCurrent: () => boolean = () => true) => {
     if (!session?.token) return;
@@ -179,7 +181,7 @@ export default function HomeScreen() {
               </View>
               {visibleStops.length ? <RunTimeline stops={visibleStops} ink={ink} muted={muted} line={line} hasTrailingEntry={showDestinationEntry}
                 onOpenShipment={id => router.push(`/shipments/${id}`)}
-                onOpenStop={stop => messageSheet.current?.present(`${stop.kind} · ${stop.name}`, runStopDescription(stop))} /> : <Text style={{ fontSize: 13, color: muted, marginBottom: 16 }}>{runFilter === 'speeding' ? 'No speeding events recorded for this run.' : runFilter === 'shipments' ? 'No visited or planned delivery stops for this run yet.' : 'No stops recorded or planned for this run yet.'}</Text>}
+                onOpenStop={setSelectedStop} /> : <Text style={{ fontSize: 13, color: muted, marginBottom: 16 }}>{runFilter === 'speeding' ? 'No speeding events recorded for this run.' : runFilter === 'shipments' ? 'No visited or planned delivery stops for this run yet.' : 'No stops recorded or planned for this run yet.'}</Text>}
               {showDestinationEntry && <View style={styles.timelineRow}>
                 <View style={styles.timelineRail}><View style={[styles.timelineMarker, { backgroundColor: '#71717a' }]}><Feather name="flag" size={14} color="#fff" /></View></View>
                 <View style={[styles.timelineContent, { paddingBottom: 20, gap: 10 }]}>
@@ -214,6 +216,7 @@ export default function HomeScreen() {
       </ScrollView>
       </PersistentBottomSheet>
       <MessageSheet ref={messageSheet} />
+      <StopDetailsSheet shipments={shipments} endpoints={dashboard?.trip_endpoints} stop={selectedStop} onDismiss={() => setSelectedStop(null)} />
       <ActionSheet ref={runFilterSheet} />
       <ActionSheet ref={runActionsSheet} />
       {runAction && session && dashboard?.current_run?.status === 'in_progress' && <RunActionForm key={`${session.user.user_id}:${dashboard.current_run.run_id}:${runAction}`} action={runAction} token={session.token} run={dashboard.current_run} onDismiss={() => setRunAction(null)} onSaved={() => void load()} />}

@@ -143,6 +143,13 @@ class Run extends Model
             });
     }
 
+    public function recordedEndStop(): HasOne
+    {
+        return $this->hasOne(VehicleActivity::class)->ofMany([
+            'occurred_at' => 'max', 'id' => 'max',
+        ], fn ($query) => $query->where('event_type', VehicleActivity::EVENT_RUN_ENDED));
+    }
+
     public function vehicleActivities(): HasMany
     {
         return $this->hasMany(VehicleActivity::class)

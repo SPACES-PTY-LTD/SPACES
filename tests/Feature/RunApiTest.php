@@ -231,6 +231,133 @@ class RunApiTest extends TestCase
             ->assertJsonPath('error.code', 'VALIDATION');
     }
 
+    public function test_admin_can_attach_to_in_progress_run_without_changing_shipment_status(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'status' => Run::STATUS_IN_PROGRESS]);
+        $shipment = $this->createShipment($merchant, 'ADD-ACTIVE', 'in_transit');
+        foreach ([1, 2] as $attempt) {
+            $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+                ->postJson("/api/v1/runs/{$run->uuid}/shipments", ['shipment_ids' => [$shipment->uuid]])
+                ->assertOk()->assertJsonPath('data.can_add_shipments', true)
+                ->assertJsonCount(1, 'data.shipments')->assertJsonPath('data.shipments.0.run_status', 'active');
+        }
+        $this->assertSame('in_transit', $shipment->fresh()->status);
+        $this->assertSame(Run::STATUS_IN_PROGRESS, $run->fresh()->status);
+    }
+
+    public function test_active_run_addition_preserves_assignment_and_scope_guards(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        [$otherUser, $otherMerchant] = $this->createMerchantContext();
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'status' => Run::STATUS_IN_PROGRESS]);
+        $otherRun = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'status' => Run::STATUS_DISPATCHED]);
+        $assigned = $this->createShipment($merchant, 'ASSIGNED-ELSEWHERE', 'booked');
+        RunShipment::create(['run_id' => $otherRun->id, 'shipment_id' => $assigned->id, 'status' => 'planned']);
+        $foreign = $this->createShipment($otherMerchant, 'FOREIGN-ACTIVE', 'booked');
+        $terminal = $this->createShipment($merchant, 'TERMINAL-ACTIVE', 'delivered');
+        $environment = \App\Models\MerchantEnvironment::create(['merchant_id' => $merchant->id, 'name' => 'Other', 'color' => '#123456', 'url' => 'https://example.test', 'token_hash' => hash('sha256', 'other-token')]);
+        $differentEnvironment = $this->createShipment($merchant, 'OTHER-ENVIRONMENT', 'booked');
+        $differentEnvironment->update(['environment_id' => $environment->id]);
+        foreach ([[$assigned, 409], [$foreign, 422], [$terminal, 422], [$differentEnvironment, 422]] as [$shipment, $status]) {
+            $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+                ->postJson("/api/v1/runs/{$run->uuid}/shipments", ['shipment_ids' => [$shipment->uuid]])->assertStatus($status);
+        }
+        $this->assertDatabaseCount('run_shipments', 1);
+        $this->assertDatabaseHas('run_shipments', ['run_id' => $otherRun->id, 'shipment_id' => $assigned->id, 'status' => 'planned']);
+    }
+
+    public function test_admin_can_create_and_attach_shipment_in_run_environment_without_offers(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        $environment = \App\Models\MerchantEnvironment::create(['merchant_id' => $merchant->id, 'name' => 'Run environment', 'color' => '#123456', 'url' => 'https://example.test', 'token_hash' => hash('sha256', 'test-token')]);
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'environment_id' => $environment->id, 'status' => Run::STATUS_IN_PROGRESS]);
+        $pickup = $this->createLocation($merchant, 'Pickup');
+        $dropoff = $this->createLocation($merchant, 'Dropoff');
+        $pickup->update(['environment_id' => $environment->id]);
+        $dropoff->update(['environment_id' => $environment->id]);
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$run->uuid}/shipments/create", [
+                'merchant_id' => $merchant->uuid, 'merchant_order_ref' => 'CREATE-FOR-RUN',
+                'pickup_location_id' => $pickup->uuid, 'dropoff_location_id' => $dropoff->uuid,
+                'auto_assign' => true, 'parcels' => [['contents_description' => 'Box']],
+            ])->assertCreated()->assertJsonCount(1, 'data.shipments')
+            ->assertJsonPath('data.shipments.0.run_status', 'active');
+        $shipment = Shipment::where('merchant_order_ref', 'CREATE-FOR-RUN')->firstOrFail();
+        $this->assertSame($environment->id, $shipment->environment_id);
+        $this->assertFalse((bool) $shipment->auto_assign);
+        $this->assertSame('draft', $shipment->status);
+        $this->assertDatabaseHas('run_shipments', ['run_id' => $run->id, 'shipment_id' => $shipment->id, 'status' => 'active']);
+        $this->assertCount(1, $shipment->parcels);
+    }
+
+    public function test_run_create_rejects_duplicate_reference_and_rolls_back_failed_attachment(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'status' => Run::STATUS_DRAFT]);
+        $existing = $this->createShipment($merchant, 'DUPLICATE-RUN-REF', 'booked');
+        $payload = ['merchant_id' => $merchant->uuid, 'merchant_order_ref' => $existing->merchant_order_ref,
+            'pickup_location_id' => $existing->pickupLocation->uuid, 'dropoff_location_id' => $existing->dropoffLocation->uuid,
+            'parcels' => [['contents_description' => 'Box']]];
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$run->uuid}/shipments/create", $payload)->assertStatus(409);
+        $this->assertDatabaseCount('shipments', 1);
+        $this->assertDatabaseCount('run_shipments', 0);
+
+        $this->mock(\App\Services\RunService::class, function ($mock) use ($run) {
+            $mock->makePartial();
+            $mock->shouldReceive('getRunForUser')->andReturn($run);
+            $mock->shouldReceive('attachShipments')->once()->andThrow(new \Symfony\Component\HttpKernel\Exception\ConflictHttpException('Attachment failed.'));
+        });
+        $payload['merchant_order_ref'] = 'ROLLBACK-RUN-REF';
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$run->uuid}/shipments/create", $payload)->assertStatus(409);
+        $this->assertDatabaseMissing('shipments', ['merchant_order_ref' => 'ROLLBACK-RUN-REF']);
+        $this->assertDatabaseCount('shipment_parcels', 0);
+    }
+
+    public function test_closed_runs_reject_attach_and_create_without_creating_shipments(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        $shipment = $this->createShipment($merchant, 'EXISTING-CLOSED', 'booked');
+        foreach ([Run::STATUS_COMPLETED, Run::STATUS_CANCELLED] as $status) {
+            $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'status' => $status]);
+            $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+                ->getJson("/api/v1/runs/{$run->uuid}")->assertOk()->assertJsonPath('data.can_add_shipments', false);
+            $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+                ->postJson("/api/v1/runs/{$run->uuid}/shipments", ['shipment_ids' => [$shipment->uuid]])->assertStatus(409);
+            $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+                ->postJson("/api/v1/runs/{$run->uuid}/shipments/create", [
+                    'merchant_id' => $merchant->uuid, 'merchant_order_ref' => 'CLOSED-'.$status,
+                    'pickup_location_id' => $shipment->pickupLocation->uuid, 'dropoff_location_id' => $shipment->dropoffLocation->uuid,
+                    'parcels' => [['contents_description' => 'Box']],
+                ])->assertStatus(409);
+        }
+        $this->assertDatabaseCount('shipments', 1);
+        $this->assertDatabaseCount('run_shipments', 0);
+    }
+
+    public function test_run_shipment_addition_requires_update_permission(): void
+    {
+        [$owner, $merchant, $ownerToken] = $this->createMerchantContext();
+        $viewer = User::withoutEvents(fn () => User::factory()->create(['uuid' => (string) Str::uuid(), 'role' => 'user', 'account_id' => $merchant->account_id]));
+        $merchant->users()->attach($viewer->id, ['role' => 'read_only']);
+        $token = $viewer->createToken('viewer')->plainTextToken;
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'status' => Run::STATUS_IN_PROGRESS]);
+        $shipment = $this->createShipment($merchant, 'VIEWER-ADD', 'booked');
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->getJson("/api/v1/runs/{$run->uuid}")->assertOk()->assertJsonPath('data.can_add_shipments', false);
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$run->uuid}/shipments", ['shipment_ids' => [$shipment->uuid]])->assertForbidden();
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+            ->postJson("/api/v1/runs/{$run->uuid}/shipments/create", [
+                'merchant_id' => $merchant->uuid, 'merchant_order_ref' => 'VIEWER-CREATE',
+                'pickup_location_id' => $shipment->pickupLocation->uuid, 'dropoff_location_id' => $shipment->dropoffLocation->uuid,
+                'parcels' => [['contents_description' => 'Box']],
+            ])->assertForbidden();
+        $this->assertDatabaseCount('shipments', 1);
+    }
+
     public function test_shipment_assign_driver_creates_new_run_and_returns_shipment_resource(): void
     {
         [$user, $merchant, $token] = $this->createMerchantContext();

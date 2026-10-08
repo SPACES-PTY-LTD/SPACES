@@ -33,6 +33,8 @@ class DriverShipmentApiTest extends TestCase
         $shipment = $this->createShipment($merchant, 'STOP-TEST', 'booked');
         $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
         $run = RunShipment::where('shipment_id', $shipment->id)->firstOrFail()->run;
+        $shipment->pickupLocation->update(['latitude' => -26.15, 'longitude' => 28.04]);
+        $shipment->dropoffLocation->update(['latitude' => 0, 'longitude' => 0]);
         $base = ['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'vehicle_id' => $vehicle->id,
             'run_id' => $run->id, 'event_type' => 'stopped', 'occurred_at' => now()];
         $stop = \App\Models\VehicleActivity::create($base);
@@ -40,10 +42,18 @@ class DriverShipmentApiTest extends TestCase
         \App\Models\VehicleActivity::create(array_merge($base, ['event_type' => 'moving']));
         \App\Models\VehicleActivity::create(array_merge($base, ['shipment_id' => $shipment->id]));
         \App\Models\VehicleActivity::create(array_merge($base, ['event_type' => 'shipment_collection', 'shipment_id' => $shipment->id, 'location_id' => $shipment->pickup_location_id, 'occurred_at' => now()->addMinute()]));
-        \App\Models\VehicleActivity::create(array_merge($base, ['event_type' => 'speeding', 'speed_kph' => 95, 'speed_limit_kph' => 60, 'occurred_at' => now()->addMinutes(2)]));
+        \App\Models\VehicleActivity::create(array_merge($base, ['event_type' => 'speeding', 'speed_kph' => 95, 'speed_limit_kph' => 60, 'latitude' => -26.2, 'longitude' => 28.1, 'occurred_at' => now()->addMinutes(2)]));
         $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))->assertOk()
             ->assertJsonCount(4, 'data.recorded_stops')->assertJsonPath('data.recorded_stops.0.stop_id', $stop->uuid)
             ->assertJsonPath('data.recorded_stops.0.name', 'Truck stop')
+            ->assertJsonPath('data.recorded_stops.0.latitude', null)
+            ->assertJsonPath('data.recorded_stops.0.longitude', null)
+            ->assertJsonPath('data.recorded_stops.2.latitude', -26.15)
+            ->assertJsonPath('data.recorded_stops.2.longitude', 28.04)
+            ->assertJsonPath('data.recorded_stops.3.latitude', -26.2)
+            ->assertJsonPath('data.recorded_stops.3.longitude', 28.1)
+            ->assertJsonPath('data.planned_delivery_stops.0.latitude', 0)
+            ->assertJsonPath('data.planned_delivery_stops.0.longitude', 0)
             ->assertJsonPath('data.recorded_stops.3.kind', 'Speeding')
             ->assertJsonPath('data.recorded_stops.3.speed_kph', 95)
             ->assertJsonPath('data.recorded_stops.3.speed_limit_kph', 60)
@@ -53,6 +63,17 @@ class DriverShipmentApiTest extends TestCase
             ->assertJsonPath('data.planned_delivery_stops.0.kind', 'Delivery')
             ->assertJsonPath('data.planned_delivery_stops.0.planned', true)
             ->assertJsonPath('data.planned_delivery_stops.0.shipments.0.shipment_id', $shipment->uuid);
+        $shipment->pickupLocation->update(['latitude' => 91, 'longitude' => 28.04]);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))->assertOk()
+            ->assertJsonPath('data.recorded_stops.2.latitude', null)
+            ->assertJsonPath('data.recorded_stops.2.longitude', null);
+        [, $foreignMerchant] = $this->createDriverContext();
+        $shipment->pickupLocation->update(['account_id' => $foreignMerchant->account_id, 'merchant_id' => $foreignMerchant->id, 'latitude' => -25, 'longitude' => 29]);
+        $run->update(['destination_location_id' => $shipment->pickup_location_id]);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))->assertOk()
+            ->assertJsonPath('data.recorded_stops.2.latitude', null)
+            ->assertJsonPath('data.recorded_stops.2.longitude', null)
+            ->assertJsonCount(1, 'data.planned_delivery_stops');
         [$other] = $this->createDriverContext($merchant);
         $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($other))->assertOk()->assertJsonCount(0, 'data.recorded_stops');
     }

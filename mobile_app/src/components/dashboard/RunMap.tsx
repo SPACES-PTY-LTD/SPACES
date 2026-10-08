@@ -1,14 +1,13 @@
-import Constants from 'expo-constants';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { Feather } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { AppState, Pressable, StyleSheet, View } from 'react-native';
+import MapView, { Marker, Polyline } from 'react-native-maps';
 import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
 import { Text } from '@/component/ui/Text';
 import { driverApi, type RunPosition, type RunDirections, type DriverShipment } from '@/src/lib/api';
 import { useRecordedRunTrack } from './useRecordedRunTrack';
-import { runMapStyle } from './run-map-style';
+import { NativeMap } from './NativeMap';
 import { groupRunMapStops, runMapStops } from './run-map-data';
 
 // Temporarily hide mode selection; keep Recorded available for re-enabling later.
@@ -33,20 +32,6 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   const [ready, setReady] = useState(false);
   const focused = useIsFocused();
   const mapLifecycle = useRef({ ready: false, loaded: false, width: 0, height: 0 });
-  useEffect(() => {
-    if (!focused || !__DEV__) return;
-    const nativeGoogleView = UIManager.hasViewManagerConfig('RNMapsGoogleMapView') || UIManager.hasViewManagerConfig('AIRGoogleMap');
-    console.info('[RunMap] initialization', { platform: Platform.OS, provider: 'google', nativeGoogleView, executionEnvironment: Constants.executionEnvironment, sdkVersion: Constants.expoConfig?.sdkVersion });
-    const timer = setTimeout(() => {
-      if (!mapLifecycle.current.ready || !mapLifecycle.current.loaded) {
-        console.warn('[RunMap] load timeout after 15 seconds; this is a diagnostic, not an SDK error', {
-          ...mapLifecycle.current,
-          hint: 'Check native Google Maps support, API-key restrictions, enabled Maps SDK, billing and network. Native config changes require a rebuild.',
-        });
-      }
-    }, 15000);
-    return () => clearTimeout(timer);
-  }, [focused]);
   const [selectedMode, setMode] = useState<'planned' | 'recorded'>('planned');
   const mode = runId && SHOW_MAP_MODE_SWITCH ? selectedMode : 'planned';
   const recorded = useRecordedRunTrack(runId, token, focused && mode === 'recorded');
@@ -125,9 +110,10 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   useEffect(fit, [fit]);
   const missing = shipments.length - stops.length;
   return <View style={styles.container}>
-    <MapView provider={PROVIDER_GOOGLE} customMapStyle={runMapStyle} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => {
+    <NativeMap recoveryTopInset={topInset} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => {
       mapLifecycle.current.ready = true;
       setReady(true);
+      fit();
       if (__DEV__) console.info('[RunMap] native map ready');
     }} onMapLoaded={() => {
       mapLifecycle.current.loaded = true;
@@ -170,7 +156,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
         : segment[0] ? <Marker key={index} coordinate={segment[0]} title="Recorded position" /> : null)}
       {mode === 'recorded' && recorded.track?.stops.map((stop, index) => <Marker key={index} coordinate={stop} title="Stationary"
         description={`${new Date(stop.first_seen_at).toLocaleString()} – ${new Date(stop.last_seen_at).toLocaleString()}`} pinColor="#71717a" />)}
-    </MapView>
+    </NativeMap>
     {runId && SHOW_MAP_MODE_SWITCH ? <View style={[styles.modeToggle, { top: topInset + 12 }]}>
       {(['planned', 'recorded'] as const).map(value => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: mode === value }}
         onPress={() => setMode(value)} style={[styles.modeButton, mode === value && { backgroundColor: '#27272a' }]}>

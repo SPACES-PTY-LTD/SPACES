@@ -33,6 +33,9 @@ export function ShipmentCombobox({
   merchantId,
   placeholder = "Search shipments...",
   disabled = false,
+  excludeIds,
+  runId,
+  environmentId,
 }: {
   value?: string
   onChange: (value: string) => void
@@ -40,6 +43,9 @@ export function ShipmentCombobox({
   merchantId?: string
   placeholder?: string
   disabled?: boolean
+  excludeIds?: string[]
+  runId?: string
+  environmentId?: string | null
 }) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
@@ -53,20 +59,33 @@ export function ShipmentCombobox({
     const trimmed = query.trim()
     if (trimmed.length < 2) {
       setOptions([])
+      setLoading(false)
       setError(null)
       return
     }
+    setOptions([])
+    setLoading(true)
+    setError(null)
+    let cancelled = false
     const timeoutId = window.setTimeout(async () => {
       setLoading(true)
       const response = await listShipments(token, {
         merchant_order_ref: trimmed,
         merchant_id: merchantId,
+        environment_id: environmentId ?? undefined,
       })
+      if (cancelled) return
       if (isApiErrorResponse(response)) {
         setError(response.message)
         setOptions([])
       } else {
-        const nextOptions = (response.data ?? []).map((shipment) => ({
+        const nextOptions = (response.data ?? []).filter(shipment => {
+          if (excludeIds?.includes(shipment.shipment_id)) return false
+          if (!runId) return true
+          return !["delivered", "failed", "cancelled"].includes(shipment.status)
+            && (shipment.environment_id ?? null) === (environmentId ?? null)
+            && !(shipment.run_id && shipment.run_id !== runId && ["draft", "dispatched", "in_progress"].includes(shipment.run_status ?? ""))
+        }).map((shipment) => ({
           value: shipment.shipment_id,
           label: buildShipmentLabel(shipment),
         }))
@@ -76,8 +95,8 @@ export function ShipmentCombobox({
       setLoading(false)
     }, 300)
 
-    return () => window.clearTimeout(timeoutId)
-  }, [merchantId, open, query, token])
+    return () => { cancelled = true; window.clearTimeout(timeoutId) }
+  }, [environmentId, excludeIds, merchantId, open, query, runId, token])
 
   const displayLabel = selectedLabel || value || "Select shipment"
 

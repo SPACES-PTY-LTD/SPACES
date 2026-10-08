@@ -533,6 +533,21 @@ class AutoRunLifecycleService
 
         $createdShipment = false;
         if (! $shipment) {
+            // Creation history survives address/reference edits and removed assignments.
+            // Shipment timestamps are backdated to run start, so use event insertion order.
+            $previousCreation = VehicleActivity::query()
+                ->where('account_id', $merchant->account_id)
+                ->where('merchant_id', $merchant->id)
+                ->where('vehicle_id', $vehicle->id)
+                ->where('run_id', $run->id)
+                ->where('event_type', VehicleActivity::EVENT_SHIPMENT_CREATED)
+                ->latest('id')
+                ->first(['location_id']);
+
+            if ($previousCreation && (int) $previousCreation->location_id === (int) $location->id) {
+                return;
+            }
+
             $shipment = Shipment::create([
                 'account_id' => $merchant->account_id,
                 'merchant_id' => $merchant->id,

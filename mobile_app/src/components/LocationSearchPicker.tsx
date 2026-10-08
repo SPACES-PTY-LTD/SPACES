@@ -92,7 +92,7 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
       <View style={{ gap: 8 }}>
         <View style={[styles.search, { backgroundColor: surface, borderColor: border }]}>
           <Feather name="search" size={19} color={muted} />
-          <TextInput accessibilityLabel="Location name or address" accessibilityHint="Press Search on the keyboard to find locations" placeholder="Location name or address" placeholderTextColor={muted} value={query} onChangeText={setQuery} style={[styles.input, { color: ink }]} returnKeyType="search" autoCorrect={false} onSubmitEditing={() => void load(query)} />
+          <TextInput autoFocus accessibilityLabel="Location name or address" accessibilityHint="Press Search on the keyboard to find locations" placeholder="Location name or address" placeholderTextColor={muted} value={query} onChangeText={setQuery} style={[styles.input, { color: ink }]} returnKeyType="search" autoCorrect={false} onSubmitEditing={() => void load(query)} />
           {!!query && <Pressable accessibilityRole="button" accessibilityLabel="Clear location search" onPress={() => { setQuery(''); void load(); }} style={styles.clear}><Feather name="x" size={18} color={muted} /></Pressable>}
         </View>
       </View>

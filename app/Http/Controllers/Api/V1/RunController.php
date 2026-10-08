@@ -5,14 +5,18 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AttachRunShipmentsRequest;
 use App\Http\Requests\StoreRunRequest;
+use App\Http\Requests\StoreShipmentRequest;
 use App\Http\Requests\UpdateRunRequest;
 use App\Http\Resources\RunResource;
 use App\Http\Resources\RunSummaryResource;
 use App\Models\Merchant;
 use App\Models\Run;
+use App\Models\Shipment;
 use App\Services\RunService;
+use App\Services\ShipmentService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
@@ -98,7 +102,7 @@ class RunController extends Controller
             $run = $service->getRunForUser($request->user(), $run_uuid, $request->attributes->get('merchant_environment'));
             $this->authorize('update', $run);
 
-            $run = $service->attachShipments($run, $request->validated()['shipment_ids']);
+            $run = $service->attachShipments($run, $request->validated()['shipment_ids'], allowInProgress: true);
 
             return ApiResponse::success(new RunResource($run));
         } catch (ConflictHttpException $e) {
@@ -108,6 +112,43 @@ class RunController extends Controller
         } catch (Throwable $e) {
             Log::error('Run attach shipments failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
             return $this->apiError($e, 'RUN_ATTACH_FAILED', 'Unable to attach shipments to run.');
+        }
+    }
+
+    public function createShipment(string $run_uuid, StoreShipmentRequest $request, RunService $service, ShipmentService $shipments)
+    {
+        try {
+            $run = $service->getRunForUser($request->user(), $run_uuid, $request->attributes->get('merchant_environment'));
+            $this->authorize('update', $run);
+            $this->authorize('create', [Shipment::class, $run->merchant]);
+            $data = $request->validated();
+            if ($data['merchant_id'] !== $run->merchant->uuid) {
+                throw new UnprocessableEntityHttpException('Shipment must belong to the run merchant.');
+            }
+
+            $run = DB::transaction(function () use ($run, $data, $service, $shipments) {
+                $run = Run::query()->lockForUpdate()->findOrFail($run->id);
+                if (! in_array($run->status, [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED, Run::STATUS_IN_PROGRESS], true)) {
+                    throw new ConflictHttpException('Shipments cannot be added to a completed or cancelled run.');
+                }
+                $data['environment_id'] = $run->environment?->uuid;
+                $data['auto_assign'] = false;
+                $result = $shipments->createShipment($data);
+                if (! $result['created']) {
+                    throw new ConflictHttpException('This shipment reference already exists. Select the existing shipment instead.');
+                }
+
+                return $service->attachShipments($run, [$result['shipment']->uuid], allowInProgress: true);
+            });
+
+            return ApiResponse::success(new RunResource($run), [], Response::HTTP_CREATED);
+        } catch (ConflictHttpException $e) {
+            return ApiResponse::error('RUN_CONFLICT', $e->getMessage(), [], Response::HTTP_CONFLICT);
+        } catch (UnprocessableEntityHttpException $e) {
+            return ApiResponse::error('VALIDATION', $e->getMessage(), [], Response::HTTP_UNPROCESSABLE_ENTITY);
+        } catch (Throwable $e) {
+            Log::error('Run create shipment failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+            return $this->apiError($e, 'RUN_SHIPMENT_CREATE_FAILED', 'Unable to create shipment for run.');
         }
     }
 

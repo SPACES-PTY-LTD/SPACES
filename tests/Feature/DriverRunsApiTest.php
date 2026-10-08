@@ -169,6 +169,70 @@ class DriverRunsApiTest extends TestCase
         $this->getJson($download, $headers)->assertNotFound();
     }
 
+    public function test_card_current_location_requires_recent_scoped_evidence_for_the_active_run(): void
+    {
+        $this->freezeTime();
+        [$user, $driver] = $this->context();
+        [, $foreignDriver, $foreignMerchant] = $this->context();
+        $vehicle = Vehicle::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'plate_number' => 'CARD001',
+            'last_driver_id' => $driver->id, 'last_location_address' => ['name' => 'N3', 'address_line_1' => 'Germiston'], 'location_updated_at' => now(), 'is_active' => true]);
+        $run = $this->makeRun($driver, 'in_progress', ['vehicle_id' => $vehicle->id, 'started_at' => now()->subHour()]);
+        $headers = $this->headers($user);
+        $url = "/api/v1/driver/runs/{$run->uuid}";
+        $this->getJson('/api/v1/driver/runs', $headers)->assertOk()->assertJsonPath('data.0.current_location.name', 'N3')
+            ->assertJsonPath('data.0.current_location.address', 'Germiston');
+        $vehicle->update(['last_location_address' => ['latitude' => -26.15, 'longitude' => 28.04]]);
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.current_location.name', '-26.15000, 28.04000');
+        foreach ([
+            ['location_updated_at' => now()->subMinutes(16)],
+            ['location_updated_at' => now()->addMinute()],
+            ['location_updated_at' => now()->subHours(2)],
+            ['location_updated_at' => now(), 'last_driver_id' => $foreignDriver->id],
+            ['last_driver_id' => $driver->id, 'merchant_id' => $foreignMerchant->id],
+            ['merchant_id' => $driver->merchant_id, 'account_id' => $foreignMerchant->account_id],
+            ['account_id' => $driver->account_id, 'location_updated_at' => null],
+            ['location_updated_at' => now(), 'last_location_address' => ['latitude' => 100, 'longitude' => 28]],
+        ] as $invalid) {
+            $vehicle->update($invalid);
+            $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.current_location', null);
+        }
+        $vehicle->update(['last_location_address' => ['address_line_1' => 'Current truck address'], 'location_updated_at' => now()]);
+        foreach (['draft', 'dispatched', 'completed'] as $status) {
+            $run->update(['status' => $status]);
+            $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.current_location', null);
+        }
+    }
+
+    public function test_card_finish_requires_a_scoped_run_end_event_at_completion(): void
+    {
+        $this->freezeTime();
+        [$user, $driver] = $this->context();
+        [, , $foreignMerchant] = $this->context();
+        $location = Location::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'name' => 'Finish depot', 'address_line_1' => '1 Test Road', 'city' => 'Johannesburg', 'province' => 'Gauteng', 'post_code' => '2000']);
+        $vehicle = Vehicle::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'plate_number' => 'CARD002', 'is_active' => true]);
+        $run = $this->makeRun($driver, 'completed', ['vehicle_id' => $vehicle->id, 'destination_location_id' => $location->id, 'completed_at' => now()]);
+        $headers = $this->headers($user);
+        $url = "/api/v1/driver/runs/{$run->uuid}";
+        // The planned end and last stop must never become a claimed recorded finish.
+        $event = VehicleActivity::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'vehicle_id' => $vehicle->id, 'run_id' => $run->id, 'location_id' => $location->id, 'event_type' => 'entered_location', 'occurred_at' => now()]);
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.recorded_end', null)->assertJsonPath('data.destination.name', 'Finish depot');
+        $event->update(['event_type' => 'run_ended']);
+        $this->getJson('/api/v1/driver/runs?status=completed', $headers)->assertOk()->assertJsonPath('data.0.recorded_end.name', 'Finish depot');
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.recorded_end.location_id', $location->uuid);
+        foreach ([
+            ['occurred_at' => now()->subMinute()],
+            ['occurred_at' => now()->addMinute()],
+            ['occurred_at' => now(), 'merchant_id' => $foreignMerchant->id],
+            ['merchant_id' => $driver->merchant_id, 'account_id' => $foreignMerchant->account_id],
+        ] as $invalid) {
+            $event->update($invalid);
+            $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.recorded_end', null);
+        }
+        $event->update(['account_id' => $driver->account_id]);
+        $location->update(['merchant_id' => $foreignMerchant->id]);
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.recorded_end', null);
+    }
+
     public function test_history_does_not_change_current_run_selection(): void
     {
         [$user, $driver] = $this->context();

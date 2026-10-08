@@ -34,6 +34,7 @@ export async function listShipments(
   params?: {
     page?: number
     per_page?: number
+    environment_id?: string
     merchant_order_ref?: string
     search?: string
     merchant_id?: string

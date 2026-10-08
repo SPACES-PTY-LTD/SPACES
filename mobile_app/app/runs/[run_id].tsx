@@ -1,3 +1,4 @@
+import { StopDetailsSheet } from '@/src/components/dashboard/StopDetailsSheet';
 import { Feather } from "@expo/vector-icons";
 import {
     Stack,
@@ -24,7 +25,7 @@ import { Text } from "@/component/ui/Text";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     RunTimeline,
-    runStopDescription,
+    type RunStop,
 } from "@/src/components/dashboard/RunTimeline";
 import { RunSummaryCard } from "@/src/components/runs/RunSummaryCard";
 import { driverApi, type DriverRunDetail } from "@/src/lib/api";
@@ -47,6 +48,7 @@ function RunDetail({ token, runId }: { token: string; runId: string }) {
     const router = useRouter();
     const { colorScheme } = useColorScheme();
     const dark = colorScheme === "dark";
+    const [selectedStop, setSelectedStop] = useState<RunStop | null>(null);
     const sheet = useRef<MessageSheetRef>(null);
     const version = useRef(0);
     const [run, setRun] = useState<DriverRunDetail | null>(null);
@@ -244,12 +246,7 @@ function RunDetail({ token, runId }: { token: string; runId: string }) {
                                     muted={dark ? "#a1a1aa" : "#71717a"}
                                     line={dark ? "#303036" : "#dedee1"}
                                     onOpenShipment={openShipment}
-                                    onOpenStop={(stop) =>
-                                        sheet.current?.present(
-                                            `${stop.kind} · ${stop.name}`,
-                                            runStopDescription(stop),
-                                        )
-                                    }
+                                    onOpenStop={setSelectedStop}
                                 />
                             ) : (
                                 <Text className="text-muted-foreground">
@@ -261,6 +258,7 @@ function RunDetail({ token, runId }: { token: string; runId: string }) {
                 )}
             </ScrollView>
             <MessageSheet ref={sheet} />
+            <StopDetailsSheet shipments={run?.shipments} stop={selectedStop} onDismiss={() => setSelectedStop(null)} />
         </View>
     );
 }

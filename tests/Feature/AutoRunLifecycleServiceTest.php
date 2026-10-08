@@ -234,6 +234,97 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertSame($origin->id, Shipment::sole()->pickup_location_id);
     }
 
+    #[\PHPUnit\Framework\Attributes\DataProvider('previousShipmentChanges')]
+    public function test_consecutive_creation_at_the_same_location_is_blocked_after_shipment_changes(string $change): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
+        $destination = $this->createLocation($merchant, 'Destination', false, -33.93, 18.43);
+        $other = $this->createLocation($merchant, 'Other', false, -33.94, 18.44);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-10-08 08:00:00');
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at);
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(10));
+        $service->processVehicleLocationExit($vehicle, $merchant, $destination, $at->copy()->addMinutes(20));
+        $shipment = Shipment::sole();
+        $run = Run::sole();
+
+        // Remove the mutable reference fallback in every case; the creation event remains factual.
+        $shipment->update(['merchant_order_ref' => 'EDITED-REFERENCE']);
+        match ($change) {
+            'destination' => $shipment->update(['dropoff_location_id' => $other->id]),
+            'removed' => RunShipment::where('shipment_id', $shipment->id)->update(['status' => RunShipment::STATUS_REMOVED]),
+            'deleted' => $shipment->delete(),
+        };
+
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(30));
+        $visit = VehicleActivity::where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->latest('id')->firstOrFail();
+        $this->assertSame($destination->id, $visit->location_id);
+        $this->assertSame($run->id, $visit->run_id);
+        $this->assertNull($visit->shipment_id);
+        $this->assertNull($visit->exited_at);
+        $this->assertSame(1, Shipment::withTrashed()->count());
+        $this->assertDatabaseCount('bookings', 1);
+        $this->assertDatabaseCount('shipment_parcels', 1);
+        $this->assertSame(1, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_CREATED)->count());
+        $this->assertSame(1, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_COLLECTION)->count());
+
+        $service->processVehicleLocationExit($vehicle, $merchant, $destination, $at->copy()->addMinutes(40));
+        $this->assertNotNull($visit->fresh()->exited_at);
+        $this->assertSame(1, Shipment::withTrashed()->count());
+    }
+
+    public static function previousShipmentChanges(): array
+    {
+        return [['destination'], ['removed'], ['deleted']];
+    }
+
+    public function test_creation_guard_allows_other_locations_and_the_same_location_on_a_new_run(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $origin = $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
+        $destination = $this->createLocation($merchant, 'Destination', false, -33.93, 18.43);
+        $other = $this->createLocation($merchant, 'Other', false, -33.94, 18.44);
+        $nextOrigin = $this->createLocation($merchant, 'Next origin', true, -33.95, 18.45);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-10-08 08:00:00');
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at);
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(10));
+        $service->processVehiclePosition($vehicle, $merchant, -33.94, 18.44, $at->copy()->addMinutes(20));
+        $this->assertSame([$destination->id, $other->id], Shipment::orderBy('id')->pluck('dropoff_location_id')->all());
+        $this->assertSame([$origin->id, $origin->id], Shipment::orderBy('id')->pluck('pickup_location_id')->all());
+
+        // The previous run's final creation was here; it must not block this new run.
+        $service->processVehiclePosition($vehicle, $merchant, -33.95, 18.45, $at->copy()->addMinutes(30));
+        $service->processVehiclePosition($vehicle, $merchant, -33.94, 18.44, $at->copy()->addMinutes(40));
+        $newRun = Run::latest('id')->firstOrFail();
+        $latest = Shipment::latest('id')->firstOrFail();
+        $this->assertDatabaseCount('runs', 2);
+        $this->assertDatabaseCount('shipments', 3);
+        $this->assertSame($nextOrigin->id, $latest->pickup_location_id);
+        $this->assertSame($other->id, $latest->dropoff_location_id);
+        $this->assertDatabaseHas('run_shipments', ['run_id' => $newRun->id, 'shipment_id' => $latest->id]);
+    }
+
+    public function test_creation_guard_compares_only_the_latest_creation_in_the_run(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
+        $destination = $this->createLocation($merchant, 'Destination', false, -33.93, 18.43);
+        $this->createLocation($merchant, 'Other', false, -33.94, 18.44);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-10-08 08:00:00');
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at);
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(10));
+        Shipment::sole()->update(['merchant_order_ref' => 'EDITED', 'dropoff_location_id' => null]);
+        $service->processVehiclePosition($vehicle, $merchant, -33.94, 18.44, $at->copy()->addMinutes(20));
+        $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.43, $at->copy()->addMinutes(30));
+
+        $this->assertDatabaseCount('shipments', 3);
+        $this->assertSame($destination->id, Shipment::latest('id')->firstOrFail()->dropoff_location_id);
+        $this->assertSame(3, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_CREATED)->count());
+    }
+
     public function test_overlapping_locations_do_not_end_a_visit_until_the_truck_leaves_its_geofence(): void
     {
         [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);

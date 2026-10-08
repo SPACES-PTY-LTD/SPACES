@@ -513,6 +513,7 @@ export interface RunSafety {
 
 export type RunEndRequest = { request_id: string; status: 'pending' | 'approved' | 'rejected' | 'resolved'; reason: string; requested_at: string; requested_by?: string | null; reviewed_by?: string | null; review_reason?: string | null };
 export interface Run {
+  can_add_shipments?: boolean
   end_request?: RunEndRequest | null;
   can_review_end_request?: boolean;
   additional_costs?: AdditionalCost[]

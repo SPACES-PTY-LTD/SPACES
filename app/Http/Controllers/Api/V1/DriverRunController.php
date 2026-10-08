@@ -29,7 +29,9 @@ class DriverRunController extends Controller
 
         return Run::query()->where('driver_id', $driver->id)->where('account_id', $driver->account_id)
             ->where('merchant_id', $driver->merchant_id)
-            ->with(['merchant', 'driver.user', 'vehicle' => $location, 'originLocation' => $location, 'destinationLocation' => $location, 'latestEndRequest'])
+            ->with(['merchant', 'driver.user', 'vehicle' => $location, 'originLocation' => $location, 'destinationLocation' => $location, 'latestEndRequest',
+                'recordedEndStop' => $location, 'recordedEndStop.location' => $location,
+            ])
             ->withCount([
                 'runShipments as shipment_count' => $assignments,
                 'runShipments as delivered_count' => $countStatus(['delivered']),

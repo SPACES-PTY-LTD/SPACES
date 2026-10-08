@@ -1,0 +1,16 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="110" viewBox="0 0 24 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Timeline rail">
+<circle id="Current position" cx="12" cy="10" r="10" fill="#F54A4A"/>
+<g id="Route connector" clip-path="url(#clip0_0_54)">
+<g id="Vector">
+<path d="M12 20V110Z" fill="black"/>
+<path d="M12 20V21.4835M12 110V108.516M12 25.4396V28.4066M12 32.3626V35.3297M12 39.2857V42.2527M12 46.2088V49.1758M12 53.1319V56.0989M12 60.0549V63.022M12 66.978V69.9451M12 73.9011V76.8681M12 80.8242V83.7912M12 87.7473V90.7143M12 94.6703V97.6374M12 101.593V104.56" stroke-width="3" stroke="#52525C"/>
+</g>
+</g>
+</g>
+<defs>
+<clipPath id="clip0_0_54">
+<rect width="4" height="90" fill="white" transform="translate(10 20)"/>
+</clipPath>
+</defs>
+</svg>
