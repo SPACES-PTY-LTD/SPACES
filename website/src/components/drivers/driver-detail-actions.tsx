@@ -16,9 +16,11 @@ import type { Driver } from "@/lib/types"
 export function DriverDetailActions({
   driver,
   accessToken,
+  merchantId,
 }: {
   driver: Driver
   accessToken?: string
+  merchantId?: string
 }) {
   return (
     <DropdownMenu>
@@ -39,6 +41,7 @@ export function DriverDetailActions({
           }
         />
         <UpdateDriverPasswordDialog
+          merchantId={merchantId}
           driver={driver}
           accessToken={accessToken}
           trigger={

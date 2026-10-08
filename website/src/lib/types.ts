@@ -978,6 +978,7 @@ export interface TrackingProviderLocationPreview {
 }
 
 export interface Driver {
+  merchant_id?: UUID | null
   driver_id: UUID
   uuid?: UUID
   name: string

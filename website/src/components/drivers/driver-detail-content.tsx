@@ -53,7 +53,7 @@ export async function DriverDetailContent({
       <PageHeader
         title={driver.name}
         description="Driver profile and vehicle assignments."
-        actions={<DriverDetailActions driver={driver} accessToken={accessToken} />}
+        actions={<DriverDetailActions driver={driver} accessToken={accessToken} merchantId={merchantId ?? undefined} />}
       />
 
       <Card>

@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-08 | Version: admin-driver-password-merchant-context-v1
+
+- **Summary:** Fix website admin driver password updates returning `NOT_FOUND` when the driver belongs to a selected secondary merchant.
+- **API Changes:** `PATCH /api/v1/drivers/{driver_uuid}/password` accepts optional UUID `merchant_id` (also the existing `merchant_uuid` input alias). Merchant users resolve that accessible merchant and scope the driver lookup to it; invalid or inaccessible context cannot fall back to the first merchant. Omitting context preserves the existing first-merchant behavior; super-admin access is unchanged.
+- **Database Changes:** None.
+- **Behavior Changes:** Website password dialogs send the driver detail's selected merchant, falling back to the driver resource's merchant. Password-update audit logs use the resolved merchant, including legacy carrier-scoped drivers, without storing password values.
+- **Breaking Changes:** None.
+- **Verification:** 10 focused Laravel tests pass (42 assertions), including secondary-merchant updates, scope denial, unknown/inaccessible merchant denial, legacy carrier scope, super-admin access and input validation. Website TypeScript, focused driver-component/API lint and diff checks pass. Live password submission was not performed.
+
 ## 2026-10-08 | Version: compact-documents-details-v1
 
 - **Summary:** Implement selected refined Figma Documents design and separate document details.

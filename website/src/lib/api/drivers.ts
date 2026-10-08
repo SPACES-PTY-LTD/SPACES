@@ -62,7 +62,7 @@ export async function updateDriver(
 
 export async function updateDriverPassword(
   driverId: string,
-  payload: { password: string; password_confirmation: string },
+  payload: { password: string; password_confirmation: string; merchant_id?: string },
   token?: string | null
 ) {
   return apiFetch<Driver>(`/api/v1/drivers/${driverId}/password`, {

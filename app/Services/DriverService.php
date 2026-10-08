@@ -332,13 +332,14 @@ class DriverService
         $driver->delete();
     }
 
-    public function updateDriverPassword(User $user, string $driverUuid, string $password): Driver
+    public function updateDriverPassword(User $user, string $driverUuid, string $password, ?string $merchantUuid = null): Driver
     {
-        return DB::transaction(function () use ($user, $driverUuid, $password) {
+        return DB::transaction(function () use ($user, $driverUuid, $password, $merchantUuid) {
             $query = Driver::with('user')->where('uuid', $driverUuid);
+            $merchant = null;
             if ($this->isMerchant($user)) {
-                $merchant = $this->resolveMerchant($user);
-                if (!$merchant) {
+                $merchant = $this->resolveMerchant($user, $merchantUuid);
+                if (!$merchant || ($merchantUuid !== null && $merchant->uuid !== $merchantUuid)) {
                     $query->whereRaw('1 = 0');
                 } else {
                     $this->applyMerchantScope($query, $merchant->id);
@@ -350,7 +351,6 @@ class DriverService
             $userModel->password = Hash::make($password);
             $userModel->save();
 
-            $merchant = $this->resolveMerchant($user);
             $this->activityLogService->log(
                 action: 'updated',
                 entityType: 'driver',

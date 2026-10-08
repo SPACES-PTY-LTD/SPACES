@@ -12,6 +12,7 @@ class UpdateDriverPasswordRequest extends BaseRequest
     public function rules(): array
     {
         return [
+            'merchant_id' => ['sometimes', 'nullable', 'uuid'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
         ];
     }

@@ -26,11 +26,13 @@ type FormState = {
 export function UpdateDriverPasswordDialog({
   driver,
   accessToken,
+  merchantId,
   onUpdated,
   trigger,
 }: {
   driver: Driver
   accessToken?: string
+  merchantId?: string
   onUpdated?: () => void
   trigger?: React.ReactElement
 }) {
@@ -68,6 +70,7 @@ export function UpdateDriverPasswordDialog({
       const result = await updateDriverPassword(
         driver.driver_id,
         {
+          merchant_id: merchantId ?? driver.merchant_id ?? undefined,
           password: values.password,
           password_confirmation: values.confirmPassword,
         },

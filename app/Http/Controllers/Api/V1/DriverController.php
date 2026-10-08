@@ -83,7 +83,7 @@ class DriverController extends Controller
     public function updatePassword(UpdateDriverPasswordRequest $request, string $driver_uuid, DriverService $service)
     {
         try {
-            $driver = $service->updateDriverPassword($request->user(), $driver_uuid, $request->validated()['password']);
+            $driver = $service->updateDriverPassword($request->user(), $driver_uuid, $request->validated()['password'], $request->validated()['merchant_id'] ?? null);
 
             return ApiResponse::success(new DriverResource($driver));
         } catch (Throwable $e) {
