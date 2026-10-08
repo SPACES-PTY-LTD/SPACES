@@ -7,6 +7,7 @@ import { Text } from '@/component/ui/Text';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { RunStop } from './RunTimeline';
 import { StopLocationMap } from './StopLocationMap';
+import { stopVisitDuration } from './stop-visit-time';
 import { stopCoordinate } from './run-map-data';
 import type { DriverDashboard, DriverShipment } from '@/src/lib/api';
 
@@ -37,7 +38,7 @@ export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = 
       linkedShipments: stop.shipments?.length ?? 0,
     });
   }, [stop, hasResolvedCoordinate]);
-  return <BottomSheet modalRef={modalRef} title={stop?.kind || 'Stop'} accessibilityLabel="Location details" scrollable onDismiss={onDismiss}>
+  return <BottomSheet modalRef={modalRef} title={stop?.kind || 'Stop'} accessibilityLabel="Location details" showHandle={false} scrollable onDismiss={onDismiss}>
     {stop && <>
       <View style={styles.identity}>
         <Text accessibilityRole="header" style={[styles.name, { color: ink }]}>{stop.name || 'Location not provided'}</Text>
@@ -51,14 +52,29 @@ export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = 
         </View>}
       </View>
       {coordinate && <Text style={[styles.caption, { color: muted }]}>{stop.kind === 'Speeding' ? 'Recorded event position' : 'Stop location'}</Text>}
-      <View style={[styles.metadata, { backgroundColor: surface }]}>
+      {!stop.planned && stop.kind !== 'Speeding' ? <View style={[styles.visit, { backgroundColor: surface }]}>
+        <View style={styles.visitHeader}>
+          <Text accessibilityRole="header" style={[styles.visitTitle, { color: ink }]}>Time at location</Text>
+          <Text style={[styles.label, { color: muted }]}>Local time</Text>
+        </View>
+        {([
+          { label: 'Entered at', icon: 'log-in', value: eventTime(stop.occurred_at) },
+          { label: 'Exited at', icon: 'log-out', value: stop.exited_at ? eventTime(stop.exited_at) : 'Exit not recorded' },
+          { label: 'Total time at location', icon: 'clock', value: stopVisitDuration(stop.occurred_at, stop.exited_at) || 'Not available', total: true },
+        ] as const).map((item, index) => <View key={item.label} style={[styles.visitRow, index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: dark ? '#52525b' : '#dedee3', paddingTop: 8 }]}>
+          <View style={[styles.timeIcon, { backgroundColor: dark ? '#3f3f46' : '#e9e9ed' }]}><Feather name={item.icon} size={17} color={muted} /></View>
+          <View style={styles.visitText}>
+            <Text style={[styles.label, { color: muted }]}>{item.label}</Text>
+            <Text style={['total' in item ? styles.duration : styles.value, { color: ink }]}>{item.value}</Text>
+          </View>
+        </View>)}
+      </View> : <View style={[styles.metadata, { backgroundColor: surface }]}>
         <Feather name={stop.planned ? 'flag' : 'clock'} size={18} color={muted} />
         <View style={styles.metadataText}>
           <Text style={[styles.label, { color: muted }]}>{stop.planned ? 'Planned endpoint' : 'Recorded at · local time'}</Text>
           <Text style={[styles.value, { color: ink }]}>{stop.planned ? 'Not visited yet' : eventTime(stop.occurred_at)}</Text>
-          {!!stop.exited_at && <Text style={[styles.value, { color: muted }]}>Left {eventTime(stop.exited_at)}</Text>}
         </View>
-      </View>
+      </View>}
       {stop.kind === 'Speeding' && <View style={[styles.metadata, { backgroundColor: surface }]}>
         <Feather name="alert-triangle" size={18} color={dark ? '#fca5a5' : '#b91c1c'} />
         <View style={styles.metadataText}>
@@ -78,6 +94,13 @@ const styles = StyleSheet.create({
   unavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 20 },
   caption: { fontSize: 12, lineHeight: 18 },
   metadata: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderRadius: 14, padding: 16 },
+  visit: { borderRadius: 16, padding: 12, gap: 8 },
+  visitHeader: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  visitTitle: { fontSize: 14, lineHeight: 21, fontWeight: '600' },
+  visitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  visitText: { flex: 1, gap: 1 },
+  timeIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  duration: { fontSize: 18, lineHeight: 25, fontWeight: '700' },
   metadataText: { flex: 1, gap: 5 },
   label: { fontSize: 12, lineHeight: 18 },
   value: { fontSize: 14, lineHeight: 21, fontWeight: '500' },

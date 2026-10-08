@@ -7,6 +7,7 @@ export type ApiRequestOptions = {
   refreshToken?: string | null
   params?: Record<string, string | number | boolean | undefined>
   headers?: HeadersInit
+  signal?: AbortSignal
   cache?: RequestCache
   tags?: string[]
 }
@@ -152,6 +153,7 @@ async function performApiFetch<T>(
   try {
     response = await fetch(url, {
       method: options.method ?? "GET",
+      signal: options.signal,
       body: payloadBody,
       headers,
       cache: options.cache ?? "no-store",

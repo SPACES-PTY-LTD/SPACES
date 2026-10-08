@@ -1,4 +1,6 @@
 import { Platform } from 'react-native';
+import { observeDocumentUpload } from './document-upload-progress';
+import { documentImportErrorMessage } from './document-import-error';
 
 import { getEnvironmentConfig } from '@/src/config/env';
 
@@ -49,6 +51,7 @@ type RequestOptions = {
   headers?: Record<string, string>;
   method?: 'DELETE' | 'GET' | 'PATCH' | 'POST';
   token?: string;
+  signal?: AbortSignal;
 };
 
 type ApiMeta = {
@@ -466,6 +469,7 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
   const send = isFormData && Platform.OS !== 'web' ? sendNativeMultipart : fetch;
   const response = await send(`${apiBaseUrl}${path}`, {
     method,
+    signal: options.signal,
     headers: {
       Accept: 'application/json',
       ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
@@ -882,7 +886,7 @@ export type ImportDraft = {
 };
 export type ImportResult = { run_id?: string; delivered?: string[]; created: string[]; skipped: string[]; attached: string[]; unassigned: string[] };
 export type DocumentImport = {
-  import_id: string; status: string; filename: string; run_id: string | null;
+  import_id: string; status: string; filename: string; run_id: string | null; failure_message?: string | null;
   extracted_data: ImportDraft; existing_references: string[]; confirmation_result: ImportResult | null;
 };
 export type ImportLocation = { location_id: string; name: string; full_address?: string; latitude?: string | number | null; longitude?: string | number | null } & Record<string, any>;
@@ -898,26 +902,31 @@ export const documentImportApi = {
   context: (token: string) => request<ImportContext>('/driver/document-imports/context', { token }),
   upload: (token: string, body: FormData, onUploaded?: () => void) => new Promise<DocumentImport>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${apiBaseUrl}/driver/document-imports`);
+    xhr.open('POST', `${apiBaseUrl}/delivery-note-imports/analyze`);
     xhr.setRequestHeader('Accept', 'application/json');
     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.timeout = 150000;
-    xhr.upload.onload = () => onUploaded?.();
+    observeDocumentUpload(xhr, onUploaded);
     xhr.onerror = () => reject(new Error('Connection lost. Please try again.'));
     xhr.ontimeout = () => reject(new Error('Reading took too long. No shipments have been created. Please try again.'));
     xhr.onload = () => {
       try {
         const payload = JSON.parse(xhr.responseText) as ApiEnvelope<DocumentImport>;
         if (xhr.status < 200 || xhr.status >= 300 || !payload.success) {
-          const error = new Error(payload.error?.message || 'Unable to read the delivery note.') as ApiRequestError;
+          const error = new Error(documentImportErrorMessage(payload, xhr.status)) as ApiRequestError;
           error.details = payload.error?.details;
+          error.status = xhr.status;
           reject(error);
         } else resolve(payload.data);
-      } catch { reject(new Error('Unable to read the server response. Please try again.')); }
+      } catch {
+        const error = new Error(`Unable to read the server response (HTTP ${xhr.status}). Please try again.`) as ApiRequestError;
+        error.status = xhr.status;
+        reject(error);
+      }
     };
     xhr.send(body);
   }),
-  show: (token: string, id: string) => request<DocumentImport>(`/driver/document-imports/${id}`, { token }),
+  show: (token: string, id: string, signal?: AbortSignal) => request<DocumentImport>(`/delivery-note-imports/${id}/status`, { token, signal }),
   confirm: (token: string, id: string, body: ImportDraft) => request<ImportResult>(`/driver/document-imports/${id}/confirm`, { token, method: 'POST', body }),
 };
 

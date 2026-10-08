@@ -83,7 +83,7 @@ const CONDITION_FIELD_OPTIONS: Array<{
   { value: "has_active_run", label: "Has active run", operators: ["equals"], values: ["true", "false"] },
   { value: "run_status", label: "Run status", operators: ["equals", "not_equals"], values: ["draft", "dispatched", "in_progress", "completed", "cancelled"] },
   { value: "shipment_exists_for_location", label: "Shipment exists for location", operators: ["equals"], values: ["true", "false"] },
-  { value: "shipment_status", label: "Shipment status", operators: ["equals", "not_equals"], values: ["draft", "ready", "in_transit", "delivered", "exception", "cancelled"] },
+  { value: "shipment_status", label: "Shipment status", operators: ["equals", "not_equals"], values: ["draft", "ready", "in_transit", "at_delivery_location", "delivered", "exception", "cancelled"] },
   { value: "location_matches_run_origin", label: "Location matches run origin", operators: ["equals"], values: ["true", "false"] },
   { value: "location_matches_run_destination", label: "Location matches run destination", operators: ["equals"], values: ["true", "false"] },
 ]

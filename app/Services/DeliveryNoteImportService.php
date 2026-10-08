@@ -34,32 +34,79 @@ class DeliveryNoteImportService
 
     public function analyzeDocument(User $user, UploadedFile $file, Merchant $merchant, ?Run $run = null): DeliveryNoteImport
     {
+        $import = $this->storeDocument($user, $file, $merchant, $run);
+        return $this->extractDocument($import, $file);
+    }
+
+    public function queueDocument(User $user, UploadedFile $file, Merchant $merchant, ?Run $run, string $uuid, ?int $environmentId = null): DeliveryNoteImport
+    {
+        $existing = DeliveryNoteImport::where('uuid', $uuid)->first();
+        if ($existing) {
+            abort_unless($existing->uploaded_by_user_id === $user->id && $existing->merchant_id === $merchant->id && $existing->account_id === $merchant->account_id, 404);
+            abort_unless((int) $existing->run_id === (int) $run?->id
+                && (int) $existing->environment_id === (int) ($run?->environment_id ?? $environmentId), 409, 'This import ID belongs to a different run or environment.');
+            return $existing;
+        }
+        try {
+            $import = $this->storeDocument($user, $file, $merchant, $run, $uuid, $environmentId);
+        } catch (\Illuminate\Database\QueryException $exception) {
+            $existing = DeliveryNoteImport::where('uuid', $uuid)->where('uploaded_by_user_id', $user->id)
+                ->where('merchant_id', $merchant->id)->where('account_id', $merchant->account_id)->first();
+            if ($existing) return $this->queueDocument($user, $file, $merchant, $run, $uuid, $environmentId);
+            throw $exception;
+        }
+        try {
+            \App\Jobs\AnalyzeDeliveryNote::dispatch($import->id);
+        } catch (\Throwable $exception) {
+            $import->update(['status' => DeliveryNoteImport::STATUS_FAILED, 'failure_message' => 'Document processing could not be queued. Please upload it again.']);
+            throw $exception;
+        }
+        return $import;
+    }
+
+    private function storeDocument(User $user, UploadedFile $file, Merchant $merchant, ?Run $run, ?string $uuid = null, ?int $environmentId = null): DeliveryNoteImport
+    {
 
         $disk = (string) config('filesystems.default', 'local');
         $extension = $file->getClientOriginalExtension();
         $filename = (string) Str::uuid().($extension ? '.'.$extension : '');
-        $scope = $run?->uuid ?? 'driver-documents';
+        $scope = $run?->uuid ?? ($uuid ? 'analysis' : 'driver-documents');
         $path = "delivery-note-imports/{$merchant->uuid}/{$scope}/{$filename}";
 
-        Storage::disk($disk)->putFileAs(dirname($path), $file, basename($path), ['visibility' => 'private']);
+        if (Storage::disk($disk)->putFileAs(dirname($path), $file, basename($path), ['visibility' => 'private']) === false) {
+            throw new \RuntimeException('Unable to save the delivery note. Please try again.');
+        }
 
-        $import = DeliveryNoteImport::create([
-            'account_id' => $merchant->account_id,
-            'merchant_id' => $merchant->id,
-            'environment_id' => $run?->environment_id,
-            'run_id' => $run?->id,
-            'uploaded_by_user_id' => $user->id,
-            'status' => DeliveryNoteImport::STATUS_ANALYZED,
-            'disk' => $disk,
-            'path' => $path,
-            'original_name' => $file->getClientOriginalName(),
-            'mime_type' => (string) $file->getMimeType(),
-            'size_bytes' => (int) $file->getSize(),
-        ]);
+        try {
+            $import = DeliveryNoteImport::create([
+                'account_id' => $merchant->account_id,
+                'merchant_id' => $merchant->id,
+                'environment_id' => $run?->environment_id ?? $environmentId,
+                'run_id' => $run?->id,
+                'uploaded_by_user_id' => $user->id,
+                'uuid' => $uuid ?? (string) Str::uuid(),
+                'status' => $uuid ? DeliveryNoteImport::STATUS_QUEUED : DeliveryNoteImport::STATUS_PROCESSING,
+                'disk' => $disk,
+                'path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => (string) $file->getMimeType(),
+                'size_bytes' => (int) $file->getSize(),
+            ]);
 
+        } catch (\Throwable $exception) {
+            Storage::disk($disk)->delete($path);
+            throw $exception;
+        }
+        return $import;
+    }
+
+    public function extractDocument(DeliveryNoteImport $import, UploadedFile $file): DeliveryNoteImport
+    {
         try {
             $result = $this->openAI->extractDeliveryNote($file);
             $import->update([
+                'status' => DeliveryNoteImport::STATUS_ANALYZED,
+                'failure_message' => null,
                 'model' => $result['model'],
                 'extracted_data' => $result['data'],
             ]);
@@ -72,6 +119,29 @@ class DeliveryNoteImportService
         }
 
         return $import->fresh(['run', 'shipments']);
+    }
+
+    public function processingPayload(DeliveryNoteImport $import): array
+    {
+        if (in_array($import->status, ['queued', 'processing'], true) && $import->updated_at->lt(now()->subMinutes(15))) {
+            DeliveryNoteImport::whereKey($import->id)->whereIn('status', ['queued', 'processing'])
+                ->where('updated_at', '<', now()->subMinutes(15))->update([
+                    'status' => 'failed', 'failure_message' => 'Document processing timed out. Please upload the document again.',
+                ]);
+            $import->refresh();
+        }
+        $refs = collect($import->extracted_data['line_items'] ?? [])->pluck('merchant_order_ref')
+            ->push($import->extracted_data['merchant_order_ref'] ?? null)->filter();
+
+        return [
+            'import_id' => $import->uuid, 'status' => $import->status, 'filename' => $import->original_name,
+            'failure_message' => $import->failure_message, 'poll_after_ms' => 3200,
+            'run_id' => $import->run?->uuid, 'extracted_data' => $import->extracted_data,
+            'confirmation_result' => $import->confirmation_result,
+            'existing_references' => Shipment::withTrashed()->where('merchant_id', $import->merchant_id)->where('account_id', $import->account_id)
+                ->when($import->environment_id, fn ($query) => $query->where('environment_id', $import->environment_id))
+                ->whereIn('merchant_order_ref', $refs)->pluck('merchant_order_ref')->all(),
+        ];
     }
 
     public function confirm(Run $run, DeliveryNoteImport $import, array $data): array

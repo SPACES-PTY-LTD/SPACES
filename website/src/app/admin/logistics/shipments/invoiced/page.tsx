@@ -111,6 +111,7 @@ export default async function InvoicedShipmentsPage({
             options: [
               { label: "Ready", value: "ready" },
               { label: "In Transit", value: "in_transit" },
+              { label: "At delivery location", value: "at_delivery_location" },
               { label: "Delivered", value: "delivered" },
             ],
           },

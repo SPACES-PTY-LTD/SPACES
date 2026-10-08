@@ -10,6 +10,7 @@ use App\Models\Merchant;
 use App\Models\Run;
 use App\Models\RunShipment;
 use App\Models\Shipment;
+use App\Models\TrackingEvent;
 use App\Models\Vehicle;
 use App\Models\VehicleActivity;
 use App\Support\GeofencePolygon;
@@ -183,6 +184,16 @@ class AutoRunLifecycleService
                 }
                 if ($arrivingRun?->driver_workflow) {
                     $visit->update(['run_id' => $arrivingRun->id]);
+                    $assignment = $arrivingRun->runShipments()
+                        ->where('status', '!=', RunShipment::STATUS_REMOVED)
+                        ->whereHas('shipment', fn (Builder $query) => $query->where('auto_created', true)
+                            ->where('dropoff_location_id', $location->id)
+                            ->whereColumn('pickup_location_id', '!=', 'dropoff_location_id'))
+                        ->with('shipment')->first();
+                    if ($arrivingRun->status === Run::STATUS_IN_PROGRESS && $assignment?->shipment) {
+                        $visit->update(['shipment_id' => $assignment->shipment_id]);
+                        $this->markAutoShipmentAtDeliveryLocation($assignment->shipment, $arrivingRun, $visit, $occurredAt);
+                    }
                     continue;
                 }
                 if (! $merchant->allow_auto_shipment_creations_at_locations) {
@@ -239,7 +250,7 @@ class AutoRunLifecycleService
                 ->lockForUpdate()
                 ->first();
 
-            if (! $activeVisit) {
+            if (! $activeVisit || $occurredAt->lt($activeVisit->entered_at ?? $activeVisit->occurred_at)) {
                 return false;
             }
 
@@ -274,6 +285,10 @@ class AutoRunLifecycleService
         ?string $driverIntegrationId,
         array $providerPosition
     ): void {
+        if ($occurredAt->lt($activeVisit->entered_at ?? $activeVisit->occurred_at)) {
+            return;
+        }
+
         $activeVisit->fill([
             'exited_at' => $occurredAt,
             'latitude' => $latitude,
@@ -430,7 +445,11 @@ class AutoRunLifecycleService
         ]);
         $this->vehicleOdometerService->syncHigherReading($vehicle, $odometer);
 
-        $visit->run_id = $newRun->id;
+        // A combined delivery/collection stop still belongs to the shipment's run.
+        // The new run has its own run_started event at this location.
+        if (! $visit->shipment_id) {
+            $visit->run_id = $newRun->id;
+        }
         $visit->save();
         $this->updateVehicleLastKnownDriver($visit);
 
@@ -515,6 +534,8 @@ class AutoRunLifecycleService
                 );
             }
 
+            $this->markAutoShipmentAtDeliveryLocation($existingRunShipment->shipment, $run, $visit, $occurredAt);
+
             return;
         }
 
@@ -591,7 +612,7 @@ class AutoRunLifecycleService
             $shipment->restore();
         }
 
-        if (! in_array($shipment->status, ['cancelled', 'delivered', 'failed'], true)) {
+        if (($shipment->metadata['status_source'] ?? null) !== 'driver' && ! in_array($shipment->status, ['cancelled', 'delivered', 'failed'], true)) {
             $shipment->status = 'in_transit';
             $shipment->save();
         }
@@ -618,6 +639,8 @@ class AutoRunLifecycleService
             $run->odometer_start_km,
             $run->odometer_start_km
         );
+
+        $this->markAutoShipmentAtDeliveryLocation($shipment, $run, $visit, $occurredAt);
 
         if ($createdShipment) {
             $this->recordShipmentCollectionActivity($vehicle, $merchant, $run, $shipment, $collectionAt);
@@ -946,12 +969,59 @@ class AutoRunLifecycleService
         ])->save();
     }
 
+    private function markAutoShipmentAtDeliveryLocation(
+        Shipment $shipment,
+        Run $run,
+        VehicleActivity $visit,
+        CarbonInterface $occurredAt
+    ): void {
+        $shipment = Shipment::query()->whereKey($shipment->id)->lockForUpdate()->firstOrFail();
+        if (! $shipment->auto_created || ($shipment->metadata['status_source'] ?? null) === 'driver'
+            || in_array($shipment->status, ['cancelled', 'delivered', 'failed'], true)) {
+            return;
+        }
+
+        $booking = $this->internalBookingLifecycleService->ensureBookingForShipment($shipment, $run);
+        if (in_array($booking->status, ['cancelled', 'delivered', 'failed', 'returned'], true)) {
+            return;
+        }
+
+        $oldStatus = $shipment->status;
+        $shipment->update(['status' => 'at_delivery_location']);
+        $booking->update(['status' => 'at_delivery_location']);
+        if ($oldStatus !== 'at_delivery_location') {
+            $this->recordAutoShipmentStatus($shipment, $visit, $oldStatus, $occurredAt, 'location_entry');
+        }
+    }
+
+    private function recordAutoShipmentStatus(
+        Shipment $shipment,
+        VehicleActivity $visit,
+        string $oldStatus,
+        CarbonInterface $occurredAt,
+        string $source
+    ): void {
+        TrackingEvent::create([
+            'account_id' => $shipment->account_id,
+            'merchant_id' => $shipment->merchant_id,
+            'shipment_id' => $shipment->id,
+            'booking_id' => $shipment->booking?->id,
+            'event_code' => $shipment->status,
+            'event_description' => $source === 'location_entry'
+                ? 'Vehicle arrived at delivery location.' : 'Vehicle left delivery location; shipment delivered.',
+            'occurred_at' => $occurredAt,
+            'payload' => ['source' => $source, 'old_status' => $oldStatus, 'new_status' => $shipment->status,
+                'visit_id' => $visit->uuid, 'run_id' => $visit->run_id, 'location_id' => $visit->location_id],
+        ]);
+    }
+
     private function markAutoShipmentDeliveredOnLocationExit(
         VehicleActivity $visit,
         CarbonInterface $occurredAt,
         ?float $odometerKilometres = null
     ): void {
-        if (! $visit->run_id || ! $visit->location_id) {
+        if (! $visit->run_id || ! $visit->location_id || ! $visit->exited_at
+            || ($visit->entered_at && $occurredAt->lt($visit->entered_at))) {
             return;
         }
 
@@ -959,13 +1029,16 @@ class AutoRunLifecycleService
 
         $assignmentQuery = RunShipment::query()
             ->with(['run', 'shipment'])
+            ->where('run_id', $visit->run_id)
             ->where('status', '!=', RunShipment::STATUS_REMOVED)
             ->whereHas('run', function (Builder $builder) use ($visit) {
                 $builder->where('vehicle_id', $visit->vehicle_id)
+                    ->where('account_id', $visit->account_id)
                     ->where('merchant_id', $visit->merchant_id);
             })
             ->whereHas('shipment', function (Builder $builder) use ($visit) {
                 $builder->where('merchant_id', $visit->merchant_id)
+                    ->where('account_id', $visit->account_id)
                     ->where('auto_created', true)
                     ->where('dropoff_location_id', $visit->location_id)
                     ->whereColumn('pickup_location_id', '!=', 'dropoff_location_id')
@@ -974,17 +1047,22 @@ class AutoRunLifecycleService
 
         if ($visit->shipment_id) {
             $assignmentQuery->where('shipment_id', $visit->shipment_id);
-        } else {
-            $assignmentQuery->where('run_id', $visit->run_id);
         }
 
-        $assignment = $assignmentQuery->orderByDesc('id')->first();
-        $shipment = $assignment?->shipment;
+        $assignment = $assignmentQuery->orderByDesc('id')->lockForUpdate()->first();
+        $shipment = $assignment ? Shipment::query()->whereKey($assignment->shipment_id)->lockForUpdate()->first() : null;
         $run = $assignment?->run;
 
-        if (! $shipment || ! $run) {
+        if (! $shipment || ! $run || ($shipment->metadata['status_source'] ?? null) === 'driver'
+            || in_array($shipment->status, ['cancelled', 'delivered', 'failed'], true)) {
             return;
         }
+
+        $booking = $this->internalBookingLifecycleService->ensureBookingForShipment($shipment, $run);
+        if (in_array($booking->status, ['cancelled', 'delivered', 'failed', 'returned'], true)) {
+            return;
+        }
+        $oldStatus = $shipment->status;
 
         $vehicle = Vehicle::query()->find($visit->vehicle_id);
         $merchant = Merchant::query()->find($visit->merchant_id);
@@ -1008,6 +1086,7 @@ class AutoRunLifecycleService
         $shipment->status = 'delivered';
         $shipment->save();
         $this->internalBookingLifecycleService->markShipmentDelivered($shipment, $occurredAt, $odometer);
+        $this->recordAutoShipmentStatus($shipment, $visit, $oldStatus, $occurredAt, 'location_exit');
 
         if ($vehicle) {
             $this->vehicleOdometerService->syncHigherReading($vehicle, $odometer);

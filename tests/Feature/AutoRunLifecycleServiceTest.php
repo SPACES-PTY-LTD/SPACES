@@ -62,6 +62,160 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertDatabaseCount('shipments', 0);
     }
 
+    private function arrivalContext(bool $driverWorkflow = false): array
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $origin = $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
+        $destination = $this->createLocation($merchant, 'Destination', false, -33.95, 18.45);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-10-08 08:00:00');
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at, null, null, 1000);
+        if ($driverWorkflow) {
+            $run = Run::sole();
+            $run->update(['driver_workflow' => true]);
+            $existing = Shipment::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+                'merchant_order_ref' => 'AUTO-ATTACHED', 'auto_created' => true, 'status' => 'in_transit',
+                'pickup_location_id' => $origin->id, 'dropoff_location_id' => $destination->id]);
+            RunShipment::create(['run_id' => $run->id, 'shipment_id' => $existing->id, 'status' => RunShipment::STATUS_ACTIVE]);
+        }
+        $service->processVehiclePosition($vehicle, $merchant, -33.95, 18.45, $at->copy()->addMinutes(10), null, null, 1010);
+        $shipment = Shipment::sole();
+        $visit = VehicleActivity::where('location_id', $destination->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->sole();
+
+        return [$service, $merchant, $vehicle, $destination, $shipment, $visit, $at];
+    }
+
+    public function test_arrival_remains_outstanding_and_booking_sync_preserves_it_until_gps_departure(): void
+    {
+        [$service, $merchant, $vehicle, $destination, $shipment, $visit, $at] = $this->arrivalContext();
+        $run = $visit->run;
+        $this->assertSame('at_delivery_location', $shipment->status);
+        $this->assertSame('at_delivery_location', $shipment->booking->status);
+        $this->assertNull($shipment->booking->delivered_at);
+        $this->assertSame(RunShipment::STATUS_ACTIVE, RunShipment::sole()->status);
+        app(InternalBookingLifecycleService::class)->ensureBookingForShipment($shipment, $run);
+        app(InternalBookingLifecycleService::class)->markRunShipmentsInTransit($run);
+        $service->processVehiclePosition($vehicle, $merchant, -33.95, 18.45, $at->copy()->addMinutes(15));
+        $this->assertSame('at_delivery_location', $shipment->booking()->first()->status);
+        $this->assertSame(1, $shipment->trackingEvents()->where('event_code', 'at_delivery_location')->count());
+        $this->assertDatabaseCount('shipments', 1);
+        $exit = $at->copy()->addMinutes(20);
+        $service->processVehiclePosition($vehicle, $merchant, -33.90, 18.40, $exit, null, null, 1020);
+        $this->assertSame('delivered', $shipment->fresh()->status);
+        $this->assertSame('delivered', $shipment->booking()->first()->status);
+        $this->assertTrue($shipment->booking()->first()->delivered_at->equalTo($exit));
+        $this->assertSame(1020, $shipment->booking()->first()->odometer_at_delivery);
+        $this->assertSame(RunShipment::STATUS_DONE, RunShipment::sole()->status);
+        $this->assertSame(Run::STATUS_IN_PROGRESS, $run->fresh()->status);
+    }
+
+    public function test_driver_workflow_auto_shipment_arrives_and_delivers_without_closing_run(): void
+    {
+        [$service, $merchant, $vehicle, $destination, $shipment, $visit, $at] = $this->arrivalContext(true);
+        $this->assertSame('at_delivery_location', $shipment->status);
+        $this->assertSame('at_delivery_location', $shipment->booking->status);
+        $this->assertSame($shipment->id, $visit->shipment_id);
+        $service->processVehicleLocationExit($vehicle, $merchant, $destination, $at->copy()->addMinutes(20));
+        $this->assertSame('delivered', $shipment->fresh()->status);
+        $this->assertSame(Run::STATUS_IN_PROGRESS, $visit->run->fresh()->status);
+    }
+
+    public function test_stale_departure_cannot_close_a_newer_arrival(): void
+    {
+        [$service, $merchant, $vehicle, $destination, $shipment, $visit, $at] = $this->arrivalContext();
+        $this->assertFalse($service->processVehicleLocationExit($vehicle, $merchant, $destination, $at));
+        $service->processVehiclePosition($vehicle, $merchant, -33.90, 18.40, $at);
+        $this->assertNull($visit->fresh()->exited_at);
+        $this->assertSame('at_delivery_location', $shipment->fresh()->status);
+    }
+
+    public function test_explicit_exit_delivers_once_and_recovers_a_missing_booking(): void
+    {
+        [$service, $merchant, $vehicle, $destination, $shipment, $visit, $at] = $this->arrivalContext();
+        $shipment->booking()->delete();
+        $this->assertTrue($service->processVehicleLocationExit($vehicle, $merchant, $destination, $at->copy()->addMinutes(20)));
+        $this->assertFalse($service->processVehicleLocationExit($vehicle, $merchant, $destination, $at->copy()->addMinutes(21)));
+        $this->assertSame('delivered', $shipment->fresh()->status);
+        $this->assertSame('delivered', $shipment->booking()->first()->status);
+        $this->assertSame(1, $shipment->trackingEvents()->where('event_code', 'delivered')->count());
+        $this->assertSame(1, VehicleActivity::where('shipment_id', $shipment->id)->where('event_type', VehicleActivity::EVENT_SHIPMENT_ENDED)->count());
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('protectedDepartureStates')]
+    public function test_departure_preserves_driver_corrections_and_terminal_states(string $status, bool $driver): void
+    {
+        [$service, $merchant, $vehicle, $destination, $shipment, $visit, $at] = $this->arrivalContext();
+        $shipment->update(['status' => $status, 'metadata' => array_merge($shipment->metadata, $driver ? ['status_source' => 'driver'] : [])]);
+        $shipment->booking()->update(['status' => $status]);
+        $service->processVehicleLocationExit($vehicle, $merchant, $destination, $at->copy()->addMinutes(20));
+        $this->assertSame($status, $shipment->fresh()->status);
+        $this->assertSame($status, $shipment->booking()->first()->status);
+        $this->assertSame(0, VehicleActivity::where('shipment_id', $shipment->id)->where('event_type', VehicleActivity::EVENT_SHIPMENT_ENDED)->count());
+    }
+
+    public static function protectedDepartureStates(): array
+    {
+        return [['in_transit', true], ['failed', false], ['cancelled', false], ['delivered', false]];
+    }
+
+    public function test_departure_does_not_deliver_a_removed_or_wrong_run_assignment(): void
+    {
+        [$service, $merchant, $vehicle, $destination, $shipment, $visit, $at] = $this->arrivalContext();
+        $assignment = RunShipment::sole();
+        $assignment->update(['status' => RunShipment::STATUS_REMOVED]);
+        $otherRun = $visit->run->replicate();
+        $otherRun->uuid = (string) Str::uuid();
+        $otherRun->save();
+        RunShipment::create(['run_id' => $otherRun->id, 'shipment_id' => $shipment->id, 'status' => RunShipment::STATUS_ACTIVE]);
+        $service->processVehicleLocationExit($vehicle, $merchant, $destination, $at->copy()->addMinutes(20));
+        $this->assertSame('at_delivery_location', $shipment->fresh()->status);
+        $this->assertNull($shipment->booking()->first()->delivered_at);
+        $this->assertSame(RunShipment::STATUS_ACTIVE, RunShipment::where('run_id', $otherRun->id)->sole()->status);
+    }
+
+    public function test_return_visit_does_not_override_a_manual_in_transit_correction(): void
+    {
+        [$service, $merchant, $vehicle, $destination, $shipment, $visit, $at] = $this->arrivalContext();
+        $shipment->update(['status' => 'in_transit', 'metadata' => array_merge($shipment->metadata, ['status_source' => 'driver'])]);
+        $shipment->booking()->update(['status' => 'in_transit']);
+        $service->processVehicleLocationExit($vehicle, $merchant, $destination, $at->copy()->addMinutes(20));
+        $service->processVehiclePosition($vehicle, $merchant, -33.95, 18.45, $at->copy()->addMinutes(30));
+        $this->assertSame('in_transit', $shipment->fresh()->status);
+        $this->assertSame('in_transit', $shipment->booking()->first()->status);
+        $this->assertDatabaseCount('shipments', 1);
+    }
+
+    public function test_arrival_enum_rollback_maps_to_in_transit_and_up_does_not_repair_history(): void
+    {
+        [$service, $merchant, $vehicle, $destination, $shipment, $visit, $at] = $this->arrivalContext();
+        $migration = require database_path('migrations/2026_10_08_000001_add_at_delivery_location_status.php');
+        $migration->down();
+        $this->assertSame('in_transit', $shipment->fresh()->status);
+        $this->assertSame('in_transit', $shipment->booking()->first()->status);
+        $schema = \Illuminate\Support\Facades\DB::table('sqlite_master')->where('name', 'shipments')->value('sql');
+        $this->assertStringNotContainsString('at_delivery_location', $schema);
+        $visit->update(['exited_at' => $at->copy()->addMinutes(20)]);
+        $migration->up();
+        $this->assertSame('in_transit', $shipment->fresh()->status);
+        $this->assertSame('in_transit', $shipment->booking()->first()->status);
+        $this->assertNull($shipment->booking()->first()->delivered_at);
+    }
+
+    public function test_arrival_bookings_remain_on_active_map_and_have_a_separate_dashboard_count(): void
+    {
+        [$service, $merchant, $vehicle, $destination, $shipment] = $this->arrivalContext();
+        $user = User::findOrFail($merchant->owner_user_id);
+        $token = $user->createToken('arrival-report-test')->plainTextToken;
+        $this->withToken($token)->getJson('/api/v1/reports/mapped-bookings?merchant_id='.$merchant->uuid)
+            ->assertOk()->assertJsonPath('meta.counts_by_status.at_delivery_location', 1)
+            ->assertJsonPath('data.0.status', 'at_delivery_location');
+        $this->withToken($token)->getJson('/api/v1/reports/dashboard_stats?merchant_id='.$merchant->uuid)
+            ->assertOk()->assertJsonPath('data.at_delivery_location_bookings', 1)
+            ->assertJsonPath('data.in_transit_bookings', 0)->assertJsonPath('data.delivered_shipments', 0);
+        $this->withToken($token)->getJson('/api/v1/shipments?status=at_delivery_location&merchant_id='.$merchant->uuid)
+            ->assertOk()->assertJsonPath('data.0.status', 'at_delivery_location');
+    }
+
     protected function tearDown(): void
     {
         Carbon::setTestNow();
@@ -230,7 +384,7 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertSame(1, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_COLLECTION)->count());
         $this->assertSame(1, VehicleActivity::where('location_id', $destination->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->count());
         $this->assertNull($visit->fresh()->exited_at);
-        $this->assertSame('in_transit', Shipment::sole()->status);
+        $this->assertSame('at_delivery_location', Shipment::sole()->status);
         $this->assertSame($origin->id, Shipment::sole()->pickup_location_id);
     }
 
@@ -344,7 +498,7 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertDatabaseCount('shipments', 2);
         $this->assertDatabaseCount('bookings', 2);
         $this->assertNull($visit->fresh()->exited_at);
-        $this->assertSame(2, Shipment::where('status', 'in_transit')->count());
+        $this->assertSame(2, Shipment::where('status', 'at_delivery_location')->count());
         $this->assertSame(1, VehicleActivity::where('location_id', $neighbour->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->whereNull('exited_at')->count());
         $this->assertSame(2, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_COLLECTION)->count());
 
@@ -354,7 +508,7 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertTrue($visit->fresh()->exited_at->equalTo($exitAt));
         $this->assertDatabaseCount('shipments', 2);
         $this->assertSame('delivered', Shipment::where('dropoff_location_id', $destination->id)->sole()->status);
-        $this->assertSame('in_transit', Shipment::where('dropoff_location_id', $neighbour->id)->sole()->status);
+        $this->assertSame('at_delivery_location', Shipment::where('dropoff_location_id', $neighbour->id)->sole()->status);
     }
 
     public function test_three_nested_geofences_enter_and_exit_independently_without_duplicate_shipments(): void
@@ -377,7 +531,7 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertSame(3, VehicleActivity::where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->whereNull('exited_at')->count());
         $this->assertSame(3, VehicleActivity::where('event_type', VehicleActivity::EVENT_SHIPMENT_COLLECTION)->count());
         $service->processVehiclePosition($vehicle, $merchant, -33.93, 18.4308, $at->copy()->addMinutes(13));
-        $this->assertSame('in_transit', Shipment::where('dropoff_location_id', $outer->id)->sole()->status);
+        $this->assertSame('at_delivery_location', Shipment::where('dropoff_location_id', $outer->id)->sole()->status);
         foreach ([$inner, $deep] as $location) {
             $this->assertSame('delivered', Shipment::where('dropoff_location_id', $location->id)->sole()->status);
             $visit = VehicleActivity::where('location_id', $location->id)->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->sole();

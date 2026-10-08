@@ -49,6 +49,7 @@ class ReportController extends Controller
     private const ACTIVE_MAPPED_BOOKING_STATUSES = [
         'booked',
         'in_transit',
+        'at_delivery_location',
     ];
 
     public function vehiclesDailyKpi(
@@ -658,6 +659,10 @@ class ReportController extends Controller
                 ->when($merchantId, fn (Builder $query) => $query->where('merchant_id', $merchantId))
                 ->where('status', 'in_transit')
                 ->count();
+            $atDeliveryLocationBookings = $this->applyBookingScope(Booking::query(), $environment, $user)
+                ->when($merchantId, fn (Builder $query) => $query->where('merchant_id', $merchantId))
+                ->where('status', 'at_delivery_location')
+                ->count();
             $pendingShipments = $this->applyShipmentScope(Shipment::query(), $environment, $user)
                 ->when($merchantId, fn (Builder $query) => $query->where('merchant_id', $merchantId))
                 ->where('status', 'draft')
@@ -694,6 +699,7 @@ class ReportController extends Controller
             return ApiResponse::success([
                 'total_shipments' => (int) $totalShipments,
                 'in_transit_bookings' => (int) $inTransitBookings,
+                'at_delivery_location_bookings' => (int) $atDeliveryLocationBookings,
                 'pending_shipments' => (int) $pendingShipments,
                 'delivered_shipments' => (int) $deliveredShipments,
                 'active_merchants' => (int) $activeMerchants,
@@ -1209,7 +1215,7 @@ class ReportController extends Controller
             }
 
             $bookings = $query
-                ->orderByRaw("CASE WHEN status = 'in_transit' THEN 0 ELSE 1 END")
+                ->orderByRaw("CASE WHEN status IN ('in_transit', 'at_delivery_location') THEN 0 ELSE 1 END")
                 ->orderByDesc('updated_at')
                 ->get()
                 ->filter(function (Booking $booking) {

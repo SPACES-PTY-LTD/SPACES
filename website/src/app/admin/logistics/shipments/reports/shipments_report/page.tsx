@@ -218,6 +218,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
     { label: "All", status: "" },
     { label: "Ready for Pickup", status: "ready" },
     { label: "In Transit", status: "in_transit" },
+    { label: "At delivery location", status: "at_delivery_location" },
     { label: "Delivered", status: "delivered" },
   ].map((view) => {
     const viewParams = new URLSearchParams()
@@ -361,6 +362,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
               { label: "Quoted", value: "quoted" },
               { label: "Booked", value: "booked" },
               { label: "In Transit", value: "in_transit" },
+              { label: "At delivery location", value: "at_delivery_location" },
               { label: "Delivered", value: "delivered" },
               { label: "Cancelled", value: "cancelled" },
               { label: "Failed", value: "failed" },

@@ -1,5 +1,195 @@
 # Release Notes
 
+## 2026-10-08 | Version: shared-async-delivery-note-analysis-v1
+
+- **Summary:** Avoid holding AI extraction inside new uploads; let drivers and admins recover processing through a shared status API.
+- **API Changes:** Add authenticated `POST /api/v1/delivery-note-imports/analyze` (file, client UUID import_id, optional run/environment and admin merchant context) returning 202, plus `GET /api/v1/delivery-note-imports/{id}/status` with queued/processing/analyzed/confirmed/failed, failure reason and 3200 ms polling guidance. Driver routes retain legacy behavior with optional async mode; run confirmation/download remain separate. Driver ownership and admin resource permissions/merchant/environment scope are enforced.
+- **Database Changes:** No new schema or historical repair. Reuse the unique import UUID, existing string status column, private file metadata and jobs/failed_jobs tables; add queued/processing values.
+- **Behavior Changes:** Mobile and admin drawer persist an import ID before upload, recover lost acknowledgements/504s without reupload, poll every 3.2 seconds, bound requests/check sessions and offer Check later / Check processing status. Start reading animation/messages after accepted upload even when native byte events are absent. Reopening restores pending IDs; replacement uses a new ID. Terminal failures show their reason; stale queued/processing records expire after 15 minutes. Analysis never creates shipments/runs or bypasses explicit confirmation.
+- **Internal Changes:** Shared AnalyzeDeliveryNote background job claims once, reads private stored files using temporary streams, cleans up and records failures without overwriting success. Dedicated database queue connection has 330-second reservation and 300-second job timeout. Update dashboard plan v2.14, Figma handoff and docs/delivery-note-analysis.md with API and worker rollout contract.
+- **Breaking Changes:** None for legacy routes. Deploy backend and a supervised document-imports worker before asynchronous clients; default/sync workers do not consume this dedicated queue. Production infrastructure has not been changed.
+- **Verification:** 25 focused Laravel tests / 189 assertions; 56 client regressions covering both polling implementations; both frontend TypeScript checks, PHP syntax, focused lint and diff checks pass. Mobile upload-page lint retains the documented pre-existing effect-rule exclusion. Production worker operation, real gateway/live-AI recovery and native/browser visual/reopen checks remain unverified.
+
+## 2026-10-08 | Version: delivery-note-upload-event-listeners-v1
+
+- **Summary:** Clarify the upload-first message and register event listeners for the transition to rotating analysis feedback.
+- **API Changes:** None; use existing XHR upload/response events via addEventListener.
+- **Database Changes:** None.
+- **Behavior Changes:** First show Uploading your file for analysis…; once transfer completion is observed, show the 15 analysis messages every 3.2 seconds and hold Wrapping up after the final message if still waiting. Real results still advance immediately; no timer pretends the upload has finished.
+- **Internal Changes:** Replace progress/load/readystatechange handler-property assignments with event listeners. Update regressions to dispatch EventTarget events instead of directly invoking callbacks, covering the path the earlier tests did not exercise. Dashboard plan v2.13 and Figma initial copy/handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** All 46 mobile regressions, mobile TypeScript, focused upload-observer/progress-component lint and diff checks pass. Real-device upload-to-analysis transition remains unverified; previous local tests did not establish native success.
+
+## 2026-10-08 | Version: delivery-note-endpoint-errors-v1
+
+- **Summary:** Show the API’s delivery-note failure reason instead of discarding Laravel error responses.
+- **API Changes:** No endpoint changes; client accepts envelope error.message/error.details and Laravel message/errors, plus string error and top-level details formats.
+- **Database Changes:** None.
+- **Behavior Changes:** Display the endpoint’s reason and deduplicated validation details as wrapping lines in the existing error box. Preserve the selected document and Retry reading document / Change document. Empty/unusable errors and unreadable response bodies include HTTP status in fallback copy. Exclude unrelated debug metadata and raw HTML.
+- **Internal Changes:** Extract an error formatter with focused regressions; align dashboard plan v2.12 and Figma error implementation guidance without changing the layout.
+- **Breaking Changes:** None.
+- **Verification:** Four formatter regressions cover envelope/Laravel responses, details with generic or absent summaries, deduplication, string errors, malformed fields and debug-metadata exclusion. All 46 mobile regressions, mobile TypeScript, focused API/helper lint and diff checks pass. Actual endpoint-failure rendering, long errors and native retry/replacement recheck remain pending.
+
+## 2026-10-08 | Version: native-delivery-note-upload-progress-v1
+
+- **Summary:** Fix delivery-note reading remaining on Uploading file instead of rotating extraction messages in React Native.
+- **API Changes:** None; correct client XHR completion observation for the existing upload endpoint.
+- **Database Changes:** None.
+- **Behavior Changes:** React Native sends upload progress without upload.load. Start scanning/messages once computable sent bytes reach a positive total; use received response headers/body as a fallback and preserve browser upload.load support. Notify only once; DONE alone never confirms transfer because errors/timeouts also reach it. Keep real result/error handling and immediate advance unchanged.
+- **Internal Changes:** Add a shared upload observer and regressions matching native event behavior; update dashboard plan v2.11 and Figma implementation handoff without changing the visual layout.
+- **Breaking Changes:** None.
+- **Verification:** Four upload-progress regressions cover native progress triggering actual rotation without load, duplicate events, header fallback, unknown/zero totals, network-error DONE exclusion and browser load. All 42 mobile tests, TypeScript and focused API/helper lint pass. Native upload/scan transition recheck remains pending.
+
+## 2026-10-08 | Version: delivery-note-scanning-feedback-v1
+
+- **Summary:** Add animated scanning and clearer waiting feedback while reading a delivery note.
+- **API Changes:** None; retain real XHR upload completion and extraction response handling.
+- **Database Changes:** None.
+- **Behavior Changes:** Show Uploading file until transfer completes, then a theme-aware scanning illustration and 15 illustrative extraction messages at 3.2-second intervals. Hold Wrapping up after 48 seconds if still processing. Advance immediately on the real result; cancel timers on failure/unmount and reset on retry. Keep completed-draft and shipment-creation feedback separate; respect reduced motion and announce updates politely.
+- **Internal Changes:** Add a cancellable reading-message scheduler with timer regressions; align dashboard plan v2.10 and static Figma loading examples/handoff. Messages describe attempted work rather than confirmed backend stages.
+- **Breaking Changes:** None.
+- **Verification:** All 38 mobile regressions pass, including three scheduler tests covering all messages/wrapping hold, early result cancellation and failure/unmount/retry cleanup. Mobile TypeScript and focused component/helper lint pass. Native animation, actual fast/slow extraction, reduced motion, screen-reader, dark-mode and large-text checks remain pending.
+
+## 2026-10-08 | Version: stop-details-no-handle-v1
+
+- **Summary:** Remove the top drag handle from the stop-details bottom sheet.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hide the handle on the shared dashboard/run stop-details sheet; preserve close, backdrop, swipe and Android Back dismissal.
+- **Internal Changes:** Set the existing `showHandle` option to false; align dashboard plan v2.09 and Figma handoff.
+- **Breaking Changes:** None.
+- **Verification:** Focused StopDetailsSheet ESLint passes; native visual verification pending.
+
+## 2026-10-08 | Version: compact-stop-timing-v1
+
+- **Summary:** Reduce padding and gaps in the stop-details Time at location card.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use 12-point card padding, 8-point vertical gaps and divider top padding, 10-point icon-to-text gaps and 1-point label-to-value gaps. Keep existing typography, wrapping and recorded time values.
+- **Internal Changes:** Apply the tighter label/value stack only to timing rows; align dashboard plan v2.08 and the Figma timing handoff.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused StopDetailsSheet ESLint pass. Native compact-layout visual verification remains pending.
+
+## 2026-10-08 | Version: auto-shipment-arrival-status-v1
+
+- **Summary:** Show auto-created shipments as At delivery location during a confirmed destination visit and automatically deliver them on recorded departure.
+- **API Changes:** Shipment/booking responses and driver status history can return `at_delivery_location`. Active mapped-booking reports include it; dashboard statistics add `at_delivery_location_bookings`. Driver mutation/import choices remain `delivered`, `in_transit`, `failed`.
+- **Database Changes:** Add migration `2026_10_08_000001_add_at_delivery_location_status` to expand both enums. Rollback maps arrival values to `in_transit` before removing them. Applied and verified on local MAMP MySQL; no historical backfill or shipment-record repair.
+- **Behavior Changes:** Keep arrival shipments outstanding and assignments active. Synchronize shipment/booking delivery, exit timestamp, valid odometer and completed assignment on departure. Restrict matching to the recorded vehicle/run/account/merchant/destination and nonremoved assignments; preserve terminal states and driver corrections. Keep combined delivery/collection visits linked to their delivery run. Reject stale departures; prevent duplicate delivery events and booking synchronization downgrades. Support existing auto-created assignments in driver-workflow runs without enabling auto-creation there. Add website status badges/filters and separate arrival counters plus correct mobile detail/import labels; shipment completion alone does not close the run.
+- **Internal Changes:** Audit automatic entry/exit status changes with source, old/new values and linked visit. Align dashboard plan v2.07 and Figma scenario handoff with illustrative arrival/departure states.
+- **Breaking Changes:** API consumers with exhaustive status enums must accept `at_delivery_location`; deploy the database migration before code begins writing it. Existing status values and driver-selectable choices remain supported.
+- **Verification:** 147 focused Laravel tests (1,607 assertions), including lifecycle/overlap, explicit/GPS exits, booking recovery/synchronization, corrections/terminal states, wrong-run/removed assignments, stale departures, active reports and SQLite migration rollback/reapply; 35 mobile regressions; both frontend TypeScript checks; PHP syntax and focused frontend lint pass. Website settings has three existing unused-import warnings; mobile lint excludes the existing react-hooks/set-state-in-effect rule. Local MySQL enums and migration ledger verified; Figma handoff visually checked. Production migration/deployment, live truck departure and native status rendering remain unverified.
+
+## 2026-10-08 | Version: automatic-delivery-note-reading-v1
+
+- **Summary:** Advance directly to reading after choosing a valid delivery-note file or confirming a camera photo.
+- **API Changes:** None; use existing context/upload endpoints.
+- **Database Changes:** None.
+- **Behavior Changes:** Restore the upload sheet directly into Step 2 after completed native selection, then upload/read the exact selected asset once the handoff unlocks. Remove normal selected-file confirmation/Continue. Cancel, invalid selection and picker errors remain at Step 1 without processing an old asset. Reading/context failures retain the file for Retry reading document or Change document. Keep already-read draft navigation controls.
+- **Internal Changes:** Return assets from pickers rather than relying on asynchronously updated React state; load missing context before upload. Dashboard plan v2.06 and Figma selection-to-reading transitions/handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused upload-screen lint excluding the pre-existing react-hooks/set-state-in-effect rule, and ten handoff/navigation tests pass. Native successful auto-reading, failed upload/replacement, Android and dark/large-text checks remain pending.
+
+## 2026-10-08 | Version: dashed-upload-card-target-v1
+
+- **Summary:** Restore the visible Choose document action and allow tapping anywhere in the dashed upload panel.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** One accessible pressable wraps the icon, heading, file requirements, padding and visible Choose/Change document face. Every area opens the existing source chooser; preserve file selection, handoff locking, cancellation and gated Continue.
+- **Internal Changes:** Replace the nested Pressable style callback with a statically styled inner View so the coral action renders reliably. Align dashboard plan v2.05 and canonical Figma card hit area/handoff.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused upload ESLint excluding the pre-existing react-hooks/set-state-in-effect rule, and eight sheet-handoff regressions pass. iOS simulator confirms the coral Choose document control is visible, activating the card opens Photo / File / Camera, and Cancel returns to Step 1 without selection/upload. Android, dark/large-text and selected-file interaction checks remain pending.
+
+## 2026-10-08 | Version: timeline-stop-five-designs-v1
+
+- **Summary:** Create five editable Figma alternatives for Expo timeline stop information.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None; the five designs await selection and are not implemented.
+- **Internal Changes:** Add Minimal row, Soft stop card (recommended), Time first, Connected timeline and Clear detail action; five component variants and ten light/dark instances use existing theme tokens and SF Pro. Dashboard plan v2.04 records proposals, status and acceptance checks.
+- **Breaking Changes:** None.
+- **Verification:** Figma composition visually checked after auto-layout sizing correction. Confirmed editable text/vector structure, SF Pro typography and no image-filled UI layers. No runtime checks required for this design-only addition.
+
+## 2026-10-08 | Version: dashed-document-selection-v1
+
+- **Summary:** Implement selected Figma option 3, Dashed panel, for delivery-note file selection.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the fully tappable card with a dashed neutral panel, coral upload icon, centered title/file requirements and explicit full-width dark-coral Choose document button. Selected files show their wrapping filename and Change document; preserve selection-gated Continue, existing source handoff, validation, cancellation/errors and draft return.
+- **Internal Changes:** Mark option 3 selected on the four-direction Figma board; align canonical Step 1/scenario handoff and dashboard plan v2.03. Other options remain references.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused upload-screen ESLint (pre-existing react-hooks/set-state-in-effect rule excluded) and git diff --check pass. Figma composition and SF Pro checked. Native iOS/Android layout, picker interaction, dark-mode and large-text checks remain pending.
+
+## 2026-10-08 | Version: upload-section-four-designs-v1
+
+- **Summary:** Add four editable Figma concepts for the delivery-note upload section.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None; no design selected or implemented.
+- **Internal Changes:** Add Calm centered, Compact row, Dashed panel and Bold coral components and a comparison board; record proposals and selection gate in dashboard plan v2.02.
+- **Breaking Changes:** None.
+- **Verification:** Figma composition visually reviewed, SF Pro asserted, editable component instances/text/vector layers confirmed without UI raster images; five-step progress and file requirements retained. Native behavior is outside this design-only task.
+
+## 2026-10-08 | Version: expo-timeline-stop-tap-area-v1
+
+- **Summary:** Open stop details by tapping anywhere in an Expo timeline stop information block.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Expand the shared dashboard/run-detail stop button to include the event label, name, address, timestamp, speeding metadata and intervening space. Keep shipment links as independent navigation controls.
+- **Internal Changes:** Record the implementation correction in the dashboard handoff; retain existing layout and Figma design.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused RunTimeline ESLint pass. Native tap/scroll verification remains pending.
+
+## 2026-10-08 | Version: structured-stop-visit-times-v1
+
+- **Summary:** Make stop entry, exit and time spent easier to scan in the location details sheet.
+- **API Changes:** None; use existing occurred_at/exited_at fields.
+- **Database Changes:** None.
+- **Behavior Changes:** Add labelled Entered at, Exited at and Total time at location rows with icons, dividers, local timestamps and a prominent duration. Missing exit shows Exit not recorded; unavailable duration remains explicit. Calculate only from valid ordered recorded timestamps, including zero-length, timezone and multi-day visits. Preserve planned endpoint and speeding event semantics.
+- **Internal Changes:** Dashboard plan v2.01 and Figma scenario handoff aligned; add focused elapsed-time regressions.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused sheet/helper lint, three elapsed-time regressions and diff checks pass. iOS simulator visually verifies separate entered/exited rows, readable local timestamps, map context and an accurate 1 min 48 sec total for a recorded stop, plus Exit not recorded/Not available for a stop without exit evidence. Native dark/large-text/short-screen and Android verification remain gates. No API or production mutation.
+
+## 2026-10-08 | Version: centered-map-delivery-note-warning-v1
+
+- **Summary:** Float the delivery-note warning in the center of the dashboard map.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the reserved top banner with a centered white card over the map, rounded corners and a soft shadow. Keep the warning triangle, existing message and run-scoped upload action. Map gestures pass through outside the card; the expanded run sheet may cover the map/card.
+- **Internal Changes:** Restore full map/sheet space and normal top safe-area handling; bound the card width to 420 points with side clearance. Dashboard plan v2.00 and Figma scenario handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused dashboard lint excluding the existing effect rule and diff checks pass. Native positioning, shadow, map gestures, upload tap, large text and short screens remain unverified.
+
+## 2026-10-08 | Version: minimal-document-selection-v1
+
+- **Summary:** Simplify delivery-note file selection around one clear action.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the explanatory paragraph and duplicated heading/button with one centered tappable card containing an upload icon, Choose document and supported formats/20 MB limit. Show the filename and Change document after selection; retain Continue, errors, source picker and saved-draft return.
+- **Internal Changes:** Dashboard plan v1.99 and Figma Step 1 copy/scenario handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and diff checks pass. Focused upload-screen lint passes with the pre-existing react-hooks/set-state-in-effect violation excluded. Native iOS/Android visual, dark-mode and large-text checks remain unverified.
+
+## 2026-10-08 | Version: fixed-delivery-note-warning-v1
+
+- **Summary:** Make the required delivery-note message prominent and visible above the dashboard map.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the cloud-upload icon with an outlined warning triangle. Move the existing tappable red/pink message to a fixed banner below the top safe area, outside the run panel, so scrolling and expanding the panel cannot cover it. Retain the server-controlled requirement and upload for that run; remove the duplicate sheet message.
+- **Internal Changes:** Measure map/sheet space beneath the banner and avoid duplicate top insets. Dashboard plan v1.98 and Figma scenario handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused dashboard lint excluding the pre-existing effect rule, and diff checks pass. Native iOS/Android sheet positions, warning tap, large text and short-screen layout remain unverified.
+
+## 2026-10-08 | Version: direct-trip-location-selection-v1
+
+- **Summary:** Remove the extra confirmation screen from delivery-note trip-location selection.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Tapping a starting-point or planned-end result immediately updates the draft endpoint and returns to trip review. Reopen search through Change location. Final upload still requires review and confirmation.
+- **Internal Changes:** Add opt-in direct selection to LocationSearchPicker, retaining explicit confirmation for Edit Run and Final Destination. Reuse submission/error guards. Dashboard plan v1.97 and Figma handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint excluding the pre-existing import-page effect rule, and diff checks pass. Native direct-selection interaction remains unverified.
+
 ## 2026-10-08 | Version: navigable-delivery-note-steps-v1
 
 - **Summary:** Use the segmented step UI throughout delivery-note upload and let drivers return to completed steps.

@@ -13,6 +13,7 @@ const STATUS_STYLES: Record<string, string> = {
   ready: "bg-indigo-100 text-indigo-700 border-indigo-200",
   booked: "bg-amber-100 text-amber-700 border-amber-200",
   in_transit: "bg-cyan-100 text-cyan-700 border-cyan-200",
+  at_delivery_location: "bg-amber-100 text-amber-700 border-amber-200",
   delivered: "bg-emerald-100 text-emerald-700 border-emerald-200",
   exception: "bg-rose-100 text-rose-700 border-rose-200",
   cancelled: "bg-stone-100 text-stone-600 border-stone-200",

@@ -808,7 +808,7 @@ function SubmitButton({
 }
 
 function formatStatus(status: string) {
-  return status === 'failed' ? 'Failed Delivery' : status.replaceAll('_', ' ');
+  return status === 'failed' ? 'Failed Delivery' : status === 'at_delivery_location' ? 'At delivery location' : status.replaceAll('_', ' ');
 }
 
 function getAvailableStatuses(_currentStatus: string) { return STATUS_FLOW; }

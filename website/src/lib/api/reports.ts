@@ -11,6 +11,7 @@ export type CreatedOverTimePoint = {
 export type DashboardStats = {
   total_shipments: number
   delivered_shipments: number
+  at_delivery_location_bookings?: number
   in_transit_bookings: number
   pending_shipments: number
   active_merchants: number

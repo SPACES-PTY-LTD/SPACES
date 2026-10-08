@@ -31,6 +31,16 @@ return [
 
     'connections' => [
 
+        // Dedicated reservation exceeds the extraction job's 300-second timeout.
+        'document-imports' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => 'document-imports',
+            'retry_after' => 330,
+            'after_commit' => true,
+        ],
+
         'sync' => [
             'driver' => 'sync',
         ],

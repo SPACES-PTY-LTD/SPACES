@@ -35,14 +35,13 @@ const addressFields = [
     ["post_code", "Postal code"],
     ["country", "Country"],
 ];
-const statusLabel = (value: string) =>
-    value === "failed"
-        ? "Failed Delivery"
-        : value === "in_transit"
-          ? "In transit"
-          : value === "delivered"
-            ? "Delivered"
-            : "Booked";
+const statusLabel = (value: string) => {
+    if (value === "at_delivery_location") return "At delivery location";
+    if (value === "failed") return "Failed Delivery";
+    if (value === "in_transit") return "In transit";
+    if (value === "delivered") return "Delivered";
+    return "Booked";
+};
 const fullAddress = (a?: Record<string, any>) =>
     a?.full_address ||
     [
@@ -377,6 +376,7 @@ export default function ReviewImport() {
                             key={locationKind}
                             ref={locationPicker}
                             token={session!.token}
+                            confirmOnSelect
                             selectionIcon={locationKind === "origin_location_id" ? "map-pin" : "flag"}
                             selectedLabel={locationKind === "origin_location_id" ? "SELECTED STARTING POINT" : "SELECTED PLANNED END"}
                             confirmLabel={locationKind === "origin_location_id" ? "Use starting point" : "Use planned end location"}

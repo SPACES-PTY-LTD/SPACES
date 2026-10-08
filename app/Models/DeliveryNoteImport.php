@@ -13,6 +13,10 @@ class DeliveryNoteImport extends Model
 {
     use HasAccountId, HasFactory, HasUuid;
 
+    public const STATUS_QUEUED = 'queued';
+
+    public const STATUS_PROCESSING = 'processing';
+
     public const STATUS_ANALYZED = 'analyzed';
 
     public const STATUS_CONFIRMED = 'confirmed';

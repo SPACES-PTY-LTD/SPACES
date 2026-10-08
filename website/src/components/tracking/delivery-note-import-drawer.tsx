@@ -21,8 +21,9 @@ import {
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import {
-  analyzeDeliveryNote, confirmDeliveryNoteImport,
+  analyzeDeliveryNote, getDeliveryNoteAnalysis, confirmDeliveryNoteImport,
 } from "@/lib/api/delivery-note-imports"
+import { pollDocumentImport } from "@/lib/delivery-note-analysis-poll"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listLocations } from "@/lib/api/locations"
 import { LocationDialog } from "@/components/locations/location-dialog"
@@ -84,6 +85,25 @@ export function DeliveryNoteImportDrawer({
   const [data, setData] = React.useState<DeliveryNoteExtraction>(emptyExtraction)
   const [mode, setMode] = React.useState<"separate_shipments" | "single_shipment">("separate_shipments")
   const [analyzing, setAnalyzing] = React.useState(false)
+  const [pendingAnalysis, setPendingAnalysis] = React.useState("")
+  const analysisController = React.useRef<AbortController | null>(null)
+  const analysisStorageKey = `delivery-note-analysis:${run.merchant_id}:${run.run_id}`
+  React.useEffect(() => {
+    let active = true
+    if (open) Promise.resolve().then(() => {
+      if (!active) return
+      try { setPendingAnalysis(localStorage.getItem(analysisStorageKey) ?? "") } catch { /* Keep in-memory recovery. */ }
+    })
+    return () => { active = false; analysisController.current?.abort() }
+  }, [open, analysisStorageKey])
+  const rememberAnalysis = (id: string) => {
+    setPendingAnalysis(id)
+    try {
+      if (id) localStorage.setItem(analysisStorageKey, id)
+      else localStorage.removeItem(analysisStorageKey)
+    } catch { /* Keep in-memory recovery if storage is unavailable. */ }
+  }
+
   const [confirming, setConfirming] = React.useState(false)
   const [locations, setLocations] = React.useState<Location[]>([])
   const [locationsLoading, setLocationsLoading] = React.useState(false)
@@ -93,6 +113,8 @@ export function DeliveryNoteImportDrawer({
   const matchedImportRef = React.useRef("")
 
   const reset = React.useCallback(() => {
+    analysisController.current?.abort()
+    setAnalyzing(false)
     setFile(null)
     setImportId("")
     setData(emptyExtraction())
@@ -164,22 +186,48 @@ export function DeliveryNoteImportDrawer({
   }
 
   const analyze = async () => {
-    if (!file) return toast.error("Choose a delivery note first.")
+    if (analyzing) return
+    if (!pendingAnalysis && !file) return toast.error("Choose a delivery note first.")
+    if (!run.merchant_id) return toast.error("Select a merchant first.")
+    const controller = new AbortController()
+    analysisController.current = controller
     setAnalyzing(true)
-    const response = await analyzeDeliveryNote(run.run_id, file, accessToken)
-    setAnalyzing(false)
-    if (isApiErrorResponse(response)) return toast.error(response.message)
-    setImportId(response.data.import_id)
-    setData({
-      ...emptyExtraction(),
-      ...response.data.extracted_data,
-      pickup_address: { ...emptyAddress(), ...response.data.extracted_data?.pickup_address },
-      dropoff_address: { ...emptyAddress(), ...response.data.extracted_data?.dropoff_address },
-      line_items: response.data.extracted_data?.line_items?.length
-        ? response.data.extracted_data.line_items
-        : [emptyLine()],
-      collection_date: response.data.extracted_data?.collection_date?.slice(0, 10) ?? "",
-    })
+    let id = pendingAnalysis
+    try {
+      if (!id && file) {
+        id = crypto.randomUUID()
+        rememberAnalysis(id)
+        const response = await analyzeDeliveryNote(run.run_id, file, accessToken, { importId: id, merchantId: run.merchant_id, environmentId: run.environment_id, signal: controller.signal })
+        if (controller.signal.aborted) return
+        if (isApiErrorResponse(response) && response.status && response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status)) {
+          rememberAnalysis("")
+          throw new Error(response.message)
+        }
+      }
+      if (controller.signal.aborted) return
+      const result = await pollDocumentImport(async signal => {
+        const response = await getDeliveryNoteAnalysis(id, run.merchant_id!, accessToken, signal, run.environment_id)
+        if (isApiErrorResponse(response)) throw Object.assign(new Error(response.message), { status: response.status })
+        return response.data
+      }, controller.signal, () => {})
+      if (controller.signal.aborted) return
+      rememberAnalysis("")
+      if (result.status === "failed") throw new Error(result.failure_message || "Document analysis failed. Choose another document.")
+      setImportId(result.import_id)
+      setData({
+        ...emptyExtraction(),
+        ...result.extracted_data,
+        pickup_address: { ...emptyAddress(), ...result.extracted_data?.pickup_address },
+        dropoff_address: { ...emptyAddress(), ...result.extracted_data?.dropoff_address },
+        line_items: result.extracted_data?.line_items?.length
+          ? result.extracted_data.line_items
+          : [emptyLine()],
+        collection_date: result.extracted_data?.collection_date?.slice(0, 10) ?? "",
+      })
+
+    } catch (error) {
+      if (!controller.signal.aborted) toast.error(error instanceof Error ? error.message : "Unable to check document processing.")
+    } finally { if (analysisController.current === controller) setAnalyzing(false) }
   }
 
   const confirm = async () => {
@@ -223,7 +271,8 @@ export function DeliveryNoteImportDrawer({
               <Input
                 id="delivery-note-file" type="file"
                 accept="application/pdf,image/jpeg,image/png,image/webp"
-                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                disabled={analyzing}
+                onChange={(event) => { const selected = event.target.files?.[0]; if (selected) { setFile(selected); rememberAnalysis("") } }}
               />
             </div>
           ) : (
@@ -333,11 +382,11 @@ export function DeliveryNoteImportDrawer({
         </div>
 
         <DrawerFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => { analysisController.current?.abort(); onOpenChange(false) }}>{analyzing ? "Check later" : "Cancel"}</Button>
           {!importId ? (
-            <Button onClick={() => void analyze()} disabled={!file || analyzing}>
+            <Button onClick={() => void analyze()} disabled={(!file && !pendingAnalysis) || analyzing}>
               {analyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {analyzing ? "Analyzing..." : "Upload and analyze"}
+              {analyzing ? "Checking processing…" : pendingAnalysis ? "Check processing status" : "Upload and analyze"}
             </Button>
           ) : (
             <Button onClick={() => void confirm()} disabled={confirming}>

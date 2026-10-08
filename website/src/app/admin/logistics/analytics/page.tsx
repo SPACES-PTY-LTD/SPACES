@@ -178,6 +178,11 @@ export default async function LogisticsAnalyticsPage() {
       }),
     },
     {
+      label: "At delivery location",
+      value: formatCount(stats.at_delivery_location_bookings ?? 0),
+      href: withAdminQuery(AdminLinks.reportsShipments, { shipment_status: "at_delivery_location" }),
+    },
+    {
       label: "In-transit bookings",
       value: formatCount(stats.in_transit_bookings),
       href: AdminLinks.bookings,

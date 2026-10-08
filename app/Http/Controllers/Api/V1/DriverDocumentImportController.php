@@ -149,8 +149,12 @@ class DriverDocumentImportController extends Controller
     public function store(Request $request, DeliveryNoteImportService $service)
     {
         $driver = $this->driver($request);
-        $data = $request->validate(['file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:20480'], 'run_id' => ['nullable', 'uuid']]);
+        $data = $request->validate(['file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:20480'], 'run_id' => ['nullable', 'uuid'], 'async' => ['sometimes', 'boolean'], 'import_id' => ['required_if:async,1', 'nullable', 'uuid']]);
         $run = empty($data['run_id']) ? null : $this->runs($driver)->where('uuid', $data['run_id'])->firstOrFail();
+        if ($request->boolean('async')) {
+            $import = $service->queueDocument($request->user(), $data['file'], $driver->merchant, $run, $data['import_id']);
+            return ApiResponse::success($this->payload($import), [], 202);
+        }
         $import = $service->analyzeDocument($request->user(), $data['file'], $driver->merchant, $run);
 
         return ApiResponse::success($this->payload($import), [], 201);
@@ -158,21 +162,13 @@ class DriverDocumentImportController extends Controller
 
     public function show(Request $request, string $id)
     {
-        return ApiResponse::success($this->payload($this->owned($request, $id)));
+        $import = $this->owned($request, $id);
+        return ApiResponse::success($this->payload($import));
     }
 
     private function payload(DeliveryNoteImport $import): array
     {
-        $refs = collect($import->extracted_data['line_items'] ?? [])->pluck('merchant_order_ref')
-            ->push($import->extracted_data['merchant_order_ref'] ?? null)->filter();
-
-        return [
-            'import_id' => $import->uuid, 'status' => $import->status, 'filename' => $import->original_name,
-            'run_id' => $import->run?->uuid, 'extracted_data' => $import->extracted_data,
-            'confirmation_result' => $import->confirmation_result,
-            'existing_references' => Shipment::withTrashed()->where('merchant_id', $import->merchant_id)
-                ->whereIn('merchant_order_ref', $refs)->pluck('merchant_order_ref')->all(),
-        ];
+        return app(DeliveryNoteImportService::class)->processingPayload($import);
     }
 
     public function confirm(ConfirmDriverDocumentImportRequest $request, string $id, ShipmentService $shipments, RunService $runs)

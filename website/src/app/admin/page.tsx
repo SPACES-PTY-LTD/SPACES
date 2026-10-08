@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CreatedOverTimeChart } from "@/components/reports/created-over-time-chart"
 import { FleetStatusChart } from "@/components/reports/fleet-status-chart"
 import { requireAuth } from "@/lib/auth"
-import { getDashboardStats } from "@/lib/api/reports"
+import { getDashboardStats, type DashboardStats } from "@/lib/api/reports"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listActivityLogs } from "@/lib/api/activity-logs"
 import { listExpiredEntityFiles } from "@/lib/api/entity-files"
@@ -20,10 +20,11 @@ export default async function AdminDashboardPage() {
   const dashboardTitle = session.selected_merchant?.name
     ? `${session.selected_merchant.name} dashboard`
     : "Admin dashboard"
-  let stats = {
+  let stats: DashboardStats = {
     total_shipments: 0,
     delivered_shipments: 0,
     in_transit_bookings: 0,
+    at_delivery_location_bookings: 0,
     pending_shipments: 0,
     active_merchants: 0,
     active_quotes: 0,
@@ -75,6 +76,11 @@ export default async function AdminDashboardPage() {
       label: "In-transit bookings",
       value: formatter.format(stats.in_transit_bookings),
       href: withAdminQuery(AdminLinks.shipments, { status: "in_transit" }),
+    },
+    {
+      label: "At delivery location",
+      value: formatter.format(stats.at_delivery_location_bookings ?? 0),
+      href: withAdminQuery(AdminLinks.shipments, { status: "at_delivery_location" }),
     },
     {
       label: "Delivered shipments",

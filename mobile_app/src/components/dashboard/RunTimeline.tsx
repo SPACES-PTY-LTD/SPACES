@@ -88,25 +88,26 @@ export function RunTimeline({
                     <View
                         style={[styles.timelineContent, { paddingBottom: 20 }]}
                     >
-                        <Text
-                            style={{
-                                color: muted,
-                                fontSize: 11,
-                                fontWeight: "600",
-                                marginBottom: 4,
-                            }}
-                        >
-                            {stop.planned
-                                ? stop.kind === "Planned end"
-                                    ? "Planned end location"
-                                    : "Planned delivery"
-                                : stop.kind || "Stop"}
-                        </Text>
                         <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel={`View ${stop.kind} details: ${stop.name}`}
+                            accessibilityLabel={`View ${stop.kind || "stop"} details: ${stop.name}`}
                             onPress={() => onOpenStop(stop)}
+                            style={styles.timelineStopDetails}
                         >
+                            <Text
+                                style={{
+                                    color: muted,
+                                    fontSize: 11,
+                                    fontWeight: "600",
+                                    marginBottom: 4,
+                                }}
+                            >
+                                {stop.planned
+                                    ? stop.kind === "Planned end"
+                                        ? "Planned end location"
+                                        : "Planned delivery"
+                                    : stop.kind || "Stop"}
+                            </Text>
                             <Text
                                 style={[styles.shipmentTitle, { color: ink }]}
                             >
@@ -117,42 +118,42 @@ export function RunTimeline({
                                     color={muted}
                                 />
                             </Text>
+                            {stop.kind === "Speeding" ? (
+                                <Text
+                                    style={{
+                                        color: "#b91c1c",
+                                        fontSize: 13,
+                                        marginTop: 6,
+                                    }}
+                                >
+                                    {stop.speed_kph != null
+                                        ? `${stop.speed_kph} km/h`
+                                        : "Speed not recorded"}
+                                    {stop.speed_limit_kph != null
+                                        ? ` · Limit ${stop.speed_limit_kph} km/h`
+                                        : " · Speed limit not recorded"}
+                                </Text>
+                            ) : null}
+                            {stop.address ? (
+                                <Text
+                                    style={[styles.shipmentRoute, { color: muted }]}
+                                >
+                                    {stop.address}
+                                </Text>
+                            ) : null}
+                            <Text
+                                style={{ fontSize: 12, color: muted, marginTop: 6 }}
+                            >
+                                {stop.planned
+                                    ? "Not visited yet"
+                                    : stop.occurred_at
+                                      ? new Date(stop.occurred_at).toLocaleString()
+                                      : "Time not recorded"}
+                                {stop.exited_at
+                                    ? ` · Left ${new Date(stop.exited_at).toLocaleTimeString()}`
+                                    : ""}
+                            </Text>
                         </Pressable>
-                        {stop.kind === "Speeding" ? (
-                            <Text
-                                style={{
-                                    color: "#b91c1c",
-                                    fontSize: 13,
-                                    marginTop: 6,
-                                }}
-                            >
-                                {stop.speed_kph != null
-                                    ? `${stop.speed_kph} km/h`
-                                    : "Speed not recorded"}
-                                {stop.speed_limit_kph != null
-                                    ? ` · Limit ${stop.speed_limit_kph} km/h`
-                                    : " · Speed limit not recorded"}
-                            </Text>
-                        ) : null}
-                        {stop.address ? (
-                            <Text
-                                style={[styles.shipmentRoute, { color: muted }]}
-                            >
-                                {stop.address}
-                            </Text>
-                        ) : null}
-                        <Text
-                            style={{ fontSize: 12, color: muted, marginTop: 6 }}
-                        >
-                            {stop.planned
-                                ? "Not visited yet"
-                                : stop.occurred_at
-                                  ? new Date(stop.occurred_at).toLocaleString()
-                                  : "Time not recorded"}
-                            {stop.exited_at
-                                ? ` · Left ${new Date(stop.exited_at).toLocaleTimeString()}`
-                                : ""}
-                        </Text>
                         {!!stop.shipments?.length && (
                             <View>
                                 {stop.shipments.map((shipment) => (
@@ -205,6 +206,7 @@ const styles = StyleSheet.create({
     },
     timelineConnector: { width: 2, flex: 1 },
     timelineContent: { flex: 1, gap: 8 },
+    timelineStopDetails: { gap: 8, minHeight: 44 },
     timelineShipmentLink: {
         minHeight: 36,
         paddingVertical: 8,

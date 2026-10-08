@@ -160,6 +160,10 @@ export default async function ShipmentsPage({
             link: "/admin/logistics/shipments?status=in_transit",
           },
           {
+            label: "At delivery location",
+            link: "/admin/logistics/shipments?status=at_delivery_location",
+          },
+          {
             label: "Delivered",
             link: "/admin/logistics/shipments?status=delivered",
           },
@@ -182,6 +186,7 @@ export default async function ShipmentsPage({
               { label: "Draft", value: "draft" },
               { label: "Booked", value: "booked" },
               { label: "In Transit", value: "in_transit" },
+              { label: "At delivery location", value: "at_delivery_location" },
               { label: "Delivered", value: "delivered" },
               { label: "Cancelled", value: "cancelled" },
               { label: "Failed", value: "failed" },

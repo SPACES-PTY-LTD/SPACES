@@ -206,6 +206,9 @@ Route::prefix('v1')->group(function () {
         Route::patch('runs/{run_uuid}', [RunController::class, 'update']);
         Route::post('runs/{run_uuid}/shipments/create', [RunController::class, 'createShipment']);
         Route::post('runs/{run_uuid}/shipments', [RunController::class, 'attachShipments']);
+        Route::post('delivery-note-imports/analyze', [\App\Http\Controllers\Api\V1\DeliveryNoteAnalysisController::class, 'analyze'])->middleware('merchant.context');
+        Route::get('delivery-note-imports/{id}/status', [\App\Http\Controllers\Api\V1\DeliveryNoteAnalysisController::class, 'status'])->middleware('merchant.context');
+
         Route::post('runs/{run_uuid}/delivery-note-imports', [DeliveryNoteImportController::class, 'store']);
         Route::post('runs/{run_uuid}/delivery-note-imports/{import_uuid}/confirm', [DeliveryNoteImportController::class, 'confirm']);
         Route::get('runs/{run_uuid}/delivery-note-imports/{import_uuid}/download', [DeliveryNoteImportController::class, 'download']);

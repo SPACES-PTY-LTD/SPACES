@@ -226,7 +226,7 @@ class InternalBookingLifecycleService
     {
         $updates = [];
 
-        if ($booking->status !== 'in_transit' && !in_array($booking->status, ['delivered', 'cancelled', 'failed'], true)) {
+        if ($booking->status !== 'in_transit' && !in_array($booking->status, ['at_delivery_location', 'delivered', 'cancelled', 'failed', 'returned'], true)) {
             $updates['status'] = 'in_transit';
         }
 

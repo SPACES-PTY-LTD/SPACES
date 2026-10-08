@@ -57,6 +57,7 @@ export type ShipmentStatus =
   | "draft"
   | "ready"
   | "in_transit"
+  | "at_delivery_location"
   | "delivered"
   | "exception"
   | "cancelled"
@@ -64,6 +65,7 @@ export type ShipmentStatus =
 export type BookingStatus =
   | "booked"
   | "in_transit"
+  | "at_delivery_location"
   | "delivered"
   | "failed"
   | "pending"

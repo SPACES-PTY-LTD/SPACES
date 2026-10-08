@@ -1,10 +1,13 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
+import { pollDocumentImport } from '@/src/lib/document-import-poll';
 import { MessageSheet, type MessageSheetRef } from "@/component/ui/MessageSheet";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Linking, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import { documentImportApi, ImportContext } from "@/src/lib/api";
 import { useAuth } from "@/src/providers/auth-provider";
 import {
@@ -81,6 +84,36 @@ export default function LoadShipment() {
     const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset>();
     const [busy, setBusy] = useState(false);
     const [uploaded, setUploaded] = useState(false);
+    const [pendingImport, setPendingImport] = useState<{ id: string; filename: string } | null>(null);
+    const polling = useRef<AbortController | null>(null);
+    const pendingStorageKey = session ? `delivery-note-processing:${session.user.user_id}` : null;
+    useEffect(() => {
+        let active = true;
+        if (pendingStorageKey) void AsyncStorage.getItem(pendingStorageKey).then(value => {
+            if (!active || !value || inFlight.current) return;
+            try {
+                const saved = JSON.parse(value);
+                if (typeof saved.id === 'string' && typeof saved.filename === 'string') setPendingImport(saved);
+            } catch { /* Ignore an invalid local reference. */ }
+        }).catch(() => { /* A storage failure must not prevent opening the flow. */ });
+        return () => { active = false; polling.current?.abort(); };
+    }, [pendingStorageKey]);
+    async function clearPending() {
+        setPendingImport(null);
+        if (pendingStorageKey) await AsyncStorage.removeItem(pendingStorageKey).catch(() => { /* Do not block completed analysis on local storage failure. */ });
+    }
+    async function checkProcessing(pending: { id: string; filename: string }, controller: AbortController) {
+        if (!session || !handoffRef.current?.active || controller.signal.aborted) return;
+        const result = await pollDocumentImport(
+            (signal) => documentImportApi.show(session.token, pending.id, signal), controller.signal,
+            () => setUploaded(true),
+        );
+        if (controller.signal.aborted || !handoffRef.current?.active) return;
+        await clearPending();
+        if (result.status === 'failed') throw new Error(result.failure_message || 'Document analysis failed. Please try another document.');
+        openReview(result.import_id);
+    }
+
     const inFlight = useRef(false);
     const [error, setError] = useState("");
     async function load() {
@@ -110,7 +143,7 @@ export default function LoadShipment() {
     useEffect(() => {
         void load(); /* Reload for a different account or dashboard run. */
     }, [session?.token, requestedRun]); // eslint-disable-line react-hooks/exhaustive-deps
-    async function pick() {
+    async function pick(): Promise<DocumentPicker.DocumentPickerAsset | undefined> {
         try {
             const result = await DocumentPicker.getDocumentAsync({
                 type: [
@@ -126,8 +159,7 @@ export default function LoadShipment() {
                     setError("Choose a document smaller than 20 MB.");
                     return;
                 }
-                setFile(result.assets[0]);
-                setError("");
+                return result.assets[0];
             }
         } catch {
             if (handoffRef.current?.active) setError("Unable to open your documents. Please try again.");
@@ -140,7 +172,7 @@ export default function LoadShipment() {
             messageSheet.current.present(title, message, choices.map(text => ({ text })), resolve);
         });
     }
-    async function pickImage(camera: boolean): Promise<void> {
+    async function pickImage(camera: boolean): Promise<DocumentPicker.DocumentPickerAsset | undefined> {
         try {
             // The system photo picker grants access to the chosen asset only;
             // this Expo SDK requires a permission request for camera capture.
@@ -187,61 +219,107 @@ export default function LoadShipment() {
                 if (choice === "Retake") return await pickImage(true);
                 if (choice !== "Use photo") return;
             }
-            setFile(selected);
-            setError("");
+            return selected;
         } catch {
             if (handoffRef.current?.active) setError("Unable to open this source. Try File or another source.");
         }
     }
-    function chooseDocument() {
-        if (busy || inFlight.current) return;
-        void handoffRef.current?.run(async () => {
-            const source = await new Promise<string | undefined>(resolve => {
-                if (!actionsRef.current) return resolve(undefined);
-                actionsRef.current.present({
-                    title: "Choose document",
-                    actions: [
-                        { id: "photo", label: "Photo", onPress: () => {} },
-                        { id: "file", label: "File", onPress: () => {} },
-                        { id: "camera", label: "Camera", onPress: () => {} },
-                    ],
-                    onDismiss: resolve,
+    async function chooseDocument() {
+        if (!session || busy || inFlight.current) return;
+        const handoff = handoffRef.current;
+        if (!handoff?.active || handoff.running) return;
+        let selected: DocumentPicker.DocumentPickerAsset | undefined;
+        try {
+            await handoff.run(async () => {
+                const source = await new Promise<string | undefined>(resolve => {
+                    if (!actionsRef.current) return resolve(undefined);
+                    actionsRef.current.present({
+                        title: "Choose document",
+                        actions: [
+                            { id: "photo", label: "Photo", onPress: () => {} },
+                            { id: "file", label: "File", onPress: () => {} },
+                            { id: "camera", label: "Camera", onPress: () => {} },
+                        ],
+                        onDismiss: resolve,
+                    });
                 });
+                if (!handoffRef.current?.active) return;
+                if (source === "file") selected = await pick();
+                else if (source === "photo" || source === "camera") selected = await pickImage(source === "camera");
+                if (selected && handoff.active) {
+                    setFile(selected);
+                    setError("");
+                    setUploaded(false);
+                    // Restore the sheet directly into Step 2, without flashing file confirmation.
+                    setBusy(true);
+                }
             });
-            if (!handoffRef.current?.active) return;
-            if (source === "file") await pick();
-            else if (source === "photo" || source === "camera") await pickImage(source === "camera");
-        }).catch(() => {
-            if (handoffRef.current?.active) setError("Unable to open this source. Please try again.");
-        });
+            if (selected && handoff.active) { await clearPending(); await analyze(selected, true); }
+        } catch {
+            if (handoff.active) setError("Unable to open this source. Please try again.");
+        }
     }
-    async function analyze() {
-        if (!file || !session || inFlight.current || handoffRef.current?.running) return;
+    async function analyze(selected = file, replacement = false) {
+        if ((!selected && !pendingImport) || !session || inFlight.current || handoffRef.current?.running) return;
         inFlight.current = true;
+        const controller = new AbortController();
+        polling.current = controller;
         setUploaded(false);
         setBusy(true);
         setError("");
         try {
+            if (pendingImport && !replacement) {
+                setUploaded(true);
+                await checkProcessing(pendingImport, controller);
+                return;
+            }
+            if (!selected) return;
+            let uploadRun = run;
+            if (!context) {
+                const available = await documentImportApi.context(session.token);
+                if (controller.signal.aborted || !handoffRef.current?.active) return;
+                setContext(available);
+                uploadRun = requestedRun
+                    ? available.runs.find(item => item.run_id === requestedRun)?.run_id || null
+                    : available.runs.length === 1 ? available.runs[0].run_id : null;
+                setRun(uploadRun);
+            }
             const body = new FormData();
             body.append("file", {
-                uri: file.uri,
-                name: file.name,
-                type: file.mimeType || "application/pdf",
+                uri: selected.uri,
+                name: selected.name,
+                type: selected.mimeType || "application/pdf",
             } as unknown as Blob);
-            if (run) body.append("run_id", run);
-            const result = await documentImportApi.upload(
-                session.token,
-                body,
-                () => setUploaded(true),
-            );
-            openReview(result.import_id);
+            if (uploadRun) body.append("run_id", uploadRun);
+            const pending = { id: Crypto.randomUUID(), filename: selected.name };
+            body.append('async', '1');
+            body.append('import_id', pending.id);
+            // Persist before sending so a lost 202/504 can be recovered by the same UUID.
+            if (pendingStorageKey) await AsyncStorage.setItem(pendingStorageKey, JSON.stringify(pending));
+            if (controller.signal.aborted || !handoffRef.current?.active) return;
+            setPendingImport(pending);
+            try {
+                await documentImportApi.upload(session.token, body, () => { if (!controller.signal.aborted && handoffRef.current?.active) setUploaded(true); });
+                if (controller.signal.aborted) return;
+                setUploaded(true);
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                const status = (error as { status?: number }).status;
+                if (status && status >= 400 && status < 500 && ![408, 429].includes(status)) {
+                    await clearPending();
+                    throw error;
+                }
+                // Upload may have been accepted even when the acknowledgement was lost.
+            }
+            await checkProcessing(pending, controller);
         } catch (e) {
+            if (!handoffRef.current?.active || controller.signal.aborted) return;
             setError(
                 (e as Error).message ||
                     "Could not read this document. Please try again.",
             );
         } finally {
-            if (!reviewDestination.current) {
+            if (!reviewDestination.current && handoffRef.current?.active && polling.current === controller) {
                 inFlight.current = false;
                 setBusy(false);
             }
@@ -263,36 +341,59 @@ export default function LoadShipment() {
                 {busy ? (
                     <>
                         <DeliveryNoteProgress uploaded={uploaded} />
+                        {pendingImport && uploaded && <ImportButton secondary label="Check later" onPress={() => {
+                            polling.current?.abort();
+                            inFlight.current = false;
+                            setBusy(false);
+                            setError('Your document is still saved for processing. Check its status when you are ready.');
+                        }} />}
                     </>
                 ) : (
                     <>
                         <ImportStepIndicator step={1} />
-                        <Text style={s.subtitle}>
-                            Upload a delivery note or manifest. AI will extract
-                            the details for you to review before any shipments
-                            are created.
-                        </Text>
-                        <View style={s.card}>
-                            <Feather
-                                name="upload-cloud"
-                                size={36}
-                                color="#f54a4a"
-                            />
-                            <Text style={s.heading}>
-                                {file?.name || "Choose a document"}
+                        <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={file || pendingImport ? "Change document" : "Choose document"}
+                            accessibilityHint="Opens photo, file and camera options"
+                            accessibilityState={{ disabled: busy }}
+                            onPress={chooseDocument}
+                            disabled={busy}
+                            style={{
+                                alignItems: "center",
+                                padding: 20,
+                                gap: 12,
+                                borderWidth: 1.5,
+                                borderStyle: "dashed",
+                                borderColor: dark ? "#52525b" : "#cfcfd6",
+                                borderRadius: 12,
+                                backgroundColor: dark ? "#18181b" : "#ffffff",
+                            }}
+                        >
+                            <Feather name="upload-cloud" size={32} color={dark ? "#ff8585" : "#c2292e"} />
+                            <Text style={[s.heading, { fontSize: 21, textAlign: "center", alignSelf: "stretch" }]}>
+                                {file?.name || pendingImport?.filename || "Upload a delivery note"}
                             </Text>
-                            <Text style={s.subtitle}>
+                            <Text style={[s.note, { fontSize: 12, lineHeight: 16, textAlign: "center", alignSelf: "stretch" }]}>
                                 PDF, JPG, PNG or WebP · up to 20 MB
                             </Text>
-                            <ImportButton
-                                label={
-                                    file ? "Change document" : "Choose document"
-                                }
-                                onPress={chooseDocument}
-                                disabled={busy}
-                                secondary
-                            />
-                        </View>
+                            <View
+                                pointerEvents="none"
+                                style={{
+                                    alignSelf: "stretch",
+                                    minHeight: 48,
+                                    padding: 14,
+                                    borderRadius: 12,
+                                    backgroundColor: "#c2292e",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                }}
+                            >
+                                <Text style={{ fontSize: 16, fontWeight: "600", color: "#ffffff", textAlign: "center" }}>
+                                    {file || pendingImport ? "Change document" : "Choose document"}
+                                </Text>
+                            </View>
+                        </Pressable>
+                        {!!pendingImport && !error && <Text style={s.note}>Your document is saved for processing. Check its status to continue without uploading again.</Text>}
                         {!!error && (
                             <Text accessibilityRole="alert" style={s.error}>
                                 {error}
@@ -306,10 +407,10 @@ export default function LoadShipment() {
                                 onPress={() => void load()}
                             />
                         )}
-                        {file ? (
+                        {file || pendingImport ? (
                             <ImportButton
-                                label="Continue"
-                                disabled={!context || busy}
+                                label={pendingImport ? "Check processing status" : "Retry reading document"}
+                                disabled={busy}
                                 onPress={() => void analyze()}
                             />
                         ) : null}

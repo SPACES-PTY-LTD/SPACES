@@ -47,14 +47,16 @@ export default function HomeScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const [containerHeight, setContainerHeight] = useState(height - tabBarHeight);
   const sheetPosition = useSharedValue((height - tabBarHeight + insets.top) * 0.5);
+  const [dashboard, setDashboard] = useState<DriverDashboard | null>(null);
+  const requiredNoteRunId = dashboard?.delivery_note_required_run_id;
+  const mapTopInset = insets.top;
   const mapStyle = useAnimatedStyle(() => ({
     // Keep the half-height map behind an expanded sheet; grow it when the sheet collapses.
-    height: Math.min(containerHeight, Math.max((containerHeight + insets.top) * 0.5 + 28, sheetPosition.value + 28)),
-  }), [containerHeight, insets.top]);
+    height: Math.min(containerHeight, Math.max((containerHeight + mapTopInset) * 0.5 + 28, sheetPosition.value + 28)),
+  }), [containerHeight, mapTopInset]);
   const ink = dark ? '#ffffff' : '#111111';
   const muted = dark ? '#a1a1aa' : '#71717a';
   const line = dark ? '#303036' : '#dedee1';
-  const [dashboard, setDashboard] = useState<DriverDashboard | null>(null);
   const [offers, setOffers] = useState<DeliveryOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,11 +125,22 @@ export default function HomeScreen() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ffffff' }} onLayout={event => setContainerHeight(event.nativeEvent.layout.height)}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+      <View style={{ flex: 1, overflow: 'hidden' }} onLayout={event => setContainerHeight(event.nativeEvent.layout.height)}>
       <Animated.View style={mapStyle}>
-        <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={insets.top} onOpenShipment={id => router.push(`/shipments/${id}`)} />
+        <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset} onOpenShipment={id => router.push(`/shipments/${id}`)} />
+      {requiredNoteRunId ? <View pointerEvents="box-none" style={[styles.documentNoticeOverlay, { paddingTop: insets.top }]}>
+          <Pressable style={styles.documentNotice} onPress={() => router.push({ pathname: '/shipments/load', params: { run_id: requiredNoteRunId } })} accessibilityRole="button" accessibilityLabel="Important: upload a delivery note" accessibilityHint="Opens delivery-note upload for this run">
+            <Feather name="alert-triangle" size={24} color={dark ? '#fda4af' : '#a32136'} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: dark ? '#fda4af' : '#a32136' }}>Upload a delivery note</Text>
+              <Text style={{ fontSize: 14, lineHeight: 21, color: dark ? '#fda4af' : '#a32136' }}>We’ve noticed you’re on the road and have no shipments attached to your run. Upload a delivery note now.</Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={dark ? '#fda4af' : '#a32136'} />
+          </Pressable>
+      </View> : null}
       </Animated.View>
-      <PersistentBottomSheet topInset={insets.top} containerHeight={containerHeight} animatedPosition={sheetPosition}>
+      <PersistentBottomSheet topInset={mapTopInset} containerHeight={containerHeight} animatedPosition={sheetPosition}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: 24 }}
@@ -136,16 +149,7 @@ export default function HomeScreen() {
 
 
         {loading && !dashboard ? <View style={{ paddingVertical: 48, alignItems: 'center', gap: 16 }}><ActivityIndicator size="large" color="#f54a4a" /><Text style={{ color: ink }}>Checking your current run…</Text></View> : <>
-        {dashboard?.delivery_note_required_run_id ? (
-          <Pressable style={[styles.documentNotice, { backgroundColor: dark ? '#401e22' : '#ffebed' }]} onPress={() => router.push({ pathname: '/shipments/load', params: { run_id: dashboard.delivery_note_required_run_id! } })} accessibilityRole="button">
-            <Feather name="upload-cloud" size={24} color={dark ? '#fda4af' : '#a32136'} />
-            <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: dark ? '#fda4af' : '#a32136' }}>Upload a delivery note</Text>
-              <Text style={{ fontSize: 14, lineHeight: 21, color: dark ? '#fda4af' : '#a32136' }}>We’ve noticed you’re on the road and have no shipments attached to your run. Upload a delivery note now.</Text>
-            </View>
-            <Feather name="chevron-right" size={20} color={dark ? '#fda4af' : '#a32136'} />
-          </Pressable>
-        ) : null}
+
 
         {error ? <Pressable accessibilityRole="button" accessibilityLabel="Retry loading dashboard" onPress={() => void load()} style={styles.error}><Text style={{ color: '#991b1b' }}>{dashboard ? `Showing saved data${lastUpdated ? ` from ${lastUpdated}` : ''}. ` : ''}{error} Tap to retry.</Text></Pressable> : null}
 
@@ -215,6 +219,7 @@ export default function HomeScreen() {
         </>}
       </ScrollView>
       </PersistentBottomSheet>
+      </View>
       <MessageSheet ref={messageSheet} />
       <StopDetailsSheet shipments={shipments} endpoints={dashboard?.trip_endpoints} stop={selectedStop} onDismiss={() => setSelectedStop(null)} />
       <ActionSheet ref={runFilterSheet} />
@@ -226,7 +231,8 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  documentNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 16, borderRadius: 12, marginBottom: 14 },
+  documentNoticeOverlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18, paddingBottom: 28 },
+  documentNotice: { width: '100%', maxWidth: 420, flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 18, borderRadius: 18, backgroundColor: '#ffffff', shadowColor: '#000000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 8 },
   name: { fontSize: 17, fontWeight: '700' },
   date: { fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', textAlign: 'center', marginBottom: 14 },
   deliveryCard: { borderRadius: 16 },

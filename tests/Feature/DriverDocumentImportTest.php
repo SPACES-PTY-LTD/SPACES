@@ -339,6 +339,122 @@ class DriverDocumentImportTest extends TestCase
         $this->assertNull($run->fresh()->destination_location_id);
     }
 
+    public function test_async_upload_queues_once_and_status_is_owned(): void
+    {
+        Storage::fake('local');
+        config()->set('filesystems.default', 'local');
+        \Illuminate\Support\Facades\Queue::fake();
+        [$user, $merchant] = $this->createDriverContext();
+        $uuid = (string) Str::uuid();
+        $body = ['async' => '1', 'import_id' => $uuid, 'file' => UploadedFile::fake()->image('note.png')];
+        $this->apiAs($user)->post('/api/v1/driver/document-imports', $body)->assertStatus(202)
+            ->assertJsonPath('data.import_id', $uuid)->assertJsonPath('data.status', 'queued');
+        $this->apiAs($user)->post('/api/v1/driver/document-imports', $body)->assertStatus(202);
+        $this->assertDatabaseCount('delivery_note_imports', 1);
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\AnalyzeDeliveryNote::class, 1);
+        $this->apiAs($user)->getJson('/api/v1/driver/document-imports/'.$uuid)->assertOk()
+            ->assertJsonPath('data.status', 'queued')->assertJsonPath('data.poll_after_ms', 3200);
+        [$other] = $this->createDriverContext();
+        $this->apiAs($other)->getJson('/api/v1/driver/document-imports/'.$uuid)->assertNotFound();
+        $this->apiAs($other)->post('/api/v1/driver/document-imports', $body)->assertNotFound();
+    }
+
+    public function test_async_worker_extracts_saved_file_once_and_exposes_result(): void
+    {
+        Storage::fake('local');
+        config()->set('filesystems.default', 'local');
+        \Illuminate\Support\Facades\Queue::fake();
+        [$user, $merchant] = $this->createDriverContext();
+        $uuid = (string) Str::uuid();
+        $this->apiAs($user)->post('/api/v1/driver/document-imports', ['async' => '1', 'import_id' => $uuid, 'file' => UploadedFile::fake()->image('note.png')])->assertStatus(202);
+        $import = DeliveryNoteImport::where('uuid', $uuid)->firstOrFail();
+        $this->mock(\App\Services\Integrations\OpenAIService::class)->shouldReceive('extractDeliveryNote')->once()
+            ->withArgs(fn ($file) => is_file($file->getRealPath()) && $file->getClientOriginalName() === 'note.png')
+            ->andReturn(['model' => 'test-model', 'data' => $this->draft()]);
+        $job = new \App\Jobs\AnalyzeDeliveryNote($import->id);
+        $service = app(\App\Services\DeliveryNoteImportService::class);
+        $job->handle($service);
+        $job->handle($service);
+        $this->apiAs($user)->getJson('/api/v1/driver/document-imports/'.$uuid)->assertOk()
+            ->assertJsonPath('data.status', 'analyzed')->assertJsonPath('data.failure_message', null)
+            ->assertJsonPath('data.extracted_data.line_items.0.merchant_order_ref', $this->draft()['line_items'][0]['merchant_order_ref']);
+        $this->assertDatabaseCount('shipments', 0);
+        $this->assertSame('document-imports', $job->connection);
+        $this->assertGreaterThan($job->timeout, config('queue.connections.document-imports.retry_after'));
+    }
+
+    public function test_async_worker_failure_is_available_through_status_and_cannot_overwrite_success(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $import->update(['status' => 'queued']);
+        $job = new \App\Jobs\AnalyzeDeliveryNote($import->id);
+        $job->failed(new \RuntimeException('The reading service timed out.'));
+        $this->apiAs($user)->getJson('/api/v1/driver/document-imports/'.$import->uuid)->assertOk()
+            ->assertJsonPath('data.status', 'failed')->assertJsonPath('data.failure_message', 'The reading service timed out.');
+        $import->update(['status' => 'analyzed', 'failure_message' => null]);
+        $job->failed(new \RuntimeException('Late failure'));
+        $this->assertSame('analyzed', $import->fresh()->status);
+    }
+
+    public function test_stalled_async_import_expires_instead_of_polling_forever(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $import->update(['status' => 'queued']);
+        $this->travel(16)->minutes();
+        $this->apiAs($user)->getJson('/api/v1/driver/document-imports/'.$import->uuid)->assertOk()
+            ->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.failure_message', 'Document processing timed out. Please upload the document again.');
+        $this->assertDatabaseCount('shipments', 0);
+    }
+
+    public function test_shared_analysis_endpoints_support_drivers_and_authorized_admins(): void
+    {
+        Storage::fake('local');
+        config()->set('filesystems.default', 'local');
+        \Illuminate\Support\Facades\Queue::fake();
+        [$driver, $merchant] = $this->createDriverContext();
+        $driverId = (string) Str::uuid();
+        $this->apiAs($driver)->post('/api/v1/delivery-note-imports/analyze', ['import_id' => $driverId, 'file' => UploadedFile::fake()->image('driver.png')])
+            ->assertStatus(202)->assertJsonPath('data.status', 'queued');
+        $this->apiAs($driver)->getJson('/api/v1/delivery-note-imports/'.$driverId.'/status')->assertOk();
+        $admin = User::findOrFail($merchant->owner_user_id);
+        $this->apiAs($admin)->withHeader('X-Merchant-Id', $merchant->uuid)
+            ->getJson('/api/v1/delivery-note-imports/'.$driverId.'/status')->assertOk();
+        $adminId = (string) Str::uuid();
+        $this->apiAs($admin)->post('/api/v1/delivery-note-imports/analyze', ['import_id' => $adminId, 'file' => UploadedFile::fake()->image('admin.png')])
+            ->assertStatus(202)->assertJsonPath('data.import_id', $adminId);
+        $this->apiAs($driver)->getJson('/api/v1/delivery-note-imports/'.$adminId.'/status')->assertNotFound();
+        [$outsider, $foreign] = $this->createDriverContext();
+        $this->apiAs(User::findOrFail($foreign->owner_user_id))->withHeader('X-Merchant-Id', $foreign->uuid)
+            ->getJson('/api/v1/delivery-note-imports/'.$adminId.'/status')->assertNotFound();
+        $this->assertDatabaseCount('shipments', 0);
+    }
+
+    public function test_shared_analysis_enforces_admin_permissions_environment_and_id_context(): void
+    {
+        Storage::fake('local');
+        config()->set('filesystems.default', 'local');
+        \Illuminate\Support\Facades\Queue::fake();
+        [$driver, $merchant] = $this->createDriverContext();
+        $admin = User::findOrFail($merchant->owner_user_id);
+        $environment = \App\Models\MerchantEnvironment::create(['merchant_id' => $merchant->id, 'name' => 'Test', 'color' => '#123456', 'url' => 'https://example.test', 'token' => 'analysis-test-token', 'token_hash' => hash('sha256', 'analysis-test-token')]);
+        $uuid = (string) Str::uuid();
+        $body = ['import_id' => $uuid, 'environment_id' => $environment->uuid, 'file' => UploadedFile::fake()->image('admin.png')];
+        $this->apiAs($admin)->withHeader('X-Merchant-Id', $merchant->uuid)->post('/api/v1/delivery-note-imports/analyze', $body)->assertStatus(202);
+        $this->assertDatabaseHas('delivery_note_imports', ['uuid' => $uuid, 'environment_id' => $environment->id]);
+        $this->apiAs($admin)->getJson('/api/v1/delivery-note-imports/'.$uuid.'/status?environment_id='.$environment->uuid)->assertOk();
+        $body['environment_id'] = null;
+        $this->apiAs($admin)->post('/api/v1/delivery-note-imports/analyze', $body)->assertStatus(409);
+        $viewer = User::withoutEvents(fn () => User::factory()->create(['uuid' => (string) Str::uuid(), 'role' => 'user', 'account_id' => $merchant->account_id]));
+        $merchant->users()->attach($viewer->id, ['role' => 'read_only']);
+        $this->apiAs($viewer)->getJson('/api/v1/delivery-note-imports/'.$uuid.'/status')->assertOk();
+        $body['import_id'] = (string) Str::uuid();
+        $this->apiAs($viewer)->post('/api/v1/delivery-note-imports/analyze', $body)->assertForbidden();
+        $this->assertDatabaseCount('delivery_note_imports', 1);
+    }
+
     private function createDriverContext(?Merchant $merchant = null, ?string $email = null): array
     {
         if (! $merchant) {

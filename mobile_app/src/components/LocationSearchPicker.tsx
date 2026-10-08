@@ -12,13 +12,15 @@ const routable = (location: ImportLocation) => location.latitude != null && loca
 export type LocationSearchPickerHandle = { onScroll: NonNullable<ScrollViewProps['onScroll']> };
 
 /** Shared search, pagination and selection preview; callers own endpoint persistence. */
-export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedLabel = 'SELECTED LOCATION', selectionIcon = 'map-pin', onBusyChange, ref }: {
+export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedLabel = 'SELECTED LOCATION', selectionIcon = 'map-pin', onBusyChange, confirmOnSelect = false, ref }: {
   token: string;
   onConfirm: (location: ImportLocation) => Promise<void> | void;
   confirmLabel: string;
   selectedLabel?: string;
   selectionIcon?: 'map-pin' | 'flag';
   onBusyChange?: (busy: boolean) => void;
+  /** Draft-only pickers can accept a result directly without a selection preview. */
+  confirmOnSelect?: boolean;
   ref?: Ref<LocationSearchPickerHandle>;
 }) {
   const { colorScheme } = useColorScheme();
@@ -79,12 +81,12 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
     },
   }));
 
-  async function save() {
-    if (!selected || submitting.current) return;
+  async function save(location = selected) {
+    if (!location || submitting.current) return;
     submitting.current = true; setSaving(true); onBusyChange?.(true); setError('');
     const version = request.current;
     try {
-      await onConfirm(selected);
+      await onConfirm(location);
     } catch (e) { if (version === request.current) setError((e as Error).message || 'Unable to save location. Please retry.'); }
     finally { submitting.current = false; if (version === request.current) { setSaving(false); onBusyChange?.(false); } }
   }
@@ -116,7 +118,7 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
       {loading ? <View style={styles.empty}><ActivityIndicator accessibilityLabel="Loading locations" color="#f54a4a" /><Text style={{ color: muted }}>Finding locations…</Text></View> : <>
         {!!error && <Pressable accessibilityRole="button" onPress={() => void load(query)} style={[styles.retry, { borderColor: border }]}><Feather name="refresh-cw" size={16} color={ink} /><Text style={{ color: ink, fontWeight: '600' }}>Retry loading locations</Text></Pressable>}
         {hasSearched && !error && !locations.length && <View style={[styles.empty, { backgroundColor: surface, borderRadius: 16 }]}><Feather name="map-pin" size={24} color={muted} /><Text style={[styles.name, { color: ink }]}>No locations found</Text><Text style={[styles.subtitle, { color: muted, textAlign: 'center' }]}>Try another location name or a full street address.</Text></View>}
-        {locations.length > 0 && <View style={{ gap: 8 }}>{locations.map(location => <Pressable key={location.location_id} accessibilityRole="button" accessibilityLabel={`${location.name}, ${address(location)}`} onPress={() => { setSelected(location); setError(''); }} style={[styles.location, { borderColor: border, backgroundColor: dark ? '#18181b' : '#fff' }]}>
+        {locations.length > 0 && <View style={{ gap: 8 }}>{locations.map(location => <Pressable key={location.location_id} accessibilityRole="button" accessibilityLabel={`${location.name}, ${address(location)}`} disabled={saving} accessibilityState={{ disabled: saving }} onPress={() => { if (confirmOnSelect) void save(location); else { setSelected(location); setError(''); } }} style={[styles.location, { borderColor: border, backgroundColor: dark ? '#18181b' : '#fff' }]}>
           <View style={[styles.icon, { backgroundColor: surface }]}><Feather name="map-pin" size={19} color={muted} /></View>
           <View style={styles.details}><Text style={[styles.name, { color: ink }]}>{location.name}</Text><Text style={[styles.address, { color: muted }]}>{address(location)}</Text></View>
           <Feather name="chevron-right" size={18} color={muted} />
