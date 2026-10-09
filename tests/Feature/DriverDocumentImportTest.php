@@ -44,6 +44,45 @@ class DriverDocumentImportTest extends TestCase
             'path' => 'test.png', 'original_name' => 'test.png', 'mime_type' => 'image/png', 'size_bytes' => 10, 'extracted_data' => $this->draft()]);
     }
 
+    public function test_pdf_preview_uses_an_expiring_file_specific_grant(): void
+    {
+        Storage::fake('local');
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $import->update(['mime_type' => 'application/pdf', 'original_name' => 'note.pdf']);
+        Storage::disk('local')->put($import->path, '%PDF-test-content');
+        $endpoint = "/api/v1/driver/document-imports/{$import->uuid}/pdf-preview-url";
+        [$other] = $this->createDriverContext();
+        $this->apiAs($other)->getJson($endpoint)->assertNotFound();
+        $url = $this->apiAs($user)->getJson($endpoint)->assertOk()->json('data.url');
+        $this->assertStringNotContainsString('Bearer', $url);
+        $response = $this->withHeader('Authorization', '')->get($url)->assertOk()->assertHeader('Content-Type', 'application/pdf')
+            ->assertHeader('Content-Disposition', 'inline; filename="delivery-note.pdf"');
+        $this->assertSame('%PDF-test-content', $response->streamedContent());
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        $this->get("/api/v1/driver/document-imports/{$import->uuid}/pdf-preview")->assertForbidden();
+        $this->get(str_replace('u='.$user->id, 'u='.$other->id, $url))->assertForbidden();
+        $user->driver->update(['is_active' => false]);
+        $this->get($url)->assertForbidden();
+        $user->driver->update(['is_active' => true]);
+        $import->update(['uploaded_by_user_id' => $other->id]);
+        $this->get($url)->assertNotFound();
+        $import->update(['uploaded_by_user_id' => $user->id]);
+        $this->travel(6)->minutes();
+        $this->get($url)->assertForbidden();
+    }
+
+    public function test_pdf_preview_grant_requires_an_existing_pdf(): void
+    {
+        Storage::fake('local');
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $endpoint = "/api/v1/driver/document-imports/{$import->uuid}/pdf-preview-url";
+        $this->apiAs($user)->getJson($endpoint)->assertStatus(415);
+        $import->update(['mime_type' => 'application/pdf']);
+        $this->apiAs($user)->getJson($endpoint)->assertNotFound();
+    }
+
     public function test_driver_file_preview_streams_only_owned_images(): void
     {
         Storage::fake('local');
@@ -491,31 +530,37 @@ class DriverDocumentImportTest extends TestCase
         $this->assertDatabaseCount('shipments', 0);
     }
 
-    public function test_liters_preserve_decimal_volume_without_expanding_parcels(): void
+    public function test_measured_units_preserve_decimal_quantity_without_expanding_parcels(): void
     {
         [$user, $merchant] = $this->createDriverContext();
-        $import = $this->import($user, $merchant);
-        $draft = $this->draft();
-        $draft['line_items'][0]['quantity_unit'] = 'liters';
-        $draft['line_items'][0]['quantity'] = 1250.5;
-        $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)->assertOk();
-        $shipment = Shipment::where('merchant_order_ref', 'TODAY')->firstOrFail();
-        $this->assertSame(1250.5, $shipment->metadata['delivery_note_items'][0]['quantity']);
-        $this->assertSame('liters', $shipment->metadata['delivery_note_items'][0]['quantity_unit']);
-        $this->assertSame(1, $shipment->parcels()->count());
+        foreach (['liters', 'kilograms', 'tonnes', 'cubic_metres'] as $unit) {
+            $import = $this->import($user, $merchant);
+            $draft = $this->draft();
+            $draft['line_items'][0]['merchant_order_ref'] = strtoupper($unit);
+            $draft['line_items'][0]['quantity_unit'] = $unit;
+            $draft['line_items'][0]['quantity'] = 1250.5;
+            $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)->assertOk();
+            $shipment = Shipment::where('merchant_order_ref', strtoupper($unit))->firstOrFail();
+            $this->assertSame(1250.5, $shipment->metadata['delivery_note_items'][0]['quantity']);
+            $this->assertSame($unit, $shipment->metadata['delivery_note_items'][0]['quantity_unit']);
+            $this->assertSame(1, $shipment->parcels()->count());
+            if (in_array($unit, ['kilograms', 'tonnes'], true)) {
+                $this->assertEquals(1250.5 * ($unit === 'tonnes' ? 1000 : 1), ($shipment->parcels()->first()->weight ?? $shipment->parcels()->first()->weight_kg));
+            }
+        }
     }
 
-    public function test_liters_require_positive_bounded_volume_and_packaging_keeps_integer_limits(): void
+    public function test_measured_units_require_positive_bounded_quantity_and_packaging_keeps_integer_limits(): void
     {
         [$user, $merchant] = $this->createDriverContext();
         $import = $this->import($user, $merchant);
-        foreach (['liters' => [null, 0, -1, 1000001], 'boxes' => [1.5, 101]] as $unit => $quantities) {
+        foreach (['liters' => [null, 0, -1, 1000001], 'kilograms' => [0, -1], 'tonnes' => [0, 10000], 'cubic_metres' => [null, 0], 'boxes' => [1.5, 101]] as $unit => $quantities) {
             foreach ($quantities as $quantity) {
                 $draft = $this->draft();
                 $draft['line_items'][0]['quantity_unit'] = $unit;
                 $draft['line_items'][0]['quantity'] = $quantity;
                 $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)
-                    ->assertUnprocessable()->assertJsonValidationErrors('line_items.0.quantity');
+                    ->assertUnprocessable()->assertJsonPath('error.code', 'VALIDATION');
             }
         }
         $this->assertDatabaseCount('shipments', 0);

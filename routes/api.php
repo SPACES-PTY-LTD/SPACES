@@ -50,6 +50,8 @@ use App\Http\Controllers\Api\V1\WebhookSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
+    Route::get('driver/document-imports/{id}/pdf-preview', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'pdfPreview'])
+        ->middleware(['signed', 'throttle:30,1'])->name('driver.document-imports.pdf-preview');
     Route::prefix('auth')->group(function () {
         Route::post('register', [AuthController::class, 'register']);
         Route::post('login', [AuthController::class, 'login']);
@@ -384,6 +386,7 @@ Route::prefix('v1')->group(function () {
             Route::get('dashboard', \App\Http\Controllers\Api\V1\DriverDashboardController::class);
             Route::get('document-imports/context', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'context']);
             Route::post('document-imports', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'store']);
+            Route::get('document-imports/{id}/pdf-preview-url', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'pdfPreviewUrl']);
             Route::get('document-imports/{id}/file-preview', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'filePreview']);
             Route::get('document-imports/{id}', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'show']);
             Route::post('document-imports/{id}/confirm', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'confirm']);

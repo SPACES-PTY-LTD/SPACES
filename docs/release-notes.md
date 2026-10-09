@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-09 | Version: unfinished-upload-pdf-browser-preview-v1
+
+- **Summary:** Open unfinished-upload PDFs through Expo WebBrowser.
+- **API Changes:** Add authenticated GET /driver/document-imports/{id}/pdf-preview-url and signed GET /driver/document-imports/{id}/pdf-preview under /api/v1. Issue five-minute file/uploader-specific links; recheck active driver/account/merchant/ownership when streaming. Missing/unsupported files return 404/415; invalid or expired signatures return 403. Stream inline PDF with private no-store and no-referrer headers. No bearer token in browser URLs.
+- **Database Changes:** None.
+- **Behavior Changes:** PDF tile offers Preview PDF, with opening/error/retry states. Close the browser to return to the unchanged continuation prompt. Images keep inline previews. Android rendering or download depends on its installed browser; no external document-viewer service.
+- **Breaking Changes:** None. Deploy backend routes before mobile preview.
+- **Verification:** API/static checks and Figma alignment in progress. Native PDF reading, browser dismissal/return and Android handling remain pending.
+
+## 2026-10-09 | Version: measured-shipment-units-v1
+
+- **Summary:** Add Liters, Kilograms, Tonnes and Cubic metres to the shipment unit picker and order all choices A–Z.
+- **API Changes:** Driver import accepts liters/kilograms/tonnes/cubic_metres with required positive numeric quantity up to 1,000,000 (Tonnes up to 9,999.999 to fit existing kilogram storage). Keep existing packaging integer limits. Measured lines count as one parcel for the 500-parcel import limit and parcel creation; preserve quantity/unit metadata, including grouped imports. Kilograms/tonnes supply parcel weight in kilograms.
+- **Database Changes:** None; reuse source-line metadata and existing parcel weights.
+- **Behavior Changes:** Units remains default. Preserve decimal input text while typing and show readable review labels. Liters/Cubic metres show optional weight; Kilograms/Tonnes hide duplicate measurements. Existing packaging visibility and hidden-value retention remain.
+- **Breaking Changes:** None. Deploy updated backend before using new units; AI extraction does not automatically detect measured units.
+- **Verification:** 35 driver import API tests (294 assertions), mobile TypeScript, focused review lint with the existing effect rule excluded and diff checks pass. Dashboard plan v2.52 and Figma scenario handoff aligned. Native decimal entry, unit switching, long-label fit and scrolling remain pending.
+
 ## 2026-10-09 | Version: unfinished-upload-image-preview-v1
 
 - **Summary:** Preview uploaded images in the unfinished delivery-note card.

@@ -29,7 +29,8 @@ import { TripLocationStep } from "@/src/components/TripLocationStep";
 import { shipmentAddressDraft, collectionFromRunStart } from "@/src/lib/import-addresses";
 import { DeliveryNoteProgress } from "@/src/components/delivery-note-progress";
 
-const quantityUnits = ["Units", "Boxes", "Pallets", "Drums", "Bags", "Crates", "Rolls", "Liters"];
+const quantityUnits = ["Bags", "Boxes", "Crates", "Cubic metres", "Drums", "Kilograms", "Liters", "Pallets", "Rolls", "Tonnes", "Units"];
+const unitValue = (label: string) => label.toLowerCase().replaceAll(" ", "_");
 
 const statusLabel = (value: string) => {
     if (value === "at_delivery_location") return "At delivery location";
@@ -67,6 +68,7 @@ export default function ReviewImport() {
     const [error, setError] = useState("");
     const [editing, setEditing] = useState<number | null>(null);
     const [editValue, setEditValue] = useState<ImportLine>();
+    const [quantityText, setQuantityText] = useState("");
     const [choosingDate, setChoosingDate] = useState(false);
     const [failureIndex, setFailureIndex] = useState<number | null>(null);
     const [failureReason, setFailureReason] = useState("");
@@ -248,6 +250,7 @@ export default function ReviewImport() {
                     onPress: () => {
                         setEditing(index);
                         setEditValue(JSON.parse(JSON.stringify(item)));
+                        setQuantityText(item.quantity == null ? "" : String(item.quantity));
                     },
                 },
                 {
@@ -471,15 +474,13 @@ export default function ReviewImport() {
                         />
                         <ImportField
                             label="Quantity"
-                            trailing={<Pressable accessibilityRole="button" accessibilityLabel="Unit of measure" onPress={() => { Keyboard.dismiss(); actions.current?.present({ title: "Unit of measure", actions: quantityUnits.map(label => ({ id: label.toLowerCase(), label, onPress: () => setEditValue(current => current ? { ...current, quantity_unit: label.toLowerCase() } : current) })) }); }} style={{ borderLeftWidth: 1, borderLeftColor: "#d4d4d8", paddingHorizontal: 12, minHeight: 46, flexDirection: "row", alignItems: "center", gap: 8 }}><Text style={s.body}>{quantityUnits.find(unit => unit.toLowerCase() === editValue.quantity_unit) || "Units"}</Text><Feather name="chevron-down" size={16} color="#666" /></Pressable>}
+                            trailing={<Pressable accessibilityRole="button" accessibilityLabel="Unit of measure" onPress={() => { Keyboard.dismiss(); actions.current?.present({ title: "Unit of measure", actions: quantityUnits.map(label => ({ id: unitValue(label), label, onPress: () => setEditValue(current => current ? { ...current, quantity_unit: unitValue(label) } : current) })) }); }} style={{ borderLeftWidth: 1, borderLeftColor: "#d4d4d8", paddingHorizontal: 12, minHeight: 46, flexDirection: "row", alignItems: "center", gap: 8 }}><Text style={s.body}>{quantityUnits.find(unit => unitValue(unit) === editValue.quantity_unit) || "Units"}</Text><Feather name="chevron-down" size={16} color="#666" /></Pressable>}
                             numeric
-                            value={editValue.quantity}
-                            onChange={(v) =>
-                                setEditValue({
-                                    ...editValue,
-                                    quantity: v ? Number(v) : null,
-                                })
-                            }
+                            value={quantityText}
+                            onChange={(v) => {
+                                setQuantityText(v);
+                                setEditValue({ ...editValue, quantity: v ? Number(v) : null });
+                            }}
                         />
                         {([['pickup_location_id', 'pickup_address', 'Collection'], ['dropoff_location_id', 'dropoff_address', 'Deliver to']] as const).map(([kind, addressKey, label]) => (
                             <View key={kind} style={{ gap: 16 }}>
@@ -500,7 +501,7 @@ export default function ReviewImport() {
                                 "height_cm",
                             ] as const
                         ).filter(key => key === "weight"
-                            ? quantityUnits.slice(1).some(unit => unit.toLowerCase() === editValue.quantity_unit)
+                            ? ["bags", "boxes", "crates", "cubic_metres", "drums", "liters", "pallets", "rolls"].includes(editValue.quantity_unit || "units")
                             : ["boxes", "pallets", "crates"].includes(editValue.quantity_unit || "units")
                         ).map((key) => (
                             <ImportField
@@ -663,7 +664,7 @@ export default function ReviewImport() {
                                                             fontWeight: "700",
                                                         }}
                                                     >
-                                                        {item.quantity ?? 1} {item.quantity_unit || "units"}
+                                                        {item.quantity ?? 1} {(item.quantity_unit || "units").replaceAll("_", " ")}
                                                     </Text>
                                                 </View>
                                                 <View style={{ flex: 1 }}>
