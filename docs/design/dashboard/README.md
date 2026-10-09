@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.45
+Version: 2.46
 Last updated: 2026-10-09
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -43,6 +43,14 @@ Figma simulates file selection, AI reading, GPS, searches and server responses. 
 - Use shared `BottomSheet`, `PersistentBottomSheet`, `ActionSheet`, and sheet theme controls so styling can be maintained centrally.
 - Modal upload sheets fit their content, growing only as needed and scrolling when content exceeds the available height.
 - Do not restore the online/offline control or the avatar/name/role in the dashboard's top-right corner.
+
+### Truck marker location context (2.46, implemented locally)
+
+Keep the truck/plate heading and Last reported timestamp in a wrapping white popup. Outside a saved geofence, show the latest reported address when available. Inside a geofence at the latest reported coordinates, show the saved location name followed by its saved address if present; omit road-address substitution when the facility has no address. Missing address data adds no invented address. Timestamp remains visible and does not claim live presence from old telemetry.
+
+Both driver position endpoints add nullable `address` and `geofence_location` (`location_id`, `name`, `address`). Resolve strict containment using existing GeofencePolygon against saved account/merchant polygons; exclude boundaries, invalid/deleted/foreign polygons and invalid coordinates. Overlaps select the first containing location by stable ID. Do not use radius or historic visits. Stored formatted/full address takes precedence over known address fields; coordinate-only objects are not addresses. No geocoding, telemetry mutation or migration.
+
+Older position APIs can recover the reported address from the authorized vehicle endpoint only when vehicle ID and report time match exactly; failure retains the position, and no geofence is inferred. Backend deployment remains required for geofence details. Applies to active/ready/no-run maps and retains polling/auth guards. Verification: 32 driver API tests (253 assertions), three mobile label/address regressions and TypeScript pass; focused lint passes with the existing recorded-map purity rule excluded. iOS live address observed; custom wrapping/geofence/Android checks recorded in release notes. [Figma scenario handoff](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0?node-id=32-985) aligned.
 
 ### Stop visit timing (2.01, implemented locally)
 
@@ -588,6 +596,9 @@ These are the implementation entry points. Preserve unrelated local changes and 
 
 ### Acceptance checklist
 
+- [x] Truck popup uses reported address outside fences and saved geofence name/address inside strict authorized polygons; both position endpoints share evidence and tests cover missing/invalid/deleted/foreign/boundary cases.
+- [ ] Verify native geofence popup, long-text/large-type and Android; deploy geofence position API fields.
+
 - [x] Run Actions includes Upload delivery note with explicit no-upload evidence or, on older APIs only, a matching selected-run upload-required signal; scoped import evidence is independent of shipment counts and all analysis states. Upload opens for that run after dismissal; Figma menus/handoff aligned.
 - [ ] Verify native no-upload/uploaded states, picker cancellation, navigation and dashboard refresh after upload; deploy the dashboard API addition for exact stored-upload visibility.
 
@@ -809,6 +820,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-09 | 2.46 | Add truck-popup reported address and strict account/merchant geofence name/address with preserved report time, old-API matching-report address fallback and wrapping callout. API tests 32/253, three mobile regressions, TypeScript/focused lint pass; Figma handoff aligned. Native and deployment limits in release notes. |
 | 2026-10-09 | 2.45 | Fix hidden run upload action against the live legacy API by using its selected-run upload-required signal only when has_delivery_note is absent; explicit uploaded evidence still hides it. Native and static verification recorded in release notes; deploy the API field for exact stored-upload visibility. |
 | 2026-10-09 | 2.44 | Add conditional Upload delivery note to active-run Actions using scoped stored-import evidence, independent of shipments; open existing upload for the selected run after dismissal. API tests (31/228), TypeScript and focused lint pass; Figma menus/guide aligned. Native checks and API deployment pending. |
 | 2026-10-08 | 2.43 | Show Address missing in error red for both review address links, retaining populated colours and selection. TypeScript/focused lint pass; Figma handoff aligned; native visual verification pending. |

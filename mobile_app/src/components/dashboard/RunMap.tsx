@@ -2,12 +2,13 @@ import { useIsFocused } from 'expo-router/react-navigation';
 import { Feather } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, View } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapView, { Callout, Marker, Polyline } from 'react-native-maps';
 import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
 import { Text } from '@/component/ui/Text';
 import { driverApi, type RunPosition, type RunDirections, type DriverShipment } from '@/src/lib/api';
 import { useRecordedRunTrack } from './useRecordedRunTrack';
 import { NativeMap } from './NativeMap';
+import { truckPositionDescription } from './truck-position-label';
 import { groupRunMapStops, runMapStops } from './run-map-data';
 
 // Temporarily hide mode selection; keep Recorded available for re-enabling later.
@@ -130,8 +131,12 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor="#f54a4a" strokeWidth={4} /> : null}
       {mode === 'planned' && endpointPins.map(p => <Marker key={p.role} coordinate={p.coordinate} title={`${p.role} · ${p.name}`} description={p.address} pinColor={p.role === 'Run starting point' ? '#2563eb' : '#71717a'} />)}
       {truck ? <Marker coordinate={truck} zIndex={100} title={position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}
-        description={position?.updated_at ? `Last reported ${new Date(position.updated_at).toLocaleString()}` : 'Last reported position · update time unknown'}>
+        description={truckPositionDescription(position)}>
         <View style={styles.truckMarker}><Feather name="truck" size={21} color="#ffffff" /></View>
+        <Callout><View style={styles.truckCallout}>
+          <Text style={styles.truckCalloutTitle}>{position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}</Text>
+          {truckPositionDescription(position).split('\n').map((line, index, lines) => <Text key={index} style={index === lines.length - 1 ? styles.truckCalloutTime : styles.truckCalloutLocation}>{line}</Text>)}
+        </View></Callout>
       </Marker> : null}
       {mode === 'planned' && groups.map(group => {
         const numbers = group.stops.map(stop => stop.number).join(' · ');
@@ -204,6 +209,10 @@ const styles = StyleSheet.create({
   recordedStatus: { position: 'absolute', alignSelf: 'center', maxWidth: '90%', backgroundColor: '#ffffff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   container: { flex: 1, backgroundColor: '#eeeee8' },
   truckMarker: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#2563eb', borderWidth: 3, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
+  truckCallout: { width: 260, padding: 4, gap: 4 },
+  truckCalloutTitle: { color: '#111111', fontSize: 14, fontWeight: '600' },
+  truckCalloutLocation: { color: '#111111', fontSize: 13, lineHeight: 18 },
+  truckCalloutTime: { color: '#52525b', fontSize: 11, lineHeight: 16 },
   truckStatus: { position: 'absolute', alignSelf: 'center', maxWidth: '92%', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#ffffff' },
   truckStatusText: { fontSize: 11, color: '#374151', flexShrink: 1 },
   marker: { minWidth: 30, paddingHorizontal: 6, height: 30, borderRadius: 15, borderWidth: 3, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },

@@ -1,3 +1,4 @@
+import { reportedAddress } from '../components/dashboard/truck-position-label';
 import { Platform } from 'react-native';
 import { observeDocumentUpload } from './document-upload-progress';
 import { documentImportErrorMessage } from './document-import-error';
@@ -705,10 +706,10 @@ export const driverApi = {
     return request<RecordedRunTrack>(`/driver/runs/${encodeURIComponent(runId)}/track${before ? `?before=${encodeURIComponent(before)}` : ''}`, { token });
   },
   async runPosition(token: string, runId: string) {
-    return request<RunPosition>(`/driver/runs/${encodeURIComponent(runId)}/position`, { token });
+    return positionWithAddress(token, await request<RunPosition>(`/driver/runs/${encodeURIComponent(runId)}/position`, { token }));
   },
   async truckPosition(token: string) {
-    return request<RunPosition>('/driver/position', { token });
+    return positionWithAddress(token, await request<RunPosition>('/driver/position', { token }));
   },
   async runDirections(token: string, runId: string) {
     return request<RunDirections>(`/driver/runs/${encodeURIComponent(runId)}/directions`, { token });
@@ -947,7 +948,22 @@ export type RunDirections = {
   duration_seconds?: number;
 };
 
+/** Older position APIs omit addresses; read only the same vehicle/report, never infer a fence. */
+async function positionWithAddress(token: string, position: RunPosition): Promise<RunPosition> {
+  if (position.address !== undefined || !position.vehicle_id || !position.updated_at) return position;
+  try {
+    const vehicle = await request<DriverVehicle>(`/driver/vehicles/${encodeURIComponent(position.vehicle_id)}`, { token });
+    if (vehicle.vehicle_id === position.vehicle_id && vehicle.location_updated_at
+      && Date.parse(vehicle.location_updated_at) === Date.parse(position.updated_at)) {
+      return { ...position, address: reportedAddress(vehicle.last_location_address) };
+    }
+  } catch { /* Keep the available position when the optional address lookup fails. */ }
+  return position;
+}
+
 export type RunPosition = {
+  address?: string | null;
+  geofence_location?: { location_id: string; name: string; address: string | null } | null;
   vehicle_id: string | null;
   plate_number: string | null;
   coordinate: { latitude: number; longitude: number } | null;

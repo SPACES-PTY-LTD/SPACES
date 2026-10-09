@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-09 | Version: truck-popup-address-geofence-v1
+
+- **Summary:** Show the truck’s last known address or containing geofence name/address in its popup.
+- **API Changes:** Both driver position endpoints add nullable address and geofence_location (location_id/name/address), calculated from the latest valid coordinates and authorized saved polygons. Boundaries/invalid/foreign/deleted polygons are excluded; overlap uses stable location ID order.
+- **Database Changes:** None.
+- **Behavior Changes:** Preserve truck/plate and report time in a wrapping popup. A containing geofence replaces the reported road with its name and optional saved address. Coordinate-only payloads never become addresses. Older APIs use an authorized matching vehicle/report-time address lookup; lookup failure preserves the position. No geocoding or old-visit inference.
+- **Breaking Changes:** None. Deploy the additive backend fields for geofence labels to appear against the live API.
+- **Verification:** 32 driver API tests (253 assertions), three mobile label/address tests and TypeScript pass. Focused lint passes with the existing RunMap recorded-mode purity rule excluded. iOS simulator verifies a live reported road address; after a full reload, the custom popup shows separate truck/report-time rows and updates while open. The latest coordinate-only report correctly omits an address. Full long-address/custom-geofence wrapping remains unverified. Native geofence/Android/large-text and production spatial-engine checks remain pending. Dashboard plan v2.46/Figma handoff aligned.
+
 ## 2026-10-09 | Version: legacy-run-note-action-visibility-v1
 
 - **Summary:** Show the run upload action with the live API’s existing upload-required signal.

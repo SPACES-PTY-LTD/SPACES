@@ -96,6 +96,48 @@ class DriverShipmentApiTest extends TestCase
         $this->getJson('/api/v1/driver/position', $this->driverAuthHeaders($user))->assertOk()->assertJsonPath('data.coordinate.latitude', 0);
     }
 
+    public function test_truck_popup_reports_address_and_only_a_containing_authorized_polygon(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $vehicle->update(['last_location_address' => ['latitude' => -26.15, 'longitude' => 28.04, 'address_line_1' => '37 Brewery St', 'city' => 'Kempton Park'], 'location_updated_at' => now()->subHour()]);
+        $polygon = 'POLYGON((28.03 -26.16,28.05 -26.16,28.05 -26.14,28.03 -26.14,28.03 -26.16))';
+        [, $foreign] = $this->createDriverContext();
+        $foreignLocation = $this->createLocation($foreign, 'Foreign fence');
+        $foreignLocation->update(['polygon_bounds' => $polygon]);
+        $fence = $this->createLocation($merchant, 'Isando Depot');
+        $fence->update(['polygon_bounds' => $polygon, 'full_address' => '37 Brewery St, Kempton Park']);
+        $headers = $this->driverAuthHeaders($user);
+        $url = '/api/v1/driver/position';
+        $this->getJson($url, $headers)->assertOk()
+            ->assertJsonPath('data.address', '37 Brewery St, Kempton Park')
+            ->assertJsonPath('data.geofence_location.name', 'Isando Depot')
+            ->assertJsonPath('data.geofence_location.address', '37 Brewery St, Kempton Park');
+        // A run uses the same evidence as the no-run truck map.
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'driver_id' => $user->driver->id, 'vehicle_id' => $vehicle->id, 'status' => Run::STATUS_IN_PROGRESS]);
+        $this->getJson('/api/v1/driver/runs/'.$run->uuid.'/position', $headers)->assertOk()
+            ->assertJsonPath('data.geofence_location.location_id', $fence->uuid);
+        $fence->update(array_fill_keys(['full_address', 'address_line_1', 'address_line_2', 'town', 'city', 'province', 'post_code', 'country'], ''));
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.geofence_location.name', 'Isando Depot')
+            ->assertJsonPath('data.geofence_location.address', null);
+        foreach (['POLYGON((28.03 -26.16,28.05 -26.14,28.03 -26.14,28.05 -26.16,28.03 -26.16))', null] as $invalid) {
+            $fence->update(['polygon_bounds' => $invalid]);
+            $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.geofence_location', null);
+        }
+        $fence->update(['polygon_bounds' => $polygon]);
+        foreach ([28.03, 28.06] as $longitude) {
+            $vehicle->update(['last_location_address' => ['latitude' => -26.15, 'longitude' => $longitude, 'formatted_address' => 'Reported road']]);
+            $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.geofence_location', null)
+                ->assertJsonPath('data.address', 'Reported road');
+        }
+        $vehicle->update(['last_location_address' => ['latitude' => -26.15, 'longitude' => 28.04]]);
+        $fence->delete();
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.geofence_location', null)->assertJsonPath('data.address', null);
+        $vehicle->update(['last_location_address' => ['latitude' => 91, 'longitude' => 28.04]]);
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.coordinate', null)->assertJsonPath('data.geofence_location', null);
+    }
+
     public function test_driver_position_uses_an_unclaimed_assignment_but_not_another_drivers_truck(): void
     {
         [$user, $merchant] = $this->createDriverContext();
