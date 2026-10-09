@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
+import { DeliveryNoteFilePreview } from "@/src/components/DeliveryNoteFilePreview";
+import { unfinishedDocumentImport } from '@/src/lib/unfinished-document-import';
 import { pollDocumentImport } from '@/src/lib/document-import-poll';
 import { MessageSheet, type MessageSheetRef } from "@/component/ui/MessageSheet";
 import { Feather } from "@expo/vector-icons";
@@ -88,17 +90,13 @@ export default function LoadShipment() {
     const [pendingImport, setPendingImport] = useState<{ id: string; filename: string } | null>(null);
     const polling = useRef<AbortController | null>(null);
     const pendingStorageKey = session ? `delivery-note-processing:${session.user.user_id}` : null;
-    useEffect(() => {
-        let active = true;
-        if (pendingStorageKey) void AsyncStorage.getItem(pendingStorageKey).then(value => {
-            if (!active || !value || inFlight.current) return;
-            try {
-                const saved = JSON.parse(value);
-                if (typeof saved.id === 'string' && typeof saved.filename === 'string') setPendingImport(saved);
-            } catch { /* Ignore an invalid local reference. */ }
-        }).catch(() => { /* A storage failure must not prevent opening the flow. */ });
-        return () => { active = false; polling.current?.abort(); };
-    }, [pendingStorageKey]);
+    const [startNew, setStartNew] = useState(false);
+    const [recoveryReady, setRecoveryReady] = useState(false);
+    const loadVersion = useRef(0);
+    const unfinished = !resumeImportId && !startNew && !file && !analysisFailed && recoveryReady
+        ? unfinishedDocumentImport(context?.recent_imports ?? [], pendingImport)
+        : null;
+    function cancelLoad() { loadVersion.current++; polling.current?.abort(); }
     async function clearPending() {
         setPendingImport(null);
         if (pendingStorageKey) await AsyncStorage.removeItem(pendingStorageKey).catch(() => { /* Do not block completed analysis on local storage failure. */ });
@@ -124,9 +122,22 @@ export default function LoadShipment() {
     const [error, setError] = useState("");
     async function load() {
         if (!session) return;
+        const version = ++loadVersion.current;
         try {
-            const result = await documentImportApi.context(session.token);
+            const [result, stored] = await Promise.all([
+                documentImportApi.context(session.token),
+                pendingStorageKey ? AsyncStorage.getItem(pendingStorageKey).catch(() => null) : Promise.resolve(null),
+            ]);
+            if (version !== loadVersion.current || !handoffRef.current?.active || inFlight.current) return;
+            let restored: { id: string; filename: string } | null = null;
+            try {
+                const saved = stored ? JSON.parse(stored) : null;
+                if (typeof saved?.id === 'string' && typeof saved?.filename === 'string') restored = saved;
+            } catch { /* Ignore invalid local references. */ }
+            const known = result.recent_imports.find(item => item.import_id === restored?.id);
+            setPendingImport(known ? null : restored);
             setContext(result);
+            setRecoveryReady(true);
             const matchingRun = result.runs.find(
                 (item) => item.run_id === requestedRun,
             );
@@ -143,12 +154,27 @@ export default function LoadShipment() {
                     : "",
             );
         } catch (e) {
+            if (version !== loadVersion.current || !handoffRef.current?.active) return;
             setError((e as Error).message);
         }
     }
     useEffect(() => {
+        setContext(undefined);
+        setPendingImport(null);
+        setRecoveryReady(false);
+        setStartNew(false);
         void load(); /* Reload for a different account or dashboard run. */
+        return cancelLoad;
     }, [session?.token, requestedRun]); // eslint-disable-line react-hooks/exhaustive-deps
+    function continueUnfinished() {
+        if (!unfinished || busy || inFlight.current) return;
+        if (unfinished.needsStatusCheck) void analyze();
+        else openReview(unfinished.id);
+    }
+    async function startNewUpload() {
+        setStartNew(true);
+        await chooseDocument();
+    }
     async function pick(): Promise<DocumentPicker.DocumentPickerAsset | undefined> {
         try {
             const result = await DocumentPicker.getDocumentAsync({
@@ -253,6 +279,7 @@ export default function LoadShipment() {
                 if (source === "file") selected = await pick();
                 else if (source === "photo" || source === "camera") selected = await pickImage(source === "camera");
                 if (selected && handoff.active) {
+                    setStartNew(true);
                     setAnalysisFailed(false);
                     setFile(selected);
                     setError("");
@@ -271,6 +298,7 @@ export default function LoadShipment() {
         inFlight.current = true;
         const controller = new AbortController();
         polling.current = controller;
+        setStartNew(false);
         setUploaded(false);
         setBusy(true);
         setError("");
@@ -355,13 +383,22 @@ export default function LoadShipment() {
                 ) : (
                     <>
                         <ImportStepIndicator step={1} />
+                        {unfinished ? (
+                            <View style={s.card}>
+                                <Text style={s.heading}>Continue your last upload?</Text>
+                                <Text style={s.body}>We noticed that you didn’t finish processing your last upload. Would you like to continue with it?</Text>
+                                <DeliveryNoteFilePreview key={`${session?.user.user_id}:${unfinished.id}`} importId={unfinished.id} filename={unfinished.filename} token={session!.token} />
+                                <ImportButton label="Yes, continue" onPress={continueUnfinished} />
+                                <ImportButton secondary label="No, let’s start a new upload" onPress={() => void startNewUpload()} />
+                            </View>
+                        ) : (
                         <Pressable
                             accessibilityRole="button"
-                            accessibilityLabel={analysisFailed ? "Upload another file" : file || pendingImport ? "Change document" : "Choose document"}
+                            accessibilityLabel={analysisFailed ? "Upload another file" : file || (!startNew && pendingImport) ? "Change document" : "Choose document"}
                             accessibilityHint="Opens photo, file and camera options"
-                            accessibilityState={{ disabled: busy }}
+                            accessibilityState={{ disabled: busy || !recoveryReady }}
                             onPress={chooseDocument}
-                            disabled={busy}
+                            disabled={busy || !recoveryReady}
                             style={{
                                 alignItems: "center",
                                 padding: 20,
@@ -375,7 +412,7 @@ export default function LoadShipment() {
                         >
                             <Feather name="upload-cloud" size={32} color={dark ? "#ff8585" : "#c2292e"} />
                             <Text style={[s.heading, { fontSize: 21, textAlign: "center", alignSelf: "stretch" }]}>
-                                {file?.name || pendingImport?.filename || "Upload a delivery note"}
+                                {file?.name || (!startNew ? pendingImport?.filename : null) || "Upload a delivery note"}
                             </Text>
                             <Text style={[s.note, { fontSize: 12, lineHeight: 16, textAlign: "center", alignSelf: "stretch" }]}>
                                 PDF, JPG, PNG or WebP · up to 20 MB
@@ -393,11 +430,12 @@ export default function LoadShipment() {
                                 }}
                             >
                                 <Text style={{ fontSize: 16, fontWeight: "600", color: "#ffffff", textAlign: "center" }}>
-                                    {analysisFailed ? "Upload another file" : file || pendingImport ? "Change document" : "Choose document"}
+                                    {analysisFailed ? "Upload another file" : file || (!startNew && pendingImport) ? "Change document" : "Choose document"}
                                 </Text>
                             </View>
                         </Pressable>
-                        {!!pendingImport && !error && <Text style={s.note}>Your document is saved for processing. Check its status to continue without uploading again.</Text>}
+                        )}
+                        {!!pendingImport && !startNew && !unfinished && !error && <Text style={s.note}>Your document is saved for processing. Check its status to continue without uploading again.</Text>}
                         {!!error && (
                             <Text accessibilityRole="alert" style={s.error}>
                                 {error}{analysisFailed ? "\n\nPlease upload another file to continue." : ""}
@@ -411,7 +449,7 @@ export default function LoadShipment() {
                                 onPress={() => void load()}
                             />
                         )}
-                        {!analysisFailed && (file || pendingImport) ? (
+                        {!unfinished && !analysisFailed && (file || (!startNew && pendingImport)) ? (
                             <ImportButton
                                 label={pendingImport ? "Check processing status" : "Retry reading document"}
                                 disabled={busy}

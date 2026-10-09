@@ -20,6 +20,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -183,6 +184,20 @@ class DriverDocumentImportController extends Controller
         return ApiResponse::success($this->payload($import), [], 201);
     }
 
+    public function filePreview(Request $request, string $id)
+    {
+        $import = $this->owned($request, $id);
+        abort_unless(in_array($import->mime_type, ['image/jpeg', 'image/png', 'image/webp'], true), 415, 'An image preview is not available for this document.');
+        $disk = Storage::disk($import->disk);
+        abort_unless($disk->exists($import->path), 404);
+        $stream = $disk->readStream($import->path);
+        abort_unless(is_resource($stream), 404);
+
+        return response()->stream(function () use ($stream) {
+            try { fpassthru($stream); } finally { fclose($stream); }
+        }, 200, ['Content-Type' => $import->mime_type, 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
     public function show(Request $request, string $id)
     {
         $import = $this->owned($request, $id);
@@ -265,7 +280,7 @@ class DriverDocumentImportController extends Controller
             if (collect($rows)->filter(fn ($row) => empty($row['items'][0]['excluded']))->pluck('merchant_order_ref')->duplicates()->isNotEmpty()) {
                 throw ValidationException::withMessages(['line_items' => ['Use a unique reference for each shipment, or group the items into one shipment.']]);
             }
-            if (collect($data['line_items'])->sum(fn ($item) => $item['quantity'] ?? 1) > 500) {
+            if (collect($data['line_items'])->sum(fn ($item) => !empty($item['excluded']) ? 0 : (($item['quantity_unit'] ?? 'units') === 'liters' ? 1 : ($item['quantity'] ?? 1))) > 500) {
                 throw ValidationException::withMessages(['line_items' => ['Import at most 500 parcels at a time.']]);
             }
             $result = ['created' => [], 'skipped' => [], 'attached' => [], 'unassigned' => [], 'delivered' => [], 'run_id' => $run?->uuid];
@@ -280,6 +295,9 @@ class DriverDocumentImportController extends Controller
                     continue;
                 }
                 foreach (['pickup_address', 'dropoff_address'] as $kind) {
+                    // Saved IDs were scoped and resolved above; their database addresses may omit postal fields.
+                    $locationKey = $kind === 'pickup_address' ? 'pickup_location_id' : 'dropoff_location_id';
+                    if (!empty($item[$locationKey])) continue;
                     $address = $item[$kind] ?? [];
                     foreach (['address_line_1', 'city', 'province', 'post_code'] as $field) {
                         if (trim($address[$field] ?? '') === '') throw ValidationException::withMessages(['line_items' => "$ref: complete the $kind $field."]);
@@ -292,7 +310,9 @@ class DriverDocumentImportController extends Controller
                         'weight' => $item['weight'] ?? null, 'weight_measurement' => 'kg',
                         'length_cm' => $item['length_cm'] ?? null, 'width_cm' => $item['width_cm'] ?? null, 'height_cm' => $item['height_cm'] ?? null,
                     ], fn ($value) => $value !== null && $value !== '');
-                    for ($i = 0; $i < ($item['quantity'] ?? 1); $i++) {
+                    // Volume is shipment metadata, not a count of individual parcels.
+                    $parcelCount = ($item['quantity_unit'] ?? 'units') === 'liters' ? 1 : ($item['quantity'] ?? 1);
+                    for ($i = 0; $i < $parcelCount; $i++) {
                         $parcels[] = $parcel;
                     }
                 }

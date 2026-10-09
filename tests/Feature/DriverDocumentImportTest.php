@@ -44,6 +44,25 @@ class DriverDocumentImportTest extends TestCase
             'path' => 'test.png', 'original_name' => 'test.png', 'mime_type' => 'image/png', 'size_bytes' => 10, 'extracted_data' => $this->draft()]);
     }
 
+    public function test_driver_file_preview_streams_only_owned_images(): void
+    {
+        Storage::fake('local');
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        Storage::disk('local')->put($import->path, 'private-image-bytes');
+        $url = "/api/v1/driver/document-imports/{$import->uuid}/file-preview";
+        $response = $this->apiAs($user)->get($url)->assertOk()->assertHeader('Content-Type', 'image/png');
+        $this->assertSame('private-image-bytes', $response->streamedContent());
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
+        [$otherUser] = $this->createDriverContext();
+        $this->apiAs($otherUser)->get($url)->assertNotFound();
+        $import->update(['mime_type' => 'application/pdf']);
+        $this->apiAs($user)->get($url)->assertStatus(415);
+        $import->update(['mime_type' => 'image/png']);
+        Storage::disk('local')->delete($import->path);
+        $this->apiAs($user)->get($url)->assertNotFound();
+    }
+
     public function test_location_search_accepts_a_single_character_and_keeps_merchant_scope(): void
     {
         [$user, $merchant] = $this->createDriverContext();
@@ -377,6 +396,48 @@ class DriverDocumentImportTest extends TestCase
         $this->assertDatabaseCount('shipments', 0);
     }
 
+    public function test_saved_locations_with_partial_postal_fields_are_valid_and_compare_by_identity(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $attributes = ['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'address_line_1' => '', 'province' => '', 'name' => 'Selected depot', 'city' => 'Marikana', 'post_code' => '0284', 'country' => 'South Africa',
+            'latitude' => -25.7, 'longitude' => 27.5];
+        $start = \App\Models\Location::create($attributes);
+        $delivery = \App\Models\Location::create(array_merge($attributes, ['name' => 'Selected delivery']));
+        $draft = $this->draft();
+        $draft['origin_location_id'] = $start->uuid;
+        $draft['line_items'] = [$draft['line_items'][0]];
+        $draft['line_items'][0]['pickup_location_id'] = $start->uuid;
+        $draft['line_items'][0]['dropoff_location_id'] = $delivery->uuid;
+        $draft['line_items'][0]['pickup_address'] = [];
+        $draft['line_items'][0]['dropoff_address'] = [];
+        $import = $this->import($user, $merchant);
+        $url = "/api/v1/driver/document-imports/{$import->uuid}";
+        $preview = $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()
+            ->assertJsonPath('data.rows.0.collection_comparison', 'match')
+            ->assertJsonPath('data.rows.0.validation_warnings', []);
+        $draft['review_token'] = $preview->json('data.review_token');
+        $this->apiAs($user)->postJson("$url/confirm", $draft)->assertOk();
+        $shipment = Shipment::where('merchant_order_ref', 'TODAY')->firstOrFail();
+        $this->assertSame($start->id, $shipment->pickup_location_id);
+        $this->assertSame($delivery->id, $shipment->dropoff_location_id);
+    }
+
+    public function test_distinct_saved_collections_with_identical_partial_addresses_are_mismatches(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $attributes = ['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'address_line_1' => '', 'province' => '', 'country' => 'South Africa', 'name' => 'Depot', 'city' => 'Marikana', 'post_code' => '0284', 'latitude' => -25.7, 'longitude' => 27.5];
+        $start = \App\Models\Location::create($attributes);
+        $pickup = \App\Models\Location::create($attributes);
+        $draft = $this->draft();
+        $draft['origin_location_id'] = $start->uuid;
+        $draft['line_items'][0]['pickup_location_id'] = $pickup->uuid;
+        $import = $this->import($user, $merchant);
+        $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/preview", $draft)->assertOk()
+            ->assertJsonPath('data.rows.0.collection_comparison', 'mismatch');
+    }
+
     public function test_saved_only_collection_search_never_geocodes_missing_locations(): void
     {
         [$user] = $this->createDriverContext();
@@ -427,6 +488,36 @@ class DriverDocumentImportTest extends TestCase
         }
         $draft['line_items'][0]['quantity_unit'] = 'unsupported';
         $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)->assertStatus(422);
+        $this->assertDatabaseCount('shipments', 0);
+    }
+
+    public function test_liters_preserve_decimal_volume_without_expanding_parcels(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $draft = $this->draft();
+        $draft['line_items'][0]['quantity_unit'] = 'liters';
+        $draft['line_items'][0]['quantity'] = 1250.5;
+        $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)->assertOk();
+        $shipment = Shipment::where('merchant_order_ref', 'TODAY')->firstOrFail();
+        $this->assertSame(1250.5, $shipment->metadata['delivery_note_items'][0]['quantity']);
+        $this->assertSame('liters', $shipment->metadata['delivery_note_items'][0]['quantity_unit']);
+        $this->assertSame(1, $shipment->parcels()->count());
+    }
+
+    public function test_liters_require_positive_bounded_volume_and_packaging_keeps_integer_limits(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        foreach (['liters' => [null, 0, -1, 1000001], 'boxes' => [1.5, 101]] as $unit => $quantities) {
+            foreach ($quantities as $quantity) {
+                $draft = $this->draft();
+                $draft['line_items'][0]['quantity_unit'] = $unit;
+                $draft['line_items'][0]['quantity'] = $quantity;
+                $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)
+                    ->assertUnprocessable()->assertJsonValidationErrors('line_items.0.quantity');
+            }
+        }
         $this->assertDatabaseCount('shipments', 0);
     }
 

@@ -384,6 +384,7 @@ Route::prefix('v1')->group(function () {
             Route::get('dashboard', \App\Http\Controllers\Api\V1\DriverDashboardController::class);
             Route::get('document-imports/context', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'context']);
             Route::post('document-imports', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'store']);
+            Route::get('document-imports/{id}/file-preview', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'filePreview']);
             Route::get('document-imports/{id}', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'show']);
             Route::post('document-imports/{id}/confirm', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'confirm']);
             Route::patch('profile', [MeController::class, 'updateDriverProfile']);

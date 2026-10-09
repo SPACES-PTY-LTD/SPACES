@@ -1,5 +1,32 @@
 # Release Notes
 
+## 2026-10-09 | Version: unfinished-upload-image-preview-v1
+
+- **Summary:** Preview uploaded images in the unfinished delivery-note card.
+- **API Changes:** Add authenticated GET /api/v1/driver/document-imports/{id}/file-preview, streaming owned JPG/PNG/WebP files with private no-store headers. Reuse driver/account/merchant/uploader scope; missing files return 404 and unsupported types 415.
+- **Database Changes:** None.
+- **Behavior Changes:** Show a 180-point contained image preview and loading indicator above the small filename. Unavailable images and PDFs use a document fallback without disabling continue/new-upload actions. Native PDF thumbnails are unsupported.
+- **Breaking Changes:** None; deploy the endpoint before mobile preview to avoid fallback on older servers.
+- **Verification:** Mobile TypeScript/focused lint with the existing upload effect-rule exclusion, scoped preview API test (eight assertions) and diff checks pass. Dashboard plan v2.51 and Figma prompt example/scenario handoff aligned; Figma preview content is illustrative. Native image loading, fallback, dark/large-text and short-screen layouts remain pending.
+
+## 2026-10-09 | Version: saved-location-review-validation-v1
+
+- **Summary:** Remove false address warnings for selected saved locations and clarify collection/run-start differences.
+- **API Changes:** Preview validates scoped saved pickup/dropoff IDs independently of postal-field completeness and compares saved collection/start identities first. Confirmation accepts already-resolved saved IDs with partial postal fields; unselected raw-address validation and foreign/unknown-ID rejection remain. Recorded-delivery matching is unchanged.
+- **Database Changes:** None.
+- **Behavior Changes:** Same saved collection/start ID matches; different IDs mismatch. Confirmed differences explain that intentional differences may be ignored and offer correction. Unknown states ask drivers to check locations without claiming a difference. Include location names with addresses; colour only Address missing red.
+- **Breaking Changes:** None. Deploy the API fix to remove warnings from live clients.
+- **Verification:** 32 driver-import tests / 243 assertions, mobile TypeScript/focused lint, PHP syntax and diff checks pass. Dashboard plan v2.50/Figma warning/handoff aligned; native interaction and deployed API verification pending.
+
+## 2026-10-09 | Version: unfinished-delivery-note-prompt-v1
+
+- **Summary:** Offer to continue an unfinished delivery-note upload from Step 1.
+- **API Changes:** None; reuse current-driver recent imports and device-local pending UUID.
+- **Database Changes:** None.
+- **Behavior Changes:** Show the unfinished-upload message, filename, Yes, continue and No, let’s start a new upload. Continue restores saved review edits at Step 3 or checks pending analysis without uploading again. Starting fresh opens the source chooser and preserves the old draft; cancellation leaves it intact. Explicit review replacement skips the prompt. Detection uses the existing five recent imports plus this device’s pending reference.
+- **Breaking Changes:** None.
+- **Verification:** Two unfinished-upload selection tests and ten existing polling regressions pass. TypeScript, focused lint with the existing effect rule excluded and diff checks pass. Dashboard plan v2.49 and editable Figma example/scenario handoff aligned; prototype navigation is not wired; native reopen, choices, picker cancellation, theme and accessibility checks pending.
+
 ## 2026-10-09 | Version: shipment-review-location-names-v1
 
 - **Summary:** Show location names in Collection and Deliver to on shipment review cards.

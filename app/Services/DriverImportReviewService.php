@@ -38,6 +38,10 @@ class DriverImportReviewService
         $rows = [];
         $items = $data['line_items'] ?? [];
         ksort($items, SORT_NUMERIC);
+        $locationIds = collect($items)->flatMap(fn ($item) => [$item['pickup_location_id'] ?? null, $item['dropoff_location_id'] ?? null])
+            ->push($origin?->exists ? $origin->uuid : null)->filter()->unique();
+        $savedLocations = Location::where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)
+            ->whereIn('uuid', $locationIds)->get()->keyBy('uuid');
         foreach ($items as $index => $item) {
             $item = $this->collectionFromRunStart($item, $origin);
             if (!empty($item['excluded'])) $item = ['excluded' => true, 'merchant_order_ref' => $item['merchant_order_ref'] ?? null];
@@ -53,10 +57,15 @@ class DriverImportReviewService
             $eligibility = $existing ? ($otherRun && $otherRun->id !== $run?->id ? 'excluded' : 'existing') : (!empty($item['excluded']) ? 'excluded' : 'new');
             $pickupKey = $this->addressKey($pickup);
             $originKey = $origin ? $this->addressKey($origin->toAddressArray()) : null;
+            $pickupLocation = $savedLocations->get($item['pickup_location_id'] ?? '');
+            $dropoffLocation = $savedLocations->get($item['dropoff_location_id'] ?? '');
+            $comparison = $pickupLocation && $origin?->exists
+                ? ($pickupLocation->id === $origin->id ? 'match' : 'mismatch')
+                : (!$pickupKey || !$originKey ? 'unknown' : ($pickupKey === $originKey ? 'match' : 'mismatch'));
             $rows[] = [
                 'index' => $index, 'reference' => $reference, 'eligibility' => $eligibility,
-                'validation_warnings' => array_values(array_filter([!$reference ? 'Shipment reference is missing.' : null, empty($item['description']) ? 'Description is missing.' : null, !$this->addressKey($pickup) ? 'Complete the collection address.' : null, !$this->addressKey($dropoff) ? 'Complete the delivery address.' : null])),
-                'collection_comparison' => !$pickupKey || !$originKey ? 'unknown' : ($pickupKey === $originKey ? 'match' : 'mismatch'),
+                'validation_warnings' => array_values(array_filter([!$reference ? 'Shipment reference is missing.' : null, empty($item['description']) ? 'Description is missing.' : null, !$pickupLocation && !$pickupKey ? 'Complete the collection address.' : null, !$dropoffLocation && !$key ? 'Complete the delivery address.' : null])),
+                'collection_comparison' => $comparison,
                 'status' => $existing?->status ?? ($item['status'] ?? ($match ? 'delivered' : 'booked')),
                 'status_source' => !empty($item['status']) ? 'driver' : ($match ? 'matched_visit' : 'initial'),
                 'ambiguous_match' => $matches->count() > 1,

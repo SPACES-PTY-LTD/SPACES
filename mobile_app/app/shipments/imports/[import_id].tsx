@@ -29,7 +29,7 @@ import { TripLocationStep } from "@/src/components/TripLocationStep";
 import { shipmentAddressDraft, collectionFromRunStart } from "@/src/lib/import-addresses";
 import { DeliveryNoteProgress } from "@/src/components/delivery-note-progress";
 
-const quantityUnits = ["Units", "Boxes", "Pallets", "Drums", "Bags", "Crates", "Rolls"];
+const quantityUnits = ["Units", "Boxes", "Pallets", "Drums", "Bags", "Crates", "Rolls", "Liters"];
 
 const statusLabel = (value: string) => {
     if (value === "at_delivery_location") return "At delivery location";
@@ -711,7 +711,7 @@ export default function ReviewImport() {
                                                     style={{ minHeight: 44, gap: 2, opacity: busy ? 0.45 : 1 }}
                                                 >
                                                     <Text style={s.note}>{label}</Text>
-                                                    <Text style={[s.body, { fontWeight: "700", textDecorationLine: "underline" }, !fullAddress(item[addressKey]) && { color: s.error.color }]}>
+                                                    <Text style={[s.body, { fontWeight: "700", textDecorationLine: "underline" }, locationLabel(item[addressKey], item[kind]) === "Address missing" && { color: s.error.color }]}>
                                                         {locationLabel(item[addressKey], item[kind])}
                                                     </Text>
                                                 </Pressable>
@@ -731,15 +731,22 @@ export default function ReviewImport() {
                                                         <Text style={s.body}>
                                                             {state?.collection_comparison ===
                                                             "mismatch"
-                                                                ? "Collection point doesn’t match run start"
-                                                                : "Unable to compare collection point"}
+                                                                ? "We noticed that the shipment collection location is different from the run starting location."
+                                                                : "Check the shipment collection location"}
+                                                        </Text>
+                                                        <Text style={s.note}>
+                                                            {state?.collection_comparison === "mismatch"
+                                                                ? "If this is correct, ignore this message. Otherwise, change the shipment collection location or the run starting location."
+                                                                : "We couldn’t verify whether these locations match. Select a saved collection location or check the run starting location."}
                                                         </Text>
                                                         <Text style={s.note}>
                                                             Shipment collection:{" "}
+                                                            {locationLabel(item.pickup_address, item.pickup_location_id)}{"\n"}
                                                             {fullAddress(
                                                                 item.pickup_address,
                                                             ) || "Missing"}
                                                             {"\n"}Run start:{" "}
+                                                            {locationLabel(origin, draft.origin_location_id)}{"\n"}
                                                             {fullAddress(
                                                                 origin,
                                                             )}

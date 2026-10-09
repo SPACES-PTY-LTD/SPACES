@@ -905,6 +905,7 @@ export type ImportReviewRow = { index: number; reference: string; eligibility: '
 export type ImportReview = { rows: ImportReviewRow[]; review_token: string };
 export type ImportContext = { vehicles: { vehicle_id: string; label: string }[]; locations: ImportLocation[]; recent_imports: { import_id: string; filename: string; status: string }[]; today: string; timezone: string; runs: { run_id: string; label: string; status: string; origin_location_id?: string; destination_location_id?: string; vehicle_id?: string }[] };
 export const documentImportApi = {
+  filePreviewUrl: (id: string) => `${apiBaseUrl}/driver/document-imports/${encodeURIComponent(id)}/file-preview`,
   searchLocationPage: (token: string, query: string, page = 1, savedOnly = false) => requestWithMeta<ImportLocation[]>('/driver/trip-locations/search', { token, method: 'POST', body: { query, page, saved_only: savedOnly } }) as Promise<{ data: ImportLocation[]; meta: { next_page: number | null } }>,
   searchLocations: (token: string, query: string) => request<ImportLocation[]>('/driver/trip-locations/search', { token, method: 'POST', body: { query } }),
   chooseFinalDestination: (token: string, runId: string, locationId: string) => request(`/driver/runs/${encodeURIComponent(runId)}/final-destination`, { token, method: 'PATCH', body: { destination_location_id: locationId } }),
