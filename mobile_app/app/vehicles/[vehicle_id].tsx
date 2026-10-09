@@ -69,11 +69,11 @@ export default function VehicleDetailScreen() {
 
         {isLoading ? (
           <View className="bg-card mt-6 items-center rounded-xl px-5 py-12">
-            <ActivityIndicator color="#F54A4A" />
+            <ActivityIndicator color="#15803d" />
           </View>
         ) : errorMessage ? (
-          <View className="border-destructive bg-destructive mt-6 rounded-xl border px-5 py-5">
-            <Text className="text-destructive-foreground text-base font-semibold">{errorMessage}</Text>
+          <View className="border-warning bg-warning mt-6 rounded-xl border px-5 py-5">
+            <Text className="text-warning-foreground text-base font-semibold">{errorMessage}</Text>
           </View>
         ) : vehicle ? (
           <View className="bg-card mt-6 rounded-xl px-5 py-5">

@@ -84,16 +84,16 @@ export function DeliveryOrderSheet({ token, runId, onDismiss, onSaved }: {
   const changed = rows.some((row, index) => row.shipment_id !== expected[index]);
   return <BottomSheet modalRef={modal} title="Update delivery order" contentPanning={false} dismissible={!busy && !drag} onDismiss={onDismiss}>
     <Text style={{ color: muted }}>Drag the handles to choose what gets delivered first. Completed deliveries stay unchanged.</Text>
-    {!!error && <Text accessibilityRole="alert" style={{ color: dark ? '#fca5a5' : '#b91c1c' }}>{error}</Text>}
-    {(conflict || (error && !rows.length)) && <Pressable accessibilityRole="button" onPress={() => void load()} disabled={loading || busy}><Text style={{ color: '#f54a4a', fontWeight: '600' }}>Reload delivery order</Text></Pressable>}
-    {loading ? <ActivityIndicator color="#f54a4a" /> : !rows.length ? <Text style={{ color: muted }}>No remaining shipments to reorder.</Text> : <View ref={viewport} onLayout={() => viewport.current?.measureInWindow((_x, y, _width, h) => { bounds.current = { top: y, height: h }; })} style={{ height: listHeight }}>
+    {!!error && <Text accessibilityRole="alert" style={{ color: dark ? '#fde68a' : '#b45309' }}>{error}</Text>}
+    {(conflict || (error && !rows.length)) && <Pressable accessibilityRole="button" onPress={() => void load()} disabled={loading || busy}><Text style={{ color: '#15803d', fontWeight: '600' }}>Reload delivery order</Text></Pressable>}
+    {loading ? <ActivityIndicator color="#15803d" /> : !rows.length ? <Text style={{ color: muted }}>No remaining shipments to reorder.</Text> : <View ref={viewport} onLayout={() => viewport.current?.measureInWindow((_x, y, _width, h) => { bounds.current = { top: y, height: h }; })} style={{ height: listHeight }}>
       <ScrollView ref={list} scrollEnabled={!drag && !busy} onScroll={event => { scroll.current = event.nativeEvent.contentOffset.y; }} scrollEventThrottle={16} contentContainerStyle={{ paddingBottom: 0 }}>
         {rows.map((row, index) => {
           const drop = drag ? target(drag.index, drag.dy) : -1;
           const translation = drag?.index === index ? drag.dy : drag && index > drag.index && index <= drop ? -ROW : drag && index < drag.index && index >= drop ? ROW : 0;
           return <View key={row.shipment_id} style={[styles.slot, { zIndex: drag?.index === index ? 2 : 0, transform: [{ translateY: translation }] }]}>
-            <View style={[styles.card, { backgroundColor: dark ? '#27272a' : '#f7f7f8', borderColor: drag?.index === index ? '#f54a4a' : dark ? '#3f3f46' : '#e4e4e7' }]}>
-              <Text style={{ color: '#f54a4a', fontWeight: '700', width: 26 }}>{index + 1}</Text>
+            <View style={[styles.card, { backgroundColor: dark ? '#27272a' : '#f7f7f8', borderColor: drag?.index === index ? '#15803d' : dark ? '#3f3f46' : '#e4e4e7' }]}>
+              <Text style={{ color: '#15803d', fontWeight: '700', width: 26 }}>{index + 1}</Text>
               <View style={{ flex: 1, gap: 4 }}><Text numberOfLines={1} style={{ color: ink, fontWeight: '600' }}>{row.reference}</Text><Text numberOfLines={2} style={{ color: muted, fontSize: 13 }}>{row.destination || row.address || 'Delivery location unavailable'}</Text></View>
               <DeliveryDragHandle label={`Delivery ${index + 1}, ${row.reference}. Drag to reorder`} disabled={busy || conflict || rows.length < 2} color={muted}
                 onStart={pageY => {
@@ -132,5 +132,5 @@ const styles = StyleSheet.create({
   slot: { height: ROW, paddingBottom: 8 },
   card: { flex: 1, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, paddingLeft: 14, gap: 10 },
   handle: { width: 48, height: '100%', alignItems: 'center', justifyContent: 'center' },
-  save: { minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: '#f54a4a' },
+  save: { minHeight: 50, alignItems: 'center', justifyContent: 'center', borderRadius: 999, backgroundColor: '#15803d' },
 });

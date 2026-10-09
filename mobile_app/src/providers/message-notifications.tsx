@@ -1,11 +1,12 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { Platform } from 'react-native';
-import { chatApi, driverApi } from '@/src/lib/api';
+import { useRootNavigationState, useRouter, useSegments } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, Platform } from 'react-native';
+import { driverApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
+import { driverMessageTarget } from '@/src/lib/driver-message-notification';
 
 let visibleChat: string | null = null;
 export function setVisibleDriverChat(id: string | null) {
@@ -28,11 +29,54 @@ Notifications.setNotificationHandler({
 });
 
 export function MessageNotifications() {
-    const { session } = useAuth();
+    const { session, isHydrating } = useAuth();
     const router = useRouter();
+    const navigation = useRootNavigationState();
+    const segments = useSegments();
+    const [response, setResponse] =
+        useState<Notifications.NotificationResponse | null>(() =>
+            Platform.OS === 'web' || Constants.appOwnership === 'expo'
+                ? null
+                : Notifications.getLastNotificationResponse(),
+        );
+    const handled = useRef<string | null>(null);
+
+    // Capture taps independently of authentication, including a cold-start tap.
+    useEffect(() => {
+        if (Platform.OS === 'web' || Constants.appOwnership === 'expo') return;
+        const subscription =
+            Notifications.addNotificationResponseReceivedListener(setResponse);
+        return () => subscription.remove();
+    }, []);
+
+    useEffect(() => {
+        if (
+            !response ||
+            !session ||
+            isHydrating ||
+            !navigation?.key ||
+            segments[0] === '(auth)'
+        )
+            return;
+        if (
+            response.actionIdentifier !==
+            Notifications.DEFAULT_ACTION_IDENTIFIER
+        )
+            return;
+        const target = driverMessageTarget(
+            response.notification.request.content.data ?? {},
+        );
+        const identifier = response.notification.request.identifier;
+        if (!target || handled.current === identifier) return;
+        // The Messages screen authorizes the thread through the existing show API.
+        // Navigation itself must work even when the network is temporarily offline.
+        router.push(target);
+        handled.current = identifier;
+        Notifications.clearLastNotificationResponse();
+    }, [response, session, isHydrating, navigation?.key, segments, router]);
     useEffect(() => {
         const token = session?.token;
-        if (!token || Platform.OS === 'web') return;
+        if (!token || isHydrating || Platform.OS === 'web') return;
         let live = true;
         const isExpoGo = Constants.appOwnership === 'expo';
         async function register() {
@@ -61,49 +105,25 @@ export function MessageNotifications() {
                 device_name: Device.deviceName ?? undefined,
             });
         }
-        async function open(response: Notifications.NotificationResponse) {
-            const data = response.notification.request.content.data ?? {};
-            if (
-                data.kind !== 'driver_message' ||
-                typeof data.conversation_id !== 'string'
-            )
-                return;
-            try {
-                const conversation = await chatApi.show(
-                    token!,
-                    data.conversation_id,
-                );
-                if (!live || conversation.type !== 'driver') return;
-                await Notifications.clearLastNotificationResponseAsync();
-                router.push('/(tabs)/messages');
-            } catch {
-                /* Ignore inaccessible conversations and keep the current screen. */
-            }
-        }
         if (isExpoGo) return;
-        void register().catch(() => {
-            /* Chat remains available without notification credentials or permission. */
+        const registerSafely = () =>
+            void register().catch(() => {
+                /* Chat remains available without notification credentials or permission. */
+            });
+        registerSafely();
+        // Retry token registration after connectivity/notification settings change.
+        const foreground = AppState.addEventListener('change', (state) => {
+            if (state === 'active') registerSafely();
         });
-        void Notifications.getLastNotificationResponseAsync().then(
-            (response) => {
-                if (response && live) void open(response);
-            },
-        );
-        const subscription =
-            Notifications.addNotificationResponseReceivedListener(
-                (response) => {
-                    void open(response);
-                },
-            );
         const tokenSubscription = Notifications.addPushTokenListener(() => {
             void register().catch(() => {});
         });
         return () => {
             live = false;
-            subscription.remove();
+            foreground.remove();
             tokenSubscription.remove();
             visibleChat = null;
         };
-    }, [session?.token, router]);
+    }, [session?.token, isHydrating]);
     return null;
 }

@@ -17,6 +17,8 @@ The shared component owns floating margins, corners, backdrop, close button, saf
 
 ## ActionSheet
 
+Action menus show the shared top-right close button by default and contain only their configured actions, without an extra Cancel dismissal row. Keep domain actions such as Cancel shipment. Closing preserves the selection and calls `onDismiss` without an action ID.
+
 ```tsx
 const actions = useRef<ActionSheetRef>(null);
 

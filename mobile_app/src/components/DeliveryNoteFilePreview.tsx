@@ -40,14 +40,14 @@ export function DeliveryNoteFilePreview({ importId, filename, token, openBrowser
       <Image source={{ uri: documentImportApi.filePreviewUrl(importId), headers: { Authorization: `Bearer ${token}` } }}
         accessibilityLabel="Preview of your unfinished delivery note" accessible contentFit="contain" cachePolicy="none"
         style={{ width: '100%', height: '100%' }} onLoad={() => setLoading(false)} onError={() => { setFailed(true); setLoading(false); }} />
-      {loading && <View pointerEvents="none" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator accessibilityLabel="Loading document preview" color="#c2292e" /></View>}
+      {loading && <View pointerEvents="none" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator accessibilityLabel="Loading document preview" color="#15803d" /></View>}
     </View> : <View style={{ padding: 16, gap: 8, alignItems: 'center', borderRadius: 10, backgroundColor: dark ? '#18181b' : '#fff' }}>
-      <Feather name="file-text" size={30} color={dark ? '#ff8585' : '#c2292e'} />
+      <Feather name="file-text" size={30} color={dark ? '#86efac' : '#15803d'} />
       <Text style={{ fontSize: 13, color: dark ? '#a1a1aa' : '#666', textAlign: 'center' }}>{image ? 'Preview unavailable' : pdf ? 'PDF document' : 'Document preview unavailable'}</Text>
       {pdf && <Pressable accessibilityRole="button" accessibilityLabel="Preview PDF" accessibilityState={{ disabled: opening }} disabled={opening} onPress={() => void openPdf()} hitSlop={6} style={{ minHeight: 32, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#d4d4d8', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
         {opening ? <ActivityIndicator accessibilityLabel="Opening PDF preview" size="small" color="#52525b" /> : <Text style={{ fontSize: 13, fontWeight: '600', color: '#52525b' }}>Preview PDF</Text>}
       </Pressable>}
-      {!!previewError && <Text accessibilityRole="alert" style={{ fontSize: 13, color: dark ? '#ff8585' : '#a32222', textAlign: 'center' }}>{previewError}</Text>}
+      {!!previewError && <Text accessibilityRole="alert" style={{ fontSize: 13, color: dark ? '#fde68a' : '#92400e', textAlign: 'center' }}>{previewError}</Text>}
     </View>}
     <Text style={{ fontSize: 12, lineHeight: 18, color: dark ? '#a1a1aa' : '#666' }}>{filename}</Text>
   </View>;

@@ -53,7 +53,7 @@ export function RunTimeline({
                                 {
                                     backgroundColor:
                                         stop.kind === "Speeding"
-                                            ? "#dc2626"
+                                            ? "#b45309"
                                             : stop.kind
                                                     ?.toLowerCase()
                                                     .includes("delivery")
@@ -121,7 +121,7 @@ export function RunTimeline({
                             {stop.kind === "Speeding" ? (
                                 <Text
                                     style={{
-                                        color: "#b91c1c",
+                                        color: "#b45309",
                                         fontSize: 13,
                                         marginTop: 6,
                                     }}
@@ -175,7 +175,7 @@ export function RunTimeline({
                                         />
                                         <Text
                                             style={{
-                                                color: "#e43e3e",
+                                                color: "#15803d",
                                                 fontSize: 12,
                                             }}
                                         >

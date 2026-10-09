@@ -38,7 +38,7 @@ class SendDriverMessagePush implements ShouldQueue
             $devicesBatch = $chunk->values();
             $response = Http::timeout(20)->post('https://exp.host/--/api/v2/push/send', $devicesBatch->map(fn ($device) => [
                 'to' => $device->push_token, 'title' => 'New message', 'body' => 'You have a new message from dispatch.',
-                'sound' => 'default', 'data' => ['kind' => 'driver_message', 'conversation_id' => $conversation->uuid, 'message_id' => $message->uuid],
+                'sound' => 'default', 'channelId' => 'default', 'priority' => 'high', 'data' => ['kind' => 'driver_message', 'conversation_id' => $conversation->uuid, 'message_id' => $message->uuid],
             ])->all())->throw();
             $receipts = [];
             foreach ($response->json('data', []) as $index => $ticket) {

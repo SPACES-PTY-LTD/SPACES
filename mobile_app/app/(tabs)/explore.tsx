@@ -73,7 +73,7 @@ export default function AccountScreen() {
         <Pressable
           disabled={isSubmitting}
           onPress={handleLogout}
-          className={`mt-6 items-center rounded-full px-6 py-4 ${isSubmitting ? 'bg-destructive' : 'bg-primary'}`}>
+          className={`mt-6 items-center rounded-full px-6 py-4 bg-primary disabled:opacity-50`}>
           {isSubmitting ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (

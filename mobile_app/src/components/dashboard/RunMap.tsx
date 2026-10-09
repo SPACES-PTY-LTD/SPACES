@@ -128,7 +128,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       initialRegion={{ latitude: 0, longitude: 0, latitudeDelta: 100, longitudeDelta: 100 }}
       userInterfaceStyle="light" showsPointsOfInterests={false} showsCompass={false} rotateEnabled={false} pitchEnabled={false}
       accessibilityLabel={runId ? 'Current run shipment locations' : 'Current truck location'}>
-      {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor="#f54a4a" strokeWidth={4} /> : null}
+      {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor="#15803d" strokeWidth={4} /> : null}
       {mode === 'planned' && endpointPins.map(p => <Marker key={p.role} coordinate={p.coordinate} title={`${p.role} · ${p.name}`} description={p.address} pinColor={p.role === 'Run starting point' ? '#2563eb' : '#71717a'} />)}
       {truck ? <Marker coordinate={truck} zIndex={100} title={position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}
         description={truckPositionDescription(position)}>
@@ -151,7 +151,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
         return <Marker key={group.stops.map(stop => `${stop.shipment.shipment_id}-${stop.shipment.status}`).join(',')} coordinate={group.coordinate}
           title={`Stop ${numbers}`} description={group.stops.length === 1 ? 'Open shipment' : 'View shipments at this location'}
           onPress={open}>
-          <View style={[styles.marker, { backgroundColor: allDelivered ? '#24753a' : '#f54a4a' }]}>
+          <View style={[styles.marker, { backgroundColor: allDelivered ? '#24753a' : '#15803d' }]}>
             <Text style={styles.number}>{numbers}</Text>
           </View>
         </Marker>;
@@ -198,7 +198,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
     {mode === 'planned' && runId && (stops.length || truck || endpointPins.length) ? <Pressable style={styles.infoButton} onPress={() => setShowRouteInfo(value => !value)}
       accessibilityRole="button" accessibilityLabel={showRouteInfo ? 'Hide route information' : 'Show route information'}
       accessibilityState={{ expanded: showRouteInfo }}>
-      <Feather name="info" size={20} color={showRouteInfo ? '#f54a4a' : '#52525b'} />
+      <Feather name="info" size={20} color={showRouteInfo ? '#15803d' : '#52525b'} />
     </Pressable> : null}
   </View>;
 }

@@ -97,8 +97,8 @@ export default function EditProfileScreen() {
         </View>
 
         {errorMessage ? (
-          <View className="border-destructive bg-destructive mt-6 rounded-xl border px-5 py-5">
-            <Text className="text-destructive-foreground text-base font-semibold">{errorMessage}</Text>
+          <View className="border-warning bg-warning mt-6 rounded-xl border px-5 py-5">
+            <Text className="text-warning-foreground text-base font-semibold">{errorMessage}</Text>
           </View>
         ) : null}
 
@@ -113,7 +113,7 @@ export default function EditProfileScreen() {
             onPress={handleSave}
             disabled={isSaving || !canSave}
             className={`flex-1 items-center rounded-full px-6 py-4 ${
-              isSaving || !canSave ? 'bg-destructive' : 'bg-primary'
+              isSaving || !canSave ? 'bg-primary opacity-50' : 'bg-primary'
             }`}>
             {isSaving ? <ActivityIndicator color="#FFFFFF" /> : <Text className="text-primary-foreground text-base font-semibold">Save</Text>}
           </Pressable>

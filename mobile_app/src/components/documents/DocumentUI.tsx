@@ -17,7 +17,7 @@ export function DocumentIcon({ kind }: { kind: keyof typeof icons }) {
   const { colorScheme } = useColorScheme();
   const size = kind === 'chevron' || kind === 'requiredChevron' ? 20 : 24;
   const tintColor = colorScheme === 'dark'
-    ? kind === 'required' || kind === 'requiredChevron' ? '#FDE68A' : kind === 'expired' ? '#FDA4AF' : '#A1A1AA'
+    ? kind === 'required' || kind === 'requiredChevron' ? '#FDE68A' : kind === 'expired' ? '#fde68a' : '#A1A1AA'
     : undefined;
   return <Image source={icons[kind]} style={{ width: size, height: size }} tintColor={tintColor} />;
 }
@@ -27,8 +27,8 @@ export function DocumentStatus({ file }: { file: DriverEntityFile }) {
   if (!file.is_expired) return null;
   const dark = colorScheme === 'dark';
   return (
-    <View style={{ paddingHorizontal: 16, paddingVertical: 6, borderRadius: 14, backgroundColor: dark ? '#401E22' : '#FFE1E1' }}>
-      <Text style={{ fontSize: 12, fontWeight: '600', color: dark ? '#FDA4AF' : '#A32136' }}>Expired</Text>
+    <View style={{ paddingHorizontal: 16, paddingVertical: 6, borderRadius: 14, backgroundColor: dark ? '#451a03' : '#fef3c7' }}>
+      <Text style={{ fontSize: 12, fontWeight: '600', color: dark ? '#fde68a' : '#92400e' }}>Expired</Text>
     </View>
   );
 }

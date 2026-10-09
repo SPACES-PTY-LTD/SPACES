@@ -82,7 +82,7 @@ export default function VehiclesScreen() {
                     onPress={() => router.back()}
                     className="mb-4 flex-row items-center gap-2"
                 >
-                    <Feather name="arrow-left" size={22} color="#F54A4A" />
+                    <Feather name="arrow-left" size={22} color="#15803d" />
                     <Text className="text-foreground">Account</Text>
                 </Pressable>
                 <View className="rounded-xl bg-secondary px-6 py-6">
@@ -96,11 +96,11 @@ export default function VehiclesScreen() {
 
                 {isLoading ? (
                     <View className="mt-6 items-center rounded-xl bg-card px-5 py-12">
-                        <ActivityIndicator color="#F54A4A" />
+                        <ActivityIndicator color="#15803d" />
                     </View>
                 ) : errorMessage ? (
-                    <View className="mt-6 rounded-xl border border-destructive bg-destructive px-5 py-5">
-                        <Text className="text-destructive-foreground text-base font-semibold">
+                    <View className="mt-6 rounded-xl border border-warning bg-warning px-5 py-5">
+                        <Text className="text-warning-foreground text-base font-semibold">
                             {errorMessage}
                         </Text>
                     </View>
@@ -210,7 +210,7 @@ function InfoLine({
             <Feather
                 name={icon}
                 size={16}
-                color="#F54A4A"
+                color="#15803d"
                 style={{ marginTop: 2 }}
             />
             <View className="flex-1">

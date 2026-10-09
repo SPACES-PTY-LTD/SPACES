@@ -1,6 +1,6 @@
 <svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="110" viewBox="0 0 24 110" fill="none" xmlns="http://www.w3.org/2000/svg">
 <g id="Timeline rail">
-<circle id="Current position" cx="12" cy="10" r="10" fill="#F54A4A"/>
+<circle id="Current position" cx="12" cy="10" r="10" fill="#15803d"/>
 <g id="Route connector" clip-path="url(#clip0_0_54)">
 <g id="Vector">
 <path d="M12 20V110Z" fill="black"/>

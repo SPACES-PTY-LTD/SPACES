@@ -67,7 +67,7 @@ export default function DocumentDetailsScreen() {
             <Text accessibilityRole="alert">{error}</Text>
             <Pressable accessibilityRole="button" onPress={() => { setResult(null); setAttempt(value => value + 1); }} style={{ paddingVertical: 16 }}><Text className="text-primary font-semibold">Retry</Text></Pressable>
           </View>
-        ) : !file ? <ActivityIndicator color="#F54A4A" accessibilityLabel="Loading document" /> : (
+        ) : !file ? <ActivityIndicator color="#15803d" accessibilityLabel="Loading document" /> : (
           <>
             <View className="bg-[#F5F5F8] dark:bg-card" style={{ borderRadius: 20, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
@@ -81,11 +81,11 @@ export default function DocumentDetailsScreen() {
               <View className="bg-border" style={{ height: 1, marginVertical: 22 }} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
                 <Text className="text-muted-foreground" style={{ fontSize: 13 }}>{file.is_expired ? 'Expired on' : 'Expiry'}</Text>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: file.is_expired ? colorScheme === 'dark' ? '#FDA4AF' : '#A32136' : colorScheme === 'dark' ? '#FAFAFA' : '#111111' }}>{file.expires_at ? formatDocumentDate(file.expires_at) : 'No expiry'}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: file.is_expired ? colorScheme === 'dark' ? '#fde68a' : '#92400e' : colorScheme === 'dark' ? '#FAFAFA' : '#111111' }}>{file.expires_at ? formatDocumentDate(file.expires_at) : 'No expiry'}</Text>
               </View>
               <Text className="text-muted-foreground" style={{ fontSize: 13, lineHeight: 20, marginTop: 20 }}>{file.mime_type === 'application/pdf' ? 'PDF' : file.mime_type || 'Unknown type'} · {formatDocumentSize(file.size_bytes)}{'\n'}Uploaded {formatDocumentDate(file.created_at)}</Text>
               <Text className="text-muted-foreground" style={{ fontSize: 13, marginTop: 10 }}>by {file.uploaded_by_user?.name || file.uploaded_by_role || 'Unknown'}</Text>
-              {downloadError && <Text accessibilityRole="alert" className="text-destructive" style={{ marginTop: 16 }}>{downloadError}</Text>}
+              {downloadError && <Text accessibilityRole="alert" className="text-warning-foreground" style={{ marginTop: 16 }}>{downloadError}</Text>}
               <Pressable accessibilityRole="button" disabled={downloading} onPress={download} className="bg-secondary"
                 style={{ minHeight: 48, borderRadius: 24, marginTop: 36, alignItems: 'center', justifyContent: 'center', opacity: downloading ? 0.6 : 1 }}>
                 {downloading ? <ActivityIndicator color="#FFFFFF" /> : <Text className="text-secondary-foreground" style={{ fontSize: 16, fontWeight: '600' }}>Download</Text>}

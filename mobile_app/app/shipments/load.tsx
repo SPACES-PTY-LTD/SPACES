@@ -57,8 +57,8 @@ export default function LoadShipment() {
             { backgroundColor: dark ? "#27272a" : "#f5f5f5" },
         ],
         selected: {
-            borderColor: "#f54a4a",
-            backgroundColor: dark ? "#401e22" : "#fff0f0",
+            borderColor: "#15803d",
+            backgroundColor: dark ? "#142e20" : "#f0fdf4",
         },
     };
     useEffect(() => {
@@ -423,7 +423,7 @@ export default function LoadShipment() {
                                 backgroundColor: dark ? "#18181b" : "#ffffff",
                             }}
                         >
-                            <Feather name="upload-cloud" size={32} color={dark ? "#ff8585" : "#c2292e"} />
+                            <Feather name="upload-cloud" size={32} color={dark ? "#fde68a" : "#15803d"} />
                             <Text style={[s.heading, { fontSize: 21, textAlign: "center", alignSelf: "stretch" }]}>
                                 {file?.name || (!startNew ? pendingImport?.filename : null) || "Upload a delivery note"}
                             </Text>
@@ -437,7 +437,7 @@ export default function LoadShipment() {
                                     minHeight: 48,
                                     padding: 14,
                                     borderRadius: 12,
-                                    backgroundColor: "#c2292e",
+                                    backgroundColor: "#15803d",
                                     alignItems: "center",
                                     justifyContent: "center",
                                 }}

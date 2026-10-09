@@ -17,7 +17,7 @@ export function ImportRunChoice({ context, draft, review, ready, busy, start, en
   statusLabel: (status: string) => string;
 }) {
   const dark = useColorScheme().colorScheme === 'dark';
-  const colors = { ink: dark ? '#fafafa' : '#111', muted: dark ? '#a1a1aa' : '#71717a', card: dark ? '#18181b' : '#f5f5f8', panel: dark ? '#27272a' : '#fff', line: dark ? '#52525c' : '#cfcfd6', brand: '#f54a4a', highlight: dark ? '#3b2124' : '#fff0f0' };
+  const colors = { ink: dark ? '#fafafa' : '#111', muted: dark ? '#a1a1aa' : '#71717a', card: dark ? '#18181b' : '#f5f5f8', panel: dark ? '#27272a' : '#fff', line: dark ? '#52525c' : '#cfcfd6', brand: '#15803d', highlight: dark ? '#142e20' : '#f0fdf4' };
   const rows = ready ? review?.rows.filter(row => row.eligibility === 'new') || [] : [];
   const vehicle = context.vehicles.find(item => item.vehicle_id === draft.vehicle_id);
   const route = () => <View style={styles.route}>
@@ -48,7 +48,7 @@ export function ImportRunChoice({ context, draft, review, ready, busy, start, en
         <Text style={[styles.meta, { color: colors.muted }]}>Assigned vehicle</Text>
         <View style={styles.vehicleRow}><Text style={[styles.vehicleLabel, { color: colors.ink }]}>{vehicle?.label || 'Select your vehicle'}</Text><Text style={{ color: colors.muted }}>⌄</Text></View>
       </Pressable>
-      {!context.vehicles.length && <Text accessibilityRole="alert" style={{ color: dark ? '#ff8585' : '#a32222' }}>Ask dispatch to assign a vehicle before creating a run.</Text>}
+      {!context.vehicles.length && <Text accessibilityRole="alert" style={{ color: dark ? '#fde68a' : '#92400e' }}>Ask dispatch to assign a vehicle before creating a run.</Text>}
     </>}
     {ready ? <View style={styles.summary}>
       <View style={styles.summaryHeading}><Text style={[styles.summaryTitle, { color: colors.ink }]}>{rows.length} new shipments</Text><Text style={[styles.meta, { color: colors.muted }]}>· {rows.filter(row => row.status === 'delivered').length} delivered</Text></View>

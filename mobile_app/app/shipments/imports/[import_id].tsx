@@ -394,7 +394,7 @@ export default function ReviewImport() {
                     <DeliveryNoteProgress creating />
                 ) : !draft || !context ? (
                     <>
-                        <ActivityIndicator color="#f54a4a" />
+                        <ActivityIndicator color="#15803d" />
                         <ImportButton
                             secondary
                             label="Retry"

@@ -1,5 +1,8 @@
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
+import { ChatReferenceSheet } from '@/src/components/ChatReferenceSheet';
 import * as Crypto from 'expo-crypto';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
@@ -10,6 +13,7 @@ import {
     AppState,
     FlatList,
     KeyboardAvoidingView,
+    Keyboard,
     Linking,
     Platform,
     Pressable,
@@ -25,6 +29,7 @@ import {
     chatApi,
     ChatConversation,
     ChatMessage,
+    ChatReference,
 } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
 import { useUnreadMessages } from '@/src/providers/unread-messages-provider';
@@ -32,10 +37,12 @@ import { setVisibleDriverChat } from '@/src/providers/message-notifications';
 
 export default function MessagesScreen() {
     const { session } = useAuth();
-    return <DriverChat key={session?.user.user_id ?? 'signed-out'} />;
+    const { conversation_id } = useLocalSearchParams<{ conversation_id?: string | string[] }>();
+    const requestedConversation = typeof conversation_id === 'string' ? conversation_id : undefined;
+    return <DriverChat key={`${session?.user.user_id ?? 'signed-out'}:${requestedConversation ?? 'default'}`} requestedConversation={requestedConversation} />;
 }
 
-function DriverChat() {
+function DriverChat({ requestedConversation }: { requestedConversation?: string }) {
     const { refresh: refreshUnread } = useUnreadMessages();
     const { session } = useAuth();
     const insets = useSafeAreaInsets();
@@ -48,7 +55,7 @@ function DriverChat() {
         line: dark ? '#303036' : '#ECECF0',
         soft: dark ? '#24242B' : '#F5F5F8',
         shelf: dark ? '#19191E' : '#FAFAFC',
-        coral: dark ? '#362124' : '#FFF0F0',
+        selectedSurface: dark ? '#142e20' : '#f0fdf4',
     };
     const [conversation, setConversation] = useState<ChatConversation | null>(
         null,
@@ -59,6 +66,10 @@ function DriverChat() {
     const [files, setFiles] = useState<DocumentPicker.DocumentPickerAsset[]>(
         [],
     );
+    const attachmentActions = useRef<ActionSheetRef>(null);
+    const [referenceType, setReferenceType] = useState<ChatReference['type'] | null>(null);
+    const [references, setReferences] = useState<ChatReference[]>([]);
+    const [picking, setPicking] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
@@ -102,7 +113,10 @@ function DriverChat() {
                               token,
                               conversationRef.current.conversation_id,
                           )
-                        : await chatApi.openDriver(token);
+                        : requestedConversation
+                          ? await chatApi.show(token, requestedConversation)
+                          : await chatApi.openDriver(token);
+                    if (chat.type !== 'driver') throw new Error('This notification does not link to a driver conversation.');
                     if (!valid()) return;
                     conversationRef.current = chat;
                     setConversation(chat);
@@ -167,7 +181,7 @@ function DriverChat() {
                 state.remove();
                 setVisibleDriverChat(null);
             };
-        }, [session, reload, refreshUnread]),
+        }, [session, reload, refreshUnread, requestedConversation]),
     );
 
     useEffect(() => {
@@ -207,29 +221,61 @@ function DriverChat() {
             if (current === generation.current) setOlderLoading(false);
         }
     }
-    async function pick() {
-        const result = await DocumentPicker.getDocumentAsync({
-            multiple: true,
-            copyToCacheDirectory: true,
-        });
-        if (result.canceled) return;
-        const next = [...files, ...result.assets];
-        if (
-            next.length > 5 ||
-            next.some((f) => (f.size ?? 0) > 20 * 1024 * 1024)
-        ) {
-            setError('Choose up to five files, each no larger than 20 MB.');
+    function addFiles(assets: DocumentPicker.DocumentPickerAsset[]) {
+        const next = [...files, ...assets];
+        if (next.length + references.length > 5 || next.some(f => (f.size ?? 0) > 20 * 1024 * 1024)) {
+            setError('Choose up to five attachments, each file no larger than 20 MB.');
             return;
         }
         setFiles(next);
         retry.current = null;
     }
+    async function pick(source: 'file' | 'photo' | 'camera') {
+        const current = generation.current;
+        setPicking(true);
+        try {
+            if (source === 'file') {
+                const result = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
+                if (!result.canceled && current === generation.current) addFiles(result.assets);
+                return;
+            }
+            const permission = source === 'camera'
+                ? await ImagePicker.requestCameraPermissionsAsync()
+                : await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (current !== generation.current) return;
+            if (!permission.granted) {
+                setError(`Allow ${source === 'camera' ? 'camera' : 'photo library'} access in Settings to add an attachment.`);
+                return;
+            }
+            const result = source === 'camera'
+                ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.85 })
+                : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: Math.max(1, 5 - files.length - references.length), quality: 0.85 });
+            if (!result.canceled && current === generation.current) addFiles(result.assets.map(asset => ({
+                uri: asset.uri, name: asset.fileName || `photo-${Crypto.randomUUID()}.jpg`, lastModified: Date.now(), mimeType: asset.mimeType || 'image/jpeg', size: asset.fileSize,
+            })));
+        } catch (e) {
+            if (current === generation.current) setError(e instanceof Error ? e.message : 'Unable to select attachment.');
+        } finally { setPicking(false); }
+    }
+    function attach() {
+        Keyboard.dismiss();
+        attachmentActions.current?.present({
+            title: 'Attach',
+            actions: [
+                { id: 'file', label: 'File', onPress: () => pick('file') },
+                { id: 'photo', label: 'Photo', onPress: () => pick('photo') },
+                { id: 'camera', label: 'Camera', onPress: () => pick('camera') },
+                { id: 'run', label: 'Run', onPress: () => setReferenceType('run') },
+                { id: 'shipment', label: 'Shipment', onPress: () => setReferenceType('shipment') },
+            ],
+        });
+    }
     async function send() {
         if (
             !session ||
             !conversation ||
-            sending ||
-            (!body.trim() && !files.length)
+            sending || picking ||
+            (!body.trim() && !files.length && !references.length)
         )
             return;
         const current = generation.current;
@@ -241,6 +287,10 @@ function DriverChat() {
             const form = new FormData();
             form.append('body', body);
             form.append('temporary_id', retry.current);
+            references.forEach((reference, index) => {
+                form.append(`references[${index}][type]`, reference.type);
+                form.append(`references[${index}][id]`, reference.id);
+            });
             for (const file of files)
                 await appendUploadFile(
                     form,
@@ -259,6 +309,7 @@ function DriverChat() {
             ]);
             setBody('');
             setFiles([]);
+            setReferences([]);
             retry.current = null;
             setFailedSend(false);
             setTimeout(
@@ -293,8 +344,8 @@ function DriverChat() {
             );
         }
     }
-    const canCompose = !loading && !sending && conversation?.status === 'active';
-    const canSend = canCompose && (!!body.trim() || files.length > 0);
+    const canCompose = !loading && !sending && !picking && conversation?.status === 'active';
+    const canSend = canCompose && (!!body.trim() || files.length > 0 || references.length > 0);
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -302,7 +353,7 @@ function DriverChat() {
         >
             <PageHeader title="Messages" status={conversation?.status === 'closed' ? 'Closed' : undefined} />
             {error && (
-                <View style={[styles.error, { backgroundColor: colors.coral }]}>
+                <View style={[styles.error, { backgroundColor: colors.selectedSurface }]}>
                     <Text accessibilityRole="alert" style={{ color: colors.ink }}>{error}</Text>
                     <Pressable accessibilityRole="button" style={styles.retry} onPress={() => setReload((n) => n + 1)}>
                         <Text className="text-primary">Retry loading</Text>
@@ -311,7 +362,7 @@ function DriverChat() {
             )}
             {loading ? (
                 <View style={styles.loading}>
-                    <ActivityIndicator color="#F54A4A" />
+                    <ActivityIndicator color="#15803d" />
                     <Text style={[styles.subtitle, { color: colors.muted }]}>Loading your conversation…</Text>
                 </View>
             ) : (
@@ -366,7 +417,7 @@ function DriverChat() {
                     ) : null}
                     renderItem={({ item }) => (
                         <View
-                            style={[styles.bubble, { alignSelf: item.user_id === session?.user.user_id ? 'flex-end' : 'flex-start', backgroundColor: item.user_id === session?.user.user_id ? colors.coral : colors.soft }]}
+                            style={[styles.bubble, { alignSelf: item.user_id === session?.user.user_id ? 'flex-end' : 'flex-start', backgroundColor: item.user_id === session?.user.user_id ? colors.selectedSurface : colors.soft }]}
                         >
                             <Text
                                 style={{ fontSize: 12, lineHeight: 17, color: colors.muted }}
@@ -384,16 +435,21 @@ function DriverChat() {
                             {item.attachments.map((a) => (
                                 <Pressable
                                     key={a.attachment_id}
-                                    onPress={() => download(a.attachment_id)}
+                                    onPress={() => {
+                                        if (a.reference) {
+                                            if (a.reference.type === 'run') router.push({ pathname: '/runs/[run_id]', params: { run_id: a.reference.id } });
+                                            else router.push({ pathname: '/shipments/[shipment_id]', params: { shipment_id: a.reference.id, ...(a.reference.run_id ? { run_id: a.reference.run_id } : {}) } });
+                                        } else void download(a.attachment_id);
+                                    }}
                                     accessibilityRole="button"
                                     accessibilityLabel={`Open ${a.filename || 'attachment'}`}
                                     style={styles.attachment}
                                 >
-                                    <Feather name="file-text" size={18} color="#F54A4A" />
-                                    <Text style={{ color: '#F54A4A', flexShrink: 1 }}>
+                                    <Feather name="file-text" size={18} color="#15803d" />
+                                    <Text style={{ color: '#15803d', flexShrink: 1 }}>
                                         {a.filename || 'Attachment'}
                                     </Text>
-                                    <Feather name="download" size={16} color="#F54A4A" />
+                                    <Feather name={a.reference ? "chevron-right" : "download"} size={16} color="#15803d" />
                                 </Pressable>
                             ))}
                         </View>
@@ -401,6 +457,13 @@ function DriverChat() {
                 />
             )}
             <View style={[styles.composerShelf, { backgroundColor: colors.shelf }]}>
+                {references.map(reference => <View key={`${reference.type}-${reference.id}`} style={[styles.draftFile, { backgroundColor: colors.background, borderColor: colors.line }]}>
+                    <Feather name={reference.type === 'run' ? 'navigation' : 'package'} size={18} color={colors.muted} />
+                    <Text numberOfLines={1} style={{ flex: 1, color: colors.ink }}>{reference.label}</Text>
+                    <Pressable disabled={sending} accessibilityRole="button" accessibilityLabel={`Remove ${reference.label}`} onPress={() => {
+                        setReferences(previous => previous.filter(item => item.id !== reference.id || item.type !== reference.type)); retry.current = null;
+                    }} style={styles.removeFile}><Feather name="x" size={18} color={colors.muted} /></Pressable>
+                </View>)}
                 {files.map((f, index) => (
                     <View key={`${f.uri}-${index}`} style={[styles.draftFile, { backgroundColor: colors.background, borderColor: colors.line }]}>
                         <Feather name="file-text" size={18} color={colors.muted} />
@@ -414,7 +477,7 @@ function DriverChat() {
                     </View>
                 ))}
                 <View style={[styles.composer, { backgroundColor: colors.background, borderColor: colors.line }]}>
-                    <Pressable disabled={!canCompose} onPress={pick} accessibilityRole="button" accessibilityLabel="Attach file" accessibilityState={{ disabled: !canCompose }} style={[styles.roundButton, { backgroundColor: colors.soft, opacity: canCompose ? 1 : 0.5 }]}>
+                    <Pressable disabled={!canCompose} onPress={attach} accessibilityRole="button" accessibilityLabel="Add attachment" accessibilityState={{ disabled: !canCompose }} style={[styles.roundButton, { backgroundColor: colors.soft, opacity: canCompose ? 1 : 0.5 }]}>
                         <Image source={require('@/assets/images/messages/attachment.svg')} style={styles.attachmentIcon} />
                     </Pressable>
                     <TextInput
@@ -428,7 +491,7 @@ function DriverChat() {
                         placeholderTextColor={colors.muted}
                         style={[styles.input, { color: colors.ink }]}
                     />
-                    <Pressable disabled={!canSend} onPress={send} accessibilityRole="button" accessibilityLabel={sending ? 'Sending message' : failedSend ? 'Retry send' : 'Send message'} accessibilityState={{ disabled: !canSend, busy: sending }} style={[styles.roundButton, { backgroundColor: canSend ? '#F54A4A' : dark ? '#633C40' : '#F5C6C6' }]}>
+                    <Pressable disabled={!canSend} onPress={send} accessibilityRole="button" accessibilityLabel={sending ? 'Sending message' : failedSend ? 'Retry send' : 'Send message'} accessibilityState={{ disabled: !canSend, busy: sending }} style={[styles.roundButton, { backgroundColor: canSend ? '#15803d' : dark ? '#315a40' : '#bbdfc5' }]}>
                         {sending ? <ActivityIndicator color="#FFFFFF" size="small" /> : failedSend ? <Feather name="rotate-cw" size={22} color="#FFFFFF" /> : <Image source={require('@/assets/images/messages/send.svg')} style={styles.sendIcon} />}
                     </Pressable>
                 </View>
@@ -438,6 +501,13 @@ function DriverChat() {
                     </Text>
                 )}
             </View>
+            <ActionSheet ref={attachmentActions} />
+            {referenceType && session && conversation && <ChatReferenceSheet token={session.token} conversationId={conversation.conversation_id} type={referenceType} onDismiss={() => setReferenceType(null)} onSelect={record => {
+                if (!active.current || conversationRef.current?.status !== 'active') return;
+                if (references.some(item => item.id === record.id && item.type === record.type)) return;
+                if (files.length + references.length >= 5) { setError('Choose up to five attachments.'); return; }
+                setReferences(previous => [...previous, record]); retry.current = null;
+            }} />}
         </KeyboardAvoidingView>
     );
 }

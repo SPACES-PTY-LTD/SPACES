@@ -62,6 +62,9 @@ export function MessagesInbox({
     const [inbox, setInbox] = useState<Conversation[]>([]);
     const [page, setPage] = useState(1);
     const [lastPage, setLastPage] = useState(1);
+    const [startedConversation, setStartedConversation] = useState<
+        string | null
+    >(null);
     const [chat, setChat] = useState<Conversation | null>(null);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [before, setBefore] = useState<string | null>(null);
@@ -93,6 +96,7 @@ export function MessagesInbox({
     const query = new URLSearchParams({
         merchant_id: merchant,
         page: String(page),
+        has_messages: '1',
     });
     if (debouncedSearch) query.set('search', debouncedSearch);
     if (conversationType) query.set('type', conversationType);
@@ -129,6 +133,7 @@ export function MessagesInbox({
         epoch.current++;
         selected.current = null;
         setChat(null);
+        setStartedConversation(null);
         setMessages([]);
         setBefore(null);
         setBody('');
@@ -326,6 +331,7 @@ export function MessagesInbox({
         setMobileThread(true);
         setDetailsOpen(false);
         if (selected.current === next.conversation_id) return;
+        setStartedConversation(null);
         setOlderLoading(false);
         if (uploads.current) uploads.current.value = '';
         cursorLoaded.current = false;
@@ -371,6 +377,7 @@ export function MessagesInbox({
             );
             if (version === epoch.current) {
                 choose(result.data);
+                setStartedConversation(result.data.conversation_id);
                 setCreateOpen(false);
                 await refreshInbox();
             }
@@ -387,6 +394,7 @@ export function MessagesInbox({
             );
             if (version === epoch.current) {
                 choose(result.data);
+                setStartedConversation(result.data.conversation_id);
                 setTitle('');
                 setMembers([]);
                 setCreateOpen(false);
@@ -417,6 +425,11 @@ export function MessagesInbox({
                 ),
                 result.data,
             ]);
+            setChat((current) =>
+                current?.conversation_id === id
+                    ? { ...current, latest_message: result.data }
+                    : current,
+            );
             setBody('');
             setFiles([]);
             retry.current = null;
@@ -476,6 +489,20 @@ export function MessagesInbox({
             }
         });
     }
+    const visibleInbox = inbox.filter(
+        (conversation) => conversation.latest_message,
+    );
+    if (
+        chat &&
+        chat.conversation_id === startedConversation &&
+        !visibleInbox.some(
+            (conversation) =>
+                conversation.conversation_id === chat.conversation_id,
+        )
+    ) {
+        visibleInbox.unshift(chat);
+    }
+
     const control =
         'w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
     const chatTitle =
@@ -640,7 +667,7 @@ export function MessagesInbox({
                                 Loading conversations…
                             </p>
                         ) : (
-                            inbox.map((c) => (
+                            visibleInbox.map((c) => (
                                 <button
                                     disabled={busy}
                                     key={c.conversation_id}
@@ -695,28 +722,30 @@ export function MessagesInbox({
                                 </button>
                             ))
                         )}
-                        {!inboxLoading && !inboxError && !inbox.length && (
-                            <div className="px-4 py-10 text-center">
-                                <MessageSquare
-                                    aria-hidden="true"
-                                    className="mx-auto mb-3 size-6 text-muted-foreground"
-                                />
-                                <p className="text-sm font-medium">
-                                    {!merchant
-                                        ? 'Select a merchant'
-                                        : search.trim() || conversationType
-                                          ? 'No matching conversations'
-                                          : 'No conversations yet'}
-                                </p>
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                    {!merchant
-                                        ? 'Choose a workspace to view messages.'
-                                        : search.trim() || conversationType
-                                          ? 'Try another search or conversation type.'
-                                          : 'Start a driver chat or group conversation.'}
-                                </p>
-                            </div>
-                        )}
+                        {!inboxLoading &&
+                            !inboxError &&
+                            !visibleInbox.length && (
+                                <div className="px-4 py-10 text-center">
+                                    <MessageSquare
+                                        aria-hidden="true"
+                                        className="mx-auto mb-3 size-6 text-muted-foreground"
+                                    />
+                                    <p className="text-sm font-medium">
+                                        {!merchant
+                                            ? 'Select a merchant'
+                                            : search.trim() || conversationType
+                                              ? 'No matching conversations'
+                                              : 'No conversations yet'}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {!merchant
+                                            ? 'Choose a workspace to view messages.'
+                                            : search.trim() || conversationType
+                                              ? 'Try another search or conversation type.'
+                                              : 'Start a driver chat or group conversation.'}
+                                    </p>
+                                </div>
+                            )}
                     </div>
                     <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                         <Button
@@ -915,6 +944,10 @@ export function MessagesInbox({
                                                         onClick={() =>
                                                             void action(
                                                                 async () => {
+                                                                    if (a.reference) {
+                                                                        window.open(`/admin/logistics/shipments/${a.reference.type === 'run' ? 'runs/' : ''}${encodeURIComponent(a.reference.id)}`, '_blank', 'noopener,noreferrer');
+                                                                        return;
+                                                                    }
                                                                     const result =
                                                                         await conversationRequest<{
                                                                             url: string;

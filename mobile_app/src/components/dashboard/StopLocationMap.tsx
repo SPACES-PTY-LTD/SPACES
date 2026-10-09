@@ -10,6 +10,6 @@ export function StopLocationMap({ coordinate, name, dark }: StopLocationMapProps
     scrollEnabled={false} zoomEnabled={false} rotateEnabled={false} pitchEnabled={false}
     showsCompass={false} showsPointsOfInterests={false} toolbarEnabled={false}
     accessibilityLabel={`Map showing ${name}`}>
-    <Marker coordinate={coordinate} title={name} pinColor="#e43e3e" />
+    <Marker coordinate={coordinate} title={name} pinColor="#15803d" />
   </NativeMap>;
 }

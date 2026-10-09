@@ -9,6 +9,7 @@ export type ChatMember = {
 };
 export type ChatAttachment = {
     attachment_id: string;
+    reference?: { id: string; type: 'run' | 'shipment'; label: string; subtitle: string } | null;
     filename: string | null;
     mime_type: string | null;
     size: number | null;

@@ -68,7 +68,7 @@ function RouteStop({
                                     ? dark
                                         ? "#52525B"
                                         : "#CFCFD7"
-                                    : "#F54A4A",
+                                    : "#15803d",
                                 borderStyle: stop.current ? "dashed" : "solid",
                             },
                         ]}
@@ -80,7 +80,7 @@ function RouteStop({
                     styles.location,
                     !last && styles.locationSpacing,
                     stop.current && {
-                        backgroundColor: dark ? "#3B2124" : "#FFF0F0",
+                        backgroundColor: dark ? "#142e20" : "#f0fdf4",
                         padding: 8,
                         borderRadius: 8,
                     },
@@ -89,7 +89,7 @@ function RouteStop({
                 <Text
                     style={[
                         styles.caption,
-                        { color: stop.current ? "#F54A4A" : muted },
+                        { color: stop.current ? "#15803d" : muted },
                     ]}
                 >
                     {stop.label}

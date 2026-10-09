@@ -164,7 +164,7 @@ function RunDetail({ token, runId }: { token: string; runId: string }) {
                 )}
                 {loading && !run && (
                     <ActivityIndicator
-                        color="#F54A4A"
+                        color="#15803d"
                         style={{ padding: 48 }}
                     />
                 )}
@@ -181,7 +181,8 @@ function RunDetail({ token, runId }: { token: string; runId: string }) {
                                         params: { run_id: runId },
                                     })
                                 }
-                                className="bg-primary rounded-xl p-4 items-center"
+                                className="rounded-xl p-4 items-center"
+                                style={{ backgroundColor: "#15803D", opacity: error || loading ? 0.5 : 1 }}
                             >
                                 <Text className="text-primary-foreground font-semibold">
                                     Open dashboard

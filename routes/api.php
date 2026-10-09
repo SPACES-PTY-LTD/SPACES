@@ -75,6 +75,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('/{conversation_uuid}', [$controller, 'update']);
         Route::post('/{conversation_uuid}/members', [$controller, 'addMember']);
         Route::delete('/{conversation_uuid}/members/{user_uuid}', [$controller, 'removeMember']);
+        Route::get('/{conversation_uuid}/references', [$controller, 'references']);
         Route::get('/{conversation_uuid}/messages', [$controller, 'messages']);
         Route::post('/{conversation_uuid}/messages', [$controller, 'send'])->middleware('throttle:30,1');
         Route::post('/{conversation_uuid}/read', [$controller, 'read']);

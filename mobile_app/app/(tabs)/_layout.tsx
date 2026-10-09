@@ -23,7 +23,7 @@ function TabNavigator() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#F54A4A',
+        tabBarActiveTintColor: '#15803d',
         tabBarInactiveTintColor: isDarkMode ? '#A1A1AA' : '#8A8A8A',
         headerShown: false,
         tabBarButton: HapticTab,
@@ -51,7 +51,7 @@ function TabNavigator() {
         options={{
           title: 'Messages',
           tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
-          tabBarBadgeStyle: { backgroundColor: '#F54A4A', color: '#FFFFFF' },
+          tabBarBadgeStyle: { backgroundColor: '#15803d', color: '#FFFFFF' },
           tabBarAccessibilityLabel: unreadCount > 0 ? `Messages, ${unreadCount} unread messages` : 'Messages',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="bubble.left.and.bubble.right.fill" color={color} />,
         }}
@@ -61,7 +61,7 @@ function TabNavigator() {
         options={{
           title: 'Documents',
           tabBarBadge: count != null && count > 0 ? count : undefined,
-          tabBarBadgeStyle: { backgroundColor: '#F54A4A', color: '#FFFFFF' },
+          tabBarBadgeStyle: { backgroundColor: '#15803d', color: '#FFFFFF' },
           tabBarAccessibilityLabel: count != null && count > 0 ? `Documents, ${count} required ${count === 1 ? 'document' : 'documents'} to upload` : 'Documents',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="folder.fill" color={color} />,
         }}

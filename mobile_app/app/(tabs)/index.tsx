@@ -105,7 +105,6 @@ export default function HomeScreen() {
   const canUploadRunNote = dashboard?.current_run?.has_delivery_note === false
     || (dashboard?.current_run?.has_delivery_note === undefined && !!requiredNoteRunId && requiredNoteRunId === dashboard?.current_run?.run_id);
   const openRunActions = () => runActionsSheet.current?.present({ title: '', actions: [
-    { id: 'end', label: 'End Run', variant: 'destructive', disabled: dashboard?.current_run?.end_request?.status === 'pending', onPress: () => setRunAction('end') },
     { id: 'edit', label: 'Edit Run', onPress: () => setRunAction('edit') },
     { id: 'order', label: 'Update delivery order', onPress: () => setRunAction('order') },
     { id: 'cost', label: 'Add additional cost', onPress: () => setRunAction('cost') },
@@ -113,6 +112,7 @@ export default function HomeScreen() {
       id: 'upload-delivery-note', label: 'Upload delivery note',
       onPress: () => router.push({ pathname: '/shipments/load', params: { run_id: dashboard.current_run!.run_id } }),
     }] : []),
+    { id: 'end', label: 'End Run', variant: 'destructive', disabled: dashboard?.current_run?.end_request?.status === 'pending', onPress: () => setRunAction('end') },
   ] });
 
   const shipments = dashboard?.run_shipments ?? [];
@@ -145,12 +145,12 @@ export default function HomeScreen() {
         <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset} onOpenShipment={openShipment} />
       {requiredNoteRunId ? <View pointerEvents="box-none" style={[styles.documentNoticeOverlay, { paddingTop: insets.top }]}>
           <Pressable style={styles.documentNotice} onPress={() => router.push({ pathname: '/shipments/load', params: { run_id: requiredNoteRunId } })} accessibilityRole="button" accessibilityLabel="Important: upload a delivery note" accessibilityHint="Opens delivery-note upload for this run">
-            <Feather name="alert-triangle" size={24} color={dark ? '#fda4af' : '#a32136'} />
+            <Feather name="alert-triangle" size={24} color={dark ? '#fde68a' : '#92400e'} />
             <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: dark ? '#fda4af' : '#a32136' }}>Upload a delivery note</Text>
-              <Text style={{ fontSize: 14, lineHeight: 21, color: dark ? '#fda4af' : '#a32136' }}>We’ve noticed you’re on the road and have no shipments attached to your run. Upload a delivery note now.</Text>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: dark ? '#fde68a' : '#92400e' }}>Upload a delivery note</Text>
+              <Text style={{ fontSize: 14, lineHeight: 21, color: dark ? '#fde68a' : '#92400e' }}>We’ve noticed you’re on the road and have no shipments attached to your run. Upload a delivery note now.</Text>
             </View>
-            <Feather name="chevron-right" size={20} color={dark ? '#fda4af' : '#a32136'} />
+            <Feather name="chevron-right" size={20} color={dark ? '#fde68a' : '#92400e'} />
           </Pressable>
       </View> : null}
       </Animated.View>
@@ -162,12 +162,12 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}>
 
 
-        {loading && !dashboard ? <View style={{ paddingVertical: 48, alignItems: 'center', gap: 16 }}><ActivityIndicator size="large" color="#f54a4a" /><Text style={{ color: ink }}>Checking your current run…</Text></View> : <>
+        {loading && !dashboard ? <View style={{ paddingVertical: 48, alignItems: 'center', gap: 16 }}><ActivityIndicator size="large" color="#15803d" /><Text style={{ color: ink }}>Checking your current run…</Text></View> : <>
 
 
-        {error ? <Pressable accessibilityRole="button" accessibilityLabel="Retry loading dashboard" onPress={() => void load()} style={styles.error}><Text style={{ color: '#991b1b' }}>{dashboard ? `Showing saved data${lastUpdated ? ` from ${lastUpdated}` : ''}. ` : ''}{error} Tap to retry.</Text></Pressable> : null}
+        {error ? <Pressable accessibilityRole="button" accessibilityLabel="Retry loading dashboard" onPress={() => void load()} style={styles.error}><Text style={{ color: '#92400e' }}>{dashboard ? `Showing saved data${lastUpdated ? ` from ${lastUpdated}` : ''}. ` : ''}{error} Tap to retry.</Text></Pressable> : null}
 
-        {loading && !dashboard ? <ActivityIndicator style={{ paddingVertical: 70 }} size="large" color="#f54a4a" /> : dashboard?.current_run ? (
+        {loading && !dashboard ? <ActivityIndicator style={{ paddingVertical: 70 }} size="large" color="#15803d" /> : dashboard?.current_run ? (
           <View style={[styles.deliveryCard, { backgroundColor: dark ? '#18181b' : '#ffffff' }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <Text style={[styles.runTitle, { color: ink, flexShrink: 1 }]}>{dashboard.current_run.status === 'in_progress' ? 'Current run' : 'Ready to start'}</Text>
@@ -182,7 +182,7 @@ export default function HomeScreen() {
               </View>
             </View>
             {dashboard.current_run.end_request?.status === 'pending' && <Text style={{ color: '#92400e', marginTop: 8 }}>End run requested — awaiting dispatch approval</Text>}
-            {dashboard.current_run.end_request?.status === 'rejected' && <Text style={{ color: '#991b1b', marginTop: 8 }}>End run request rejected: {dashboard.current_run.end_request.review_reason}</Text>}
+            {dashboard.current_run.end_request?.status === 'rejected' && <Text style={{ color: '#92400e', marginTop: 8 }}>End run request rejected: {dashboard.current_run.end_request.review_reason}</Text>}
             <Text style={{ color: muted, marginTop: 8 }}>{shipments.length} shipments · {shipments.filter(s => !['delivered', 'failed', 'cancelled'].includes(s.status)).length} remaining · {shipments.filter(s => s.status === 'delivered').length} delivered</Text>
             {shipments.length > 0 && shipments.every(s => s.status === 'delivered') && <Text style={{ color: '#24753a', marginTop: 12 }}>Deliveries completed — awaiting dispatch closure.</Text>}
             {['draft', 'dispatched'].includes(dashboard.current_run.status) && <Pressable style={[styles.primary, { marginTop: 16 }]} disabled={starting} onPress={async () => {
@@ -276,8 +276,8 @@ const styles = StyleSheet.create({
   shipmentRoute: { fontSize: 13, lineHeight: 19 },
   shipmentActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
   openShipment: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
-  primary: { minHeight: 50, borderRadius: 10, backgroundColor: '#f54a4a', flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  primary: { minHeight: 50, borderRadius: 10, backgroundColor: '#15803d', flexDirection: 'row', gap: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 12 },
   primaryText: { color: '#ffffff', fontSize: 17, fontWeight: '600' },
-  error: { backgroundColor: '#fee2e2', padding: 14, borderRadius: 10, marginBottom: 16 },
+  error: { backgroundColor: '#fef3c7', padding: 14, borderRadius: 10, marginBottom: 16 },
   offer: { marginTop: 14, paddingTop: 20, borderTopWidth: 1 },
 });

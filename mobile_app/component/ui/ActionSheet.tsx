@@ -51,7 +51,7 @@ export const ActionSheet = forwardRef<ActionSheetRef>(function ActionSheet(_, re
     const frame = requestAnimationFrame(() => modalRef.current?.present());
     return () => cancelAnimationFrame(frame);
   }, [config]);
-  return <><BottomSheet modalRef={modalRef} stackBehavior={config?.stackBehavior} title={config?.title} showCloseButton={config?.showCloseButton ?? false} showHandle={config?.showHandle ?? false} accessibilityLabel={config?.accessibilityLabel || 'Actions'} scrollable={(config?.actions.length || 0) > 5} onDismiss={() => {
+  return <><BottomSheet modalRef={modalRef} stackBehavior={config?.stackBehavior} title={config?.title} showCloseButton={config?.showCloseButton ?? true} showHandle={config?.showHandle ?? false} accessibilityLabel={config?.accessibilityLabel || 'Actions'} scrollable={(config?.actions.length || 0) > 5} onDismiss={() => {
     const action = selected.current;
     selected.current = null;
     const previous = config;
@@ -71,7 +71,6 @@ export const ActionSheet = forwardRef<ActionSheetRef>(function ActionSheet(_, re
     }} style={[styles.action, { backgroundColor: action.variant === 'destructive' ? '#dc2626' : dark ? '#18181b' : '#ffffff', borderWidth: 1, borderColor: action.variant === 'destructive' ? '#dc2626' : dark ? '#3f3f46' : '#e4e4e7', opacity: action.disabled ? 0.45 : 1 }]}>
       <Text style={[styles.label, { color: action.variant === 'destructive' || dark ? '#fff' : '#18181b' }]}>{action.selected ? `✓  ${action.label}` : action.label}</Text>
     </TouchableOpacity>)}
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Cancel" onPress={() => modalRef.current?.dismiss()} style={styles.action}><Text style={[styles.label, { color: dark ? '#fff' : '#18181b' }]}>Cancel</Text></TouchableOpacity>
   </BottomSheet><MessageSheet ref={errorSheet} /></>;
 });
 const styles = StyleSheet.create({

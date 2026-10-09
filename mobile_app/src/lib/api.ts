@@ -987,10 +987,12 @@ export type RecordedRunTrack = {
   coverage: { partial: boolean; next_before: string | null; displayed_coordinates: number; from?: string; to?: string };
 };
 
-export type ChatAttachment = { attachment_id: string; type: string; filename: string | null; mime_type: string | null; size: number | null };
+export type ChatReference = { id: string; type: 'run' | 'shipment'; label: string; subtitle: string; run_id?: string | null };
+export type ChatAttachment = { attachment_id: string; type: string; filename: string | null; mime_type: string | null; size: number | null; reference?: ChatReference | null };
 export type ChatMessage = { message_id: string; user_id: string | null; sender_name: string; type: string; temporary_id: string | null; body: string | null; created_at: string; attachments: ChatAttachment[] };
 export type ChatConversation = { conversation_id: string; title: string | null; status: 'active' | 'closed'; type: 'driver' | 'normal'; merchant_id: string };
 export const chatApi = {
+  references: (token: string, id: string, type: ChatReference['type'], search: string, page = 1) => requestWithMeta<ChatReference[]>(`/conversations/${id}/references?type=${type}&search=${encodeURIComponent(search)}&page=${page}`, { token }) as Promise<{ data: ChatReference[]; meta: { current_page: number; last_page: number } }>,
   unread: (token: string) => request<{ unread_count: number }>('/conversations/driver/unread', { token }),
   openDriver: (token: string) => request<ChatConversation>('/conversations/driver', { token, method: 'POST' }),
   messages: (token: string, id: string, before?: string) => requestWithMeta<ChatMessage[]>(`/conversations/${id}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`, { token }) as Promise<{ data: ChatMessage[]; meta: { next_before: string | null } }>,

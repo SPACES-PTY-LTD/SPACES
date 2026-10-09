@@ -35,9 +35,9 @@ function DocumentScanner({ scanning, reduced, dark }: { scanning: boolean; reduc
         animation.start();
         return () => { animation.stop(); };
     }, [scanning, reduced, sweep]);
-    return <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.scanArea, { backgroundColor: dark ? '#281e22' : '#fff4f4' }]}>
+    return <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.scanArea, { backgroundColor: dark ? '#142e20' : '#f0fdf4' }]}>
         <View style={[styles.document, { backgroundColor: dark ? '#27272a' : '#fff', borderColor: dark ? '#52525b' : '#e4e4e7' }]}>
-            <Feather name="file-text" size={23} color={dark ? '#fda4af' : '#c2292e'} />
+            <Feather name="file-text" size={23} color={dark ? '#86efac' : '#15803d'} />
             <View style={styles.documentLines}>
                 {[100, 76, 92, 60].map((width, index) => <View key={index} style={[styles.documentLine, { width: `${width}%`, backgroundColor: dark ? '#52525b' : '#e4e4e7' }]} />)}
             </View>
@@ -45,8 +45,8 @@ function DocumentScanner({ scanning, reduced, dark }: { scanning: boolean; reduc
                 <View style={styles.scanLine} />
             </Animated.View>}
         </View>
-        <View style={[styles.scannerBadge, { backgroundColor: dark ? '#3f242a' : '#ffe4e6' }]}>
-            <Feather name={scanning ? 'search' : 'upload-cloud'} size={19} color={dark ? '#fda4af' : '#c2292e'} />
+        <View style={[styles.scannerBadge, { backgroundColor: dark ? '#14532d' : '#dcfce7' }]}>
+            <Feather name={scanning ? 'search' : 'upload-cloud'} size={19} color={dark ? '#86efac' : '#15803d'} />
         </View>
     </View>;
 }
@@ -95,7 +95,7 @@ export function DeliveryNoteProgress({ uploaded = false, creating = false }: { u
         <View style={styles.message}>
             <View style={styles.statusRow}>
                 {!creating && <View style={styles.statusIndicator} accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-                    {reduced ? <Feather name="loader" size={20} color="#f54a4a" /> : <ActivityIndicator size="small" color="#f54a4a" />}
+                    {reduced ? <Feather name="loader" size={20} color="#15803d" /> : <ActivityIndicator size="small" color="#15803d" />}
                 </View>}
                 {!creating && uploaded ? <ReadingMessage ink={ink} reduced={reduced} /> : <Text accessibilityLiveRegion="polite" style={[styles.title, { color: ink }]}>
                     {creating ? 'Creating shipments…' : 'Uploading your file for analysis…'}
@@ -106,7 +106,7 @@ export function DeliveryNoteProgress({ uploaded = false, creating = false }: { u
             </Text>}
         </View>
         {creating && <View style={styles.working}>
-            {!reduced && <ActivityIndicator accessible={false} size="small" color="#f54a4a" />}
+            {!reduced && <ActivityIndicator accessible={false} size="small" color="#15803d" />}
             <Text style={[styles.workingLabel, { color: muted }]}>Saving your changes</Text>
         </View>}
     </View>;
@@ -118,8 +118,8 @@ const styles = StyleSheet.create({
     document: { width: 86, height: 112, borderWidth: 1, borderRadius: 10, padding: 12, gap: 10, overflow: 'hidden' },
     documentLines: { gap: 7 },
     documentLine: { height: 3, borderRadius: 2 },
-    scanBeam: { position: 'absolute', left: 0, right: 0, top: 48, height: 18, backgroundColor: 'rgba(245,74,74,0.12)' },
-    scanLine: { height: 2, backgroundColor: '#f54a4a' },
+    scanBeam: { position: 'absolute', left: 0, right: 0, top: 48, height: 18, backgroundColor: 'rgba(21,128,61,0.12)' },
+    scanLine: { height: 2, backgroundColor: '#15803d' },
     scannerBadge: { position: 'absolute', left: '50%', marginLeft: 28, bottom: 12, width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
     message: { gap: 8 },
     readingMessage: { flex: 1, minHeight: 60 },

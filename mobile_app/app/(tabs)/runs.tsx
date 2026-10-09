@@ -192,7 +192,7 @@ function RunList({ token, tab }: { token: string; tab: RunTab }) {
             ListEmptyComponent={
                 loading ? (
                     <ActivityIndicator
-                        color="#F54A4A"
+                        color="#15803d"
                         style={{ padding: 48 }}
                     />
                 ) : !error ? (
@@ -211,7 +211,7 @@ function RunList({ token, tab }: { token: string; tab: RunTab }) {
             ListFooterComponent={
                 loadingMore ? (
                     <ActivityIndicator
-                        color="#F54A4A"
+                        color="#15803d"
                         style={{ padding: 16 }}
                     />
                 ) : pageError ? (

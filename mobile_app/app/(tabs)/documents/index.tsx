@@ -155,7 +155,7 @@ export default function DocumentsScreen() {
     <View className="flex-1 bg-white dark:bg-[#111111]" style={{ paddingTop: insets.top }}>
       <PageHeader title="Documents" action={
         <Pressable accessibilityRole="button" onPress={() => { resetUploadForm(); setModalVisible(true); }}
-          style={{ backgroundColor: '#F54A4A', borderRadius: 24, minHeight: 44, paddingHorizontal: 16, justifyContent: 'center' }}>
+          style={{ backgroundColor: '#15803d', borderRadius: 24, minHeight: 44, paddingHorizontal: 16, justifyContent: 'center' }}>
           <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>Upload document</Text>
         </Pressable>
       } />
@@ -178,10 +178,10 @@ export default function DocumentsScreen() {
             </Pressable>
           ) : null}
           {expiredCount != null && expiredCount > 0 ? (
-            <View style={{ flex: 1, minHeight: 126, padding: 16, borderRadius: 20, backgroundColor: isDarkMode ? '#401E22' : '#FFEBED' }}>
+            <View style={{ flex: 1, minHeight: 126, padding: 16, borderRadius: 20, backgroundColor: isDarkMode ? '#451a03' : '#FEF3C7' }}>
               <DocumentIcon kind="expired" />
-              <Text style={{ fontSize: 30, lineHeight: 42, marginTop: 8, fontWeight: '700', color: isDarkMode ? '#FDA4AF' : '#A32136' }}>{expiredCount}</Text>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: isDarkMode ? '#FDA4AF' : '#A32136' }}>Expired {expiredCount === 1 ? 'document' : 'documents'}</Text>
+              <Text style={{ fontSize: 30, lineHeight: 42, marginTop: 8, fontWeight: '700', color: isDarkMode ? '#fde68a' : '#92400e' }}>{expiredCount}</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: isDarkMode ? '#fde68a' : '#92400e' }}>Expired {expiredCount === 1 ? 'document' : 'documents'}</Text>
             </View>
           ) : null}
         </View>
@@ -191,14 +191,14 @@ export default function DocumentsScreen() {
         </View>
 
         {errorMessage ? (
-          <View className="border-destructive bg-destructive mt-6 rounded-xl border px-5 py-5">
-            <Text className="text-destructive-foreground text-base font-semibold">{errorMessage}</Text>
+          <View className="border-warning bg-warning mt-6 rounded-xl border px-5 py-5">
+            <Text className="text-warning-foreground text-base font-semibold">{errorMessage}</Text>
           </View>
         ) : null}
 
         {isLoading ? (
           <View className="bg-[#F5F5F8] dark:bg-card mt-6 items-center rounded-xl px-5 py-12">
-            <ActivityIndicator color="#F54A4A" />
+            <ActivityIndicator color="#15803d" />
           </View>
         ) : files.length === 0 ? (
           <View className="bg-[#F5F5F8] dark:bg-card rounded-[20px] px-5 py-10 items-center">
@@ -297,15 +297,15 @@ export default function DocumentsScreen() {
             ) : null}
 
             {formError ? (
-              <View className="border-destructive bg-destructive mt-4 rounded-[24px] border px-4 py-4">
-                <Text className="text-destructive-foreground text-sm font-semibold">{formError}</Text>
+              <View className="border-warning bg-warning mt-4 rounded-[24px] border px-4 py-4">
+                <Text className="text-warning-foreground text-sm font-semibold">{formError}</Text>
               </View>
             ) : null}
 
             <Pressable
               disabled={isUploading}
               onPress={handleUpload}
-              className={`mt-6 items-center rounded-full px-6 py-4 ${isUploading ? 'bg-destructive' : 'bg-primary'}`}>
+              className={`mt-6 items-center rounded-full px-6 py-4 bg-primary disabled:opacity-50`}>
               {isUploading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (

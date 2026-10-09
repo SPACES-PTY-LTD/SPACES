@@ -92,13 +92,13 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
       <View style={[styles.notice, { backgroundColor: surface }]}><Feather name="file-text" size={18} color={muted} /><Text style={[styles.note, { color: muted }]}>Record an extra expense for this run.</Text></View>
       <View style={styles.costField}>
         <Text style={[styles.fieldLabel, { color: ink }]}>Description</Text>
-        <View style={[styles.costInput, { backgroundColor: surface, borderColor: focusedCostField === 'description' ? '#f54a4a' : border }]}>
+        <View style={[styles.costInput, { backgroundColor: surface, borderColor: focusedCostField === 'description' ? '#15803d' : border }]}>
           <BottomSheetTextInput accessibilityLabel="Description" value={title} onChangeText={setTitle} editable={!busy} maxLength={255} placeholder="e.g. Parking or toll fees" placeholderTextColor={muted} autoCapitalize="sentences" onFocus={() => setFocusedCostField('description')} onBlur={() => setFocusedCostField(null)} style={[styles.descriptionInput, { color: ink }]} />
         </View>
       </View>
       <View style={styles.costField}>
         <Text style={[styles.fieldLabel, { color: ink }]}>Amount (ZAR)</Text>
-        <View style={[styles.costInput, styles.amountRow, { backgroundColor: surface, borderColor: focusedCostField === 'amount' ? '#f54a4a' : border }]}>
+        <View style={[styles.costInput, styles.amountRow, { backgroundColor: surface, borderColor: focusedCostField === 'amount' ? '#15803d' : border }]}>
           <Text style={[styles.currency, { color: muted, borderColor: border }]}>R</Text>
           <BottomSheetTextInput accessibilityLabel="Amount in South African rand" value={amount} onChangeText={setAmount} editable={!busy} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={muted} onFocus={() => setFocusedCostField('amount')} onBlur={() => setFocusedCostField(null)} style={[styles.amountInput, { color: ink }]} />
         </View>
@@ -114,14 +114,14 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
         <ImportButton secondary label="Back to endpoints" onPress={() => setChoosing(null)} />
       </> : <>
         <View style={[styles.notice, { backgroundColor: surface }]}><Feather name="info" size={16} color={muted} /><Text style={[styles.note, { color: muted }]}>Update the planned start and end. Deliveries and recorded visits stay the same.</Text></View>
-        {loading && <ActivityIndicator color="#f54a4a" />}
+        {loading && <ActivityIndicator color="#15803d" />}
         {(['origin', 'destination'] as const).map(role => {
           const location = role === 'origin' ? origin : destination;
           const isOrigin = role === 'origin';
-          const accent = isOrigin ? (dark ? '#93c5fd' : '#2563eb') : '#f54a4a';
+          const accent = isOrigin ? (dark ? '#93c5fd' : '#2563eb') : '#15803d';
           return <View key={role} style={[styles.endpoint, { borderColor: border }]}>
             <View style={styles.endpointHeader}>
-              <View style={[styles.marker, { backgroundColor: isOrigin ? (dark ? '#1e304f' : '#eff6ff') : (dark ? '#40252a' : '#fff1f2') }]}><Feather name={isOrigin ? 'map-pin' : 'flag'} size={18} color={accent} /></View>
+              <View style={[styles.marker, { backgroundColor: isOrigin ? (dark ? '#1e304f' : '#eff6ff') : (dark ? '#14532d' : '#f0fdf4') }]}><Feather name={isOrigin ? 'map-pin' : 'flag'} size={18} color={accent} /></View>
               <Text style={[styles.endpointLabel, { color: muted }]}>{isOrigin ? 'STARTING POINT' : 'PLANNED END'}</Text>
               <Pressable accessibilityRole="button" accessibilityLabel={`${location ? 'Change' : 'Choose'} ${isOrigin ? 'run starting point' : 'planned end location'}`} disabled={busy || loading} onPress={() => { setChoosing(role); setError(''); }} style={[styles.change, { backgroundColor: surface, opacity: busy || loading ? 0.45 : 1 }]}><Text style={{ color: ink, fontSize: 12, fontWeight: '600' }}>{location ? 'Change' : 'Choose'}</Text><Feather name="chevron-right" size={14} color={muted} /></Pressable>
             </View>
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   endpointBody: { gap: 6 },
   locationName: { fontSize: 16, lineHeight: 22, fontWeight: '600' },
   address: { fontSize: 13, lineHeight: 19 },
-  save: { minHeight: 50, backgroundColor: '#f54a4a', borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
+  save: { minHeight: 50, backgroundColor: '#15803d', borderRadius: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
   saveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   cancel: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },
 });

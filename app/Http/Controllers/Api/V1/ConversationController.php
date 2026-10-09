@@ -7,6 +7,9 @@ use App\Jobs\SendDriverMessagePush;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\MessageAttachment;
+use App\Models\Run;
+use App\Models\RunShipment;
+use App\Models\Shipment;
 use App\Models\User;
 use App\Services\ConversationService;
 use App\Support\ApiResponse;
@@ -51,6 +54,7 @@ class ConversationController extends Controller
             'attachments' => $message->attachments->map(fn ($attachment) => [
                 'attachment_id' => $attachment->uuid, 'type' => $attachment->type, 'filename' => $attachment->filename,
                 'mime_type' => $attachment->mime_type, 'size' => $attachment->size,
+                'reference' => in_array($attachment->type, ['run', 'shipment']) ? ($attachment->meta['reference'] ?? null) : null,
             ]),
         ];
     }
@@ -61,6 +65,7 @@ class ConversationController extends Controller
             'merchant_id' => 'nullable|uuid', 'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:1|max:100',
             'search' => 'nullable|string|max:255', 'type' => 'nullable|in:driver,normal',
+            'has_messages' => 'nullable|boolean',
         ]);
         $user = $request->user();
         $merchant = $this->service->merchant($user, $data['merchant_id'] ?? $request->header('X-Merchant-Id'));
@@ -75,6 +80,9 @@ class ConversationController extends Controller
                 $query->orWhere(fn ($q) => $q->where('type', 'driver')->where('type_entry_id', $user->driver?->id));
             }
         });
+        if ($request->boolean('has_messages')) {
+            $query->whereHas('messages');
+        }
         if (! empty($data['type'])) {
             $query->where('type', $data['type']);
         }
@@ -228,20 +236,75 @@ class ConversationController extends Controller
         ]);
     }
 
+    private function referenceQuery(Request $request, Conversation $conversation, string $type)
+    {
+        $driver = $request->user()->driver;
+        abort_unless($conversation->type === 'driver' && $driver && $driver->is_active
+            && (int) $conversation->type_entry_id === (int) $driver->id, 403);
+        $runs = Run::query()->where('account_id', $conversation->account_id)
+            ->where('merchant_id', $conversation->merchant_id)->where('driver_id', $driver->id)
+            ->where('status', '!=', Run::STATUS_CANCELLED);
+        if ($type === 'run') {
+            return $runs;
+        }
+
+        return Shipment::query()->where('account_id', $conversation->account_id)
+            ->where('merchant_id', $conversation->merchant_id)
+            ->with(['runShipments' => fn ($q) => $q->where('status', '!=', RunShipment::STATUS_REMOVED)->whereIn('run_id', (clone $runs)->select('id'))->with('run')->orderByDesc('id')])
+            ->whereHas('runShipments', fn ($q) => $q->where('status', '!=', RunShipment::STATUS_REMOVED)
+                ->whereIn('run_id', $runs->select('id')));
+    }
+
+    private function referenceData($record, string $type): array
+    {
+        return ['id' => $record->uuid, 'type' => $type,
+            'label' => $type === 'run' ? 'Run '.$record->id : ($record->merchant_order_ref ?: $record->delivery_note_number ?: $record->uuid),
+            'subtitle' => str_replace('_', ' ', $record->status),
+            'run_id' => $type === 'shipment' && $record->runShipments->first()?->run?->status === Run::STATUS_COMPLETED
+                ? $record->runShipments->first()->run->uuid : null];
+    }
+
+    public function references(Request $request, string $conversation_uuid)
+    {
+        $data = $request->validate(['type' => 'required|in:run,shipment', 'search' => 'required|string|max:255', 'page' => 'sometimes|integer|min:1']);
+        $conversation = $this->service->resolve($request->user(), $conversation_uuid);
+        $query = $this->referenceQuery($request, $conversation, $data['type']);
+        $search = trim($data['search']);
+        if ($data['type'] === 'run') {
+            $query->where(function ($q) use ($search) {
+                $q->where('uuid', 'like', '%'.$search.'%');
+                if (preg_match('/^(?:run\s*)?(\d+)$/i', $search, $match)) {
+                    $q->orWhere('id', (int) $match[1]);
+                }
+            });
+        } else {
+            $query->where(fn ($q) => $q->where('merchant_order_ref', 'like', '%'.$search.'%')
+                ->orWhere('delivery_note_number', 'like', '%'.$search.'%')->orWhere('uuid', 'like', '%'.$search.'%'));
+        }
+        $page = $query->orderByDesc('id')->paginate(20);
+
+        return ApiResponse::success($page->getCollection()->map(fn ($record) => $this->referenceData($record, $data['type'])),
+            ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage()]);
+    }
+
     public function send(Request $request, string $conversation_uuid)
     {
         $data = $request->validate(['body' => 'nullable|string|max:10000', 'temporary_id' => 'required|string|max:255',
-            'attachments' => 'nullable|array|max:5', 'attachments.*' => 'required|file|max:20480']);
+            'attachments' => 'nullable|array|max:5', 'attachments.*' => 'required|file|max:20480',
+            'references' => 'nullable|array|max:5', 'references.*.type' => 'required|in:run,shipment', 'references.*.id' => 'required|uuid']);
         $files = $request->file('attachments', []);
         $body = trim($data['body'] ?? '');
-        if (! $body && ! $files) {
-            throw ValidationException::withMessages(['body' => 'Enter a message or attach a file.']);
+        if (count($files) + count($data['references'] ?? []) > 5) {
+            throw ValidationException::withMessages(['attachments' => 'Choose up to five attachments.']);
+        }
+        if (! $body && ! $files && empty($data['references'])) {
+            throw ValidationException::withMessages(['body' => 'Enter a message or add an attachment.']);
         }
         $user = $request->user();
         $conversation = $this->service->resolve($user, $conversation_uuid);
         $stored = [];
         try {
-            [$message, $created] = DB::transaction(function () use ($conversation, $user, $data, $body, $files, &$stored) {
+            [$message, $created] = DB::transaction(function () use ($request, $conversation, $user, $data, $body, $files, &$stored) {
                 $locked = Conversation::with(['merchant', 'driver'])->whereKey($conversation->id)->lockForUpdate()->firstOrFail();
                 abort_unless($this->service->canAccess($user, $locked), 403);
                 $existing = $locked->messages()->where('user_id', $user->id)->where('temporary_id', $data['temporary_id'])->first();
@@ -250,7 +313,14 @@ class ConversationController extends Controller
                 }
                 abort_unless($locked->status === 'active', 409, 'This conversation is closed.');
                 $message = $locked->messages()->create(['account_id' => $locked->account_id, 'merchant_id' => $locked->merchant_id,
-                    'user_id' => $user->id, 'temporary_id' => $data['temporary_id'], 'body' => $body ?: null, 'type' => $files ? 'file' : 'text']);
+                    'user_id' => $user->id, 'temporary_id' => $data['temporary_id'], 'body' => $body ?: null, 'type' => $files || ! empty($data['references']) ? 'file' : 'text']);
+                foreach ($data['references'] ?? [] as $reference) {
+                    $record = $this->referenceQuery($request, $locked, $reference['type'])->where('uuid', $reference['id'])->firstOrFail();
+                    $info = $this->referenceData($record, $reference['type']);
+                    $message->attachments()->create(['account_id' => $locked->account_id, 'merchant_id' => $locked->merchant_id,
+                        'type' => $info['type'], 'path' => 'reference/'.$info['type'].'/'.$info['id'],
+                        'filename' => $info['label'], 'meta' => ['reference' => $info]]);
+                }
                 $disk = config('filesystems.default');
                 foreach ($files as $file) {
                     $path = $file->store("messages/{$locked->account_id}/{$locked->merchant_id}/{$message->uuid}", ['disk' => $disk, 'visibility' => 'private']);
@@ -316,6 +386,7 @@ class ConversationController extends Controller
         $conversation = $this->service->resolve($request->user(), $conversation_uuid);
         $attachment = MessageAttachment::where('uuid', $attachment_uuid)->where('account_id', $conversation->account_id)
             ->where('merchant_id', $conversation->merchant_id)->whereHas('message', fn ($q) => $q->where('conversation_id', $conversation->id))->firstOrFail();
+        abort_if(in_array($attachment->type, ['run', 'shipment']), 422, 'This attachment is a record reference, not a downloadable file.');
         $disk = Storage::disk($attachment->meta['disk'] ?? config('filesystems.default'));
         abort_unless($disk->exists($attachment->path), 404);
 

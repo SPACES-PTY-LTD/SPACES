@@ -102,13 +102,13 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
   );
   const content = <>
 
-    {!!error && <View style={[styles.error, { backgroundColor: dark ? '#401e22' : '#fff1f2' }]}><Feather name="alert-circle" size={18} color="#f54a4a" /><Text accessibilityRole="alert" style={{ color: dark ? '#fda4af' : '#9f1239', flex: 1 }}>{error}</Text></View>}
+    {!!error && <View style={[styles.error, { backgroundColor: dark ? '#451a03' : '#fffbeb' }]}><Feather name="alert-circle" size={18} color="#b45309" /><Text accessibilityRole="alert" style={{ color: dark ? '#fde68a' : '#92400e', flex: 1 }}>{error}</Text></View>}
     {selected ? <>
       <Text style={[styles.eyebrow, { color: muted }]}>{selectedLabel}</Text>
-      <View style={[styles.location, { backgroundColor: dark ? '#342226' : '#fff5f5', borderColor: '#f54a4a' }]}>
-        <View style={[styles.icon, { backgroundColor: dark ? '#502c32' : '#ffe4e6' }]}><Feather name={selectionIcon} size={20} color="#f54a4a" /></View>
+      <View style={[styles.location, { backgroundColor: dark ? '#142e20' : '#f0fdf4', borderColor: '#15803d' }]}>
+        <View style={[styles.icon, { backgroundColor: dark ? '#14532d' : '#dcfce7' }]}><Feather name={selectionIcon} size={20} color="#15803d" /></View>
         <View style={styles.details}><Text style={[styles.name, { color: ink }]}>{selected.name}</Text><Text style={[styles.address, { color: muted }]}>{address(selected)}</Text></View>
-        <Feather name="check-circle" size={20} color="#f54a4a" />
+        <Feather name="check-circle" size={20} color="#15803d" />
       </View>
       <Pressable accessibilityRole="button" disabled={saving} accessibilityState={{ disabled: saving }} onPress={() => void save()} style={[styles.primary, { opacity: saving ? 0.65 : 1 }]}>
         {saving && <ActivityIndicator color="#fff" />}<Text style={styles.primaryText}>{saving ? 'Saving…' : confirmLabel}</Text><Feather name="arrow-right" size={18} color="#fff" />
@@ -116,7 +116,7 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
       <Pressable accessibilityRole="button" disabled={saving} onPress={() => setSelected(undefined)} style={styles.change}><Text style={{ color: ink, fontWeight: '600' }}>Choose another location</Text></Pressable>
     </> : <>
       {!loading && locations.length > 0 && <View style={styles.listHeading}><Text style={[styles.eyebrow, { color: muted }]}>Search results</Text></View>}
-      {loading ? <View style={styles.empty}><ActivityIndicator accessibilityLabel="Loading locations" color="#f54a4a" /><Text style={{ color: muted }}>Finding locations…</Text></View> : <>
+      {loading ? <View style={styles.empty}><ActivityIndicator accessibilityLabel="Loading locations" color="#15803d" /><Text style={{ color: muted }}>Finding locations…</Text></View> : <>
         {!!error && <Pressable accessibilityRole="button" onPress={() => void load(query)} style={[styles.retry, { borderColor: border }]}><Feather name="refresh-cw" size={16} color={ink} /><Text style={{ color: ink, fontWeight: '600' }}>Retry loading locations</Text></Pressable>}
         {hasSearched && !error && !locations.length && <View style={[styles.empty, { backgroundColor: surface, borderRadius: 16 }]}><Feather name="map-pin" size={24} color={muted} /><Text style={[styles.name, { color: ink }]}>No locations found</Text><Text style={[styles.subtitle, { color: muted, textAlign: 'center' }]}>{savedOnly ? 'Only saved locations can be selected. If your location is missing, contact dispatch.' : 'Try another location name or a full street address.'}</Text></View>}
         {locations.length > 0 && <View style={{ gap: 8 }}>{locations.map(location => <Pressable key={location.location_id} accessibilityRole="button" accessibilityLabel={`${location.name}, ${address(location)}`} disabled={saving} accessibilityState={{ disabled: saving }} onPress={() => { if (confirmOnSelect) void save(location); else { setSelected(location); setError(''); } }} style={[styles.location, { borderColor: border, backgroundColor: dark ? '#18181b' : '#fff' }]}>
@@ -125,7 +125,7 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
           <Feather name="chevron-right" size={18} color={muted} />
         </Pressable>)}</View>}
         {locations.length > 0 && <View style={styles.paginationFooter}>
-        {loadingMore && <View style={styles.empty}><ActivityIndicator color="#f54a4a" /><Text accessibilityLiveRegion="polite" style={{ color: muted }}>Loading more…</Text></View>}
+        {loadingMore && <View style={styles.empty}><ActivityIndicator color="#15803d" /><Text accessibilityLiveRegion="polite" style={{ color: muted }}>Loading more…</Text></View>}
         {!!moreError && <Pressable accessibilityRole="button" onPress={() => void loadMore()} style={[styles.retry, { borderColor: border }]}><Text style={{ color: ink }}>Unable to load more. Tap to retry.</Text></Pressable>}
         </View>}
       </>}
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   search: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 999, paddingLeft: 14, minHeight: 52, gap: 10 },
   input: { flex: 1, fontSize: 15, minHeight: 52, paddingVertical: 12 },
   clear: { minHeight: 44, width: 44, alignItems: 'center', justifyContent: 'center' },
-  primary: { backgroundColor: '#f54a4a', minHeight: 50, borderRadius: 14, paddingHorizontal: 18, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
+  primary: { backgroundColor: '#15803d', minHeight: 50, borderRadius: 14, paddingHorizontal: 18, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   listHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   location: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 16, padding: 10, minHeight: 70 },

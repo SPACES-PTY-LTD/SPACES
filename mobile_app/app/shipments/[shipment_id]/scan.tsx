@@ -161,12 +161,12 @@ export default function ShipmentScanScreen() {
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#F54A4A" size="large" />
+          <ActivityIndicator color="#15803d" size="large" />
         </View>
       ) : errorMessage && !shipment ? (
         <View className="flex-1 px-5 pt-8">
-          <View className="border-destructive bg-destructive rounded-xl border px-5 py-5">
-            <Text className="text-destructive-foreground text-base font-semibold">{errorMessage}</Text>
+          <View className="border-warning bg-warning rounded-xl border px-5 py-5">
+            <Text className="text-warning-foreground text-base font-semibold">{errorMessage}</Text>
           </View>
         </View>
       ) : shipment ? (
@@ -240,8 +240,8 @@ export default function ShipmentScanScreen() {
             ) : null}
 
             {errorMessage ? (
-              <View className="border-destructive bg-destructive mt-5 rounded-[22px] border px-4 py-4">
-                <Text className="text-destructive-foreground text-center text-sm font-medium">{errorMessage}</Text>
+              <View className="border-warning bg-warning mt-5 rounded-[22px] border px-4 py-4">
+                <Text className="text-warning-foreground text-center text-sm font-medium">{errorMessage}</Text>
               </View>
             ) : null}
 

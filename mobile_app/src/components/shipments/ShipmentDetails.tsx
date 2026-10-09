@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import {
     useCallback,
     useEffect,
+    useRef,
     useState,
     type ReactNode,
     type RefObject,
@@ -34,6 +35,7 @@ import { StopLocationMap } from "@/src/components/dashboard/StopLocationMap";
 import { locationCoordinate } from "@/src/components/dashboard/run-map-data";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ActionSheet, type ActionSheetRef } from "@/component/ui/ActionSheet";
 import { PageHeader } from "@/component/ui/PageHeader";
 import { Text } from "@/component/ui/Text";
 import { DateInput } from "@/component/ui/DateInput";
@@ -217,9 +219,8 @@ function ShipmentDetailsContent({
     const [isMutating, setIsMutating] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [actionMessage, setActionMessage] = useState<string | null>(null);
-    const [detailPanel, setDetailPanel] = useState<
-        "files" | "history" | "more" | null
-    >(null);
+    const shipmentActions = useRef<ActionSheetRef>(null);
+    const [detailPanel, setDetailPanel] = useState<"files" | "history" | null>(null);
     const [activeAction, setActiveAction] = useState<
         "cancel" | "pod" | "status" | null
     >(null);
@@ -234,6 +235,8 @@ function ShipmentDetailsContent({
     const [cancelReasonCode, setCancelReasonCode] = useState("");
     const [cancelReasonText, setCancelReasonText] = useState("");
     const [cancelNote, setCancelNote] = useState("");
+    const [shipmentFilesLoading, setShipmentFilesLoading] = useState(true);
+    const shipmentFilesRequest = useRef(0);
     const [shipmentFiles, setShipmentFiles] = useState<DriverEntityFile[]>([]);
     const [shipmentFileTypes, setShipmentFileTypes] = useState<
         DriverFileType[]
@@ -308,12 +311,16 @@ function ShipmentDetailsContent({
     }, [session, shipment_id, run_id]);
 
     const loadShipmentFiles = useCallback(async () => {
+        const request = ++shipmentFilesRequest.current;
         if (!session?.token || !shipment_id) {
             setShipmentFiles([]);
             setShipmentFileTypes([]);
+            setShipmentFilesLoading(false);
             return;
         }
 
+        setShipmentFilesLoading(true);
+        setShipmentFilesError(null);
         try {
             const [filesResponse, typesResponse] = await Promise.all([
                 driverApi.listShipmentFiles(session.token, shipment_id, run_id),
@@ -322,15 +329,19 @@ function ShipmentDetailsContent({
                     : driverApi.listFileTypes(session.token, "shipment"),
             ]);
 
+            if (request !== shipmentFilesRequest.current) return;
             setShipmentFiles(filesResponse.data);
             setShipmentFileTypes(typesResponse.data);
             setShipmentFilesError(null);
         } catch (error) {
+            if (request !== shipmentFilesRequest.current) return;
             const requestError = error as ApiRequestError;
             setShipmentFilesError(
                 requestError.message || "Unable to load shipment files.",
             );
-            setShipmentFiles([]);
+        } finally {
+            if (request === shipmentFilesRequest.current)
+                setShipmentFilesLoading(false);
         }
     }, [session, shipment_id, run_id, readOnly]);
 
@@ -348,6 +359,7 @@ function ShipmentDetailsContent({
         });
         return () => {
             mounted = false;
+            shipmentFilesRequest.current++;
             listener.remove();
         };
     }, [loadShipment, loadShipmentFiles, refreshKey]);
@@ -518,9 +530,62 @@ function ShipmentDetailsContent({
         shipment?.total_parcel_count ?? shipment?.parcels?.length ?? 0;
     const currentStatus = shipment?.booking?.status || shipment?.status || "";
     const close = onClose ?? (() => router.back());
-    const openPanel = (panel: "files" | "history" | "more") => {
+    const openPanel = (panel: "files" | "history") => {
         setActiveAction(null);
         setDetailPanel(panel);
+    };
+    const filesSection = (
+        <ShipmentFilesSection
+            files={shipmentFiles}
+            loading={shipmentFilesLoading}
+            error={shipmentFilesError}
+            readOnly={readOnly}
+            busy={isMutating}
+            onRetry={() => void loadShipmentFiles()}
+            onOpen={(fileId) => void openShipmentFile(fileId)}
+            onUpload={() => {
+                resetShipmentFileForm();
+                setActiveAction(null);
+                setFileModalVisible(true);
+            }}
+        />
+    );
+    const openShipmentActions = () => {
+        if (!shipment || isMutating) return;
+        shipmentActions.current?.present({
+            title: "Shipment options",
+            showCloseButton: true,
+            accessibilityLabel: "Shipment options",
+            stackBehavior: "push",
+            actions: [
+                // Scan and proof actions remain temporarily hidden.
+                ...(!readOnly && shipment.booking ? [
+                    {
+                        id: "status",
+                        label: "Update delivery status",
+                        onPress: () => setActiveAction("status"),
+                    },
+                ] : []),
+                {
+                    id: "files",
+                    label: "Delivery note & files",
+                    onPress: () => openPanel("files"),
+                },
+                {
+                    id: "history",
+                    label: "Shipment history",
+                    onPress: () => openPanel("history"),
+                },
+                ...(!readOnly && shipment.booking ? [
+                    {
+                        id: "cancel-shipment",
+                        label: "Cancel shipment",
+                        variant: "destructive" as const,
+                        onPress: () => setActiveAction("cancel"),
+                    },
+                ] : []),
+            ],
+        });
     };
     async function openLocation(url: string) {
         try {
@@ -560,7 +625,7 @@ function ShipmentDetailsContent({
                         accessibilityRole="button"
                         accessibilityLabel="More shipment actions"
                         disabled={!shipment || isMutating}
-                        onPress={() => openPanel("more")}
+                        onPress={openShipmentActions}
                         style={{
                             minHeight: 44,
                             minWidth: 44,
@@ -584,16 +649,16 @@ function ShipmentDetailsContent({
             >
                 {isLoading ? (
                     <ActivityIndicator
-                        color="#F54A4A"
+                        color="#15803d"
                         accessibilityLabel="Loading shipment"
                     />
                 ) : null}
                 {errorMessage ? (
                     <View
                         accessibilityRole="alert"
-                        className="bg-destructive rounded-xl p-4"
+                        className="bg-warning rounded-xl p-4"
                     >
-                        <Text className="text-destructive-foreground">
+                        <Text className="text-warning-foreground">
                             {errorMessage}
                         </Text>
                         <Pressable
@@ -601,7 +666,7 @@ function ShipmentDetailsContent({
                             onPress={loadShipment}
                             style={{ minHeight: 44, justifyContent: "center" }}
                         >
-                            <Text className="text-destructive-foreground font-semibold">
+                            <Text className="text-warning-foreground font-semibold">
                                 Retry
                             </Text>
                         </Pressable>
@@ -811,7 +876,7 @@ function ShipmentDetailsContent({
                                         color: ["failed", "cancelled"].includes(
                                             currentStatus,
                                         )
-                                            ? "#F54A4A"
+                                            ? "#b45309"
                                             : currentStatus === "delivered"
                                               ? "#24753A"
                                               : "#2563EB",
@@ -907,10 +972,9 @@ function ShipmentDetailsContent({
                         </View>
                         <View
                             style={{
-                                padding: 16,
-                                borderRadius: 12,
+                                paddingHorizontal: 16,
+                                borderRadius: 16,
                                 backgroundColor: card,
-                                gap: 8,
                             }}
                         >
                             <View
@@ -918,39 +982,79 @@ function ShipmentDetailsContent({
                                     flexDirection: "row",
                                     gap: 12,
                                     alignItems: "center",
+                                    paddingVertical: 16,
                                 }}
                             >
                                 <ShipmentIcon name="package" />
-                                <Text
-                                    style={{
-                                        flex: 1,
-                                        color: ink,
-                                        fontSize: 16,
-                                        lineHeight: 22,
-                                        fontWeight: "600",
-                                    }}
-                                >
-                                    {shipment.scanned_parcel_count ?? 0} of{" "}
-                                    {total} parcels scanned
-                                </Text>
-                            </View>
-                            {(shipment.parcels || []).map((parcel, index) => (
-                                <View key={parcel.parcel_id}>
+                                <View style={{ flex: 1, gap: 3 }}>
+                                    <Text
+                                        style={{
+                                            color: ink,
+                                            fontSize: 16,
+                                            lineHeight: 22,
+                                            fontWeight: "600",
+                                        }}
+                                    >
+                                        Parcels
+                                    </Text>
                                     <Text
                                         style={{
                                             color: muted,
-                                            fontSize: 14,
-                                            lineHeight: 19,
+                                            fontSize: 13,
+                                            lineHeight: 18,
                                         }}
                                     >
-                                        {parcel.parcel_code || "No code"} ·
-                                        Parcel #{index + 1}
+                                        {shipment.scanned_parcel_count ?? 0} of{" "}
+                                        {total}{" "}
+                                        {total === 1 ? "parcel" : "parcels"}{" "}
+                                        scanned
+                                    </Text>
+                                </View>
+                            </View>
+                            {(shipment.parcels || []).map((parcel, index) => (
+                                <View
+                                    key={parcel.parcel_id}
+                                    style={{
+                                        borderTopWidth: 1,
+                                        borderTopColor: isDarkMode
+                                            ? "#3F3F46"
+                                            : "#E4E4E7",
+                                        paddingVertical: 14,
+                                        gap: 4,
+                                    }}
+                                >
+                                    <Text
+                                        style={{
+                                            color: muted,
+                                            fontSize: 11,
+                                            lineHeight: 16,
+                                            fontWeight: "600",
+                                            letterSpacing: 0.6,
+                                        }}
+                                    >
+                                        PARCEL {index + 1}
+                                    </Text>
+                                    <Text
+                                        style={{
+                                            color: ink,
+                                            fontFamily:
+                                                Platform.OS === "ios"
+                                                    ? "Menlo"
+                                                    : "monospace",
+                                            fontSize: 14,
+                                            lineHeight: 21,
+                                            fontWeight: "600",
+                                        }}
+                                    >
+                                        {parcel.parcel_code ||
+                                            "No code available"}
                                     </Text>
                                     {!!parcel.contents_description && (
                                         <Text
                                             style={{
                                                 color: muted,
                                                 fontSize: 13,
+                                                lineHeight: 19,
                                             }}
                                         >
                                             {parcel.contents_description}
@@ -959,17 +1063,7 @@ function ShipmentDetailsContent({
                                 </View>
                             ))}
                         </View>
-                        <DetailLink
-                            icon="files"
-                            title="Delivery note & files"
-                            subtitle={[
-                                shipment.delivery_note_number,
-                                "View shipment documents",
-                            ]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            onPress={() => openPanel("files")}
-                        />
+                        {filesSection}
                         <DetailLink
                             icon="history"
                             title="Shipment history"
@@ -1017,7 +1111,7 @@ function ShipmentDetailsContent({
                             borderRadius: 14,
                             alignItems: "center",
                             justifyContent: "center",
-                            backgroundColor: readOnly ? surface : "#F54A4A",
+                            backgroundColor: readOnly ? surface : "#15803d",
                             borderWidth: readOnly ? 1 : 0,
                             borderColor: isDarkMode ? "#45454D" : "#DBDBE0",
                             opacity:
@@ -1114,7 +1208,7 @@ function ShipmentDetailsContent({
                         {errorMessage ? (
                             <Text
                                 accessibilityRole="alert"
-                                className="text-destructive"
+                                className="text-warning-foreground"
                             >
                                 {errorMessage}
                             </Text>
@@ -1195,8 +1289,8 @@ function ShipmentDetailsContent({
                                 ) : null}
 
                                 {fileFormError ? (
-                                    <View className="border-destructive bg-destructive mt-4 rounded-[24px] border px-4 py-4">
-                                        <Text className="text-destructive-foreground text-sm font-semibold">
+                                    <View className="border-warning bg-warning mt-4 rounded-[24px] border px-4 py-4">
+                                        <Text className="text-warning-foreground text-sm font-semibold">
                                             {fileFormError}
                                         </Text>
                                     </View>
@@ -1211,7 +1305,7 @@ function ShipmentDetailsContent({
                                             !fileExpiresAt.trim())
                                     }
                                     onPress={uploadShipmentFile}
-                                    className={`mt-6 items-center rounded-full px-6 py-4 ${isMutating ? "bg-destructive" : "bg-primary"}`}
+                                    className={`mt-6 items-center rounded-full px-6 py-4 bg-primary disabled:opacity-50`}
                                 >
                                     {isMutating ? (
                                         <ActivityIndicator color="#FFFFFF" />
@@ -1225,58 +1319,6 @@ function ShipmentDetailsContent({
                         ) : null}
                         {shipment && !fileModalVisible && (
                             <>
-                                {detailPanel === "more" && !activeAction ? (
-                                    <View style={{ gap: 12 }}>
-                                        {!readOnly && shipment.booking ? (
-                                            <>
-                                                <LocationButton
-                                                    label="Scan parcels"
-                                                    onPress={() => {
-                                                        setDetailPanel(null);
-                                                        if (
-                                                            presentation ===
-                                                            "sheet"
-                                                        )
-                                                            onClose?.();
-                                                        router.push(
-                                                            `/shipments/${shipment.shipment_id}/scan`,
-                                                        );
-                                                    }}
-                                                />
-                                                <LocationButton
-                                                    label="Update delivery status"
-                                                    onPress={() =>
-                                                        setActiveAction(
-                                                            "status",
-                                                        )
-                                                    }
-                                                />
-                                                <LocationButton
-                                                    label="Add delivery proof"
-                                                    onPress={() =>
-                                                        setActiveAction("pod")
-                                                    }
-                                                />
-                                                <LocationButton
-                                                    label="Cancel shipment"
-                                                    onPress={() =>
-                                                        setActiveAction(
-                                                            "cancel",
-                                                        )
-                                                    }
-                                                />
-                                            </>
-                                        ) : null}
-                                        <LocationButton
-                                            label="Delivery note & files"
-                                            onPress={() => openPanel("files")}
-                                        />
-                                        <LocationButton
-                                            label="Shipment history"
-                                            onPress={() => openPanel("history")}
-                                        />
-                                    </View>
-                                ) : null}
                                 {!readOnly && shipment.booking ? (
                                     <>
                                         {activeAction === "status" ? (
@@ -1519,75 +1561,7 @@ function ShipmentDetailsContent({
                                     </>
                                 ) : null}
                                 {detailPanel === "files" && !activeAction ? (
-                                    <>
-                                        <View className="bg-card mt-6 rounded-xl px-5 py-5">
-                                            <View className="flex-row items-center justify-between">
-                                                <Text className="text-card-foreground text-lg font-semibold">
-                                                    Shipment files
-                                                </Text>
-                                                {!readOnly && (
-                                                    <Pressable
-                                                        onPress={() => {
-                                                            resetShipmentFileForm();
-                                                            setFileModalVisible(
-                                                                true,
-                                                            );
-                                                        }}
-                                                        className="bg-secondary rounded-full px-4 py-3"
-                                                    >
-                                                        <Text className="text-secondary-foreground text-sm font-semibold">
-                                                            Upload
-                                                        </Text>
-                                                    </Pressable>
-                                                )}
-                                            </View>
-
-                                            {shipmentFilesError ? (
-                                                <Text className="text-destructive-foreground mt-4 text-sm font-medium">
-                                                    {shipmentFilesError}
-                                                </Text>
-                                            ) : shipmentFiles.length === 0 ? (
-                                                <Text className="text-muted-foreground mt-4 text-base">
-                                                    No shipment files uploaded
-                                                    yet.
-                                                </Text>
-                                            ) : (
-                                                <View className="mt-4 gap-3">
-                                                    {shipmentFiles.map(
-                                                        (file) => (
-                                                            <Pressable
-                                                                key={
-                                                                    file.file_id
-                                                                }
-                                                                onPress={() =>
-                                                                    openShipmentFile(
-                                                                        file.file_id,
-                                                                    )
-                                                                }
-                                                                className="border-border rounded-[20px] border px-4 py-4"
-                                                            >
-                                                                <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">
-                                                                    {file
-                                                                        .file_type
-                                                                        ?.name ||
-                                                                        "Shipment file"}
-                                                                </Text>
-                                                                <Text className="text-card-foreground mt-2 text-base font-medium">
-                                                                    {file.original_name ||
-                                                                        "Unnamed file"}
-                                                                </Text>
-                                                                <Text className="text-muted-foreground mt-1 text-sm">
-                                                                    {file.expires_at
-                                                                        ? `Expires ${file.expires_at.slice(0, 10)}`
-                                                                        : "No expiry"}
-                                                                </Text>
-                                                            </Pressable>
-                                                        ),
-                                                    )}
-                                                </View>
-                                            )}
-                                        </View>
-                                    </>
+                                    filesSection
                                 ) : null}
                                 {detailPanel === "history" && !activeAction ? (
                                     <>
@@ -1757,6 +1731,7 @@ function ShipmentDetailsContent({
                     </ScrollView>
                 </KeyboardAvoidingView>
             </ShipmentPanel>
+            <ActionSheet ref={shipmentActions} />
         </KeyboardAvoidingView>
     );
 }
@@ -1798,6 +1773,88 @@ function ShipmentIcon({ name }: { name: IconName }) {
         />
     );
 }
+function ShipmentFilesSection({
+    files, loading, error, readOnly, busy, onRetry, onOpen, onUpload,
+}: {
+    files: DriverEntityFile[];
+    loading: boolean;
+    error: string | null;
+    readOnly: boolean;
+    busy: boolean;
+    onRetry: () => void;
+    onOpen: (fileId: string) => void;
+    onUpload: () => void;
+}) {
+    const { colorScheme } = useColorScheme();
+    const dark = colorScheme === "dark";
+    const ink = dark ? "#FAFAFA" : "#111111";
+    const muted = dark ? "#A1A1AA" : "#71717A";
+    const uploadButton = (label: string) => (
+        <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Upload shipment file"
+            accessibilityState={{ disabled: busy }}
+            disabled={busy}
+            onPress={onUpload}
+            style={{
+                minHeight: 44, paddingHorizontal: 16, paddingVertical: 12,
+                borderRadius: 12, backgroundColor: "#15803D",
+                opacity: busy ? 0.5 : 1, alignItems: "center", justifyContent: "center",
+            }}
+        >
+            <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>{label}</Text>
+        </Pressable>
+    );
+    return (
+        <View style={{ padding: 16, borderRadius: 16, backgroundColor: dark ? "#25252B" : "#F5F5F8", gap: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <Text accessibilityRole="header" style={{ color: ink, fontSize: 16, lineHeight: 22, fontWeight: "600" }}>Files</Text>
+                {!readOnly && uploadButton("Upload")}
+            </View>
+            {loading ? (
+                <View accessibilityLiveRegion="polite" style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12 }}>
+                    <ActivityIndicator color="#15803D" />
+                    <Text style={{ color: muted, flex: 1 }}>Loading files…</Text>
+                </View>
+            ) : (
+                <>
+                    {error ? (
+                        <View style={{ gap: 8 }}>
+                            <Text accessibilityRole="alert" style={{ color: dark ? "#FBBF24" : "#B45309" }}>{error}</Text>
+                            <Pressable accessibilityRole="button" onPress={onRetry} style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start", paddingHorizontal: 12 }}>
+                                <Text className="text-primary font-semibold">Retry</Text>
+                            </Pressable>
+                        </View>
+                    ) : null}
+                    {files.length > 0 ? files.map((file) => (
+                        <Pressable
+                            key={file.file_id}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Open ${file.original_name || "Unnamed file"}`}
+                            onPress={() => onOpen(file.file_id)}
+                            style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 64, borderTopWidth: 1, borderTopColor: dark ? "#3F3F46" : "#E4E4E7", paddingTop: 14 }}
+                        >
+                            <ShipmentIcon name="files" />
+                            <View style={{ flex: 1, gap: 4 }}>
+                                <Text style={{ color: ink, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>{file.original_name || "Unnamed file"}</Text>
+                                <Text style={{ color: muted, fontSize: 12, lineHeight: 18 }}>{file.file_type?.name || "Shipment file"}</Text>
+                                <Text style={{ color: muted, fontSize: 12, lineHeight: 18 }}>{file.expires_at ? `Expires ${file.expires_at.slice(0, 10)}` : "No expiry"}</Text>
+                            </View>
+                            <ShipmentIcon name="chevron" />
+                        </Pressable>
+                    )) : !error ? (
+                        <View style={{ alignItems: "center", paddingVertical: 20, gap: 12 }}>
+                            <ShipmentIcon name="files" />
+                            <Text style={{ color: muted, fontSize: 14, lineHeight: 20, textAlign: "center" }}>No files uploaded yet</Text>
+                            {!readOnly && uploadButton("Upload a file")}
+                        </View>
+                    ) : null}
+                </>
+            )}
+        </View>
+    );
+}
+
 function LocationButton({
     icon,
     label,

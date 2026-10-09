@@ -1,5 +1,115 @@
 # Release Notes
 
+## 2026-10-09 | Version: run-open-dashboard-green-v1
+
+- **Summary:** Explicitly render the run detail Open dashboard button in green.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Set the button background to the approved `#15803D` primary green directly, retaining white text, run navigation and disabled gating; reduce opacity while disabled.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused run-detail lint and diff checks pass. This corrects implementation of the existing green-primary plan/Figma; native rendering on the supplied device remains unverified.
+
+## 2026-10-09 | Version: run-actions-end-run-last-v1
+
+- **Summary:** Move End Run to the bottom of the Expo run actions list.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Order actions as Edit Run, Update delivery order, Add additional cost, conditional Upload delivery note, then End Run. Retain red destructive styling, pending-request disabling and the existing reason/dispatch approval flow.
+- **Breaking Changes:** None.
+- **Verification:** Focused dashboard lint passes with the existing set-state-in-effect rule excluded; unmodified effects at lines 73/103 fail that rule. Diff checks pass. Dashboard plan v2.80 and both Figma run-action menus aligned; native interaction remains unverified.
+
+## 2026-10-09 | Version: mobile-green-primary-v1
+
+- **Summary:** Use green as the driver mobile app's primary color and reserve red for danger buttons.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use `#15803D` for primary buttons, tabs/badges, loading/progress, selection borders, route accents and bundled timeline assets. Use pale green selected surfaces and amber errors/warnings, expired-document and speeding feedback. Save/Upload loading and disabled states retain green with reduced opacity. Preserve Cancel shipment/End Run destructive buttons and existing confirmation, authorization and status logic.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript passes. Focused changed-screen/component lint passes except the existing `RunMap.tsx:177` render-time `Date.now()` purity error; full app/components lint passes with the existing purity, set-state-in-effect and preserve-manual-memoization rules excluded. Dashboard plan v2.79 and driver Figma screens/components/color variables aligned; no-run Figma screenshot confirms green upload/navigation. Native iOS/Android light/dark, large-text and interaction checks remain unverified.
+
+## 2026-10-09 | Version: action-sheets-header-close-v1
+
+- **Summary:** Show a top-right close button on all shared Expo action menus and remove the Cancel dismissal row.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** ActionSheet defaults to the shared accessible 44-point header close control, including menus without titles. Lists contain only configured actions; retain domain actions such as Cancel shipment. Preserve selection on dismissal, backdrop/swipe/Android Back and action execution after dismissal.
+- **Internal Changes:** Remove obsolete showCancelButton configuration and its shipment-options override. Update shared sheet documentation, dashboard plan v2.78 and Figma shared action menu, timeline filter, run actions, document-source chooser and handoff guidance.
+- **Breaking Changes:** None for runtime/API consumers; internal ActionSheet callers no longer configure a Cancel dismissal row.
+- **Verification:** Full mobile TypeScript and focused ActionSheet/ShipmentDetails lint pass. Figma menu structure and source/run-menu screenshots verified; diff checks pass. Native iOS/Android close/reopen, picker handoff, dark mode and large-text interaction remain unverified.
+
+## 2026-10-09 | Version: driver-message-notification-navigation-v1
+
+- **Summary:** Route admin-to-driver message notification taps to the Messages section and the notified driver conversation.
+- **API Changes:** No endpoint changes. Existing Expo push payload now explicitly includes high priority and Android `default` channel; retain sound and generic dispatch text with conversation/message UUIDs.
+- **Database Changes:** None.
+- **Behavior Changes:** Capture notification taps before login, wait for authentication hydration and mounted navigation, then open Messages without a preliminary network request. Load and authorize the notified driver thread in the screen; retain Retry for offline/inaccessible threads. Ignore duplicate response events and non-default actions. Refresh push-token registration after hydration and on foreground/token changes. Preserve after-commit notification dispatch, retry deduplication, receipt cleanup and suppression while the thread is visible.
+- **Breaking Changes:** None. No deployment or native build performed; operational delivery requires a configured APNs/FCM build, registered device/permission and running queue worker.
+- **Verification:** 3 mocked mobile notification tests pass, covering valid/invalid payloads, cold start, login/navigation readiness, offline navigation, duplicate events and running-app taps. 14 conversation API/push tests pass (220 assertions), including provider payload channel/priority, after-commit queueing and no self-notification on driver reply. Full mobile TypeScript and focused notification/messages lint pass; PHP style and diff checks pass. The optional-notification-data TypeScript issue recorded in concurrent entries below is resolved. Real iOS/Android delivery and OS tap behavior remain unverified.
+
+## 2026-10-09 | Version: messages-attachment-sources-v1
+
+- **Summary:** Add File, Photo, Camera, Run and Shipment options to the mobile Messages attachment button.
+- **API Changes:** Add GET `/api/v1/conversations/{id}/references` with required `type` and `search`, optional `page`, and paginated assigned-record results. Message sends accept `references[][type/id]`; attachment responses include nullable reference metadata. Authorize by driver conversation, account, merchant and non-removed run assignments; completed records remain available. Reference downloads return 422; clients open authorized detail routes.
+- **Database Changes:** None; persist typed references using existing attachment metadata.
+- **Behavior Changes:** Run/Shipment selection uses location-style searchable bottom sheets with keyboard search, clear, results, preview/confirm, pagination and retry. Native file/photo/camera sources preserve cancellation/permission errors. Removable draft cards allow reference-only sends and retain failed drafts/retry IDs. Limit combined attachments to five and files to 20 MB. Dispatch inbox opens linked records; completed mobile shipment links use run-scoped read-only details.
+- **Breaking Changes:** None for existing requests. Deploy the API additions with clients for record search/send support.
+- **Verification:** 13 conversation API tests pass (212 assertions), covering reference search/sends, retry, dispatch visibility, unassigned/removed records, validation and rollback; Mobile and website TypeScript, focused mobile/website lint, PHP style and diff checks pass. Figma messaging handoff and dashboard plan v2.77 aligned. Simulator access timed out; native source/permission/keyboard/layout interactions and live integration remain unverified. No deployment performed.
+
+## 2026-10-09 | Version: shipment-options-cancel-last-v1
+
+- **Summary:** Place Cancel shipment last in Shipment options.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Order eligible actions as Update delivery status, Delivery note & files, Shipment history, then Cancel shipment. Preserve destructive styling, reason/confirmation, read-only guards and top-right close.
+- **Breaking Changes:** None.
+- **Verification:** Focused ShipmentDetails lint and diff checks pass. Full mobile TypeScript is blocked by an unrelated pending notification change in `message-notifications.tsx:50` (optional notification data passed to a required record parameter). Dashboard plan v2.76 and Figma cancellation-last handoff aligned; native menu interaction remains unverified.
+
+## 2026-10-09 | Version: shipment-options-header-close-v1
+
+- **Summary:** Move Shipment options dismissal to a top-right close button.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show the shared 44-point close control and remove the bottom Cancel dismissal row on shipment page/sheet options. Keep Cancel shipment, existing action handoff and read-only guards. Preserve backdrop, swipe and Android Back dismissal.
+- **Internal Changes:** Add opt-in `showCancelButton` configuration to ActionSheet; other callers retain their existing defaults.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused ActionSheet/ShipmentDetails lint pass. Diff checks pass; dashboard plan v2.75 and Figma shared header/handoff aligned and visually checked. Native iOS/Android close interaction and theme/large-text layouts remain unverified.
+
+## 2026-10-09 | Version: shipment-parcel-card-layout-v1
+
+- **Summary:** Improve readability of the parcel card on the shared mobile shipment details page and sheet.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Separate the Parcels heading from the recorded scan count; use divided rows, small parcel-number labels, prominent monospaced tracking codes and secondary contents. Allow long codes/descriptions to wrap; retain missing-code fallback, read-only records and hidden scan/proof actions.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused ShipmentDetails lint pass; diff checks pass. Dashboard plan v2.74 and Figma selected parcel cards/handoff aligned. Native multi-parcel, dark-mode and large-text layout remain unverified.
+
+## 2026-10-09 | Version: shipment-options-action-sheet-v1
+
+- **Summary:** Use the shared action sheet for shipment options instead of a full-height panel.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Content-sized menu keeps the receipt underneath and opens status, cancellation, files or history after dismissal. Highlight Cancel shipment as destructive while retaining its reason/confirmation form. Preserve completed-run read-only gating and temporarily hidden scan/proof entries; include Cancel and shared backdrop/swipe/Android Back dismissal. Applies to standalone shipment pages and reusable run shipment sheets.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused shipment component lint and diff checks pass. Native iOS/Android stacking, sizing and selection/dismissal checks remain unverified. Dashboard plan v2.73 records this implementation correction to the existing Figma action-sheet intent.
+
+## 2026-10-09 | Version: messages-hide-empty-conversations-v1
+
+- **Summary:** Show only conversations containing messages in the admin inbox, with an exception for the conversation the admin has just started.
+- **API Changes:** Add optional boolean `has_messages` to GET `/api/v1/conversations`; filter live messages inside the authorized query before pagination. Omitted/false retains existing behavior.
+- **Database Changes:** None.
+- **Behavior Changes:** Admin inbox requests message-containing conversations across search, tabs and polling. Keep the conversation opened through New conversation visible until the admin selects another thread or changes merchant/session; allow sending its first message and update its preview after sending. Exclude threads with only deleted messages; retain attachment-only messages.
+- **Breaking Changes:** None.
+- **Verification:** 13 conversation tests pass (191 assertions), including empty/deleted-message exclusions, pagination, search/type combinations, visibility, legacy behavior, validation and opening an empty driver thread. Website TypeScript, focused inbox lint and PHP style checks pass. New inbox exception reviewed in code; browser verification and deployment not performed.
+
+## 2026-10-09 | Version: shipment-hide-scan-proof-actions-v1
+
+- **Summary:** Temporarily hide Scan parcels and Add delivery proof in the mobile shipment actions menu.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Shared shipment page and bottom sheet omit both menu links. Update delivery status, Cancel shipment, Delivery note & files and Shipment history remain available. Preserve the scan route, proof form/contracts and recorded scan/proof details for later re-enablement.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused component lint pass; diff checks pass. Dashboard plan v2.72 and Figma shared action sheet/handoff aligned. Native menu interaction remains unverified.
+
 ## 2026-10-09 | Version: messages-clear-inbox-v1
 
 - **Summary:** Implement selected Clear Inbox design in `/admin/messages`, preserving the main menu and shared admin shell.

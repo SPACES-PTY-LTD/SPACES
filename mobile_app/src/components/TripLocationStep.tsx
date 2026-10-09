@@ -30,7 +30,7 @@ export function TripLocationStep({ origin, end, busy, onChoose, onContinue }: {
         ['destination_location_id', 'Planned end location', 'flag', end],
       ] as const).map(([key, label, icon, location], index) => <View key={key} style={styles.endpoint}>
         <View style={styles.rail}>
-          <View style={[styles.icon, { backgroundColor: dark ? '#502c32' : '#ffe4e6' }]}><Feather name={icon} size={18} color="#f54a4a" /></View>
+          <View style={[styles.icon, { backgroundColor: dark ? '#14532d' : '#dcfce7' }]}><Feather name={icon} size={18} color="#15803d" /></View>
           {index === 0 && <View style={[styles.connector, { backgroundColor: border }]} />}
         </View>
         <View style={styles.details}>
@@ -66,8 +66,8 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, lineHeight: 18, fontWeight: '600', paddingTop: 7 },
   location: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 14, padding: 14, minHeight: 76 },
   copy: { flex: 1, gap: 6 }, name: { fontSize: 15, lineHeight: 21, fontWeight: '600' }, address: { fontSize: 12, lineHeight: 18 },
-  action: { fontSize: 12, lineHeight: 18, fontWeight: '600', color: '#f54a4a' },
+  action: { fontSize: 12, lineHeight: 18, fontWeight: '600', color: '#15803d' },
   hint: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 }, hintText: { flex: 1, fontSize: 12, lineHeight: 18 },
-  primary: { minHeight: 52, padding: 14, borderRadius: 14, backgroundColor: '#f54a4a', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  primary: { minHeight: 52, padding: 14, borderRadius: 14, backgroundColor: '#15803d', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   primaryText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

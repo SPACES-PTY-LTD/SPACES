@@ -86,8 +86,8 @@ export default function LoginScreen() {
               </View>
             </View>
             {errorMessages.length > 0 ? (
-              <View accessibilityLiveRegion="polite" style={[styles.error, { backgroundColor: isDarkMode ? '#7f1d1d' : '#fee2e2' }]}>
-                {errorMessages.map((message) => <Text key={message} style={{ color: isDarkMode ? '#fecaca' : '#991b1b', fontSize: 14 }}>{message}</Text>)}
+              <View accessibilityLiveRegion="polite" style={[styles.error, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}>
+                {errorMessages.map((message) => <Text key={message} style={{ color: isDarkMode ? '#fde68a' : '#92400e', fontSize: 14 }}>{message}</Text>)}
               </View>
             ) : null}
 
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   passwordInput: { paddingRight: 64 },
   passwordToggle: { position: 'absolute', right: 8, top: 0, bottom: 0, width: 48, alignItems: 'center', justifyContent: 'center' },
   error: { borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 },
-  submit: { alignItems: 'center', justifyContent: 'center', minHeight: 56, borderRadius: 18, backgroundColor: '#2563eb', paddingHorizontal: 24, paddingVertical: 16 },
+  submit: { alignItems: 'center', justifyContent: 'center', minHeight: 56, borderRadius: 18, backgroundColor: '#15803d', paddingHorizontal: 24, paddingVertical: 16 },
   submitText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
   footer: { flexShrink: 0, marginTop: 'auto', paddingHorizontal: 28, gap: 20, paddingBottom: 16 },
   support: { fontSize: 13, lineHeight: 16, textAlign: 'center' },

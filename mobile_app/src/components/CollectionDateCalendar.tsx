@@ -32,7 +32,7 @@ export function CollectionDateCalendar({ value, onConfirm }: { value: string; on
         if (day < 1 || day > days) return <View key={index} style={{ width: '14.285714%', minHeight: 44 }} />;
         const date = new Date(month.getFullYear(), month.getMonth(), day, 12);
         const active = formatDateOnly(date) === formatDateOnly(selected);
-        return <Pressable key={index} accessibilityRole="button" accessibilityLabel={date.toLocaleDateString('en', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} accessibilityState={{ selected: active }} onPress={() => setSelected(date)} style={{ width: '14.285714%', minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: active ? '#c63333' : 'transparent' }}>
+        return <Pressable key={index} accessibilityRole="button" accessibilityLabel={date.toLocaleDateString('en', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} accessibilityState={{ selected: active }} onPress={() => setSelected(date)} style={{ width: '14.285714%', minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: active ? '#15803d' : 'transparent' }}>
           <Text style={{ fontSize: 14, color: active ? '#fff' : '#111', fontWeight: active ? '600' : '400' }}>{day}</Text>
         </Pressable>;
       })}

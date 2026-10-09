@@ -86,7 +86,7 @@ export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = 
         </View>
       </View>}
       {stop.kind === 'Speeding' && <View style={[styles.metadata, { backgroundColor: surface }]}>
-        <Feather name="alert-triangle" size={18} color={dark ? '#fca5a5' : '#b91c1c'} />
+        <Feather name="alert-triangle" size={18} color={dark ? '#fde68a' : '#b45309'} />
         <View style={styles.metadataText}>
           <Text style={[styles.value, { color: ink }]}>{stop.speed_kph != null ? `${stop.speed_kph} km/h` : 'Speed not recorded'}</Text>
           <Text style={[styles.label, { color: muted }]}>{stop.speed_limit_kph != null ? `Speed limit · ${stop.speed_limit_kph} km/h` : 'Speed limit not recorded'}</Text>

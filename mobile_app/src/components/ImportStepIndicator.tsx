@@ -18,7 +18,7 @@ export function ImportStepIndicator({ step, onBack, locked = false }: {
           accessibilityHint={enabled ? `Return to ${label.toLowerCase()}` : undefined}
           accessibilityState={{ disabled: !enabled, selected: target === step }} disabled={!enabled}
           onPress={() => { if (enabled) onBack?.(target); }} style={styles.target}>
-          <View style={[styles.segment, { backgroundColor: target <= step ? '#f54a4a' : dark ? '#3f3f46' : '#e4e4e7' }]} />
+          <View style={[styles.segment, { backgroundColor: target <= step ? '#15803d' : dark ? '#3f3f46' : '#e4e4e7' }]} />
         </Pressable>;
       })}
     </View>

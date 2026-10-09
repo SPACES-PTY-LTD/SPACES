@@ -48,6 +48,48 @@ class ConversationApiTest extends TestCase
         return $this->postJson('/api/v1/conversations/driver', [], $this->headers($driver))->assertOk()->assertJsonPath('data.status', 'active')->assertJsonPath('data.is_private', true)->json('data.conversation_id');
     }
 
+    public function test_driver_can_search_and_send_scoped_run_and_shipment_references(): void
+    {
+        [$owner, $merchant, $user, $driver] = $this->context();
+        $driver->update(['is_active' => true]);
+        $run = \App\Models\Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'driver_id' => $driver->id, 'status' => 'completed']);
+        $shipment = \App\Models\Shipment::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'status' => 'delivered', 'merchant_order_ref' => 'CHAT-REF']);
+        $assignment = \App\Models\RunShipment::create(['run_id' => $run->id, 'shipment_id' => $shipment->id, 'sequence' => 1, 'status' => 'done']);
+        $foreign = \App\Models\Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'driver_id' => null, 'status' => 'dispatched']);
+        $chat = $this->chat($user);
+        $headers = $this->headers($user);
+        $base = '/api/v1/conversations/'.$chat;
+        $this->getJson($base.'/references?type=run&search=Run%20'.$run->id, $headers)
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $run->uuid);
+        $this->getJson($base.'/references?type=shipment&search=CHAT', $headers)
+            ->assertOk()->assertJsonPath('data.0.id', $shipment->uuid);
+        $this->getJson($base.'/references?type=run&search='.$foreign->uuid, $headers)->assertOk()->assertJsonCount(0, 'data');
+        $payload = ['temporary_id' => 'reference-draft', 'references' => [
+            ['type' => 'run', 'id' => $run->uuid], ['type' => 'shipment', 'id' => $shipment->uuid],
+        ]];
+        $result = $this->postJson($base.'/messages', $payload, $headers)->assertCreated()
+            ->assertJsonCount(2, 'data.attachments')->assertJsonPath('data.attachments.0.reference.id', $run->uuid)
+            ->assertJsonPath('data.attachments.1.reference.label', 'CHAT-REF')->assertJsonPath('data.attachments.1.reference.run_id', $run->uuid);
+        $this->postJson($base.'/messages', $payload, $headers)->assertOk()->assertJsonPath('data.message_id', $result->json('data.message_id'));
+        $this->getJson($base.'/messages', $this->headers($owner))->assertOk()->assertJsonPath('data.0.attachments.1.reference.id', $shipment->uuid);
+        $this->getJson($base.'/attachments/'.$result->json('data.attachments.0.attachment_id').'/download', $headers)->assertStatus(422);
+        $this->postJson($base.'/messages', ['temporary_id' => 'foreign', 'references' => [['type' => 'run', 'id' => $foreign->uuid]]], $headers)->assertNotFound();
+        $assignment->update(['status' => 'removed']);
+        $this->getJson($base.'/references?type=shipment&search=CHAT', $headers)->assertOk()->assertJsonCount(0, 'data');
+        $this->postJson($base.'/messages', ['temporary_id' => 'removed', 'references' => [['type' => 'shipment', 'id' => $shipment->uuid]]], $headers)->assertNotFound();
+        $this->postJson($base.'/messages', ['temporary_id' => 'too-many', 'references' => array_fill(0, 6, ['type' => 'run', 'id' => $run->uuid])], $headers)->assertUnprocessable();
+        $this->postJson($base.'/messages', ['temporary_id' => 'bad-type', 'references' => [['type' => 'location', 'id' => $run->uuid]]], $headers)->assertUnprocessable();
+        $this->post($base.'/messages', ['temporary_id' => 'mixed-limit',
+            'references' => array_fill(0, 5, ['type' => 'run', 'id' => $run->uuid]),
+            'attachments' => [UploadedFile::fake()->create('note.pdf', 1)]], $headers)->assertUnprocessable();
+        $this->getJson($base.'/references?type=run&search='.$run->uuid, $this->headers($owner))->assertForbidden();
+        $this->assertDatabaseCount('messages', 1);
+        $this->assertDatabaseCount('message_attachments', 2);
+    }
+
     public function test_inbox_searches_titles_descriptions_active_members_and_driver_names_before_pagination(): void
     {
         [$owner, $merchant, $driverUser, $profile] = $this->context();
@@ -109,6 +151,47 @@ class ConversationApiTest extends TestCase
         $this->getJson($url.'&type=driver', $this->headers($viewer))->assertOk()->assertJsonCount(0, 'data');
         $this->getJson($url, $this->headers($foreignOwner))->assertForbidden();
         $this->getJson($url, $this->headers($driverUser))->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_inbox_can_exclude_empty_conversations_before_pagination(): void
+    {
+        [$owner, $merchant, , $profile] = $this->context();
+        $service = app(ConversationService::class);
+        $empty = $service->driverChat($owner, $merchant, $profile->uuid);
+        $make = function ($title, $member) use ($merchant, $service) {
+            $chat = Conversation::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+                'type' => 'normal', 'title' => $title]);
+            $service->addMember($chat, $member, 'owner');
+
+            return $chat;
+        };
+        $withMessage = $make('Dispatch with messages', $owner);
+        $withAttachment = $make('Dispatch attachment', $owner);
+        $deletedOnly = $make('Dispatch deleted', $owner);
+        $outsider = User::factory()->create(['account_id' => $merchant->account_id]);
+        $hidden = $make('Dispatch hidden', $outsider);
+        foreach ([$withMessage, $withAttachment, $deletedOnly, $hidden] as $chat) {
+            $message = $chat->messages()->create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+                'user_id' => $owner->id, 'body' => $chat->is($withAttachment) ? null : 'Hello']);
+            if ($chat->is($deletedOnly)) {
+                $message->delete();
+            }
+        }
+        $url = '/api/v1/conversations?merchant_id='.$merchant->uuid;
+        $headers = $this->headers($owner);
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('meta.total', 4);
+        $first = $this->getJson($url.'&has_messages=1&per_page=1', $headers)->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('meta.total', 2)->assertJsonPath('meta.last_page', 2)
+            ->json('data.0.conversation_id');
+        $second = $this->getJson($url.'&has_messages=1&per_page=1&page=2', $headers)->assertOk()->json('data.0.conversation_id');
+        $this->assertEqualsCanonicalizing([$withMessage->uuid, $withAttachment->uuid], [$first, $second]);
+        $this->getJson($url.'&has_messages=1&type=driver', $headers)->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson($url.'&has_messages=1&type=normal&search=Dispatch', $headers)->assertOk()->assertJsonPath('meta.total', 2);
+        $this->getJson($url.'&has_messages=0', $headers)->assertOk()->assertJsonPath('meta.total', 4);
+        $this->getJson($url.'&has_messages=invalid', $headers)->assertUnprocessable();
+        // Creation still returns an empty thread, ready for its first message.
+        $this->postJson('/api/v1/conversations/driver', ['merchant_id' => $merchant->uuid, 'driver_id' => $profile->uuid], $headers)
+            ->assertOk()->assertJsonPath('data.conversation_id', $empty->uuid)->assertJsonPath('data.latest_message', null);
     }
 
     public function test_inbox_filter_validation_and_legacy_requests(): void
@@ -309,7 +392,7 @@ class ConversationApiTest extends TestCase
         $device = app(UserDeviceService::class)->register($driver, ['platform' => 'android', 'push_provider' => 'expo', 'push_token' => 'ExponentPushToken[test]']);
         Http::fake(['*/push/send' => Http::response(['data' => [['status' => 'ok', 'id' => 'receipt-1']]]), '*/push/getReceipts' => Http::response(['data' => ['receipt-1' => ['status' => 'error', 'details' => ['error' => 'DeviceNotRegistered']]]])]);
         (new SendDriverMessagePush($message->id))->handle();
-        Http::assertSent(fn ($request) => $request[0]['to'] === $device->push_token && $request[0]['data']['conversation_id'] === $conversation->uuid && $request[0]['body'] !== 'Private body');
+        Http::assertSent(fn ($request) => $request[0]['to'] === $device->push_token && $request[0]['data']['conversation_id'] === $conversation->uuid && $request[0]['data']['kind'] === 'driver_message' && $request[0]['data']['message_id'] === $message->uuid && $request[0]['channelId'] === 'default' && $request[0]['priority'] === 'high' && $request[0]['sound'] === 'default' && $request[0]['body'] !== 'Private body');
         Queue::assertPushed(CheckMessagePushReceipts::class);
         (new CheckMessagePushReceipts(['receipt-1' => $device->push_token]))->handle();
         $this->assertNull($device->fresh()->push_token);

@@ -49,5 +49,8 @@ class ConversationPushCommitTest extends TestCase
         DB::rollBack();
         Queue::assertPushed(SendDriverMessagePush::class, 1);
         $this->assertDatabaseCount('messages', 1);
+        $driverHeaders = ['Authorization' => 'Bearer '.$driver->createToken('driver-reply')->plainTextToken];
+        $this->postJson("/api/v1/conversations/$id/messages", ['body' => 'Driver reply', 'temporary_id' => 'reply'], $driverHeaders)->assertCreated();
+        Queue::assertPushed(SendDriverMessagePush::class, 1);
     }
 }
