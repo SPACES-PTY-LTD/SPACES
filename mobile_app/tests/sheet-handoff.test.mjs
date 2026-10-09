@@ -4,6 +4,46 @@ import { createSheetHandoff } from '../component/ui/sheet-handoff.ts';
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 
+for (const source of ['file', 'photo', 'camera']) {
+  test(`shipment ${source}: remove both portals before native UI, restore receipt before form`, async () => {
+    const events = []; const picker = deferred();
+    const receipt = createSheetHandoff(() => events.push('dismiss receipt'), () => events.push('restore receipt'));
+    const upload = createSheetHandoff(() => events.push('dismiss upload'), () => events.push('restore upload'));
+    const roundTrip = upload.run(() => receipt.run(async () => {
+      events.push('source sheet dismissed');
+      events.push(source); await picker.promise;
+    }));
+    assert.deepEqual(events, ['dismiss upload']);
+    upload.onDismiss(); await flush();
+    assert.deepEqual(events, ['dismiss upload', 'dismiss receipt']);
+    assert.equal(receipt.onDismiss(), true, 'temporary dismissal must not close the host');
+    await flush();
+    assert.deepEqual(events, ['dismiss upload', 'dismiss receipt', 'source sheet dismissed', source]);
+    picker.resolve(); await roundTrip;
+    assert.deepEqual(events.slice(-2), ['restore receipt', 'restore upload']);
+    assert.equal(receipt.onDismiss(), false, 'ordinary dismissal still closes the host');
+  });
+}
+
+test('shipment source cancellation restores both sheets without native UI', async () => {
+  const events = [];
+  const receipt = createSheetHandoff(() => {}, () => events.push('receipt'));
+  const upload = createSheetHandoff(() => {}, () => events.push('upload'));
+  const roundTrip = upload.run(() => receipt.run(async () => {}));
+  upload.onDismiss(); await flush(); receipt.onDismiss(); await roundTrip;
+  assert.deepEqual(events, ['receipt', 'upload']);
+});
+
+test('shipment owner unmount during native selection restores neither sheet', async () => {
+  let restored = 0; const picker = deferred();
+  const receipt = createSheetHandoff(() => {}, () => restored++);
+  const upload = createSheetHandoff(() => {}, () => restored++);
+  const roundTrip = upload.run(() => receipt.run(() => picker.promise));
+  upload.onDismiss(); await flush(); receipt.onDismiss(); await flush();
+  receipt.dispose(); upload.dispose(); picker.resolve(); await roundTrip;
+  assert.equal(restored, 0);
+});
+
 for (const source of ['photo', 'file', 'camera']) {
   test(`${source}: upload dismissal precedes chooser, chooser completion precedes native picker`, async () => {
     const events = [];

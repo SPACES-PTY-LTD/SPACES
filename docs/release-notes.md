@@ -1,5 +1,69 @@
 # Release Notes
 
+## 2026-10-09 | Version: location-off-alert-sheet-v1
+
+- **Summary:** Show the location-sharing dispatch warning only when the user tries to switch sharing off.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove the permanent dispatch warning card from Account Location. Present a reusable single-action AlertSheet built on MessageSheet/BottomSheet, with a bottom OK button. OK applies the off change after the alert fully closes; closing/backdrop/swipe/Android Back keeps sharing on. Turning sharing on and initial/settings refresh do not show the warning. Preserve provider permissions, dispatch reporting, busy/unavailable guards and save-error guidance.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused Location/AlertSheet lint and diff checks pass. Mocked actual screen/component checks cover absent persistent warning, off-only prompt, acknowledgement, enabling, save guard, failure guidance and reusable single-OK configuration. Dashboard plan v2.94 and Figma scenario handoff aligned. Native dismissal/layout and real dispatch reporting remain unverified; no live sharing settings changed.
+
+## 2026-10-09 | Version: shipment-sheet-touch-scroll-v1
+
+- **Summary:** Fix competing gesture/scroll registrations in the Expo shipment receipt opened from timeline links.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the static BottomSheetView wrapper with a plain bounded View and use native receipt scrolling. Disable sheet content panning so buttons and the scroll area own touches; retain dragging via the handle, header close and backdrop dismissal. Apply to the shared dashboard/map/run/stop shipment sheet; preserve read-only scope, styling and upload/native-picker handoffs.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails ESLint, 13 existing sheet-handoff regressions and diff checks pass. Confirmed in the installed Gorhom source that BottomSheetView overwrites the active scrollable type with VIEW. Dashboard plan v2.93 and Figma scenario handoff aligned. Physical iOS/Android button, scroll, dismissal/reopen and nested-menu interaction remain unverified; the simulator session exposes a current run with no shipment links.
+
+## 2026-10-09 | Version: message-reference-recents-v1
+
+- **Summary:** Show the 10 most recent runs or shipments by default in message attachment selectors.
+- **API Changes:** GET `/api/v1/conversations/{conversation_uuid}/references` accepts omitted/blank `search` and returns up to 10 authorized records ordered by creation date descending, then ID descending, with single-page metadata. Nonblank searches retain full scoped search and 20-result pagination.
+- **Database Changes:** None.
+- **Behavior Changes:** Load recent records on opening either selector. Submitted search replaces recents; Clear reloads recents. Label recent/search modes, avoid automatic keyboard opening, preserve loading/error/retry/empty states, search pagination, stale-response guards and selected preview/Attach confirmation.
+- **Breaking Changes:** None. Deploy the API alongside the mobile update to support blank search.
+- **Verification:** Fifteen conversation API tests pass (286 assertions), including default limit/date order, empty/omitted/whitespace search, completed assignments and searching older records. Six mocked picker tests pass for both types, replacement/Clear, paging and stale results, failure/retry/empty and Attach confirmation. Full mobile TypeScript, focused picker ESLint, PHP style and diff checks pass. Dashboard plan v2.92 and Figma handoff aligned. Deployed API and native iOS/Android interaction remain unverified.
+
+## 2026-10-09 | Version: shipment-native-picker-layering-v1
+
+- **Summary:** Prevent the Shipment bottom sheet from covering native File, Photo and Camera selection.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Keep shipment state and upload/source sheets outside the receipt portal. Await upload dismissal and full receipt portal/window-overlay removal before opening source/native UI; suppress temporary host close/refresh and restore receipt before upload. Preserve the file-type/expiry/selected-file draft through cancellation, permission denial and picker errors. Normal dismissal still closes the host; unmount prevents stale restoration.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails and StopDetailsSheet lint, 13 sheet-handoff regressions, mocked actual shipment host lifecycle and existing mocked File/Photo/Camera/dropdown/upload flow pass. Dashboard plan v2.91 and Figma shipment handoff aligned. Physical iOS picker layering/return and Android verification remain pending; no live upload performed.
+
+## 2026-10-09 | Version: stop-sheet-remove-captions-v1
+
+- **Summary:** Remove the two highlighted secondary labels from the Expo stop-details sheet.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Omit Stop location beneath valid stop maps and No shipments linked to this location in this run. Hide the empty shipment-section container to avoid extra spacing. Apply through the shared dashboard/run-details sheet; retain timing, map/missing-position feedback, populated shipment links and the speeding-event position caption.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused StopDetailsSheet ESLint and diff checks pass. Dashboard plan v2.90 and Figma stop references/scenario handoff aligned; updated Figma reference visually checked. Native iOS/Android layout verification remains pending.
+
+## 2026-10-09 | Version: shipment-file-source-sheet-v1
+
+- **Summary:** Let drivers choose shipment files from File, Photo or Camera.
+- **API Changes:** None; reuse shipment upload contract and authorization.
+- **Database Changes:** None.
+- **Behavior Changes:** Choose file and Choose a different file open the shared closeable File/Photo/Camera action sheet. Present the upload form in a shared content-sized BottomSheet and use post-portal-removal dismissal before the source menu/native picker, restoring the retained file-type/file/expiry draft once afterward. File uses DocumentPicker, Photo uses the system image library, and Camera requests permission before capture. Normalize image assets for existing uploads. Preserve previous selection on cancellation/denial/error, show error guidance, block selection/upload while picking and ignore unmounted results. Retain dropdown/expiry/read-only rules.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails lint and diff checks pass. Temporary mocked source/dropdown/upload flow verifies menu choices, dismissal-before-source, File cancellation/selection, source cancellation, Photo cancellation/selection, camera denial/capture, preserved selection, upload failure/retry and success refresh, form close, browser callback and completed-run scope. Eight existing sheet-handoff regressions pass using Node experimental type stripping. Figma source-sheet reference/upload shortcut/handoff and dashboard plan v2.89 aligned; design screenshot checked. Native picker layering/return, physical camera, Android/theme/large-text behavior and actual uploads remain unverified; no live upload performed.
+
+## 2026-10-09 | Version: ios-development-build-config-v1
+
+- **Summary:** Declare standard/exempt iOS encryption for development build setup.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Set `ios.infoPlist.ITSAppUsesNonExemptEncryption` to false. The mobile app uses HTTPS and random UUID generation; no custom encryption implementation was found in the mobile sources. Retain the existing physical-device development profile and notification/location plugins.
+- **Internal Changes:** EAS development environment and CENTER CUBE signing are configured. Reuse the existing distribution certificate and push key; create an ad hoc profile for all three registered devices as authorized. Build `3efae758-610b-4e50-91fd-b133f55396a4` finished successfully and produced a signed physical-device development IPA. [Install/build details](https://expo.dev/accounts/leroyg/projects/spaces-digital/builds/3efae758-610b-4e50-91fd-b133f55396a4). The build contains the mobile source snapshot uploaded at creation; changes made afterward require Metro reload or another native build as appropriate.
+- **Breaking Changes:** None.
+- **Verification:** App configuration JSON parses and diff checks pass. EAS confirms active provisioning for the registered iPhone, iPhone 11 Pro and iPad Pro (10.5 inch), and the assigned Apple push key. EAS reports FINISHED with an IPA artifact; cloud compilation and artifact upload completed successfully. Device installation and real notification delivery remain unverified.
+
 ## 2026-10-09 | Version: run-dashboard-refresh-spacing-v1
 
 - **Summary:** Prevent automatic Runs/dashboard refreshes from opening native pull-refresh spacing.
@@ -17,16 +81,6 @@
 - **Behavior Changes:** Show the selected type or Select a file type with a chevron; expand a bounded scrollable list and collapse after selection. Show only the selected description below. Preserve file picker, expiry requirements and upload validation. Disable type selection while loading/uploading or when no configured types exist; reset expansion on form reset/close. Support themes, wrapping labels and accessible expanded/selected states.
 - **Breaking Changes:** None.
 - **Verification:** Full mobile TypeScript, focused ShipmentDetails lint and diff checks pass. Temporary mocked flow verifies initially collapsed options, expansion, selection/value update and collapse, plus existing picker cancellation/selection, upload failure/retry, success refresh, browser callback, form close and completed-run scope. Dashboard plan v2.87 and Figma dropdown states/upload handoff aligned; design screenshot checked. Native dropdown scrolling, light/dark and large-text interaction remain unverified. No live upload performed.
-
-## 2026-10-09 | Version: ios-development-build-config-v1
-
-- **Summary:** Declare standard/exempt iOS encryption for development build setup.
-- **API Changes:** None.
-- **Database Changes:** None.
-- **Behavior Changes:** Set `ios.infoPlist.ITSAppUsesNonExemptEncryption` to false. The mobile app uses HTTPS and random UUID generation; no custom encryption implementation was found in the mobile sources. Retain the existing physical-device development profile and notification/location plugins.
-- **Internal Changes:** EAS development environment and CENTER CUBE signing are configured. Reuse the existing distribution certificate and push key; create an ad hoc profile for all three registered devices as authorized. Upload the current mobile source and start iOS development build `3efae758-610b-4e50-91fd-b133f55396a4`; compilation is in progress and no artifact is available yet.
-- **Breaking Changes:** None.
-- **Verification:** App configuration JSON parses and diff checks pass. EAS confirms active provisioning for the registered iPhone, iPhone 11 Pro and iPad Pro (10.5 inch), and the assigned Apple push key. Cloud compilation, installation and native notification checks remain pending.
 
 ## 2026-10-09 | Version: dashboard-dark-theme-v1
 

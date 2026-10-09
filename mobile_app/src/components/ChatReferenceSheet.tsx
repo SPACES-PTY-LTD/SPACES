@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { BottomSheet } from '@/component/ui/BottomSheet';
 import { Text } from '@/component/ui/Text';
@@ -19,9 +19,11 @@ export function ChatReferenceSheet({ token, conversationId, type, onSelect, onDi
   const nextPage = useRef<number | null>(null);
   const searched = useRef('');
   const [query, setQuery] = useState('');
+  const [resultQuery, setResultQuery] = useState('');
+  const [hasMore, setHasMore] = useState(false);
   const [rows, setRows] = useState<ChatReference[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState('');
   const [moreError, setMoreError] = useState('');
   const [loadingMore, setLoadingMore] = useState(false);
@@ -34,27 +36,35 @@ export function ChatReferenceSheet({ token, conversationId, type, onSelect, onDi
   const noun = type === 'run' ? 'run' : 'shipment';
   const icon = type === 'run' ? 'navigation' : 'package';
 
-  useEffect(() => {
-    const lifetime = request;
-    const frame = requestAnimationFrame(() => modal.current?.present());
-    return () => { cancelAnimationFrame(frame); lifetime.current++; };
-  }, []);
-
-  async function search(value: string) {
+  const search = useCallback(async (value: string) => {
     const version = ++request.current;
     busy.current = false; nextPage.current = null; searched.current = value.trim();
+    setResultQuery(value.trim()); setHasMore(false);
     setRows([]); setError(''); setMoreError(''); setLoadingMore(false);
-    setHasSearched(!!value.trim()); setLoading(!!value.trim());
-    if (!value.trim()) return;
+    setHasLoaded(false); setLoading(true);
     try {
       const result = await chatApi.references(token, conversationId, type, value.trim());
       if (version !== request.current) return;
-      setRows(result.data);
-      nextPage.current = result.meta.current_page < result.meta.last_page ? result.meta.current_page + 1 : null;
+      setRows(value.trim() ? result.data : result.data.slice(0, 10));
+      setHasLoaded(true);
+      nextPage.current = value.trim() && result.meta.current_page < result.meta.last_page ? result.meta.current_page + 1 : null;
+      setHasMore(nextPage.current !== null);
     } catch (e) {
       if (version === request.current) setError(e instanceof Error ? e.message : `Unable to find ${noun}s.`);
     } finally { if (version === request.current) setLoading(false); }
-  }
+  }, [token, conversationId, type, noun]);
+
+  useEffect(() => {
+    const lifetime = request;
+    const paging = busy;
+    const frame = requestAnimationFrame(() => {
+      modal.current?.present();
+      setQuery(''); setSelected(null); chosen.current = null;
+      void search('');
+    });
+    return () => { cancelAnimationFrame(frame); lifetime.current++; paging.current = false; };
+  }, [search]);
+
   async function more() {
     const page = nextPage.current;
     if (!page || busy.current || loading || selected) return;
@@ -65,6 +75,7 @@ export function ChatReferenceSheet({ token, conversationId, type, onSelect, onDi
       if (version !== request.current) return;
       setRows(previous => [...new Map([...previous, ...result.data].map(row => [row.id, row])).values()]);
       nextPage.current = result.meta.current_page < result.meta.last_page ? result.meta.current_page + 1 : null;
+      setHasMore(nextPage.current !== null);
     } catch (e) {
       if (version === request.current) setMoreError(e instanceof Error ? e.message : 'Unable to load more.');
     } finally { if (version === request.current) { busy.current = false; setLoadingMore(false); } }
@@ -89,18 +100,18 @@ export function ChatReferenceSheet({ token, conversationId, type, onSelect, onDi
     </> : <>
       <View style={[styles.search, { backgroundColor: surface, borderColor: border }]}>
         <Feather name="search" size={19} color={muted} />
-        <TextInput autoFocus accessibilityLabel={`Search ${noun}s by reference`} accessibilityHint="Press Search on the keyboard" placeholder={type === 'run' ? 'Run number or reference' : 'Shipment reference or delivery note'} placeholderTextColor={muted} value={query} onChangeText={setQuery} style={[styles.input, { color: ink }]} maxLength={255} returnKeyType="search" autoCorrect={false} onSubmitEditing={() => void search(query)} />
+        <TextInput accessibilityLabel={`Search ${noun}s by reference`} accessibilityHint="Press Search on the keyboard" placeholder={type === 'run' ? 'Run number or reference' : 'Shipment reference or delivery note'} placeholderTextColor={muted} value={query} onChangeText={setQuery} style={[styles.input, { color: ink }]} maxLength={255} returnKeyType="search" autoCorrect={false} onSubmitEditing={() => void search(query)} />
         {!!query && <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => { setQuery(''); void search(''); }} style={styles.clear}><Feather name="x" size={18} color={muted} /></Pressable>}
       </View>
-      {!!error && <><Text accessibilityRole="alert" style={{ color: dark ? '#fde68a' : '#92400e' }}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void search(query)} style={styles.change}><Text style={{ color: ink }}>Retry search</Text></Pressable></>}
-      {loading ? <View style={styles.empty}><ActivityIndicator color="#15803d" /><Text style={{ color: muted }}>Finding {noun}s…</Text></View> : <>
-        {!!rows.length && <Text style={[styles.heading, { color: muted }]}>SEARCH RESULTS</Text>}
+      {!!error && <><Text accessibilityRole="alert" style={{ color: dark ? '#fde68a' : '#92400e' }}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void search(searched.current)} style={styles.change}><Text style={{ color: ink }}>Retry search</Text></Pressable></>}
+      {loading ? <View style={styles.empty}><ActivityIndicator color="#15803d" /><Text style={{ color: muted }}>{resultQuery ? `Finding ${noun}s…` : `Loading recent ${noun}s…`}</Text></View> : <>
+        {!!rows.length && <Text style={[styles.heading, { color: muted }]}>{resultQuery ? 'SEARCH RESULTS' : `RECENT ${noun.toUpperCase()}S`}</Text>}
         {rows.map(row => <Pressable key={row.id} accessibilityRole="button" accessibilityLabel={`${row.label}, ${row.subtitle}`} onPress={() => setSelected(row)} style={[styles.card, { borderColor: border }]}>
           <View style={[styles.icon, { backgroundColor: surface }]}><Feather name={icon} size={19} color={muted} /></View>
           <View style={{ flex: 1, gap: 5 }}><Text style={[styles.name, { color: ink }]}>{row.label}</Text><Text style={{ color: muted, fontSize: 12 }}>{row.subtitle}</Text></View><Feather name="chevron-right" size={18} color={muted} />
         </Pressable>)}
-        {hasSearched && !error && !rows.length && <View style={[styles.empty, { backgroundColor: surface, borderRadius: 16 }]}><Feather name={icon} size={24} color={muted} /><Text style={[styles.name, { color: ink }]}>No {noun}s found</Text><Text style={{ color: muted, textAlign: 'center' }}>Try another reference. Only records assigned to you are available.</Text></View>}
-        {!!rows.length && <View style={{ minHeight: 100, justifyContent: 'center' }}>
+        {hasLoaded && !error && !rows.length && <View style={[styles.empty, { backgroundColor: surface, borderRadius: 16 }]}><Feather name={icon} size={24} color={muted} /><Text style={[styles.name, { color: ink }]}>{resultQuery ? `No ${noun}s found` : `No ${noun}s available`}</Text><Text style={{ color: muted, textAlign: 'center' }}>{resultQuery ? 'Try another reference. Only records assigned to you are available.' : 'Only records assigned to you are available.'}</Text></View>}
+        {!!rows.length && (loadingMore || !!moreError || hasMore) && <View style={{ minHeight: 100, justifyContent: 'center' }}>
           {loadingMore && <ActivityIndicator accessibilityLabel="Loading more results" color="#15803d" />}
           {!!moreError && <Pressable accessibilityRole="button" onPress={() => void more()} style={styles.change}><Text style={{ color: ink }}>Unable to load more. Tap to retry.</Text></Pressable>}
         </View>}

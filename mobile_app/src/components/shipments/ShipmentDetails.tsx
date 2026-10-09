@@ -1,8 +1,6 @@
 import { Image } from "expo-image";
 import {
     BottomSheetModal,
-    BottomSheetScrollView,
-    BottomSheetView,
     BottomSheetBackdrop,
 } from "@gorhom/bottom-sheet";
 import * as DocumentPicker from "expo-document-picker";
@@ -62,8 +60,11 @@ export type ShipmentDetailsProps = {
     /** Passing an owned completed run grants scoped, read-only access. */
     runId?: string;
     onClose?: () => void;
-    /** Sheet mode uses Gorhom scrolling and leaves safe-area ownership to its host. */
+    /** Sheet mode uses bounded native scrolling and leaves safe-area ownership to its host. */
     presentation?: "page" | "sheet";
+    /** Keep state outside the sheet portal while native selection is open. */
+    renderSurface?: (content: ReactNode) => ReactNode;
+    runFileSourceFlow?: (task: () => Promise<void>) => Promise<void>;
 };
 
 /** Shared destination-first screen, usable in a page or a bounded bottom sheet. */
@@ -91,6 +92,24 @@ export function ShipmentDetailsSheet({
     const { colorScheme } = useColorScheme();
     const insets = useSafeAreaInsets();
     const [visible, setVisible] = useState(false);
+    const [dismissalCount, setDismissalCount] = useState(0);
+    const receiptHandoff = useRef<ReturnType<typeof createSheetHandoff> | null>(
+        null,
+    );
+    useEffect(() => {
+        const handoff = createSheetHandoff(
+            () => modalRef.current?.dismiss(),
+            () => modalRef.current?.present(),
+        );
+        receiptHandoff.current = handoff;
+        return () => handoff.dispose();
+    }, [modalRef, props.shipmentId, props.runId]);
+    useEffect(() => {
+        if (dismissalCount === 0) return;
+        if (!receiptHandoff.current?.onDismiss()) onDismiss?.();
+        // Only completed portal removals trigger navigation or picker handoff.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dismissalCount]);
     const { height } = useWindowDimensions();
     const bottomInset = 0;
     const contentHeight = Math.max(
@@ -113,47 +132,57 @@ export function ShipmentDetailsSheet({
         );
         return () => subscription.remove();
     }, [visible, modalRef]);
+    // State and sibling upload/source sheets survive receipt portal removal.
     return (
-        <BottomSheetModal
-            ref={modalRef}
-            accessible={false}
-            snapPoints={["90%"]}
-            enableDynamicSizing={false}
-            topInset={insets.top + 12}
-            bottomInset={bottomInset}
-            style={{ marginHorizontal: 12 }}
-            containerComponent={ShipmentSheetContainer}
-            keyboardBehavior="interactive"
-            keyboardBlurBehavior="restore"
-            android_keyboardInputMode="adjustResize"
-            onChange={(index) => setVisible(index >= 0)}
-            onDismiss={() => {
-                setVisible(false);
-                onDismiss?.();
+        <ShipmentDetails
+            {...props}
+            presentation="sheet"
+            onClose={() => modalRef.current?.dismiss()}
+            runFileSourceFlow={async (task) => {
+                await receiptHandoff.current?.run(task);
             }}
-            backgroundStyle={{
-                backgroundColor: colorScheme === "dark" ? "#1C1C1F" : "#FFFEFA",
-                borderTopLeftRadius: 20,
-                borderTopRightRadius: 20,
-                borderBottomLeftRadius: 0,
-                borderBottomRightRadius: 0,
-            }}
-            backdropComponent={(p) => (
-                <BottomSheetBackdrop
-                    {...p}
-                    appearsOnIndex={0}
-                    disappearsOnIndex={-1}
-                />
+            renderSurface={(content) => (
+                <BottomSheetModal
+                    ref={modalRef}
+                    accessible={false}
+                    snapPoints={["90%"]}
+                    enableDynamicSizing={false}
+                    // Receipt controls/native scrolling own content touches; drag via the handle.
+                    enableContentPanningGesture={false}
+                    topInset={insets.top + 12}
+                    bottomInset={bottomInset}
+                    style={{ marginHorizontal: 12 }}
+                    containerComponent={ShipmentSheetContainer}
+                    keyboardBehavior="interactive"
+                    keyboardBlurBehavior="restore"
+                    android_keyboardInputMode="adjustResize"
+                    onChange={(index) => setVisible(index >= 0)}
+                    onDismiss={() => {
+                        setVisible(false);
+                        setDismissalCount((count) => count + 1);
+                    }}
+                    backgroundStyle={{
+                        backgroundColor:
+                            colorScheme === "dark" ? "#1C1C1F" : "#FFFEFA",
+                        borderTopLeftRadius: 20,
+                        borderTopRightRadius: 20,
+                        borderBottomLeftRadius: 0,
+                        borderBottomRightRadius: 0,
+                    }}
+                    backdropComponent={(p) => (
+                        <BottomSheetBackdrop
+                            {...p}
+                            appearsOnIndex={0}
+                            disappearsOnIndex={-1}
+                        />
+                    )}
+                >
+                    <View style={{ height: contentHeight }}>
+                        {content}
+                    </View>
+                </BottomSheetModal>
             )}
-        >
-            <BottomSheetView style={{ height: contentHeight }}>
-                <ShipmentDetails
-                    {...props}
-                    presentation="sheet"
-                    onClose={() => modalRef.current?.dismiss()}
-                />
-            </BottomSheetView>
-        </BottomSheetModal>
+        />
     );
 }
 
@@ -209,6 +238,10 @@ function ShipmentDetailsContent({
     onClose,
     presentation = "page",
     refreshKey,
+    renderSurface = (content) => content,
+    runFileSourceFlow = async (task) => {
+        await task();
+    },
 }: ShipmentDetailsProps) {
     const insets = useSafeAreaInsets();
     const router = useRouter();
@@ -450,93 +483,96 @@ function ShipmentDetailsContent({
         setIsPickingFile(true);
         setFileTypeDropdownOpen(false);
         await handoff.run(async () => {
-            try {
-                const source = await new Promise<string | undefined>(
-                    (resolve) => {
-                        if (!shipmentFileSources.current)
-                            return resolve(undefined);
-                        resolveFileSource.current = resolve;
-                        shipmentFileSources.current.present({
-                            title: "Choose file",
-                            actions: [
-                                {
-                                    id: "file",
-                                    label: "File",
-                                    onPress: () => {},
+            await runFileSourceFlow(async () => {
+                try {
+                    const source = await new Promise<string | undefined>(
+                        (resolve) => {
+                            if (!shipmentFileSources.current)
+                                return resolve(undefined);
+                            resolveFileSource.current = resolve;
+                            shipmentFileSources.current.present({
+                                title: "Choose file",
+                                actions: [
+                                    {
+                                        id: "file",
+                                        label: "File",
+                                        onPress: () => {},
+                                    },
+                                    {
+                                        id: "photo",
+                                        label: "Photo",
+                                        onPress: () => {},
+                                    },
+                                    {
+                                        id: "camera",
+                                        label: "Camera",
+                                        onPress: () => {},
+                                    },
+                                ],
+                                onDismiss: (choice) => {
+                                    resolveFileSource.current = null;
+                                    resolve(choice);
                                 },
-                                {
-                                    id: "photo",
-                                    label: "Photo",
-                                    onPress: () => {},
-                                },
-                                {
-                                    id: "camera",
-                                    label: "Camera",
-                                    onPress: () => {},
-                                },
-                            ],
-                            onDismiss: (choice) => {
-                                resolveFileSource.current = null;
-                                resolve(choice);
-                            },
+                            });
+                        },
+                    );
+                    if (!handoff.active || !source) return;
+                    let asset: DocumentPicker.DocumentPickerAsset | undefined;
+                    if (source === "file") {
+                        const result = await DocumentPicker.getDocumentAsync({
+                            multiple: false,
+                            copyToCacheDirectory: true,
                         });
-                    },
-                );
-                if (!handoff.active || !source) return;
-                let asset: DocumentPicker.DocumentPickerAsset | undefined;
-                if (source === "file") {
-                    const result = await DocumentPicker.getDocumentAsync({
-                        multiple: false,
-                        copyToCacheDirectory: true,
-                    });
-                    if (!result.canceled) asset = result.assets[0];
-                } else {
-                    if (source === "camera") {
-                        const permission =
-                            await ImagePicker.requestCameraPermissionsAsync();
-                        if (!handoff.active) return;
-                        if (!permission.granted) {
-                            setFileFormError(
-                                "Allow camera access in device settings, or choose File or Photo.",
-                            );
-                            return;
+                        if (!result.canceled) asset = result.assets[0];
+                    } else {
+                        if (source === "camera") {
+                            const permission =
+                                await ImagePicker.requestCameraPermissionsAsync();
+                            if (!handoff.active) return;
+                            if (!permission.granted) {
+                                setFileFormError(
+                                    "Allow camera access in device settings, or choose File or Photo.",
+                                );
+                                return;
+                            }
+                        }
+                        const options: ImagePicker.ImagePickerOptions = {
+                            mediaTypes: ["images"],
+                            quality: 0.9,
+                            allowsEditing: false,
+                        };
+                        const result =
+                            source === "camera"
+                                ? await ImagePicker.launchCameraAsync(options)
+                                : await ImagePicker.launchImageLibraryAsync(
+                                      options,
+                                  );
+                        if (!result.canceled && result.assets[0]) {
+                            const image = result.assets[0];
+                            const mimeType = image.mimeType || "image/jpeg";
+                            asset = {
+                                lastModified: Date.now(),
+                                uri: image.uri,
+                                name:
+                                    image.fileName ||
+                                    `shipment-file-${Date.now()}.${mimeType.split("/")[1] || "jpg"}`,
+                                mimeType,
+                                size: image.fileSize,
+                            };
                         }
                     }
-                    const options: ImagePicker.ImagePickerOptions = {
-                        mediaTypes: ["images"],
-                        quality: 0.9,
-                        allowsEditing: false,
-                    };
-                    const result =
-                        source === "camera"
-                            ? await ImagePicker.launchCameraAsync(options)
-                            : await ImagePicker.launchImageLibraryAsync(
-                                  options,
-                              );
-                    if (!result.canceled && result.assets[0]) {
-                        const image = result.assets[0];
-                        const mimeType = image.mimeType || "image/jpeg";
-                        asset = {
-                            lastModified: Date.now(),
-                            uri: image.uri,
-                            name:
-                                image.fileName ||
-                                `shipment-file-${Date.now()}.${mimeType.split("/")[1] || "jpg"}`,
-                            mimeType,
-                            size: image.fileSize,
-                        };
+                    if (handoff.active && asset) {
+                        setSelectedDocument(asset);
+                        setFileFormError(null);
                     }
+                } catch (error) {
+                    if (handoff.active)
+                        setFileFormError(
+                            (error as Error).message ||
+                                "Unable to choose a file.",
+                        );
                 }
-                if (handoff.active && asset) {
-                    setSelectedDocument(asset);
-                    setFileFormError(null);
-                }
-            } catch (error) {
-                if (handoff.active)
-                    setFileFormError(
-                        (error as Error).message || "Unable to choose a file.",
-                    );
-            }
+            });
         });
         if (handoff.active) setIsPickingFile(false);
     }
@@ -641,8 +677,9 @@ function ShipmentDetailsContent({
         shipment?.booking?.odometer_at_delivery == null &&
         parsedDeliveryOdometer === null;
 
-    const BodyScroll =
-        presentation === "sheet" ? BottomSheetScrollView : ScrollView;
+    // A bounded receipt uses native scrolling rather than a second Gorhom
+    // scrollable registration competing with the outer sheet content.
+    const BodyScroll = ScrollView;
     const ink = isDarkMode ? "#FAFAFA" : "#111111";
     const muted = isDarkMode ? "#A1A1AA" : "#71717A";
     const card = isDarkMode ? "#25252B" : "#F5F5F8";
@@ -722,7 +759,7 @@ function ShipmentDetailsContent({
         }
     }
 
-    return (
+    const surfaceContent = (
         <KeyboardAvoidingView
             style={{
                 flex: 1,
@@ -1752,6 +1789,11 @@ function ShipmentDetailsContent({
                     </ScrollView>
                 </KeyboardAvoidingView>
             </ShipmentPanel>
+        </KeyboardAvoidingView>
+    );
+    return (
+        <>
+            {renderSurface(surfaceContent)}
             <BottomSheet
                 modalRef={shipmentUploadSheet}
                 title="Upload shipment file"
@@ -1945,7 +1987,7 @@ function ShipmentDetailsContent({
             </BottomSheet>
             <ActionSheet ref={shipmentFileSources} />
             <ActionSheet ref={shipmentActions} />
-        </KeyboardAvoidingView>
+        </>
     );
 }
 

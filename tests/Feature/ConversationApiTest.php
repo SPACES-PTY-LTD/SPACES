@@ -48,6 +48,48 @@ class ConversationApiTest extends TestCase
         return $this->postJson('/api/v1/conversations/driver', [], $this->headers($driver))->assertOk()->assertJsonPath('data.status', 'active')->assertJsonPath('data.is_private', true)->json('data.conversation_id');
     }
 
+    public function test_reference_pickers_default_to_ten_recent_records_and_search_older_assignments(): void
+    {
+        [$owner, $merchant, $user, $driver] = $this->context();
+        $driver->update(['is_active' => true]);
+        $runs = [];
+        $shipments = [];
+        $now = now();
+        for ($i = 0; $i < 12; $i++) {
+            // Higher IDs are deliberately older; timestamps determine recency.
+            $created = $now->copy()->subMinutes(max(0, $i - 1));
+            $runs[] = $run = \App\Models\Run::create(['account_id' => $merchant->account_id,
+                'merchant_id' => $merchant->id, 'driver_id' => $driver->id,
+                'status' => 'completed', 'created_at' => $created]);
+            $shipments[] = $shipment = \App\Models\Shipment::create(['account_id' => $merchant->account_id,
+                'merchant_id' => $merchant->id, 'status' => 'delivered',
+                'merchant_order_ref' => 'RECENT-'.$i, 'created_at' => $created]);
+            \App\Models\RunShipment::create(['run_id' => $run->id, 'shipment_id' => $shipment->id,
+                'sequence' => 1, 'status' => 'done']);
+            $run->forceFill(['created_at' => $created])->save();
+            $shipment->forceFill(['created_at' => $created])->save();
+        }
+        \App\Models\Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'driver_id' => null, 'status' => 'dispatched']);
+        \App\Models\Shipment::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'status' => 'booked', 'merchant_order_ref' => 'UNASSIGNED']);
+        $base = '/api/v1/conversations/'.$this->chat($user).'/references';
+        $headers = $this->headers($user);
+        foreach (['run' => $runs, 'shipment' => $shipments] as $type => $records) {
+            $expected = array_map(fn ($i) => $records[$i]->uuid, [1, 0, 2, 3, 4, 5, 6, 7, 8, 9]);
+            foreach (['', '&search=', '&search=%20%20&page=2'] as $query) {
+                $response = $this->getJson($base.'?type='.$type.$query, $headers)
+                    ->assertOk()->assertJsonCount(10, 'data')
+                    ->assertJsonPath('meta.current_page', 1)->assertJsonPath('meta.last_page', 1);
+                $this->assertSame($expected, array_column($response->json('data'), 'id'));
+            }
+            $this->getJson($base.'?type='.$type.'&search='.$records[11]->uuid, $headers)
+                ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $records[11]->uuid);
+        }
+        $this->getJson($base.'?type=shipment&search=RECENT', $headers)->assertOk()->assertJsonCount(12, 'data');
+        $this->getJson($base.'?type=run', $this->headers($owner))->assertForbidden();
+    }
+
     public function test_driver_can_search_and_send_scoped_run_and_shipment_references(): void
     {
         [$owner, $merchant, $user, $driver] = $this->context();

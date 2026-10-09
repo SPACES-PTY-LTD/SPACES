@@ -61,7 +61,7 @@ export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = 
           <Text style={[styles.caption, { color: muted }]}>This stop’s details don’t include a usable map position yet.</Text>
         </View>}
       </View>
-      {coordinate && <Text style={[styles.caption, { color: muted }]}>{stop.kind === 'Speeding' ? 'Recorded event position' : 'Stop location'}</Text>}
+      {coordinate && stop.kind === 'Speeding' && <Text style={[styles.caption, { color: muted }]}>Recorded event position</Text>}
       {!stop.planned && stop.kind !== 'Speeding' ? <View style={[styles.visit, { backgroundColor: surface }]}>
         <View style={styles.visitHeader}>
           <Text accessibilityRole="header" style={[styles.visitTitle, { color: ink }]}>Time at location</Text>
@@ -92,7 +92,7 @@ export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = 
           <Text style={[styles.label, { color: muted }]}>{stop.speed_limit_kph != null ? `Speed limit · ${stop.speed_limit_kph} km/h` : 'Speed limit not recorded'}</Text>
         </View>
       </View>}
-      {stop.kind !== 'Speeding' && <View style={styles.shipmentSections}>
+      {stop.kind !== 'Speeding' && (related.deliveries.length > 0 || related.collections.length > 0) && <View style={styles.shipmentSections}>
         {([
           { title: 'Deliveries', icon: 'package', items: related.deliveries },
           { title: 'Collections', icon: 'truck', items: related.collections },
@@ -114,7 +114,6 @@ export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = 
             </Pressable>;
           })}
         </View>)}
-        {!related.deliveries.length && !related.collections.length && <Text style={[styles.caption, { color: muted }]}>No shipments linked to this location in this run.</Text>}
       </View>}
     </>}
   </BottomSheet>;

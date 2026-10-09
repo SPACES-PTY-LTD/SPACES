@@ -300,10 +300,16 @@ class ConversationController extends Controller
 
     public function references(Request $request, string $conversation_uuid)
     {
-        $data = $request->validate(['type' => 'required|in:run,shipment', 'search' => 'required|string|max:255', 'page' => 'sometimes|integer|min:1']);
+        $data = $request->validate(['type' => 'required|in:run,shipment', 'search' => 'nullable|string|max:255', 'page' => 'sometimes|integer|min:1']);
         $conversation = $this->service->resolve($request->user(), $conversation_uuid);
         $query = $this->referenceQuery($request, $conversation, $data['type']);
-        $search = trim($data['search']);
+        $search = trim($data['search'] ?? '');
+        if ($search === '') {
+            $records = $query->orderByDesc('created_at')->orderByDesc('id')->limit(10)->get();
+
+            return ApiResponse::success($records->map(fn ($record) => $this->referenceData($record, $data['type'])),
+                ['current_page' => 1, 'last_page' => 1]);
+        }
         if ($data['type'] === 'run') {
             $query->where(function ($q) use ($search) {
                 $q->where('uuid', 'like', '%'.$search.'%');
