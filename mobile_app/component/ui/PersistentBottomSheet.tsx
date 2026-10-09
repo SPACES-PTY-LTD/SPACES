@@ -2,11 +2,14 @@ import { PropsWithChildren, useEffect, useMemo, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, View } from 'react-native';
 import { type SharedValue, withTiming } from 'react-native-reanimated';
 import { sheetTheme } from './sheet-theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const SNAP_POINTS = [0.25, 0.5, 0.92];
 
 /** Persistent dashboard panel with native layout and a draggable resize handle. */
 export function PersistentBottomSheet({ children, topInset = 0, containerHeight, animatedPosition }: PropsWithChildren<{ topInset?: number; containerHeight: number; animatedPosition?: SharedValue<number> }>) {
+  const { colorScheme } = useColorScheme();
+  const dark = colorScheme === 'dark';
   const [snapIndex, setSnapIndex] = useState(1);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
   const availableHeight = Math.max(0, containerHeight - topInset);
@@ -31,7 +34,7 @@ export function PersistentBottomSheet({ children, topInset = 0, containerHeight,
     onPanResponderTerminate: () => setDragHeight(null),
   }), [availableHeight, snapIndex]);
 
-  return <View style={[styles.sheet, { height: panelHeight }]}>
+  return <View style={[styles.sheet, { height: panelHeight, backgroundColor: dark ? sheetTheme.darkBackground : sheetTheme.background }]}>
     <View {...pan.panHandlers}>
       <Pressable accessibilityRole="button"
         accessibilityLabel={`Resize dashboard to ${SNAP_POINTS[nextIndex] * 100}%`}
@@ -39,7 +42,7 @@ export function PersistentBottomSheet({ children, topInset = 0, containerHeight,
         accessibilityHint="Tap or drag to resize the dashboard"
         onPress={() => setSnapIndex(nextIndex)}
         style={{ height: 28, alignItems: 'center', paddingTop: 10 }}>
-        <View style={{ width: sheetTheme.handleWidth, height: sheetTheme.handleHeight, borderRadius: 2, backgroundColor: sheetTheme.handleColor }} />
+        <View style={{ width: sheetTheme.handleWidth, height: sheetTheme.handleHeight, borderRadius: 2, backgroundColor: dark ? '#71717a' : sheetTheme.handleColor }} />
       </Pressable>
     </View>
     {children}

@@ -1,5 +1,96 @@
 # Release Notes
 
+## 2026-10-09 | Version: run-dashboard-refresh-spacing-v1
+
+- **Summary:** Prevent automatic Runs/dashboard refreshes from opening native pull-refresh spacing.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Separate actual pull-to-refresh feedback from focus/foreground, retry and post-action loads. Clear pull state on success, failure and blur; invalidate dashboard requests on blur so late results cannot alter the returning screen. Disable automatic content inset adjustment on both scroll containers; retain screen-owned safe-area spacing, initial loading, loaded content, error/retry and pagination.
+- **Breaking Changes:** None.
+- **Verification:** Six mocked screen lifecycle regressions pass for initial/background loads, pull success/failure/blur and superseded completion on both screens. Full mobile TypeScript, focused Runs/dashboard lint excluding existing dashboard effect-rule errors and diff checks pass. iOS simulator confirms normal Runs/dashboard content spacing on tab return. Dashboard plan v2.88 and Figma scenario handoff aligned. The reported intermittent physical-device gap, native pull animation and Android behavior remain unverified.
+
+## 2026-10-09 | Version: shipment-file-type-dropdown-v1
+
+- **Summary:** Replace the shipment upload file-type cards with a compact dropdown.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show the selected type or Select a file type with a chevron; expand a bounded scrollable list and collapse after selection. Show only the selected description below. Preserve file picker, expiry requirements and upload validation. Disable type selection while loading/uploading or when no configured types exist; reset expansion on form reset/close. Support themes, wrapping labels and accessible expanded/selected states.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails lint and diff checks pass. Temporary mocked flow verifies initially collapsed options, expansion, selection/value update and collapse, plus existing picker cancellation/selection, upload failure/retry, success refresh, browser callback, form close and completed-run scope. Dashboard plan v2.87 and Figma dropdown states/upload handoff aligned; design screenshot checked. Native dropdown scrolling, light/dark and large-text interaction remain unverified. No live upload performed.
+
+## 2026-10-09 | Version: ios-development-build-config-v1
+
+- **Summary:** Declare standard/exempt iOS encryption for development build setup.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Set `ios.infoPlist.ITSAppUsesNonExemptEncryption` to false. The mobile app uses HTTPS and random UUID generation; no custom encryption implementation was found in the mobile sources. Retain the existing physical-device development profile and notification/location plugins.
+- **Internal Changes:** EAS development environment and CENTER CUBE signing are configured. Reuse the existing distribution certificate and push key; create an ad hoc profile for all three registered devices as authorized. Upload the current mobile source and start iOS development build `3efae758-610b-4e50-91fd-b133f55396a4`; compilation is in progress and no artifact is available yet.
+- **Breaking Changes:** None.
+- **Verification:** App configuration JSON parses and diff checks pass. EAS confirms active provisioning for the registered iPhone, iPhone 11 Pro and iPad Pro (10.5 inch), and the assigned Apple push key. Cloud compilation, installation and native notification checks remain pending.
+
+## 2026-10-09 | Version: dashboard-dark-theme-v1
+
+- **Summary:** Make the Expo dashboard follow the selected Light/Dark/Device theme.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove forced light appearance. Theme the persistent run sheet/handle, dashboard canvas, warnings, timeline links, map information/status/empty cards, truck popup and web map fallback. Use a brighter green route/link accent and readable amber text in dark mode; retain green filled actions and distinct marker colours. Pass dark appearance to Apple Maps and select the central dark custom style for Google Maps, including shared stop previews. Preserve run data, actions, routing and sheet snap points.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused changed-file lint excluding three pre-existing dashboard/map hook-rule errors, 13 existing map/provider regressions and diff checks pass. iOS simulator visually verifies dark Apple tiles, warning card, current-run sheet and expanded timeline, plus switching back to light map/sheet appearance. Dashboard plan v2.86 and active/empty Figma theme modes/handoff aligned and visually checked. Android/Google tiles, native no-run state, truck popup and large-text checks remain pending.
+
+## 2026-10-09 | Version: web-messages-unread-nav-v1
+
+- **Summary:** Show an unread-message count beside Messages in the website admin navigation.
+- **API Changes:** Add authenticated GET `/api/v1/conversations/unread?merchant_id={uuid}` returning `data.unread_count`. Enforce merchant/account access, active group membership and dispatch permissions; use existing group read cursors and shared incoming-driver read receipts. Exclude own messages and deleted messages/conversations. Retain the driver unread endpoint.
+- **Database Changes:** None.
+- **Behavior Changes:** Show a red count badge only above zero, capped visually at 99+ with the full count in its accessible label. Scope to the selected workspace; refresh on mount, every 10 seconds while visible, browser focus/visibility return and successful inbox reads. Ignore late responses after scope changes/unmount, queue refreshes behind in-flight requests and retain confirmed counts on transient errors. Hide the badge in the collapsed icon sidebar.
+- **Breaking Changes:** None. Deploy the API with the website update.
+- **Verification:** All 14 conversation API tests pass (244 assertions), including unread scope, read-only access, outgoing/deleted exclusions, independent group cursors, read clearing and removed membership. Three mocked frontend regressions pass for refresh/read events, hidden polling, errors, scope changes, cleanup and in-flight read refreshes. Full website TypeScript, focused frontend ESLint, PHP style and diff checks pass. Live browser rendering and deployed API integration remain unverified.
+
+## 2026-10-09 | Version: messages-compact-composer-v1
+
+- **Summary:** Reduce padding and spacing around the Expo Messages composer.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reduce composer minimum height from 64 to 54 points, inner padding from 9 to 4, button gaps from 10 to 6, and input vertical padding from 10 to 6. Reduce shelf side padding to 12 and top/bottom padding to 8/6. Preserve 44-point button tap areas and multiline input.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript and focused Messages lint pass. Diff checks pass. Native iOS/Android layout, keyboard and large-text appearance remain unverified.
+
+## 2026-10-09 | Version: notification-permission-switch-v1
+
+- **Summary:** Show a message-notification switch in the driver Notifications screen.
+- **API Changes:** None; reuse device push-token registration.
+- **Database Changes:** None.
+- **Behavior Changes:** Show an accessible switch beside Message notifications. Enabling requests native permission and immediately registers the device after consent; Android creates the Messages channel before the prompt. Denied permission stays off; blocked permission and disabling open device settings. Refresh permission state on focus/foreground, guard duplicate actions and ignore registration after leaving the screen or changing sessions. Expo Go/web previews show a disabled switch with availability guidance. Keep messages usable without notifications.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused Notifications/provider lint, six mocked settings regressions and three existing notification-navigation tests pass. Diff checks pass. Installed iOS/Android prompts, settings handoff, layout and real push delivery remain unverified.
+
+## 2026-10-09 | Version: messages-preserve-refresh-v1
+
+- **Summary:** Keep loaded driver conversations visible during refresh and show a small spinner at the top-right of the Messages header.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Retain messages, older-page cursor, scroll position and the editable draft when returning to Messages, polling, foregrounding or retrying a failed refresh. Show the full-body loader only before the first message response; confirmed empty conversations also use the header spinner on refresh. Stop loading feedback when requests finish and preserve existing error/retry handling. Depend on the auth token rather than the whole session object to avoid reloading on profile updates; retain user/conversation isolation and stale-response guards.
+- **Breaking Changes:** None.
+- **Verification:** Four mocked screen regressions pass for initial/poll loading, retained draft/messages/cursor on focus and Retry, confirmed empty foreground refresh, session metadata updates and ignored late blurred responses. Three existing notification-navigation tests, full mobile TypeScript, focused Messages lint and diff checks pass. iOS simulator Messages empty layout visually checked; the available conversation has no messages, so populated live refresh and Android interaction remain unverified. No live message was sent.
+
+## 2026-10-09 | Version: required-uploads-inline-row-v1
+
+- **Summary:** Align the Required uploads icon, count and label inline.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use a compact, full-width horizontal required-summary row with a trailing chevron. Keep 76-point minimum height, theme-aware amber styling, wrapping label and the existing required-document sheet action. Any expired summary follows below.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused Documents lint and diff checks pass. Dashboard plan v2.85 and Figma card/handoff aligned; card visually checked. Native narrow-screen, large-text, dark-mode and combined required/expired-summary checks remain unverified.
+
+## 2026-10-09 | Version: driver-document-source-actions-v1
+
+- **Summary:** Show File, Photo and Camera when choosing a driver document.
+- **API Changes:** None; reuse the driver-file upload endpoint.
+- **Database Changes:** None.
+- **Behavior Changes:** Choose file and Choose a different file open the shared action sheet with File, Photo and Camera in that order. Dismiss the upload sheet, then dismiss the chooser before presenting the selected native source. Request camera permission only for Camera; adapt selected/captured images to the existing upload asset. Preserve type, expiry and previous file on chooser/picker cancellation, permission denial or source error. Restore the form with errors when needed; ignore late results and resolve pending chooser work on unmount. Selection does not upload automatically.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused Documents lint, eight existing shared sheet-handoff tests and diff checks pass. Dashboard plan v2.84 and editable Figma chooser/handoff aligned; chooser visually checked. Native iOS/Android File/Photo/Camera presentation, permission denial, camera capture and real image uploads remain unverified.
+
 ## 2026-10-09 | Version: driver-account-design-1-v1
 
 - **Summary:** Implement selected Figma Design 1 for the mobile driver account, with profile photo/initials, name, assigned merchant and a grouped settings list without an Account heading.

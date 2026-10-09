@@ -24,12 +24,14 @@ export function AdminNav({
   canDeleteMerchant = false,
   canReviewFeedback = false,
   feedbackUnreadCount = 0,
+  messagesUnreadCount = 0,
 }: {
   role: Role
   canManageMerchantUsers?: boolean
   canDeleteMerchant?: boolean
   canReviewFeedback?: boolean
   feedbackUnreadCount?: number
+  messagesUnreadCount?: number
 }) {
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
@@ -89,6 +91,14 @@ export function AdminNav({
                       <Link href={item.href} onClick={handleNavClick}>
                         <Icon className="size-4" />
                         <span>{item.title}</span>
+                        {item.href === "/admin/messages" && messagesUnreadCount > 0 ? (
+                          <span
+                            aria-label={`${messagesUnreadCount} unread messages`}
+                            className="ml-auto shrink-0 rounded-full bg-destructive px-1.5 text-xs font-semibold text-destructive-foreground group-data-[collapsible=icon]:hidden"
+                          >
+                            {messagesUnreadCount > 99 ? "99+" : messagesUnreadCount}
+                          </span>
+                        ) : null}
                       </Link>
                     </SidebarMenuButton>
                     {item.subItems?.length && active ? (

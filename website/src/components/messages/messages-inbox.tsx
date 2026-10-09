@@ -295,6 +295,8 @@ export function MessagesInbox({
                         'POST',
                         { message_id: last.message_id },
                     );
+                if (last && live && version === epoch.current)
+                    window.dispatchEvent(new Event('messages-read'));
             } catch (e) {
                 if (
                     live &&

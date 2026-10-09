@@ -1,4 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -14,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/component/ui/Text';
 import { BottomSheet } from '@/component/ui/BottomSheet';
+import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
 import { createSheetHandoff } from '@/component/ui/sheet-handoff';
 import { PageHeader } from '@/component/ui/PageHeader';
 import { DateInput } from '@/component/ui/DateInput';
@@ -38,6 +40,8 @@ export default function DocumentsScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const uploadSheetRef = useRef<BottomSheetModal>(null);
   const pickerHandoff = useRef<ReturnType<typeof createSheetHandoff> | null>(null);
+  const sourceSheetRef = useRef<ActionSheetRef>(null);
+  const resolveSource = useRef<((source?: string) => void) | null>(null);
   const [fileTypeExpanded, setFileTypeExpanded] = useState(false);
   const [isPicking, setIsPicking] = useState(false);
 
@@ -47,7 +51,11 @@ export default function DocumentsScreen() {
       () => uploadSheetRef.current?.present(),
     );
     pickerHandoff.current = handoff;
-    return () => handoff.dispose();
+    return () => {
+      handoff.dispose();
+      resolveSource.current?.();
+      resolveSource.current = null;
+    };
   }, []);
   const [selectedFileTypeId, setSelectedFileTypeId] = useState('');
   const [selectedDocument, setSelectedDocument] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
@@ -140,9 +148,51 @@ export default function DocumentsScreen() {
     setFileTypeExpanded(false);
     await handoff.run(async () => {
       try {
-        const result = await DocumentPicker.getDocumentAsync({ multiple: false, copyToCacheDirectory: true });
-        if (handoff.active && !result.canceled) {
-          setSelectedDocument(result.assets[0] ?? null);
+        const source = await new Promise<string | undefined>(resolve => {
+          if (!sourceSheetRef.current) return resolve(undefined);
+          resolveSource.current = resolve;
+          sourceSheetRef.current.present({
+            title: 'Choose file',
+            actions: [
+              { id: 'file', label: 'File', onPress: () => {} },
+              { id: 'photo', label: 'Photo', onPress: () => {} },
+              { id: 'camera', label: 'Camera', onPress: () => {} },
+            ],
+            onDismiss: choice => { resolveSource.current = null; resolve(choice); },
+          });
+        });
+        if (!handoff.active || !source) return;
+        let selected: DocumentPicker.DocumentPickerAsset | undefined;
+        if (source === 'file') {
+          const result = await DocumentPicker.getDocumentAsync({ multiple: false, copyToCacheDirectory: true });
+          if (!result.canceled) selected = result.assets[0];
+        } else {
+          if (source === 'camera') {
+            const permission = await ImagePicker.requestCameraPermissionsAsync();
+            if (!handoff.active) return;
+            if (!permission.granted) {
+              setFormError('Allow camera access in device settings, or choose File or Photo.');
+              return;
+            }
+          }
+          const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.9, allowsEditing: false };
+          const result = source === 'camera'
+            ? await ImagePicker.launchCameraAsync(options)
+            : await ImagePicker.launchImageLibraryAsync(options);
+          if (!result.canceled) {
+            const asset = result.assets[0];
+            const mimeType = asset.mimeType || 'image/jpeg';
+            selected = {
+              lastModified: Date.now(),
+              uri: asset.uri,
+              name: asset.fileName || `driver-document-${Date.now()}.${mimeType.split('/')[1] || 'jpg'}`,
+              mimeType,
+              size: asset.fileSize,
+            };
+          }
+        }
+        if (handoff.active && selected) {
+          setSelectedDocument(selected);
           setFormError(null);
         }
       } catch (error) {
@@ -211,17 +261,15 @@ export default function DocumentsScreen() {
         contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32 }}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => loadDocuments('refresh')} />}
         showsVerticalScrollIndicator={false}>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           {requiredDocumentCount != null && requiredDocumentCount > 0 ? (
             <Pressable accessibilityRole="button" accessibilityLabel={`${requiredDocumentCount} required uploads. View required documents`}
               onPress={() => { void loadRequirements(); requiredSheetRef.current?.present(); }}
-              style={{ flex: 1, minHeight: 126, padding: 16, borderRadius: 20, backgroundColor: isDarkMode ? '#382B13' : '#FFF4D6' }}>
+              style={{ flexBasis: '100%', minHeight: 76, padding: 16, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: isDarkMode ? '#382B13' : '#FFF4D6' }}>
               <DocumentIcon kind="required" />
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                <Text style={{ fontSize: 30, lineHeight: 42, fontWeight: '700', color: isDarkMode ? '#FDE68A' : '#744700' }}>{requiredDocumentCount}</Text>
-                <DocumentIcon kind="requiredChevron" />
-              </View>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: isDarkMode ? '#FDE68A' : '#744700' }}>Required uploads</Text>
+              <Text style={{ fontSize: 24, lineHeight: 32, fontWeight: '700', color: isDarkMode ? '#FDE68A' : '#744700' }}>{requiredDocumentCount}</Text>
+              <Text style={{ flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600', color: isDarkMode ? '#FDE68A' : '#744700' }}>Required uploads</Text>
+              <DocumentIcon kind="requiredChevron" />
             </Pressable>
           ) : null}
           {expiredCount != null && expiredCount > 0 ? (
@@ -385,6 +433,7 @@ export default function DocumentsScreen() {
               )}
             </Pressable>
       </BottomSheet>
+      <ActionSheet ref={sourceSheetRef} />
     </View>
   );
 }

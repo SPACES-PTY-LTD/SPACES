@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { Pressable, StyleSheet, View } from "react-native";
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Text } from "@/component/ui/Text";
 import type { DriverDashboard } from "@/src/lib/api";
 
@@ -41,6 +42,8 @@ export function RunTimeline({
     onOpenShipment: (id: string) => void;
     onOpenStop: (stop: RunStop) => void;
 }) {
+    const { colorScheme } = useColorScheme();
+    const dark = colorScheme === 'dark';
     return (
         // Own row spacing so screen-level gaps cannot break the continuous rail.
         <View>
@@ -121,7 +124,7 @@ export function RunTimeline({
                             {stop.kind === "Speeding" ? (
                                 <Text
                                     style={{
-                                        color: "#b45309",
+                                        color: dark ? "#fde68a" : "#b45309",
                                         fontSize: 13,
                                         marginTop: 6,
                                     }}
@@ -175,7 +178,7 @@ export function RunTimeline({
                                         />
                                         <Text
                                             style={{
-                                                color: "#15803d",
+                                                color: dark ? "#86efac" : "#15803d",
                                                 fontSize: 12,
                                             }}
                                         >

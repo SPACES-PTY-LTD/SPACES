@@ -70,6 +70,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/', [$controller, 'store']);
         Route::post('/driver', [$controller, 'driver']);
         Route::get('/driver/unread', [$controller, 'driverUnread']);
+        Route::get('/unread', [$controller, 'unread']);
         Route::get('/participants', [$controller, 'participants']);
         Route::get('/{conversation_uuid}', [$controller, 'show']);
         Route::patch('/{conversation_uuid}', [$controller, 'update']);

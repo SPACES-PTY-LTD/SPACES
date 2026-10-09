@@ -4,7 +4,7 @@ import { Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, type MapViewProps } from 'react-native-maps';
 import { Text } from '@/component/ui/Text';
 import { nativeMapCapabilities, selectNativeMapProvider, type NativeMapProvider } from './native-map-provider';
-import { runMapStyle } from './run-map-style';
+import { runMapStyle, runMapDarkStyle } from './run-map-style';
 
 const capabilities = nativeMapCapabilities(Platform.OS, name => UIManager.hasViewManagerConfig(name), { isExpoGo: isRunningInExpoGo() });
 const failed = new Set<NativeMapProvider>();
@@ -43,7 +43,7 @@ export const NativeMap = forwardRef<MapView, NativeMapProps>(function NativeMap(
     {provider === 'unavailable' ? fallback : <MapRenderBoundary key={provider} fallback={fallback} onFailure={() => changeProvider(provider)}>
       <MapView {...props} ref={ref} style={StyleSheet.absoluteFill}
         provider={provider === 'google' ? PROVIDER_GOOGLE : undefined}
-        customMapStyle={provider === 'google' && !dark ? runMapStyle : undefined}
+        customMapStyle={provider === 'google' ? (dark ? runMapDarkStyle : runMapStyle) : undefined}
         mapType={provider === 'apple' ? 'mutedStandard' : 'standard'}
         userInterfaceStyle={dark ? 'dark' : 'light'}
         onMapReady={event => {

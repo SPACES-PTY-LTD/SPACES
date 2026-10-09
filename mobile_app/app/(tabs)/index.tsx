@@ -20,6 +20,7 @@ import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, Sty
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/component/ui/Text';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ApiRequestError, DeliveryOffer, DriverDashboard, driverApi, documentImportApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
 import { useRequiredDocuments } from '@/src/providers/required-documents-provider';
@@ -48,7 +49,11 @@ export default function HomeScreen() {
   });
   const { session } = useAuth();
   const { updateCount } = useRequiredDocuments();
-  const dark = false; // This dashboard sheet stays white, matching the selected design.
+  const { colorScheme } = useColorScheme();
+  const dark = colorScheme === 'dark';
+  const surface = dark ? '#18181b' : '#ffffff';
+  const warning = dark ? '#fde68a' : '#92400e';
+  const accent = dark ? '#86efac' : '#15803d';
   const { height } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
   const [containerHeight, setContainerHeight] = useState(height - tabBarHeight);
@@ -65,17 +70,19 @@ export default function HomeScreen() {
   const line = dark ? '#303036' : '#dedee1';
   const [offers, setOffers] = useState<DeliveryOffer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [offerBusy, setOfferBusy] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>();
   const [starting, setStarting] = useState(false);
   const requestNumber = useRef(0);
-  useEffect(() => { requestNumber.current++; setSelectedStop(null); setSelectedShipment(null); setRunAction(null); setDashboard(null); setOffers([]); setError(null); setLastUpdated(undefined); }, [session?.token]);
+  useEffect(() => { requestNumber.current++; setSelectedStop(null); setSelectedShipment(null); setRunAction(null); setDashboard(null); setOffers([]); setError(null); setLastUpdated(undefined); setRefreshing(false); }, [session?.token]);
 
-  const load = useCallback(async (isCurrent: () => boolean = () => true) => {
+  const load = useCallback(async (isCurrent: () => boolean = () => true, pullToRefresh = false) => {
     if (!session?.token) return;
     const version = ++requestNumber.current;
     setLoading(true);
+    if (pullToRefresh) setRefreshing(true);
     try {
       const result = await driverApi.dashboard(session.token, run_id);
       if (!isCurrent() || version !== requestNumber.current) return;
@@ -89,7 +96,10 @@ export default function HomeScreen() {
     } catch (failure) {
       if (isCurrent() && version === requestNumber.current) setError((failure as ApiRequestError).message || 'Unable to refresh your deliveries.');
     } finally {
-      if (isCurrent() && version === requestNumber.current) setLoading(false);
+      if (isCurrent() && version === requestNumber.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [session, run_id, updateCount]);
 
@@ -97,7 +107,7 @@ export default function HomeScreen() {
     let current = true;
     void load(() => current);
     const listener = AppState.addEventListener('change', state => { if (state === 'active') void load(() => current); });
-    return () => { current = false; listener.remove(); };
+    return () => { current = false; requestNumber.current++; setRefreshing(false); listener.remove(); };
   }, [load]));
 
   useEffect(() => { setRunAction(null); }, [dashboard?.current_run?.run_id]);
@@ -139,12 +149,12 @@ export default function HomeScreen() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: surface }}>
       <View style={{ flex: 1, overflow: 'hidden' }} onLayout={event => setContainerHeight(event.nativeEvent.layout.height)}>
       <Animated.View style={mapStyle}>
         <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset} onOpenShipment={openShipment} />
       {requiredNoteRunId ? <View pointerEvents="box-none" style={[styles.documentNoticeOverlay, { paddingTop: insets.top }]}>
-          <Pressable style={styles.documentNotice} onPress={() => router.push({ pathname: '/shipments/load', params: { run_id: requiredNoteRunId } })} accessibilityRole="button" accessibilityLabel="Important: upload a delivery note" accessibilityHint="Opens delivery-note upload for this run">
+          <Pressable style={[styles.documentNotice, { backgroundColor: surface }]} onPress={() => router.push({ pathname: '/shipments/load', params: { run_id: requiredNoteRunId } })} accessibilityRole="button" accessibilityLabel="Important: upload a delivery note" accessibilityHint="Opens delivery-note upload for this run">
             <Feather name="alert-triangle" size={24} color={dark ? '#fde68a' : '#92400e'} />
             <View style={{ flex: 1, gap: 6 }}>
               <Text style={{ fontSize: 16, fontWeight: '700', color: dark ? '#fde68a' : '#92400e' }}>Upload a delivery note</Text>
@@ -157,15 +167,17 @@ export default function HomeScreen() {
       <PersistentBottomSheet topInset={mapTopInset} containerHeight={containerHeight} animatedPosition={sheetPosition}>
       <ScrollView
         style={{ flex: 1 }}
+        contentInsetAdjustmentBehavior="never"
+        automaticallyAdjustContentInsets={false}
         contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 4, paddingBottom: 24 }}
-        refreshControl={<RefreshControl refreshing={loading && !!dashboard} onRefresh={() => void load()} />}
+        refreshControl={<RefreshControl tintColor={accent} colors={[accent]} refreshing={refreshing} onRefresh={() => void load(undefined, true)} />}
         showsVerticalScrollIndicator={false}>
 
 
         {loading && !dashboard ? <View style={{ paddingVertical: 48, alignItems: 'center', gap: 16 }}><ActivityIndicator size="large" color="#15803d" /><Text style={{ color: ink }}>Checking your current run…</Text></View> : <>
 
 
-        {error ? <Pressable accessibilityRole="button" accessibilityLabel="Retry loading dashboard" onPress={() => void load()} style={styles.error}><Text style={{ color: '#92400e' }}>{dashboard ? `Showing saved data${lastUpdated ? ` from ${lastUpdated}` : ''}. ` : ''}{error} Tap to retry.</Text></Pressable> : null}
+        {error ? <Pressable accessibilityRole="button" accessibilityLabel="Retry loading dashboard" onPress={() => void load()} style={[styles.error, { backgroundColor: dark ? '#422006' : '#fffbeb' }]}><Text style={{ color: warning }}>{dashboard ? `Showing saved data${lastUpdated ? ` from ${lastUpdated}` : ''}. ` : ''}{error} Tap to retry.</Text></Pressable> : null}
 
         {loading && !dashboard ? <ActivityIndicator style={{ paddingVertical: 70 }} size="large" color="#15803d" /> : dashboard?.current_run ? (
           <View style={[styles.deliveryCard, { backgroundColor: dark ? '#18181b' : '#ffffff' }]}>
@@ -181,10 +193,10 @@ export default function HomeScreen() {
                 </Pressable>}
               </View>
             </View>
-            {dashboard.current_run.end_request?.status === 'pending' && <Text style={{ color: '#92400e', marginTop: 8 }}>End run requested — awaiting dispatch approval</Text>}
-            {dashboard.current_run.end_request?.status === 'rejected' && <Text style={{ color: '#92400e', marginTop: 8 }}>End run request rejected: {dashboard.current_run.end_request.review_reason}</Text>}
+            {dashboard.current_run.end_request?.status === 'pending' && <Text style={{ color: warning, marginTop: 8 }}>End run requested — awaiting dispatch approval</Text>}
+            {dashboard.current_run.end_request?.status === 'rejected' && <Text style={{ color: warning, marginTop: 8 }}>End run request rejected: {dashboard.current_run.end_request.review_reason}</Text>}
             <Text style={{ color: muted, marginTop: 8 }}>{shipments.length} shipments · {shipments.filter(s => !['delivered', 'failed', 'cancelled'].includes(s.status)).length} remaining · {shipments.filter(s => s.status === 'delivered').length} delivered</Text>
-            {shipments.length > 0 && shipments.every(s => s.status === 'delivered') && <Text style={{ color: '#24753a', marginTop: 12 }}>Deliveries completed — awaiting dispatch closure.</Text>}
+            {shipments.length > 0 && shipments.every(s => s.status === 'delivered') && <Text style={{ color: accent, marginTop: 12 }}>Deliveries completed — awaiting dispatch closure.</Text>}
             {['draft', 'dispatched'].includes(dashboard.current_run.status) && <Pressable style={[styles.primary, { marginTop: 16 }]} disabled={starting} onPress={async () => {
               if (!session || !dashboard.current_run) return;
               setStarting(true); try { await documentImportApi.startRun(session.token, dashboard.current_run.run_id); await load(); } catch (e) { setError((e as Error).message); } finally { setStarting(false); }

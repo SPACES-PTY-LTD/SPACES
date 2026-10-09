@@ -29,6 +29,7 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
+import { useUnreadMessages } from "@/components/messages/use-unread-messages"
 import { AdminNav } from "@/components/layout/admin-nav"
 import { LogoutButton } from "@/components/auth/logout-button"
 import { Toaster } from "@/components/ui/sonner"
@@ -81,6 +82,11 @@ export function AdminShell({
   const canReviewFeedback =
     activeSession.user.role === "super_admin" ||
     merchants.some((merchant) => Boolean(merchant.access?.permissions.can_manage_users))
+  const messagesUnreadCount = useUnreadMessages(
+    activeSession.accessToken,
+    selectedMerchant?.merchant_id,
+    activeSession.user.role === "user" || activeSession.user.role === "super_admin"
+  )
   const [feedbackUnreadCount, setFeedbackUnreadCount] = React.useState(0)
 
   React.useEffect(() => {
@@ -220,6 +226,7 @@ export function AdminShell({
             canDeleteMerchant={canDeleteMerchant}
             canReviewFeedback={canReviewFeedback}
             feedbackUnreadCount={feedbackUnreadCount}
+            messagesUnreadCount={messagesUnreadCount}
           />
         </SidebarContent>
         <SidebarFooter>

@@ -45,6 +45,7 @@ export default function MessagesScreen() {
 function DriverChat({ requestedConversation }: { requestedConversation?: string }) {
     const { refresh: refreshUnread } = useUnreadMessages();
     const { session } = useAuth();
+    const token = session?.token;
     const insets = useSafeAreaInsets();
     const { colorScheme } = useColorScheme();
     const dark = colorScheme === 'dark';
@@ -72,6 +73,7 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
     const [picking, setPicking] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
     const [sending, setSending] = useState(false);
     const [olderLoading, setOlderLoading] = useState(false);
     const generation = useRef(0);
@@ -89,16 +91,8 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
             const current = ++generation.current;
             const reloadVersion = reload; // Re-enter the focused loader on explicit Retry.
             void reloadVersion;
-            const token = session?.token;
             let busy = false;
             active.current = true;
-            conversationRef.current = null;
-            cursorLoaded.current = false;
-            atBottom.current = true;
-            setConversation(null);
-            setMessages([]);
-            setBefore(null);
-            setLoading(true);
             setError(null);
             const valid = () =>
                 generation.current === current &&
@@ -107,6 +101,7 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
             async function refresh() {
                 if (!token || !valid() || busy) return;
                 busy = true;
+                setLoading(true);
                 try {
                     const chat = conversationRef.current
                         ? await chatApi.show(
@@ -142,6 +137,7 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
                         setBefore(result.meta.next_before);
                         cursorLoaded.current = true;
                     }
+                    setHasLoaded(true);
                     setError(null);
                     const latest = result.data.at(-1);
                     if (latest) {
@@ -181,7 +177,7 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
                 state.remove();
                 setVisibleDriverChat(null);
             };
-        }, [session, reload, refreshUnread, requestedConversation]),
+        }, [token, reload, refreshUnread, requestedConversation]),
     );
 
     useEffect(() => {
@@ -344,14 +340,16 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
             );
         }
     }
-    const canCompose = !loading && !sending && !picking && conversation?.status === 'active';
+    const initialLoading = loading && !hasLoaded && messages.length === 0;
+    const canCompose = hasLoaded && !sending && !picking && conversation?.status === 'active';
     const canSend = canCompose && (!!body.trim() || files.length > 0 || references.length > 0);
     return (
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={{ flex: 1, paddingTop: insets.top, backgroundColor: colors.background }}
         >
-            <PageHeader title="Messages" status={conversation?.status === 'closed' ? 'Closed' : undefined} />
+            <PageHeader title="Messages" status={conversation?.status === 'closed' ? 'Closed' : undefined}
+                action={loading && !initialLoading ? <ActivityIndicator size="small" color="#15803D" accessibilityLabel="Refreshing messages" /> : undefined} />
             {error && (
                 <View style={[styles.error, { backgroundColor: colors.selectedSurface }]}>
                     <Text accessibilityRole="alert" style={{ color: colors.ink }}>{error}</Text>
@@ -360,7 +358,7 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
                     </Pressable>
                 </View>
             )}
-            {loading ? (
+            {initialLoading ? (
                 <View style={styles.loading}>
                     <ActivityIndicator color="#15803d" />
                     <Text style={[styles.subtitle, { color: colors.muted }]}>Loading your conversation…</Text>
@@ -525,12 +523,12 @@ const styles = StyleSheet.create({
     retry: { minHeight: 44, justifyContent: 'center' },
     bubble: { maxWidth: '88%', padding: 14, borderRadius: 20, marginBottom: 12 },
     attachment: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, minHeight: 44 },
-    composerShelf: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 10, gap: 8 },
-    composer: { minHeight: 64, borderWidth: 1, borderRadius: 32, padding: 9, flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+    composerShelf: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 6, gap: 6 },
+    composer: { minHeight: 54, borderWidth: 1, borderRadius: 27, padding: 4, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
     roundButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
     attachmentIcon: { width: 22, height: 22 },
     sendIcon: { width: 24, height: 24 },
-    input: { flex: 1, fontSize: 16, lineHeight: 23, minHeight: 44, maxHeight: 120, paddingVertical: 10, paddingHorizontal: 0, textAlignVertical: 'center' },
+    input: { flex: 1, fontSize: 16, lineHeight: 23, minHeight: 44, maxHeight: 120, paddingVertical: 6, paddingHorizontal: 0, textAlignVertical: 'center' },
     composerHint: { fontSize: 12, lineHeight: 17, textAlign: 'center' },
     draftFile: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, paddingLeft: 12 },
     removeFile: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

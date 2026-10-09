@@ -77,14 +77,16 @@ function RunList({ token, tab }: { token: string; tab: RunTab }) {
     const hasLoaded = useRef(false);
 
     const load = useCallback(
-        async (page = 1) => {
+        async (page = 1, pullToRefresh = false) => {
             if (!focused.current || (page > 1 && busy.current)) return;
             const version = ++requestVersion.current;
             busy.current = true;
             if (page > 1) {
                 setLoadingMore(true);
                 setPageError(null);
-            } else if (hasLoaded.current) setRefreshing(true);
+            } else if (hasLoaded.current) {
+                if (pullToRefresh) setRefreshing(true);
+            }
             else setLoading(true);
             try {
                 const response = await driverApi.listRuns(token, tab, page);
@@ -143,6 +145,7 @@ function RunList({ token, tab }: { token: string; tab: RunTab }) {
                 focused.current = false;
                 ++requestVersion.current;
                 busy.current = false;
+                setRefreshing(false);
                 listener.remove();
             };
         }, [load]),
@@ -151,6 +154,8 @@ function RunList({ token, tab }: { token: string; tab: RunTab }) {
     return (
         <FlatList
             data={runs}
+            contentInsetAdjustmentBehavior="never"
+            automaticallyAdjustContentInsets={false}
             keyExtractor={(run) => run.run_id}
             contentContainerStyle={{
                 paddingHorizontal: 18,
@@ -158,7 +163,7 @@ function RunList({ token, tab }: { token: string; tab: RunTab }) {
                 gap: 16,
             }}
             refreshing={refreshing}
-            onRefresh={() => void load()}
+            onRefresh={() => void load(1, true)}
             onEndReachedThreshold={0.4}
             onEndReached={() => {
                 if (nextPage && !pageError) void load(nextPage);

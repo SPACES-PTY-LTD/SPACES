@@ -6,6 +6,7 @@ import {
     BottomSheetBackdrop,
 } from "@gorhom/bottom-sheet";
 import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import {
@@ -36,6 +37,8 @@ import { locationCoordinate } from "@/src/components/dashboard/run-map-data";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ActionSheet, type ActionSheetRef } from "@/component/ui/ActionSheet";
+import { BottomSheet } from "@/component/ui/BottomSheet";
+import { createSheetHandoff } from "@/component/ui/sheet-handoff";
 import { PageHeader } from "@/component/ui/PageHeader";
 import { Text } from "@/component/ui/Text";
 import { DateInput } from "@/component/ui/DateInput";
@@ -220,7 +223,9 @@ function ShipmentDetailsContent({
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [actionMessage, setActionMessage] = useState<string | null>(null);
     const shipmentActions = useRef<ActionSheetRef>(null);
-    const [detailPanel, setDetailPanel] = useState<"files" | "history" | null>(null);
+    const [detailPanel, setDetailPanel] = useState<"files" | "history" | null>(
+        null,
+    );
     const [activeAction, setActiveAction] = useState<
         "cancel" | "pod" | "status" | null
     >(null);
@@ -244,12 +249,37 @@ function ShipmentDetailsContent({
     const [shipmentFilesError, setShipmentFilesError] = useState<string | null>(
         null,
     );
+    const shipmentUploadSheet = useRef<BottomSheetModal>(null);
+    const shipmentFileSources = useRef<ActionSheetRef>(null);
+    const filePickerHandoff = useRef<ReturnType<
+        typeof createSheetHandoff
+    > | null>(null);
+    const resolveFileSource = useRef<((source?: string) => void) | null>(null);
+    const [isPickingFile, setIsPickingFile] = useState(false);
     const [fileModalVisible, setFileModalVisible] = useState(false);
     const [selectedFileTypeId, setSelectedFileTypeId] = useState("");
+    const [fileTypeDropdownOpen, setFileTypeDropdownOpen] = useState(false);
     const [selectedDocument, setSelectedDocument] =
         useState<DocumentPicker.DocumentPickerAsset | null>(null);
     const [fileExpiresAt, setFileExpiresAt] = useState("");
     const [fileFormError, setFileFormError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const handoff = createSheetHandoff(
+            () => shipmentUploadSheet.current?.dismiss(),
+            () => shipmentUploadSheet.current?.present(),
+        );
+        filePickerHandoff.current = handoff;
+        return () => {
+            handoff.dispose();
+            resolveFileSource.current?.();
+            resolveFileSource.current = null;
+        };
+    }, []);
+    useEffect(() => {
+        if (fileModalVisible) shipmentUploadSheet.current?.present();
+        else shipmentUploadSheet.current?.dismiss();
+    }, [fileModalVisible]);
 
     const selectedShipmentFileType =
         shipmentFileTypes.find(
@@ -415,19 +445,104 @@ function ShipmentDetailsContent({
     }
 
     async function pickShipmentFile() {
-        const result = await DocumentPicker.getDocumentAsync({
-            multiple: false,
-            copyToCacheDirectory: true,
+        const handoff = filePickerHandoff.current;
+        if (readOnly || isMutating || !handoff || handoff.running) return;
+        setIsPickingFile(true);
+        setFileTypeDropdownOpen(false);
+        await handoff.run(async () => {
+            try {
+                const source = await new Promise<string | undefined>(
+                    (resolve) => {
+                        if (!shipmentFileSources.current)
+                            return resolve(undefined);
+                        resolveFileSource.current = resolve;
+                        shipmentFileSources.current.present({
+                            title: "Choose file",
+                            actions: [
+                                {
+                                    id: "file",
+                                    label: "File",
+                                    onPress: () => {},
+                                },
+                                {
+                                    id: "photo",
+                                    label: "Photo",
+                                    onPress: () => {},
+                                },
+                                {
+                                    id: "camera",
+                                    label: "Camera",
+                                    onPress: () => {},
+                                },
+                            ],
+                            onDismiss: (choice) => {
+                                resolveFileSource.current = null;
+                                resolve(choice);
+                            },
+                        });
+                    },
+                );
+                if (!handoff.active || !source) return;
+                let asset: DocumentPicker.DocumentPickerAsset | undefined;
+                if (source === "file") {
+                    const result = await DocumentPicker.getDocumentAsync({
+                        multiple: false,
+                        copyToCacheDirectory: true,
+                    });
+                    if (!result.canceled) asset = result.assets[0];
+                } else {
+                    if (source === "camera") {
+                        const permission =
+                            await ImagePicker.requestCameraPermissionsAsync();
+                        if (!handoff.active) return;
+                        if (!permission.granted) {
+                            setFileFormError(
+                                "Allow camera access in device settings, or choose File or Photo.",
+                            );
+                            return;
+                        }
+                    }
+                    const options: ImagePicker.ImagePickerOptions = {
+                        mediaTypes: ["images"],
+                        quality: 0.9,
+                        allowsEditing: false,
+                    };
+                    const result =
+                        source === "camera"
+                            ? await ImagePicker.launchCameraAsync(options)
+                            : await ImagePicker.launchImageLibraryAsync(
+                                  options,
+                              );
+                    if (!result.canceled && result.assets[0]) {
+                        const image = result.assets[0];
+                        const mimeType = image.mimeType || "image/jpeg";
+                        asset = {
+                            lastModified: Date.now(),
+                            uri: image.uri,
+                            name:
+                                image.fileName ||
+                                `shipment-file-${Date.now()}.${mimeType.split("/")[1] || "jpg"}`,
+                            mimeType,
+                            size: image.fileSize,
+                        };
+                    }
+                }
+                if (handoff.active && asset) {
+                    setSelectedDocument(asset);
+                    setFileFormError(null);
+                }
+            } catch (error) {
+                if (handoff.active)
+                    setFileFormError(
+                        (error as Error).message || "Unable to choose a file.",
+                    );
+            }
         });
-
-        if (result.canceled) {
-            return;
-        }
-
-        setSelectedDocument(result.assets[0] ?? null);
+        if (handoff.active) setIsPickingFile(false);
     }
 
     function resetShipmentFileForm() {
+        setFileTypeDropdownOpen(false);
         setSelectedFileTypeId("");
         setSelectedDocument(null);
         setFileExpiresAt("");
@@ -435,7 +550,13 @@ function ShipmentDetailsContent({
     }
 
     async function uploadShipmentFile() {
-        if (readOnly || !session?.token || !shipment_id) {
+        if (
+            readOnly ||
+            isPickingFile ||
+            isMutating ||
+            !session?.token ||
+            !shipment_id
+        ) {
             return;
         }
 
@@ -541,12 +662,13 @@ function ShipmentDetailsContent({
             loading={shipmentFilesLoading}
             error={shipmentFilesError}
             readOnly={readOnly}
-            busy={isMutating}
+            busy={isMutating || isPickingFile}
             onRetry={() => void loadShipmentFiles()}
             onOpen={(fileId) => void openShipmentFile(fileId)}
             onUpload={() => {
                 resetShipmentFileForm();
                 setActiveAction(null);
+                setDetailPanel(null);
                 setFileModalVisible(true);
             }}
         />
@@ -560,13 +682,15 @@ function ShipmentDetailsContent({
             stackBehavior: "push",
             actions: [
                 // Scan and proof actions remain temporarily hidden.
-                ...(!readOnly && shipment.booking ? [
-                    {
-                        id: "status",
-                        label: "Update delivery status",
-                        onPress: () => setActiveAction("status"),
-                    },
-                ] : []),
+                ...(!readOnly && shipment.booking
+                    ? [
+                          {
+                              id: "status",
+                              label: "Update delivery status",
+                              onPress: () => setActiveAction("status"),
+                          },
+                      ]
+                    : []),
                 {
                     id: "files",
                     label: "Delivery note & files",
@@ -577,14 +701,16 @@ function ShipmentDetailsContent({
                     label: "Shipment history",
                     onPress: () => openPanel("history"),
                 },
-                ...(!readOnly && shipment.booking ? [
-                    {
-                        id: "cancel-shipment",
-                        label: "Cancel shipment",
-                        variant: "destructive" as const,
-                        onPress: () => setActiveAction("cancel"),
-                    },
-                ] : []),
+                ...(!readOnly && shipment.booking
+                    ? [
+                          {
+                              id: "cancel-shipment",
+                              label: "Cancel shipment",
+                              variant: "destructive" as const,
+                              onPress: () => setActiveAction("cancel"),
+                          },
+                      ]
+                    : []),
             ],
         });
     };
@@ -1143,8 +1269,7 @@ function ShipmentDetailsContent({
                 visible={
                     !!shipment &&
                     (detailPanel !== null ||
-                        (!readOnly &&
-                            (activeAction !== null || fileModalVisible)))
+                        (!readOnly && activeAction !== null))
                 }
                 onRequestClose={() => {
                     if (!isMutating) {
@@ -1164,19 +1289,17 @@ function ShipmentDetailsContent({
                 >
                     <PageHeader
                         title={
-                            fileModalVisible
-                                ? "Upload shipment file"
-                                : activeAction === "status"
-                                  ? "Delivery status"
-                                  : activeAction === "pod"
-                                    ? "Delivery proof"
-                                    : activeAction === "cancel"
-                                      ? "Cancel shipment"
-                                      : detailPanel === "files"
-                                        ? "Shipment files"
-                                        : detailPanel === "history"
-                                          ? "Shipment history"
-                                          : "More actions"
+                            activeAction === "status"
+                                ? "Delivery status"
+                                : activeAction === "pod"
+                                  ? "Delivery proof"
+                                  : activeAction === "cancel"
+                                    ? "Cancel shipment"
+                                    : detailPanel === "files"
+                                      ? "Shipment files"
+                                      : detailPanel === "history"
+                                        ? "Shipment history"
+                                        : "More actions"
                         }
                         action={
                             <Pressable
@@ -1187,6 +1310,7 @@ function ShipmentDetailsContent({
                                     setDetailPanel(null);
                                     setActiveAction(null);
                                     setFileModalVisible(false);
+                                    setFileTypeDropdownOpen(false);
                                 }}
                                 style={{
                                     minHeight: 44,
@@ -1213,110 +1337,6 @@ function ShipmentDetailsContent({
                             >
                                 {errorMessage}
                             </Text>
-                        ) : null}
-                        {!readOnly && fileModalVisible ? (
-                            <>
-                                <View className="bg-card mt-6 rounded-xl px-5 py-5">
-                                    <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">
-                                        File type
-                                    </Text>
-                                    <View className="mt-4 gap-3">
-                                        {shipmentFileTypes.map((fileType) => {
-                                            const isSelected =
-                                                fileType.file_type_id ===
-                                                selectedFileTypeId;
-                                            return (
-                                                <Pressable
-                                                    key={fileType.file_type_id}
-                                                    onPress={() =>
-                                                        setSelectedFileTypeId(
-                                                            fileType.file_type_id,
-                                                        )
-                                                    }
-                                                    className={`rounded-[22px] border px-4 py-4 ${
-                                                        isSelected
-                                                            ? "border-primary bg-accent"
-                                                            : "border-border bg-muted"
-                                                    }`}
-                                                >
-                                                    <Text className="text-card-foreground text-base font-semibold">
-                                                        {fileType.name}
-                                                    </Text>
-                                                    {fileType.description ? (
-                                                        <Text className="text-muted-foreground mt-1 text-sm leading-6">
-                                                            {
-                                                                fileType.description
-                                                            }
-                                                        </Text>
-                                                    ) : null}
-                                                </Pressable>
-                                            );
-                                        })}
-                                    </View>
-                                </View>
-
-                                <View className="bg-card mt-4 rounded-xl px-5 py-5">
-                                    <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">
-                                        Selected file
-                                    </Text>
-                                    <Pressable
-                                        onPress={pickShipmentFile}
-                                        className="bg-secondary mt-4 rounded-full px-4 py-4"
-                                    >
-                                        <Text className="text-secondary-foreground text-center text-base font-semibold">
-                                            {selectedDocument
-                                                ? "Choose a different file"
-                                                : "Choose file"}
-                                        </Text>
-                                    </Pressable>
-                                    <Text className="text-muted-foreground mt-3 text-base">
-                                        {selectedDocument
-                                            ? selectedDocument.name
-                                            : "No file selected"}
-                                    </Text>
-                                </View>
-
-                                {selectedShipmentFileType?.requires_expiry ? (
-                                    <View className="bg-card mt-4 rounded-xl px-5 py-5">
-                                        <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">
-                                            Expiry date
-                                        </Text>
-                                        <DateInput
-                                            value={fileExpiresAt}
-                                            onChange={setFileExpiresAt}
-                                            disabled={isMutating}
-                                        />
-                                    </View>
-                                ) : null}
-
-                                {fileFormError ? (
-                                    <View className="border-warning bg-warning mt-4 rounded-[24px] border px-4 py-4">
-                                        <Text className="text-warning-foreground text-sm font-semibold">
-                                            {fileFormError}
-                                        </Text>
-                                    </View>
-                                ) : null}
-
-                                <Pressable
-                                    disabled={
-                                        isMutating ||
-                                        !selectedDocument ||
-                                        !selectedFileTypeId ||
-                                        (!!selectedShipmentFileType?.requires_expiry &&
-                                            !fileExpiresAt.trim())
-                                    }
-                                    onPress={uploadShipmentFile}
-                                    className={`mt-6 items-center rounded-full px-6 py-4 bg-primary disabled:opacity-50`}
-                                >
-                                    {isMutating ? (
-                                        <ActivityIndicator color="#FFFFFF" />
-                                    ) : (
-                                        <Text className="text-primary-foreground text-base font-semibold">
-                                            Upload
-                                        </Text>
-                                    )}
-                                </Pressable>
-                            </>
                         ) : null}
                         {shipment && !fileModalVisible && (
                             <>
@@ -1732,6 +1752,198 @@ function ShipmentDetailsContent({
                     </ScrollView>
                 </KeyboardAvoidingView>
             </ShipmentPanel>
+            <BottomSheet
+                modalRef={shipmentUploadSheet}
+                title="Upload shipment file"
+                scrollable
+                plainScroll
+                showHandle={false}
+                dismissible={!isMutating && !isPickingFile}
+                onDismiss={() => {
+                    if (filePickerHandoff.current?.onDismiss()) return;
+                    setFileModalVisible(false);
+                    setFileTypeDropdownOpen(false);
+                }}
+            >
+                {!readOnly && (
+                    <>
+                        <View className="bg-card mt-6 rounded-xl px-5 py-5">
+                            <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">
+                                File type
+                            </Text>
+                            <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel="File type"
+                                accessibilityValue={{
+                                    text:
+                                        selectedShipmentFileType?.name ||
+                                        "Select a file type",
+                                }}
+                                accessibilityState={{
+                                    expanded: fileTypeDropdownOpen,
+                                    disabled:
+                                        isMutating ||
+                                        shipmentFilesLoading ||
+                                        shipmentFileTypes.length === 0,
+                                }}
+                                disabled={
+                                    isMutating ||
+                                    shipmentFilesLoading ||
+                                    shipmentFileTypes.length === 0
+                                }
+                                onPress={() =>
+                                    setFileTypeDropdownOpen((open) => !open)
+                                }
+                                className="border-border bg-muted mt-4 flex-row items-center rounded-xl border px-4 py-3"
+                                style={{ minHeight: 48, gap: 12 }}
+                            >
+                                <Text
+                                    className={
+                                        selectedShipmentFileType
+                                            ? "text-card-foreground flex-1 text-base font-semibold"
+                                            : "text-muted-foreground flex-1 text-base"
+                                    }
+                                >
+                                    {selectedShipmentFileType?.name ||
+                                        (shipmentFilesLoading
+                                            ? "Loading file types…"
+                                            : shipmentFileTypes.length
+                                              ? "Select a file type"
+                                              : "No file types available")}
+                                </Text>
+                                <View
+                                    style={{
+                                        transform: [
+                                            {
+                                                rotate: fileTypeDropdownOpen
+                                                    ? "-90deg"
+                                                    : "90deg",
+                                            },
+                                        ],
+                                    }}
+                                >
+                                    <ShipmentIcon name="chevron" />
+                                </View>
+                            </Pressable>
+                            {fileTypeDropdownOpen && (
+                                <ScrollView
+                                    nestedScrollEnabled
+                                    keyboardShouldPersistTaps="handled"
+                                    className="border-border bg-muted mt-2 rounded-xl border"
+                                    style={{ maxHeight: 220 }}
+                                >
+                                    {shipmentFileTypes.map((fileType) => {
+                                        const selected =
+                                            fileType.file_type_id ===
+                                            selectedFileTypeId;
+                                        return (
+                                            <Pressable
+                                                key={fileType.file_type_id}
+                                                accessibilityRole="radio"
+                                                accessibilityState={{
+                                                    checked: selected,
+                                                    disabled: isMutating,
+                                                }}
+                                                disabled={isMutating}
+                                                onPress={() => {
+                                                    setSelectedFileTypeId(
+                                                        fileType.file_type_id,
+                                                    );
+                                                    setFileTypeDropdownOpen(
+                                                        false,
+                                                    );
+                                                    setFileFormError(null);
+                                                }}
+                                                className={
+                                                    selected
+                                                        ? "bg-accent px-4 py-3"
+                                                        : "px-4 py-3"
+                                                }
+                                                style={{ minHeight: 48 }}
+                                            >
+                                                <Text className="text-card-foreground text-base">
+                                                    {fileType.name}
+                                                </Text>
+                                            </Pressable>
+                                        );
+                                    })}
+                                </ScrollView>
+                            )}
+                            {!!selectedShipmentFileType?.description && (
+                                <Text className="text-muted-foreground mt-3 text-sm leading-6">
+                                    {selectedShipmentFileType.description}
+                                </Text>
+                            )}
+                        </View>
+
+                        <View className="bg-card mt-4 rounded-xl px-5 py-5">
+                            <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">
+                                Selected file
+                            </Text>
+                            <Pressable
+                                accessibilityRole="button"
+                                disabled={isPickingFile || isMutating}
+                                onPress={pickShipmentFile}
+                                className="bg-secondary mt-4 rounded-full px-4 py-4"
+                            >
+                                <Text className="text-secondary-foreground text-center text-base font-semibold">
+                                    {selectedDocument
+                                        ? "Choose a different file"
+                                        : "Choose file"}
+                                </Text>
+                            </Pressable>
+                            <Text className="text-muted-foreground mt-3 text-base">
+                                {selectedDocument
+                                    ? selectedDocument.name
+                                    : "No file selected"}
+                            </Text>
+                        </View>
+
+                        {selectedShipmentFileType?.requires_expiry ? (
+                            <View className="bg-card mt-4 rounded-xl px-5 py-5">
+                                <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">
+                                    Expiry date
+                                </Text>
+                                <DateInput
+                                    value={fileExpiresAt}
+                                    onChange={setFileExpiresAt}
+                                    disabled={isMutating}
+                                />
+                            </View>
+                        ) : null}
+
+                        {fileFormError ? (
+                            <View className="border-warning bg-warning mt-4 rounded-[24px] border px-4 py-4">
+                                <Text className="text-warning-foreground text-sm font-semibold">
+                                    {fileFormError}
+                                </Text>
+                            </View>
+                        ) : null}
+
+                        <Pressable
+                            disabled={
+                                isMutating ||
+                                isPickingFile ||
+                                !selectedDocument ||
+                                !selectedFileTypeId ||
+                                (!!selectedShipmentFileType?.requires_expiry &&
+                                    !fileExpiresAt.trim())
+                            }
+                            onPress={uploadShipmentFile}
+                            className={`mt-6 items-center rounded-full px-6 py-4 bg-primary disabled:opacity-50`}
+                        >
+                            {isMutating ? (
+                                <ActivityIndicator color="#FFFFFF" />
+                            ) : (
+                                <Text className="text-primary-foreground text-base font-semibold">
+                                    Upload
+                                </Text>
+                            )}
+                        </Pressable>
+                    </>
+                )}
+            </BottomSheet>
+            <ActionSheet ref={shipmentFileSources} />
             <ActionSheet ref={shipmentActions} />
         </KeyboardAvoidingView>
     );

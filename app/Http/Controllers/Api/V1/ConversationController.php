@@ -105,6 +105,40 @@ class ConversationController extends Controller
         ]);
     }
 
+    public function unread(Request $request)
+    {
+        $data = $request->validate(['merchant_id' => 'required|uuid']);
+        $user = $request->user();
+        abort_if($user->role === 'driver', 403);
+        $merchant = $this->service->merchant($user, $data['merchant_id']);
+        $staff = $this->service->staff($user, $merchant);
+        $count = Message::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)
+            ->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', '!=', $user->id))
+            ->whereHas('conversation', function ($query) use ($user, $merchant, $staff) {
+                $query->where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)
+                    ->where(function ($query) use ($user, $merchant, $staff) {
+                        $query->where(function ($normal) use ($user) {
+                            $normal->where('type', 'normal')->whereHas('members', function ($member) use ($user) {
+                                $member->where('user_id', $user->id)->where('state', 'active')
+                                    ->where(fn ($cursor) => $cursor->whereNull('last_read_at')
+                                        ->orWhereColumn('last_read_at', '<', 'messages.created_at'));
+                            });
+                        });
+                        if ($staff) {
+                            // Dispatch shares read receipts for incoming driver messages.
+                            $query->orWhere(function ($driver) use ($merchant) {
+                                $driver->where('type', 'driver')->whereNull('messages.read_at')
+                                    ->whereHas('driver', fn ($d) => $d->where('merchant_id', $merchant->id)
+                                        ->where('account_id', $merchant->account_id)
+                                        ->whereColumn('drivers.user_id', 'messages.user_id'));
+                            });
+                        }
+                    });
+            })->count();
+
+        return ApiResponse::success(['unread_count' => $count]);
+    }
+
     public function driverUnread(Request $request)
     {
         $user = $request->user();

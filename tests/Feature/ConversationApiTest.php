@@ -207,6 +207,51 @@ class ConversationApiTest extends TestCase
         $this->getJson($url.'&type=driver&search=', $headers)->assertOk()->assertJsonCount(1, 'data');
     }
 
+    public function test_dispatch_unread_count_respects_read_rules_membership_and_merchant_scope(): void
+    {
+        Queue::fake();
+        [$owner, $merchant, $driver] = $this->context();
+        $headers = $this->headers($owner);
+        $endpoint = '/api/v1/conversations/unread?merchant_id='.$merchant->uuid;
+        $this->getJson($endpoint, $headers)->assertOk()->assertJsonPath('data.unread_count', 0);
+        $this->assertDatabaseCount('conversations', 0);
+        $chat = $this->chat($driver);
+        $url = "/api/v1/conversations/$chat";
+        $incoming = $this->postJson("$url/messages", ['body' => 'Incoming', 'temporary_id' => 'in'], $this->headers($driver))->assertCreated()->json('data.message_id');
+        $this->postJson("$url/messages", ['body' => 'Outgoing', 'temporary_id' => 'out'], $headers)->assertCreated();
+        $deleted = $this->postJson("$url/messages", ['body' => 'Deleted', 'temporary_id' => 'deleted'], $this->headers($driver))->assertCreated()->json('data.message_id');
+        Message::where('uuid', $deleted)->firstOrFail()->delete();
+        $member = User::factory()->create(['account_id' => $merchant->account_id, 'role' => 'user']);
+        $merchant->users()->attach($member, ['role' => 'read_only']);
+        $normal = Conversation::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'type' => 'normal', 'title' => 'Team']);
+        $service = app(ConversationService::class);
+        $service->addMember($normal, $owner, 'owner');
+        $membership = $service->addMember($normal, $member);
+        $normalMessage = Message::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'conversation_id' => $normal->id, 'user_id' => $member->id, 'body' => 'Team incoming']);
+        Message::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'conversation_id' => $normal->id, 'user_id' => $owner->id, 'body' => 'Team outgoing']);
+        [, $foreignMerchant, $foreignDriver] = $this->context();
+        $foreignChat = $this->chat($foreignDriver);
+        $this->postJson("/api/v1/conversations/$foreignChat/messages", ['body' => 'Foreign', 'temporary_id' => 'foreign'], $this->headers($foreignDriver))->assertCreated();
+        $this->getJson($endpoint, $headers)->assertOk()->assertJsonPath('data.unread_count', 2);
+        $this->getJson($endpoint, $this->headers($member))->assertOk()->assertJsonPath('data.unread_count', 1);
+        $this->postJson("$url/read", ['message_id' => $incoming], $headers)->assertOk();
+        $this->getJson($endpoint, $headers)->assertOk()->assertJsonPath('data.unread_count', 1);
+        $this->postJson("/api/v1/conversations/{$normal->uuid}/read", ['message_id' => $normalMessage->uuid], $headers)->assertOk();
+        $this->getJson($endpoint, $headers)->assertOk()->assertJsonPath('data.unread_count', 0);
+        // Another member's read cursor remains independent of the owner's.
+        $this->getJson($endpoint, $this->headers($member))->assertOk()->assertJsonPath('data.unread_count', 1);
+        $membership->update(['state' => 'removed']);
+        $this->getJson($endpoint, $this->headers($member))->assertOk()->assertJsonPath('data.unread_count', 0);
+        $this->getJson('/api/v1/conversations/unread?merchant_id='.$foreignMerchant->uuid, $headers)->assertForbidden();
+        $this->getJson($endpoint, $this->headers($driver))->assertForbidden();
+        $this->getJson('/api/v1/conversations/unread', $headers)->assertUnprocessable();
+        $normal->delete();
+        $this->getJson($endpoint, $headers)->assertOk()->assertJsonPath('data.unread_count', 0);
+    }
+
     public function test_driver_unread_badge_counts_only_received_live_messages_and_clears_on_read(): void
     {
         Queue::fake();

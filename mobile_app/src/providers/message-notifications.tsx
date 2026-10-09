@@ -12,6 +12,22 @@ let visibleChat: string | null = null;
 export function setVisibleDriverChat(id: string | null) {
     visibleChat = id;
 }
+
+export async function registerMessageNotificationDevice(token: string, isCurrent = () => true) {
+    if (Platform.OS === 'web' || Constants.appOwnership === 'expo' || !Device.isDevice) return;
+    const permission = await Notifications.getPermissionsAsync();
+    if (!permission.granted || !isCurrent()) return;
+    const projectId = Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) return;
+    const push = await Notifications.getExpoPushTokenAsync({ projectId });
+    if (!isCurrent()) return;
+    await driverApi.registerDevice(token, {
+        platform: Platform.OS,
+        push_provider: 'expo',
+        push_token: push.data,
+        device_name: Device.deviceName ?? undefined,
+    });
+}
 Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
         const data = notification.request.content.data ?? {};
@@ -90,20 +106,7 @@ export function MessageNotifications() {
             if (!permission.granted)
                 permission = await Notifications.requestPermissionsAsync();
             if (!permission.granted || !live) return;
-            const projectId =
-                Constants.easConfig?.projectId ??
-                Constants.expoConfig?.extra?.eas?.projectId;
-            if (!projectId) return;
-            const push = await Notifications.getExpoPushTokenAsync({
-                projectId,
-            });
-            if (!live) return;
-            await driverApi.registerDevice(token!, {
-                platform: Platform.OS,
-                push_provider: 'expo',
-                push_token: push.data,
-                device_name: Device.deviceName ?? undefined,
-            });
+            await registerMessageNotificationDevice(token!, () => live);
         }
         if (isExpoGo) return;
         const registerSafely = () =>

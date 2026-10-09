@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Callout, Marker, Polyline } from 'react-native-maps';
 import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Text } from '@/component/ui/Text';
 import { driverApi, type RunPosition, type RunDirections, type DriverShipment } from '@/src/lib/api';
 import { useRecordedRunTrack } from './useRecordedRunTrack';
@@ -25,6 +26,12 @@ export type RunMapProps = {
 
 /** Road geometry is fetched separately so routing never blocks the dashboard. */
 export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShipment }: RunMapProps) {
+  const { colorScheme } = useColorScheme();
+  const dark = colorScheme === 'dark';
+  const surface = dark ? '#18181b' : '#ffffff';
+  const ink = dark ? '#fafafa' : '#111111';
+  const muted = dark ? '#a1a1aa' : '#71717a';
+  const accent = dark ? '#86efac' : '#15803d';
   const endpointPins = useMemo(() => (endpoints || []).filter(p => p.latitude != null && p.longitude != null).map(p => ({ ...p, coordinate: { latitude: p.latitude!, longitude: p.longitude! } })), [endpoints]);
   const ref = useRef<MapView>(null);
   const actions = useRef<ActionSheetRef>(null);
@@ -110,8 +117,8 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   }, [ready, stops, topInset, road, truck, endpointPins, mode, recordedPoints]);
   useEffect(fit, [fit]);
   const missing = shipments.length - stops.length;
-  return <View style={styles.container}>
-    <NativeMap recoveryTopInset={topInset} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => {
+  return <View style={[styles.container, { backgroundColor: dark ? '#18181b' : '#eeeee8' }]}>
+    <NativeMap dark={dark} recoveryTopInset={topInset} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => {
       mapLifecycle.current.ready = true;
       setReady(true);
       fit();
@@ -126,16 +133,16 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       fit();
     }}
       initialRegion={{ latitude: 0, longitude: 0, latitudeDelta: 100, longitudeDelta: 100 }}
-      userInterfaceStyle="light" showsPointsOfInterests={false} showsCompass={false} rotateEnabled={false} pitchEnabled={false}
+      showsPointsOfInterests={false} showsCompass={false} rotateEnabled={false} pitchEnabled={false}
       accessibilityLabel={runId ? 'Current run shipment locations' : 'Current truck location'}>
-      {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor="#15803d" strokeWidth={4} /> : null}
+      {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor={accent} strokeWidth={4} /> : null}
       {mode === 'planned' && endpointPins.map(p => <Marker key={p.role} coordinate={p.coordinate} title={`${p.role} · ${p.name}`} description={p.address} pinColor={p.role === 'Run starting point' ? '#2563eb' : '#71717a'} />)}
       {truck ? <Marker coordinate={truck} zIndex={100} title={position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}
         description={truckPositionDescription(position)}>
         <View style={styles.truckMarker}><Feather name="truck" size={21} color="#ffffff" /></View>
-        <Callout><View style={styles.truckCallout}>
-          <Text style={styles.truckCalloutTitle}>{position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}</Text>
-          {truckPositionDescription(position).split('\n').map((line, index, lines) => <Text key={index} style={index === lines.length - 1 ? styles.truckCalloutTime : styles.truckCalloutLocation}>{line}</Text>)}
+        <Callout tooltip><View style={[styles.truckCallout, { backgroundColor: surface }]}>
+          <Text style={[styles.truckCalloutTitle, { color: ink }]}>{position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}</Text>
+          {truckPositionDescription(position).split('\n').map((line, index, lines) => <Text key={index} style={[index === lines.length - 1 ? styles.truckCalloutTime : styles.truckCalloutLocation, { color: index === lines.length - 1 ? muted : ink }]}>{line}</Text>)}
         </View></Callout>
       </Marker> : null}
       {mode === 'planned' && groups.map(group => {
@@ -162,43 +169,43 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       {mode === 'recorded' && recorded.track?.stops.map((stop, index) => <Marker key={index} coordinate={stop} title="Stationary"
         description={`${new Date(stop.first_seen_at).toLocaleString()} – ${new Date(stop.last_seen_at).toLocaleString()}`} pinColor="#71717a" />)}
     </NativeMap>
-    {runId && SHOW_MAP_MODE_SWITCH ? <View style={[styles.modeToggle, { top: topInset + 12 }]}>
+    {runId && SHOW_MAP_MODE_SWITCH ? <View style={[styles.modeToggle, { top: topInset + 12, backgroundColor: surface }]}>
       {(['planned', 'recorded'] as const).map(value => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: mode === value }}
-        onPress={() => setMode(value)} style={[styles.modeButton, mode === value && { backgroundColor: '#27272a' }]}>
-        <Text style={{ color: mode === value ? '#ffffff' : '#27272a', fontSize: 13, fontWeight: '600' }}>{value === 'planned' ? 'Planned' : 'Recorded'}</Text>
+        onPress={() => setMode(value)} style={[styles.modeButton, mode === value && { backgroundColor: '#15803d' }]}>
+        <Text style={{ color: mode === value ? '#ffffff' : ink, fontSize: 13, fontWeight: '600' }}>{value === 'planned' ? 'Planned' : 'Recorded'}</Text>
       </Pressable>)}
     </View> : null}
-    {mode === 'recorded' && runId ? <View style={[styles.recordedStatus, { top: topInset + 60 }]}>
-      <Text style={styles.captionText}>{recorded.error ? (recorded.track ? 'Showing previous data. ' : '') + recorded.error
+    {mode === 'recorded' && runId ? <View style={[styles.recordedStatus, { top: topInset + 60, backgroundColor: surface }]}>
+      <Text style={[styles.captionText, { color: muted }]}>{recorded.error ? (recorded.track ? 'Showing previous data. ' : '') + recorded.error
         : !recorded.track ? 'Loading recorded GPS…'
         : recorded.track.status === 'disabled' ? 'Recorded route display is not enabled.'
         : recorded.track.status === 'empty' ? 'No GPS history recorded yet.'
         : recorded.track.source === 'limited_history' ? 'Limited historical data · activity events only'
         : recorded.track.active && recorded.track.latest_observed_at && Date.now() - Date.parse(recorded.track.latest_observed_at) > 300000 ? 'Recorded GPS · tracking is stale'
         : recorded.track.coverage.partial ? 'Recorded GPS · partial route coverage' : 'Recorded GPS · gaps indicate missing tracking'}</Text>
-      {recorded.track?.coverage.from && <Text style={styles.captionText}>{new Date(recorded.track.coverage.from).toLocaleString()} – {new Date(recorded.track.coverage.to!).toLocaleString()}</Text>}
+      {recorded.track?.coverage.from && <Text style={[styles.captionText, { color: muted }]}>{new Date(recorded.track.coverage.from).toLocaleString()} – {new Date(recorded.track.coverage.to!).toLocaleString()}</Text>}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        <Pressable accessibilityRole="button" onPress={recorded.retry} style={{ padding: 8 }}><Text style={styles.captionText}>Refresh</Text></Pressable>
-        {recorded.track?.coverage.next_before && <Pressable accessibilityRole="button" onPress={() => recorded.setBefore(recorded.track!.coverage.next_before!)} style={{ padding: 8 }}><Text style={styles.captionText}>Earlier route</Text></Pressable>}
-        {recorded.before && <Pressable accessibilityRole="button" onPress={() => recorded.setBefore(undefined)} style={{ padding: 8 }}><Text style={styles.captionText}>Latest route</Text></Pressable>}
+        <Pressable accessibilityRole="button" onPress={recorded.retry} style={{ padding: 8 }}><Text style={[styles.captionText, { color: muted }]}>Refresh</Text></Pressable>
+        {recorded.track?.coverage.next_before && <Pressable accessibilityRole="button" onPress={() => recorded.setBefore(recorded.track!.coverage.next_before!)} style={{ padding: 8 }}><Text style={[styles.captionText, { color: muted }]}>Earlier route</Text></Pressable>}
+        {recorded.before && <Pressable accessibilityRole="button" onPress={() => recorded.setBefore(undefined)} style={{ padding: 8 }}><Text style={[styles.captionText, { color: muted }]}>Latest route</Text></Pressable>}
       </View>
     </View> : null}
-    {mode === 'planned' && !truck ? <View pointerEvents="none" style={[styles.truckStatus, { top: topInset + (runId && SHOW_MAP_MODE_SWITCH ? 60 : 12) }]}>
+    {mode === 'planned' && !truck ? <View pointerEvents="none" style={[styles.truckStatus, { top: topInset + (runId && SHOW_MAP_MODE_SWITCH ? 60 : 12), backgroundColor: surface }]}>
       <Feather name="truck" size={18} color="#2563eb" />
-      <Text style={styles.truckStatusText}>{positionFailed ? 'Truck location unavailable' : position ? (position.vehicle_id ? 'Truck location not reported yet' : 'No truck assigned') : 'Locating truck…'}</Text>
+      <Text style={[styles.truckStatusText, { color: muted }]}>{positionFailed ? 'Truck location unavailable' : position ? (position.vehicle_id ? 'Truck location not reported yet' : 'No truck assigned') : 'Locating truck…'}</Text>
     </View> : null}
     <ActionSheet ref={actions} />
-    {mode === 'planned' && runId && !stops.length && !truck && !endpointPins.length ? <View pointerEvents="none" style={styles.empty}>
-      <Text style={styles.emptyTitle}>{shipments.length ? 'Run locations not mapped yet' : 'Your run map'}</Text>
-      <Text style={styles.emptyText}>{shipments.length ? 'Shipment locations will appear when their map coordinates are available.' : 'Assigned shipment locations will appear here.'}</Text>
-    </View> : mode === 'planned' && runId && showRouteInfo ? <View style={styles.caption}>
-      <Text style={styles.captionText}>{!stops.length && truck ? 'Last reported truck position' : missing ? `${stops.length} of ${shipments.length} shipment locations mapped` : road ? `Google route · ${(route!.distance_meters! / 1000).toFixed(1)} km · ~${Math.ceil(route!.duration_seconds! / 60)} min` : groups.length === 1 ? 'Shipment stop' : !route ? 'Finding road directions…' : 'Road directions unavailable'}</Text>
-      {route?.status === 'unavailable' && <Pressable accessibilityRole="button" onPress={() => { setResult(null); setRouteRetry(v => v + 1); }} style={{ padding: 8 }}><Text style={styles.captionText}>Retry directions</Text></Pressable>}
+    {mode === 'planned' && runId && !stops.length && !truck && !endpointPins.length ? <View pointerEvents="none" style={[styles.empty, { backgroundColor: surface }]}>
+      <Text style={[styles.emptyTitle, { color: ink }]}>{shipments.length ? 'Run locations not mapped yet' : 'Your run map'}</Text>
+      <Text style={[styles.emptyText, { color: muted }]}>{shipments.length ? 'Shipment locations will appear when their map coordinates are available.' : 'Assigned shipment locations will appear here.'}</Text>
+    </View> : mode === 'planned' && runId && showRouteInfo ? <View style={[styles.caption, { backgroundColor: surface }]}>
+      <Text style={[styles.captionText, { color: muted }]}>{!stops.length && truck ? 'Last reported truck position' : missing ? `${stops.length} of ${shipments.length} shipment locations mapped` : road ? `Google route · ${(route!.distance_meters! / 1000).toFixed(1)} km · ~${Math.ceil(route!.duration_seconds! / 60)} min` : groups.length === 1 ? 'Shipment stop' : !route ? 'Finding road directions…' : 'Road directions unavailable'}</Text>
+      {route?.status === 'unavailable' && <Pressable accessibilityRole="button" onPress={() => { setResult(null); setRouteRetry(v => v + 1); }} style={{ padding: 8 }}><Text style={[styles.captionText, { color: muted }]}>Retry directions</Text></Pressable>}
     </View> : null}
-    {mode === 'planned' && runId && (stops.length || truck || endpointPins.length) ? <Pressable style={styles.infoButton} onPress={() => setShowRouteInfo(value => !value)}
+    {mode === 'planned' && runId && (stops.length || truck || endpointPins.length) ? <Pressable style={[styles.infoButton, { backgroundColor: surface }]} onPress={() => setShowRouteInfo(value => !value)}
       accessibilityRole="button" accessibilityLabel={showRouteInfo ? 'Hide route information' : 'Show route information'}
       accessibilityState={{ expanded: showRouteInfo }}>
-      <Feather name="info" size={20} color={showRouteInfo ? '#15803d' : '#52525b'} />
+      <Feather name="info" size={20} color={showRouteInfo ? accent : muted} />
     </Pressable> : null}
   </View>;
 }
@@ -209,7 +216,7 @@ const styles = StyleSheet.create({
   recordedStatus: { position: 'absolute', alignSelf: 'center', maxWidth: '90%', backgroundColor: '#ffffff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   container: { flex: 1, backgroundColor: '#eeeee8' },
   truckMarker: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#2563eb', borderWidth: 3, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
-  truckCallout: { width: 260, padding: 4, gap: 4 },
+  truckCallout: { width: 260, padding: 12, gap: 4, borderRadius: 12 },
   truckCalloutTitle: { color: '#111111', fontSize: 14, fontWeight: '600' },
   truckCalloutLocation: { color: '#111111', fontSize: 13, lineHeight: 18 },
   truckCalloutTime: { color: '#52525b', fontSize: 11, lineHeight: 16 },
