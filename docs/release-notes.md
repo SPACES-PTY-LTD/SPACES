@@ -1,5 +1,51 @@
 # Release Notes
 
+## 2026-10-09 | Version: driver-run-delivery-order-v1
+
+- **Summary:** Let drivers choose which remaining shipment gets delivered first from the run Actions menu.
+- **API Changes:** Add GET/PATCH `/api/v1/driver/runs/{run_uuid}/delivery-order` for the assigned active run. GET returns remaining shipment reference/location rows; PATCH accepts `shipment_ids` and `expected_shipment_ids`, validates the complete unique remaining set and rejects stale membership/order with 409. Scoped transactional save audits order changes; successful retries do not duplicate audit entries.
+- **Database Changes:** None; reuse `run_shipments.sequence`.
+- **Behavior Changes:** Add Update delivery order after Edit Run. Open a themed bottom sheet with numbered shipment cards, drag handles, edge scrolling and accessible earlier/later actions. Save delivery order sits beneath the bounded scrolling list. Closing discards draft changes, errors preserve them and conflicts require Reload delivery order. Terminal deliveries stay in their full-run slots; preserve status/evidence and recorded chronology. Successful save refreshes dashboard timeline/planned routing; shared destinations retain grouped stops by first occurrence.
+- **Breaking Changes:** None; additive endpoints. Backend deployment is required for the new option.
+- **Verification:** 41 driver run/action/shipment API tests (342 assertions), including eight run-action tests (79 assertions), mobile TypeScript, focused lint (existing dashboard effect rule excluded), and diff checks pass. Both Figma action menus and scenario handoff aligned; editable SF Pro menu composition visually checked. Simulator screenshot was unavailable; native drag/drop, edge-scroll, screen-reader, large-text/short-screen and deployed save/reload checks remain pending.
+
+## 2026-10-09 | Version: shipment-next-stop-reusable-v1
+
+- **Summary:** Implement selected Figma 01 / Next stop shipment details as a reusable page and bottom-sheet component.
+- **API Changes:** None; retain existing scoped shipment/files and driver status/scan/POD/cancel/upload contracts.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace oversized shipment banner with compact reference/status, destination card, conditional Navigate/Call, instructions, collection and scan summary, files/history/dispatch links and a persistent Update delivery status footer. More actions retains scan and cancellation; secondary panels keep existing validation/error handling. Completed-run context hides mutation/contact tools and retains scoped files/history plus View run history. Long content wraps and scrolls separately from the footer. Export ShipmentDetails and ShipmentDetailsSheet; the existing route uses the shared component, and other entry points retain their current navigation. Proof entry retains the existing file-key metadata form; the proposed photo-upload-to-POD flow is not implemented.
+- **Breaking Changes:** None.
+- **Internal Changes:** Move shipment data/actions into the reusable component; bundle eleven exact Figma SVG assets with original dimensions. Use a single secondary panel for files/upload to avoid sibling native modals.
+- **Verification:** Mobile TypeScript and focused component/route lint pass without exclusions; SVG downloads are nonempty with matching root/callsite dimensions. Dashboard plan v2.67 and Figma selection/handoff aligned. Native page/sheet/footer/action/keyboard, completed-run content, dark/large-text and Android verification remain pending; Simulator UI navigation did not expose an authenticated shipment. Production iOS export passes and includes all eleven shipment SVGs.
+
+## 2026-10-09 | Version: stop-location-shipment-links-v1
+
+- **Summary:** Show delivery and collection shipments in the location bottom sheet and link each whole card to actual shipment details.
+- **API Changes:** Driver dashboard/run timeline stops add nullable `location_id` from authorized saved locations, including planned delivery/endpoints; speeding/unlocated/foreign stops return null. Existing status endpoints are unchanged.
+- **Database Changes:** None.
+- **Behavior Changes:** Group this run's matching shipments into Deliveries and Collections below existing map/timing details. Cards show reference, current status and chevron; tapping dismisses the sheet before opening shipment details. No Update status/Options button in the sheet. Existing active shipment status editing and completed-run scoped read-only access remain. Legacy APIs use only unambiguous exact normalized name/full-address matching; explicit null, speeding and unrelated locations never infer shipments. Keep completed deliveries and deduplicate within each section.
+- **Breaking Changes:** None; additive API field with legacy fallback.
+- **Verification:** Four mobile shipment grouping/status tests, 42 driver shipment/run API tests (368 assertions), TypeScript and focused lint pass (existing screen effect rule excluded). Figma delivery/collection screens and handoff aligned and delivery composition visually checked. Native card navigation/scroll/theme/device checks and API deployment remain pending; Simulator was at the home screen. Diff checks pass.
+
+## 2026-10-09 | Version: shipment-review-hide-scroll-indicator-v1
+
+- **Summary:** Hide the scrollbar on the Confirm shipments found sheet.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Step 4 hides the vertical scroll indicator while keeping scrolling and sheet controls available. Other steps retain their current indicators.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint and diff checks pass. Dashboard plan v2.65/Figma handoff aligned; native verification pending.
+
+## 2026-10-09 | Version: driver-import-status-validation-v1
+
+- **Summary:** Align delivery-note preview and confirmation status validation and replace raw line-item status errors with readable shipment guidance.
+- **API Changes:** Share the existing `booked`, `delivered`, `in_transit`, `failed` contract across preview and confirmation. Preview now rejects unsupported included statuses with HTTP 422 in the mobile API envelope; confirmation uses the same message with a one-based shipment number.
+- **Database Changes:** None.
+- **Behavior Changes:** Explicit Booked remains valid, including overriding recorded delivery matches. Unsupported statuses fail during preview before final save; excluded invalid rows remain non-blocking. Preserve draft fields, matching and evidence requirements.
+- **Breaking Changes:** Unsupported statuses previously accepted by preview now return 422; confirmation already rejected them.
+- **Verification:** 74 driver import/shipment API tests (611 assertions) pass, including Booked matching override, unsupported status messages and excluded invalid rows. Diff checks pass. The mobile app targets `api.spaces.za.com`; API deployment and the reported physical-device save remain unverified. Intended dashboard flow and Figma visuals are unchanged.
+
 ## 2026-10-09 | Version: new-run-route-inside-radio-v1
 
 - **Summary:** Show new-run endpoints inside the selected Create new run radio card.

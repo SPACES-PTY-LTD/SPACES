@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { BottomSheet } from '@/component/ui/BottomSheet';
 import { Text } from '@/component/ui/Text';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -10,6 +10,7 @@ import { StopLocationMap } from './StopLocationMap';
 import { stopVisitDuration } from './stop-visit-time';
 import { stopCoordinate } from './run-map-data';
 import type { DriverDashboard, DriverShipment } from '@/src/lib/api';
+import { shipmentsAtStop, stopShipmentStatus } from './stop-shipments';
 
 function eventTime(value: string | null) {
   const date = value ? new Date(value) : null;
@@ -17,9 +18,10 @@ function eventTime(value: string | null) {
   return `${date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })} · ${date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
 }
 
-/** Read-only details for recorded visits, events and planned timeline endpoints. */
-export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = [] }: { stop: RunStop | null; onDismiss: () => void; shipments?: DriverShipment[]; endpoints?: DriverDashboard['trip_endpoints'] }) {
+/** Location details and shipment actions for recorded visits and planned endpoints. */
+export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = [], onOpenShipment }: { stop: RunStop | null; onDismiss: () => void; shipments?: DriverShipment[]; endpoints?: DriverDashboard['trip_endpoints']; onOpenShipment: (shipmentId: string) => void }) {
   const modalRef = useRef<BottomSheetModal>(null);
+  const pendingShipment = useRef<string | null>(null);
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
   const ink = dark ? '#fafafa' : '#18181b';
@@ -30,6 +32,7 @@ export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = 
     else modalRef.current?.dismiss();
   }, [stop]);
   const coordinate = stopCoordinate(stop, shipments, endpoints);
+  const related = shipmentsAtStop(stop, shipments);
   const hasResolvedCoordinate = !!coordinate;
   useEffect(() => {
     if (__DEV__ && stop) console.info('[StopDetailsSheet] coordinate payload', {
@@ -38,7 +41,14 @@ export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = 
       linkedShipments: stop.shipments?.length ?? 0,
     });
   }, [stop, hasResolvedCoordinate]);
-  return <BottomSheet modalRef={modalRef} title={stop?.kind || 'Stop'} accessibilityLabel="Location details" showHandle={false} scrollable onDismiss={onDismiss}>
+  function dismiss() {
+    const shipmentId = pendingShipment.current;
+    pendingShipment.current = null;
+    onDismiss();
+    // Navigate after the modal's native overlay has detached.
+    if (shipmentId) onOpenShipment(shipmentId);
+  }
+  return <BottomSheet modalRef={modalRef} title={stop?.kind || 'Stop'} accessibilityLabel="Location details" showHandle={false} scrollable onDismiss={dismiss}>
     {stop && <>
       <View style={styles.identity}>
         <Text accessibilityRole="header" style={[styles.name, { color: ink }]}>{stop.name || 'Location not provided'}</Text>
@@ -82,6 +92,30 @@ export function StopDetailsSheet({ stop, onDismiss, shipments = [], endpoints = 
           <Text style={[styles.label, { color: muted }]}>{stop.speed_limit_kph != null ? `Speed limit · ${stop.speed_limit_kph} km/h` : 'Speed limit not recorded'}</Text>
         </View>
       </View>}
+      {stop.kind !== 'Speeding' && <View style={styles.shipmentSections}>
+        {([
+          { title: 'Deliveries', icon: 'package', items: related.deliveries },
+          { title: 'Collections', icon: 'truck', items: related.collections },
+        ] as const).filter(section => section.items.length > 0).map(section => <View key={section.title} style={styles.shipmentSections}>
+          <Text accessibilityRole="header" style={[styles.visitTitle, { color: ink }]}>{section.title} · {section.items.length}</Text>
+          {section.items.map(shipment => {
+            const reference = shipment.merchant_order_ref || shipment.shipment_id;
+            return <Pressable key={shipment.shipment_id} accessibilityRole="button" accessibilityLabel={`Open shipment ${reference}`} accessibilityHint="Opens the shipment details."
+              onPress={() => { pendingShipment.current = shipment.shipment_id; modalRef.current?.dismiss(); }}
+              style={[styles.shipmentCard, { backgroundColor: surface }]}>
+              <View style={styles.shipmentIdentity}>
+                <Feather name={section.icon} size={18} color={muted} />
+                <View style={styles.visitText}>
+                  <Text style={[styles.value, { color: ink, fontWeight: '600' }]}>{reference}</Text>
+                  <Text style={[styles.label, { color: muted }]}>{stopShipmentStatus(shipment)}</Text>
+                </View>
+                <Feather name="chevron-right" size={18} color={muted} />
+              </View>
+            </Pressable>;
+          })}
+        </View>)}
+        {!related.deliveries.length && !related.collections.length && <Text style={[styles.caption, { color: muted }]}>No shipments linked to this location in this run.</Text>}
+      </View>}
     </>}
   </BottomSheet>;
 }
@@ -104,4 +138,7 @@ const styles = StyleSheet.create({
   metadataText: { flex: 1, gap: 5 },
   label: { fontSize: 12, lineHeight: 18 },
   value: { fontSize: 14, lineHeight: 21, fontWeight: '500' },
+  shipmentSections: { gap: 10 },
+  shipmentCard: { borderRadius: 14, padding: 12, minHeight: 64 },
+  shipmentIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 });

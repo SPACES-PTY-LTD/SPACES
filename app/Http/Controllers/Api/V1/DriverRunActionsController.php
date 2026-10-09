@@ -7,6 +7,7 @@ use App\Http\Resources\AdditionalCostResource;
 use App\Models\Location;
 use App\Models\Run;
 use App\Models\RunCost;
+use App\Models\RunShipment;
 use App\Services\ActivityLogService;
 use App\Support\ApiResponse;
 use App\Support\CostMoney;
@@ -91,6 +92,69 @@ class DriverRunActionsController extends Controller
             $this->audit($request, $run, 'run_endpoints_updated', ['before' => $before, 'after' => $after]);
 
             return ApiResponse::success(['run_id' => $run->uuid] + $after);
+        });
+    }
+
+    /** Remaining shipments use the same terminal-status rules as the planned timeline. */
+    private function deliveryAssignments(Run $run)
+    {
+        return $run->runShipments()->where('status', '!=', RunShipment::STATUS_REMOVED)
+            ->whereHas('shipment', fn ($q) => $q->where('account_id', $run->account_id)->where('merchant_id', $run->merchant_id))
+            ->with(['shipment' => fn ($q) => $q->lockForUpdate(),
+                'shipment.dropoffLocation' => fn ($q) => $q->where('account_id', $run->account_id)->where('merchant_id', $run->merchant_id)])
+            ->orderBy('sequence')->orderBy('id')->lockForUpdate()->get();
+    }
+
+    private function remaining($assignments)
+    {
+        return $assignments->filter(fn ($link) => ! in_array($link->shipment->status, ['delivered', 'failed', 'cancelled', 'returned'], true))->values();
+    }
+
+    public function deliveryOrder(Request $request, string $run_uuid)
+    {
+        return DB::transaction(function () use ($request, $run_uuid) {
+            $run = $this->owned($request, $run_uuid);
+            $this->active($run);
+            $remaining = $this->remaining($this->deliveryAssignments($run));
+
+            return ApiResponse::success(['shipments' => $remaining->map(fn ($link) => [
+                'shipment_id' => $link->shipment->uuid,
+                'reference' => $link->shipment->merchant_order_ref ?: $link->shipment->delivery_note_number ?: 'Shipment',
+                'destination' => $link->shipment->dropoffLocation?->name,
+                'address' => $link->shipment->dropoffLocation?->full_address,
+            ])->values()]);
+        });
+    }
+
+    public function updateDeliveryOrder(Request $request, string $run_uuid)
+    {
+        $data = $request->validate([
+            'shipment_ids' => ['present', 'array', 'max:1000'], 'shipment_ids.*' => ['required', 'uuid', 'distinct'],
+            'expected_shipment_ids' => ['present', 'array', 'max:1000'], 'expected_shipment_ids.*' => ['required', 'uuid', 'distinct'],
+        ]);
+
+        return DB::transaction(function () use ($request, $run_uuid, $data) {
+            $run = $this->owned($request, $run_uuid);
+            $this->active($run);
+            $assignments = $this->deliveryAssignments($run);
+            $remaining = $this->remaining($assignments);
+            $before = $remaining->pluck('shipment.uuid')->all();
+            $after = array_values($data['shipment_ids']);
+            $expected = array_values($data['expected_shipment_ids']);
+            abort_unless(collect($after)->sort()->values()->all() === collect($before)->sort()->values()->all(), 409, 'The remaining shipments changed. Reload the delivery order and try again.');
+            // A repeated successful save is safe; a different stale draft must be reviewed.
+            if ($before === $after) return ApiResponse::success(['shipment_ids' => $after]);
+            abort_unless($before === $expected, 409, 'The delivery order changed. Reload and review it before saving.');
+            $byUuid = $remaining->keyBy('shipment.uuid');
+            $index = 0;
+            // Preserve completed/terminal entries in their slots and leave all delivery evidence intact.
+            foreach ($assignments as $slot => $link) {
+                $target = $byUuid->has($link->shipment->uuid) ? $byUuid[$after[$index++]] : $link;
+                $target->update(['sequence' => $slot + 1]);
+            }
+            $this->audit($request, $run, 'run_delivery_order_updated', ['before' => $before, 'after' => $after]);
+
+            return ApiResponse::success(['shipment_ids' => $after]);
         });
     }
 

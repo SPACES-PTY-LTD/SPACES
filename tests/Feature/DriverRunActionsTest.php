@@ -44,6 +44,41 @@ class DriverRunActionsTest extends TestCase
         return Location::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'name' => 'Depot', 'address_line_1' => '1 Test Street', 'city' => 'Johannesburg', 'province' => 'Gauteng', 'post_code' => '2000', 'latitude' => -26, 'longitude' => 28]);
     }
 
+    public function test_delivery_order_persists_scoped_remaining_shipments_and_rejects_stale_changes(): void
+    {
+        [$driver, , $merchant, $run] = $this->context();
+        $links = collect(['booked', 'delivered', 'in_transit'])->map(function ($status, $index) use ($merchant, $run) {
+            $shipment = Shipment::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'status' => $status, 'merchant_order_ref' => 'ORDER-'.$index]);
+            return RunShipment::create(['run_id' => $run->id, 'shipment_id' => $shipment->id, 'sequence' => $index + 1, 'status' => $status === 'delivered' ? 'done' : 'active']);
+        });
+        $headers = $this->auth($driver);
+        $url = "/api/v1/driver/runs/{$run->uuid}/delivery-order";
+        $before = [$links[0]->shipment->uuid, $links[2]->shipment->uuid];
+        $after = array_reverse($before);
+        $this->getJson($url, $headers)->assertOk()->assertJsonCount(2, 'data.shipments')->assertJsonPath('data.shipments.0.shipment_id', $before[0]);
+        $data = ['shipment_ids' => $after, 'expected_shipment_ids' => $before];
+        $this->patchJson($url, $data, $headers)->assertOk()->assertJsonPath('data.shipment_ids', $after);
+        $this->patchJson($url, $data, $headers)->assertOk();
+        $this->assertSame(3, $links[0]->fresh()->sequence);
+        $this->assertSame(2, $links[1]->fresh()->sequence);
+        $this->assertSame('delivered', $links[1]->shipment->fresh()->status);
+        $this->assertSame('done', $links[1]->fresh()->status);
+        $this->assertSame(1, $links[2]->fresh()->sequence);
+        $this->getJson('/api/v1/driver/dashboard', $headers)->assertOk()->assertJsonPath('data.run_shipments.0.shipment_id', $after[0]);
+        $this->assertSame(1, ActivityLog::where('action', 'run_delivery_order_updated')->count());
+        $this->patchJson($url, ['shipment_ids' => $before, 'expected_shipment_ids' => $before], $headers)->assertConflict();
+        $this->patchJson($url, ['shipment_ids' => [$after[0], $after[0]], 'expected_shipment_ids' => $after], $headers)->assertUnprocessable();
+        $this->patchJson($url, ['shipment_ids' => [$after[0]], 'expected_shipment_ids' => $after], $headers)->assertConflict();
+        $links[0]->shipment->update(['status' => 'delivered']);
+        $this->patchJson($url, ['shipment_ids' => $before, 'expected_shipment_ids' => $after], $headers)->assertConflict();
+        [$otherDriver] = $this->context();
+        $this->getJson($url, $this->auth($otherDriver))->assertNotFound();
+        $this->patchJson($url, $data, $this->auth($otherDriver))->assertNotFound();
+        $run->update(['status' => 'completed']);
+        $this->getJson($url, $headers)->assertConflict();
+        $this->patchJson($url, $data, $headers)->assertConflict();
+    }
+
     public function test_requests_preserve_active_run_and_dispatch_approves_empty_run_idempotently(): void
     {
         [$driver, $owner, , $run] = $this->context();

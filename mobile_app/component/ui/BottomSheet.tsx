@@ -20,6 +20,9 @@ export type BottomSheetProps = PropsWithChildren<{
   scrollable?: boolean;
   /** Use native scrolling for location pickers without sheet pan gestures. */
   plainScroll?: boolean;
+  /** Disable sheet content dragging when children own a reorder gesture. */
+  contentPanning?: boolean;
+  showsVerticalScrollIndicator?: boolean;
   onScroll?: ScrollViewProps['onScroll'];
   dismissible?: boolean;
   showCloseButton?: boolean;
@@ -44,7 +47,7 @@ function ModalContainer({ children }: PropsWithChildren) {
 
 /** Shared floating sheet appearance, safe-area spacing, keyboard and dismissal behavior. */
 export function BottomSheet({ modalRef, title, children, footer, onDismiss, accessibilityLabel,
-  onBack, onScroll, plainScroll = false, scrollable = false, dismissible = true, showCloseButton = true, showHandle = true,
+  onBack, onScroll, showsVerticalScrollIndicator = true, plainScroll = false, contentPanning = true, scrollable = false, dismissible = true, showCloseButton = true, showHandle = true,
   maxDynamicContentSize, headerBottomSpacing = 16, keyboardBehavior = 'interactive', stackBehavior = 'switch' }: BottomSheetProps) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
@@ -86,7 +89,7 @@ export function BottomSheet({ modalRef, title, children, footer, onDismiss, acce
     footerComponent={footer ? renderFooter : undefined}
     ref={modalRef} stackBehavior={stackBehavior} accessible={false} containerComponent={ModalContainer} index={0} enableDynamicSizing={!plainScroll}
     snapPoints={plainScroll ? [maximumHeight] : undefined}
-    enableContentPanningGesture={!plainScroll}
+    enableContentPanningGesture={!plainScroll && contentPanning}
     maxDynamicContentSize={maximumHeight} topInset={keyboardBehavior === 'fillParent' ? insets.top + 12 : 0} detached bottomInset={bottomInset}
     style={styles.sheet} backgroundStyle={{ backgroundColor: background, borderRadius: sheetTheme.radius }}
     handleComponent={showHandle ? undefined : null} handleIndicatorStyle={{ backgroundColor: dark ? '#71717a' : sheetTheme.handleColor, width: sheetTheme.handleWidth, height: sheetTheme.handleHeight }}
@@ -96,8 +99,8 @@ export function BottomSheet({ modalRef, title, children, footer, onDismiss, acce
     onDismiss={() => { setVisible(false); setDismissalCount(count => count + 1); }}
     backdropComponent={SheetBackdrop}>
     {plainScroll ? <KeyboardAvoidingView style={styles.plainContent} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</ScrollView>
-    </KeyboardAvoidingView> : scrollable ? <BottomSheetScrollView enableFooterMarginAdjustment={!!footer} onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</BottomSheetScrollView>
+      <ScrollView showsVerticalScrollIndicator={showsVerticalScrollIndicator} onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</ScrollView>
+    </KeyboardAvoidingView> : scrollable ? <BottomSheetScrollView showsVerticalScrollIndicator={showsVerticalScrollIndicator} enableFooterMarginAdjustment={!!footer} onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</BottomSheetScrollView>
       : <BottomSheetView style={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</BottomSheetView>}
 
   </BottomSheetModal></SheetDismissibleContext.Provider>;

@@ -60,7 +60,7 @@ class DriverRunDataService
             $stop = $events->first();
             if ($stop->event_type === 'speeding') {
                 return [
-                    'stop_id' => $stop->uuid, 'kind' => 'Speeding',
+                    'stop_id' => $stop->uuid, 'kind' => 'Speeding', 'location_id' => null,
                     'name' => $stop->location?->name ?: 'Speeding event',
                     'address' => $stop->location?->full_address,
                     ...$this->coordinate($stop),
@@ -90,6 +90,7 @@ class DriverRunDataService
             return [
                 'stop_id' => $stop->uuid,
                 'kind' => $kind,
+                'location_id' => $location?->uuid,
                 'name' => $location?->name ?: 'Truck stop',
                 'address' => $location?->full_address,
                 ...$this->coordinate($location ?? $stop),
@@ -108,6 +109,7 @@ class DriverRunDataService
                 return [
                     'stop_id' => 'planned:'.($first->dropoffLocation?->uuid ?? $first->uuid),
                     'kind' => 'Delivery', 'planned' => true,
+                    'location_id' => $first->dropoffLocation?->uuid,
                     'name' => $first->dropoffLocation?->name ?: 'Delivery location not provided',
                     'address' => $first->dropoffLocation?->full_address,
                     ...$this->coordinate($first->dropoffLocation),
@@ -121,7 +123,7 @@ class DriverRunDataService
             && $run->destinationLocation->merchant_id === $driver->merchant_id) {
             $end = $run->destinationLocation;
             $plannedDeliveryStops->push(['stop_id' => 'planned-end:'.$end->uuid, 'kind' => 'Planned end', 'planned' => true,
-                'name' => $end->name, 'address' => $end->full_address, ...$this->coordinate($end), 'occurred_at' => null, 'exited_at' => null, 'shipments' => collect()]);
+                'location_id' => $end->uuid, 'name' => $end->name, 'address' => $end->full_address, ...$this->coordinate($end), 'occurred_at' => null, 'exited_at' => null, 'shipments' => collect()]);
         }
 
         return ['recorded_stops' => $recordedStops, 'planned_delivery_stops' => $plannedDeliveryStops];

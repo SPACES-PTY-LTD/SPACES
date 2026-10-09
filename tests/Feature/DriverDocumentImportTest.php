@@ -350,6 +350,36 @@ class DriverDocumentImportTest extends TestCase
         $this->assertDatabaseHas('tracking_events', ['shipment_id' => $shipment->id, 'event_code' => 'booked']);
     }
 
+    public function test_preview_and_confirmation_reject_unsupported_status_with_readable_message(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $draft = $this->selectedDraft($merchant);
+        $draft['line_items'][0]['status'] = 'pending';
+        $url = "/api/v1/driver/document-imports/{$import->uuid}";
+        foreach (['preview', 'confirm'] as $action) {
+            $this->apiAs($user)->postJson("$url/$action", $draft)->assertStatus(422)
+                ->assertJsonPath('error.message', 'Choose Booked, Delivered, In transit or Failed Delivery for shipment 1.');
+        }
+        $this->assertDatabaseCount('shipments', 0);
+        $this->assertSame('analyzed', $import->fresh()->status);
+    }
+
+    public function test_excluded_invalid_status_does_not_block_preview_or_confirmation(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $draft = $this->selectedDraft($merchant);
+        $draft['line_items'][0]['status'] = 'pending';
+        $draft['line_items'][0]['excluded'] = true;
+        $url = "/api/v1/driver/document-imports/{$import->uuid}";
+        $draft['review_token'] = $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()
+            ->assertJsonPath('data.rows.0.eligibility', 'excluded')->json('data.review_token');
+        $this->apiAs($user)->postJson("$url/confirm", $draft)->assertOk();
+        $this->assertDatabaseCount('shipments', 2);
+        $this->assertDatabaseMissing('shipments', ['merchant_order_ref' => 'TODAY']);
+    }
+
     public function test_failed_reason_and_no_empty_run_are_enforced(): void
     {
         [$user, $merchant] = $this->createDriverContext();

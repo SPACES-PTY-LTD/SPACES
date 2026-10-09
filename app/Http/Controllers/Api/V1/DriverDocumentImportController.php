@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -131,6 +132,14 @@ class DriverDocumentImportController extends Controller
     public function preview(Request $request, string $id, DriverImportReviewService $review)
     {
         $this->owned($request, $id);
+        // Validate status separately so nested validation does not strip the other draft fields.
+        $statusValidation = Validator::make($request->all(), [
+            'line_items' => ['required', 'array', 'max:100'],
+            'line_items.*.status' => ['exclude_if:line_items.*.excluded,true', ...ConfirmDriverDocumentImportRequest::STATUS_RULES],
+        ], ['line_items.*.status.in' => ConfirmDriverDocumentImportRequest::STATUS_MESSAGE]);
+        if ($statusValidation->fails()) {
+            return ApiResponse::error('VALIDATION', $statusValidation->errors()->first(), $statusValidation->errors()->toArray(), 422);
+        }
         $data = $request->validate(['run_id' => ['nullable', 'uuid'], 'create_new_run' => ['sometimes', 'boolean'], 'origin_location_id' => ['nullable', 'uuid'], 'destination_location_id' => ['nullable', 'uuid'], 'line_items' => ['required', 'array', 'max:100'], 'pickup_address' => ['nullable', 'array'], 'dropoff_address' => ['nullable', 'array']]);
         $driver = $this->driver($request);
         $run = empty($data['run_id']) || !empty($data['create_new_run']) ? null : $this->runs($driver)->where('uuid', $data['run_id'])->firstOrFail();

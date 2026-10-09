@@ -7,7 +7,7 @@ import { Text } from '@/component/ui/Text';
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { BottomSheet, type BottomSheetProps } from '@/component/ui/BottomSheet';
 
-export function ImportSheetPage({ title, children, backDisabled = false, destination, plainScroll = false, onScroll, onBack, keyboardBehavior, footer }: PropsWithChildren<{ title: string; footer?: ReactNode; backDisabled?: boolean; destination?: Href; plainScroll?: boolean; onScroll?: ScrollViewProps['onScroll']; onBack?: () => void; keyboardBehavior?: BottomSheetProps['keyboardBehavior'] }>) {
+export function ImportSheetPage({ title, children, backDisabled = false, destination, plainScroll = false, showsVerticalScrollIndicator, onScroll, onBack, keyboardBehavior, footer }: PropsWithChildren<{ title: string; footer?: ReactNode; backDisabled?: boolean; destination?: Href; plainScroll?: boolean; showsVerticalScrollIndicator?: boolean; onScroll?: ScrollViewProps['onScroll']; onBack?: () => void; keyboardBehavior?: BottomSheetProps['keyboardBehavior'] }>) {
   const modalRef = useRef<BottomSheetModal>(null);
   const router = useRouter();
   useEffect(() => {
@@ -15,7 +15,7 @@ export function ImportSheetPage({ title, children, backDisabled = false, destina
     return () => cancelAnimationFrame(frame);
   }, []);
   useEffect(() => { if (destination) modalRef.current?.dismiss(); }, [destination]);
-  return <BottomSheet modalRef={modalRef} footer={footer} keyboardBehavior={keyboardBehavior} title={title} onBack={onBack} showCloseButton={!onBack} showHandle={!onBack} plainScroll={plainScroll} onScroll={onScroll} scrollable dismissible={!backDisabled} onDismiss={() => {
+  return <BottomSheet modalRef={modalRef} footer={footer} keyboardBehavior={keyboardBehavior} title={title} onBack={onBack} showCloseButton={!onBack} showHandle={!onBack} showsVerticalScrollIndicator={showsVerticalScrollIndicator} plainScroll={plainScroll} onScroll={onScroll} scrollable dismissible={!backDisabled} onDismiss={() => {
     if (destination) router.replace(destination);
     else if (router.canGoBack()) router.back(); else router.replace('/(tabs)');
   }}>{children}</BottomSheet>;

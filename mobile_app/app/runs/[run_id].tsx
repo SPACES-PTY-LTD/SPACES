@@ -258,7 +258,8 @@ function RunDetail({ token, runId }: { token: string; runId: string }) {
                 )}
             </ScrollView>
             <MessageSheet ref={sheet} />
-            <StopDetailsSheet shipments={run?.shipments} stop={selectedStop} onDismiss={() => setSelectedStop(null)} />
+            <StopDetailsSheet shipments={run?.shipments} stop={selectedStop} onDismiss={() => setSelectedStop(null)}
+                onOpenShipment={openShipment} />
         </View>
     );
 }

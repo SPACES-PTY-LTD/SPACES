@@ -4,6 +4,14 @@ namespace App\Http\Requests;
 
 class ConfirmDriverDocumentImportRequest extends ConfirmDeliveryNoteImportRequest
 {
+    public const STATUS_RULES = ['nullable', 'in:booked,delivered,in_transit,failed'];
+    public const STATUS_MESSAGE = 'Choose Booked, Delivered, In transit or Failed Delivery for shipment :position.';
+
+    public function messages(): array
+    {
+        return ['line_items.*.status.in' => self::STATUS_MESSAGE];
+    }
+
     public function rules(): array
     {
         $rules = array_replace(parent::rules(), [
@@ -13,7 +21,7 @@ class ConfirmDriverDocumentImportRequest extends ConfirmDeliveryNoteImportReques
             'origin_location_id' => ['required_with:create_new_run', 'nullable', 'uuid'],
             'destination_location_id' => ['required_with:create_new_run', 'nullable', 'uuid'],
             'review_token' => ['required_with:create_new_run', 'nullable', 'string'],
-            'line_items.*.status' => ['nullable', 'in:booked,delivered,in_transit,failed'],
+            'line_items.*.status' => self::STATUS_RULES,
             'line_items.*.failure_reason' => ['required_if:line_items.*.status,failed', 'nullable', 'string', 'max:2000'],
             'line_items.*.odometer_at_collection' => ['nullable', 'integer', 'min:0'],
             'line_items.*.odometer_at_delivery' => ['nullable', 'integer', 'min:0'],

@@ -272,8 +272,8 @@ export type DriverDashboard = {
   trip_endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
   current_run: { run_id: string; status: string; has_delivery_note?: boolean; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
   run_shipments: DriverShipment[];
-  recorded_stops?: { latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
-  planned_delivery_stops?: { latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
+  recorded_stops?: { location_id?: string | null; latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
+  planned_delivery_stops?: { location_id?: string | null; latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
   delivery_note_required_run_id: string | null;
   documents: {
     missing_required_count: number;
@@ -569,7 +569,10 @@ export const authApi = {
 };
 
 export type RunEndRequest = { request_id: string; status: 'pending' | 'approved' | 'rejected' | 'resolved'; reason: string; requested_at: string; requested_by?: string; review_reason?: string | null };
+export type RunDeliveryShipment = { shipment_id: string; reference: string; destination: string | null; address: string | null };
 export const driverRunActionsApi = {
+  deliveryOrder: (token: string, runId: string) => request<{ shipments: RunDeliveryShipment[] }>(`/driver/runs/${runId}/delivery-order`, { token }),
+  updateDeliveryOrder: (token: string, runId: string, body: { shipment_ids: string[]; expected_shipment_ids: string[] }) => request(`/driver/runs/${runId}/delivery-order`, { token, method: 'PATCH', body }),
   requestEnd: (token: string, runId: string, reason: string) => request<RunEndRequest>(`/driver/runs/${runId}/end-requests`, { token, method: 'POST', body: { reason } }),
   endpoints: (token: string, runId: string, body: { origin_location_id: string; destination_location_id: string; expected_origin_location_id: string | null; expected_destination_location_id: string | null }) => request(`/driver/runs/${runId}/endpoints`, { token, method: 'PATCH', body }),
   cost: (token: string, runId: string, body: { title: string; amount: string; client_request_id: string }) => request(`/driver/runs/${runId}/additional-costs`, { token, method: 'POST', body }),

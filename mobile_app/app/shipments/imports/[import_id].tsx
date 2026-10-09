@@ -341,6 +341,7 @@ export default function ReviewImport() {
                 backDisabled={busy || creating}
                 keyboardBehavior={editing !== null ? "fillParent" : undefined}
                 onBack={choosingDate ? () => setChoosingDate(false) : locationKind ? () => { setLocationKind(null); setLocationItemIndex(null); } : editing !== null ? () => { Keyboard.dismiss(); setEditing(null); setEditValue(undefined); setError(""); } : !result && stage > 1 ? () => returnToStep((stage - 1) as ImportStep) : undefined}
+                showsVerticalScrollIndicator={stage === 4 ? false : undefined}
                 plainScroll={!!locationKind}
                 onScroll={event => locationPicker.current?.onScroll(event)}
             >

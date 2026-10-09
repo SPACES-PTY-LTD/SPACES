@@ -1,5 +1,6 @@
 import { StopDetailsSheet } from '@/src/components/dashboard/StopDetailsSheet';
 import { RunTimeline, type RunStop } from '@/src/components/dashboard/RunTimeline';
+import { DeliveryOrderSheet } from '@/src/components/dashboard/DeliveryOrderSheet';
 import { RunActionForm, type RunAction } from '@/src/components/dashboard/RunActionForm';
 import { MessageSheet, type MessageSheetRef } from '@/component/ui/MessageSheet';
 import { FinalDestinationSheet } from '@/src/components/dashboard/FinalDestinationSheet';
@@ -28,7 +29,7 @@ export default function HomeScreen() {
   const [selectedStop, setSelectedStop] = useState<RunStop | null>(null);
   const messageSheet = useRef<MessageSheetRef>(null);
   const runActionsSheet = useRef<ActionSheetRef>(null);
-  const [runAction, setRunAction] = useState<RunAction | null>(null);
+  const [runAction, setRunAction] = useState<RunAction | 'order' | null>(null);
   const runFilterSheet = useRef<ActionSheetRef>(null);
   const [choosingDestination, setChoosingDestination] = useState(false);
   const [runFilter, setRunFilter] = useState<'all' | 'shipments' | 'speeding'>('all');
@@ -101,6 +102,7 @@ export default function HomeScreen() {
   const openRunActions = () => runActionsSheet.current?.present({ title: '', actions: [
     { id: 'end', label: 'End Run', variant: 'destructive', disabled: dashboard?.current_run?.end_request?.status === 'pending', onPress: () => setRunAction('end') },
     { id: 'edit', label: 'Edit Run', onPress: () => setRunAction('edit') },
+    { id: 'order', label: 'Update delivery order', onPress: () => setRunAction('order') },
     { id: 'cost', label: 'Add additional cost', onPress: () => setRunAction('cost') },
     ...(canUploadRunNote ? [{
       id: 'upload-delivery-note', label: 'Upload delivery note',
@@ -228,10 +230,12 @@ export default function HomeScreen() {
       </PersistentBottomSheet>
       </View>
       <MessageSheet ref={messageSheet} />
-      <StopDetailsSheet shipments={shipments} endpoints={dashboard?.trip_endpoints} stop={selectedStop} onDismiss={() => setSelectedStop(null)} />
+      <StopDetailsSheet shipments={shipments} endpoints={dashboard?.trip_endpoints} stop={selectedStop} onDismiss={() => setSelectedStop(null)}
+        onOpenShipment={id => router.push({ pathname: '/shipments/[shipment_id]', params: { shipment_id: id } })} />
       <ActionSheet ref={runFilterSheet} />
       <ActionSheet ref={runActionsSheet} />
-      {runAction && session && dashboard?.current_run?.status === 'in_progress' && <RunActionForm key={`${session.user.user_id}:${dashboard.current_run.run_id}:${runAction}`} action={runAction} token={session.token} run={dashboard.current_run} onDismiss={() => setRunAction(null)} onSaved={() => void load()} />}
+      {runAction === 'order' && session && dashboard?.current_run?.status === 'in_progress' && <DeliveryOrderSheet key={`${session.user.user_id}:${dashboard.current_run.run_id}`} token={session.token} runId={dashboard.current_run.run_id} onDismiss={() => setRunAction(null)} onSaved={() => void load()} />}
+      {runAction && runAction !== 'order' && session && dashboard?.current_run?.status === 'in_progress' && <RunActionForm key={`${session.user.user_id}:${dashboard.current_run.run_id}:${runAction}`} action={runAction} token={session.token} run={dashboard.current_run} onDismiss={() => setRunAction(null)} onSaved={() => void load()} />}
       {choosingDestination && session && dashboard?.current_run && <FinalDestinationSheet key={`${session.user.user_id}:${dashboard.current_run.run_id}`} token={session.token} runId={dashboard.current_run.run_id} onDismiss={() => setChoosingDestination(false)} onSaved={() => void load()} />}
     </GestureHandlerRootView>
   );

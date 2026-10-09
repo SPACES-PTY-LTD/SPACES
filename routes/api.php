@@ -373,6 +373,8 @@ Route::prefix('v1')->group(function () {
             Route::get('runs', [\App\Http\Controllers\Api\V1\DriverRunController::class, 'index']);
             Route::get('runs/{run_uuid}', [\App\Http\Controllers\Api\V1\DriverRunController::class, 'show']);
             Route::post('runs/{run_uuid}/end-requests', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'requestEnd']);
+            Route::get('runs/{run_uuid}/delivery-order', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'deliveryOrder']);
+            Route::patch('runs/{run_uuid}/delivery-order', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'updateDeliveryOrder']);
             Route::patch('runs/{run_uuid}/endpoints', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'endpoints']);
             Route::post('runs/{run_uuid}/additional-costs', [\App\Http\Controllers\Api\V1\DriverRunActionsController::class, 'cost']);
             Route::get('position', [\App\Http\Controllers\Api\V1\DriverRunPositionController::class, 'current'])->middleware('throttle:30,1');

@@ -48,6 +48,10 @@ class DriverShipmentApiTest extends TestCase
             ->assertJsonPath('data.recorded_stops.0.name', 'Truck stop')
             ->assertJsonPath('data.recorded_stops.0.latitude', null)
             ->assertJsonPath('data.recorded_stops.0.longitude', null)
+            ->assertJsonPath('data.recorded_stops.0.location_id', null)
+            ->assertJsonPath('data.recorded_stops.2.location_id', $shipment->pickupLocation->uuid)
+            ->assertJsonPath('data.recorded_stops.3.location_id', null)
+            ->assertJsonPath('data.planned_delivery_stops.0.location_id', $shipment->dropoffLocation->uuid)
             ->assertJsonPath('data.recorded_stops.2.latitude', -26.15)
             ->assertJsonPath('data.recorded_stops.2.longitude', 28.04)
             ->assertJsonPath('data.recorded_stops.3.latitude', -26.2)
@@ -73,6 +77,7 @@ class DriverShipmentApiTest extends TestCase
         $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))->assertOk()
             ->assertJsonPath('data.recorded_stops.2.latitude', null)
             ->assertJsonPath('data.recorded_stops.2.longitude', null)
+            ->assertJsonPath('data.recorded_stops.2.location_id', null)
             ->assertJsonCount(1, 'data.planned_delivery_stops');
         [$other] = $this->createDriverContext($merchant);
         $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($other))->assertOk()->assertJsonCount(0, 'data.recorded_stops');
