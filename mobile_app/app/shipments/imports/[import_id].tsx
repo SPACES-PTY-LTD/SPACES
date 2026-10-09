@@ -27,6 +27,7 @@ import { ImportStepIndicator } from "@/src/components/ImportStepIndicator";
 import { canReturnToImportStep, type ImportStep } from "@/src/components/import-steps";
 import { TripLocationStep } from "@/src/components/TripLocationStep";
 import { shipmentAddressDraft, collectionFromRunStart } from "@/src/lib/import-addresses";
+import { ImportRunChoice } from "@/src/components/ImportRunChoice";
 import { DeliveryNoteProgress } from "@/src/components/delivery-note-progress";
 
 const quantityUnits = ["Bags", "Boxes", "Crates", "Cubic metres", "Drums", "Kilograms", "Liters", "Pallets", "Rolls", "Tonnes", "Units"];
@@ -121,18 +122,25 @@ export default function ReviewImport() {
                 collection_date:
                     extracted.collection_date ||
                     extracted.line_items?.[0]?.collection_date ||
-                    null,
+                    available.today,
                 pickup_address: extracted.pickup_address || {},
                 dropoff_address: extracted.dropoff_address || {},
                 line_items: (extracted.line_items || []).map((row) => ({
                     ...row,
                     ...shipmentAddressDraft(row),
                     collection_date:
-                        row.collection_date || extracted.collection_date,
+                        row.collection_date || extracted.collection_date || available.today,
                 })),
             };
             const restored: ImportDraft = saved && !item.confirmation_result ? JSON.parse(saved) : initial;
-            setDraft(applyRunStart({ ...restored, line_items: restored.line_items.map(row => ({ ...row, type: "standard" })) }, available.locations));
+            setDraft(applyRunStart({
+                ...restored,
+                collection_date: restored.collection_date || available.today,
+                line_items: restored.line_items.map(row => ({
+                    ...row, type: "standard",
+                    collection_date: row.collection_date || restored.collection_date || available.today,
+                })),
+            }, available.locations));
             if (restored.trip_locations?.length) setContext({ ...available, locations: [...available.locations, ...restored.trip_locations.filter(l => !available.locations.some(existing => existing.location_id === l.location_id))] });
             setError("");
         } catch (e) {
@@ -218,7 +226,7 @@ export default function ReviewImport() {
         actions.current?.present({
             title: "Change delivery status",
             stackBehavior: "push",
-            actions: ["delivered", "in_transit", "failed"].map((value) => ({
+            actions: ["booked", "delivered", "in_transit", "failed"].map((value) => ({
                 id: value,
                 label: statusLabel(value),
                 onPress: () => {
@@ -319,15 +327,20 @@ export default function ReviewImport() {
                   ? "Confirm trip locations"
                   : stage === 4
                     ? "Confirm shipments found"
-                    : "Current run or new run?";
+                    : "Choose run";
     return (
         <>
             <ImportSheetPage
                 title={title}
+                footer={!result && !creating && stage === 5 && editing === null && !locationKind && !choosingDate && failureIndex === null ? <View style={{ gap: 8 }}>
+                    <ImportButton label="Confirm & upload" disabled={!choiceReady || busy || (draft?.create_new_run && !draft.vehicle_id) || !draft}
+                        onPress={() => void confirm()} />
+                    <Text style={s.note}>{draft?.create_new_run && !draft.vehicle_id ? "Choose an assigned vehicle to continue." : "Uses the starting point and planned end above."}</Text>
+                </View> : undefined}
                 destination={destination}
-                backDisabled={creating}
+                backDisabled={busy || creating}
                 keyboardBehavior={editing !== null ? "fillParent" : undefined}
-                onBack={choosingDate ? () => setChoosingDate(false) : locationKind ? () => { setLocationKind(null); setLocationItemIndex(null); } : editing !== null ? () => { Keyboard.dismiss(); setEditing(null); setEditValue(undefined); setError(""); } : undefined}
+                onBack={choosingDate ? () => setChoosingDate(false) : locationKind ? () => { setLocationKind(null); setLocationItemIndex(null); } : editing !== null ? () => { Keyboard.dismiss(); setEditing(null); setEditValue(undefined); setError(""); } : !result && stage > 1 ? () => returnToStep((stage - 1) as ImportStep) : undefined}
                 plainScroll={!!locationKind}
                 onScroll={event => locationPicker.current?.onScroll(event)}
             >
@@ -563,7 +576,9 @@ export default function ReviewImport() {
                                     {review?.rows.filter(
                                         (r) =>
                                             r.eligibility === "new" &&
-                                            (r.collection_comparison !==
+                                            (!draft.line_items[r.index]?.pickup_location_id ||
+                                                !draft.line_items[r.index]?.dropoff_location_id ||
+                                                r.collection_comparison !==
                                                 "match" ||
                                                 r.ambiguous_match ||
                                                 !!r.validation_warnings
@@ -712,9 +727,10 @@ export default function ReviewImport() {
                                                     style={{ minHeight: 44, gap: 2, opacity: busy ? 0.45 : 1 }}
                                                 >
                                                     <Text style={s.note}>{label}</Text>
-                                                    <Text style={[s.body, { fontWeight: "700", textDecorationLine: "underline" }, locationLabel(item[addressKey], item[kind]) === "Address missing" && { color: s.error.color }]}>
-                                                        {locationLabel(item[addressKey], item[kind])}
+                                                    <Text style={[s.body, { fontWeight: "700", textDecorationLine: "underline" }, !item[kind] && { color: s.error.color }]}>
+                                                        {item[kind] ? locationLabel(item[addressKey], item[kind]) : `Choose ${label === "Collection" ? "collection" : "delivery"} location`}
                                                     </Text>
+                                                    {!item[kind] && locationLabel(item[addressKey]) !== "Address missing" && <Text style={s.note}>From document: {locationLabel(item[addressKey])}</Text>}
                                                 </Pressable>
                                             ))}
                                             {eligible &&
@@ -765,9 +781,10 @@ export default function ReviewImport() {
                                                 !!state?.validation_warnings
                                                     ?.length && (
                                                     <Text style={s.error}>
-                                                        {state.validation_warnings.join(
-                                                            "\n",
-                                                        )}
+                                                        {state.validation_warnings.map(warning => warning
+                                                            .replace("Complete the delivery address.", "Choose a delivery location.")
+                                                            .replace("Complete the collection address.", "Choose a collection location.")
+                                                        ).join("\n")}
                                                     </Text>
                                                 )}
                                             {state?.matched_stop && (
@@ -794,7 +811,7 @@ export default function ReviewImport() {
                                                     {item.failure_reason}
                                                 </Text>
                                             )}
-                                            {item.status && (
+                                            {item.status && item.status !== "booked" && (
                                                 <ImportField
                                                     label="Pickup odometer (km) · Required"
                                                     numeric
@@ -848,141 +865,27 @@ export default function ReviewImport() {
                                         busy ||
                                         !review?.rows.some(
                                             (r) => r.eligibility === "new",
-                                        )
+                                        ) || review.rows.some(r => r.eligibility === "new" &&
+                                            (!draft.line_items[r.index]?.pickup_location_id || !draft.line_items[r.index]?.dropoff_location_id))
                                     }
                                     onPress={() => {
                                         setStage(5);
-                                        setChoiceReady(false);
+                                        void selectRun(draft.create_new_run ? null : draft.run_id || null);
                                     }}
-                                />
-                                <ImportButton
-                                    secondary
-                                    label="Back to locations"
-                                    onPress={() => setStage(3)}
                                 />
                             </>
                         ) : (
                             <>
-                                <Text style={s.subtitle}>
-                                    Is this delivery note for your current run
-                                    or a new run?
-                                </Text>
-                                {context.runs.map((run) => (
-                                    <ImportButton
-                                        key={run.run_id}
-                                        secondary
-                                        label={`${run.label} · ${run.status.replaceAll("_", " ")}${draft.run_id === run.run_id && !draft.create_new_run ? " ✓" : ""}`}
-                                        disabled={busy}
-                                        onPress={() =>
-                                            void selectRun(run.run_id)
-                                        }
-                                    />
-                                ))}
-                                <ImportButton
-                                    secondary
-                                    label={`Create new run${draft.create_new_run ? " ✓" : ""}`}
-                                    disabled={busy}
-                                    onPress={() => void selectRun(null)}
+                                <ImportRunChoice
+                                    context={context} draft={draft} review={review} ready={choiceReady} busy={busy || creating}
+                                    start={fullAddress(origin)} end={fullAddress(end)} statusLabel={statusLabel}
+                                    onSelectRun={id => void selectRun(id)}
+                                    onChooseVehicle={() => actions.current?.present({ title: "Choose assigned vehicle", actions: context.vehicles.map(vehicle => ({
+                                        id: vehicle.vehicle_id, label: vehicle.label, selected: draft.vehicle_id === vehicle.vehicle_id,
+                                        onPress: () => setDraft(current => current ? { ...current, vehicle_id: vehicle.vehicle_id } : current),
+                                    })) })}
                                 />
-                                {draft.create_new_run && (
-                                    <>
-                                        <Text style={s.note}>
-                                            Ready to start · Choose your
-                                            assigned vehicle
-                                        </Text>
-                                        {context.vehicles.map((v) => (
-                                            <ImportButton
-                                                key={v.vehicle_id}
-                                                secondary
-                                                label={`${v.label}${draft.vehicle_id === v.vehicle_id ? " ✓" : ""}`}
-                                                onPress={() => {
-                                                    setDraft({
-                                                        ...draft,
-                                                        vehicle_id:
-                                                            v.vehicle_id,
-                                                    });
-                                                }}
-                                            />
-                                        ))}
-                                        {!context.vehicles.length && (
-                                            <Text style={s.error}>
-                                                Ask dispatch to assign a vehicle
-                                                before creating a run.
-                                            </Text>
-                                        )}
-                                    </>
-                                )}
-                                {choiceReady && !draft.create_new_run && (
-                                    <Text style={s.note}>
-                                        Confirming will use the starting point
-                                        and planned end shown below for this
-                                        run. Recorded stops are kept.
-                                    </Text>
-                                )}
-                                {choiceReady && (
-                                    <View style={s.card}>
-                                        <Text style={s.body}>
-                                            {
-                                                review?.rows.filter(
-                                                    (r) =>
-                                                        r.eligibility === "new",
-                                                ).length
-                                            }{" "}
-                                            new shipments ·{" "}
-                                            {
-                                                review?.rows.filter(
-                                                    (r) =>
-                                                        r.eligibility ===
-                                                            "new" &&
-                                                        r.status ===
-                                                            "delivered",
-                                                ).length
-                                            }{" "}
-                                            delivered
-                                        </Text>
-                                        <Text style={s.note}>
-                                            Run start: {fullAddress(origin)}
-                                            {"\n"}Planned end:{" "}
-                                            {fullAddress(end)}
-                                        </Text>
-                                        {review?.rows
-                                            .filter(
-                                                (r) => r.eligibility === "new",
-                                            )
-                                            .map((r) => (
-                                                <Text
-                                                    key={r.index}
-                                                    style={s.note}
-                                                >
-                                                    {r.reference} ·{" "}
-                                                    {statusLabel(r.status)}
-                                                    {r.matched_stop
-                                                        ? ` · ${r.matched_stop.name}`
-                                                        : ""}
-                                                </Text>
-                                            ))}
-                                        <Text style={s.note}>
-                                            {draft.create_new_run
-                                                ? "Previous-run matches have been removed. Your manual status changes are kept."
-                                                : "Matched visits on this run will be linked. Review any status changes before confirming."}
-                                        </Text>
-                                    </View>
-                                )}
-                                <ImportButton
-                                    label="Confirm & upload"
-                                    disabled={
-                                        !choiceReady ||
-                                        busy ||
-                                        (draft.create_new_run &&
-                                            !draft.vehicle_id)
-                                    }
-                                    onPress={() => void confirm()}
-                                />
-                                <ImportButton
-                                    secondary
-                                    label="Back to shipments"
-                                    onPress={() => setStage(4)}
-                                />
+
                             </>
                         )}
                     </>

@@ -208,7 +208,7 @@ class DriverShipmentController extends Controller
                 );
             }
 
-            if (in_array($newStatus, ['delivered', 'in_transit', 'failed'], true)) {
+            if (in_array($newStatus, ['booked', 'delivered', 'in_transit', 'failed'], true)) {
                 $shipment->update(['status' => $newStatus, 'metadata' => array_merge($shipment->metadata ?? [], ['status_source' => 'driver'])]);
             }
 

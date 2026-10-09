@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
+import * as WebBrowser from 'expo-web-browser';
 import { DeliveryNoteFilePreview } from "@/src/components/DeliveryNoteFilePreview";
 import { unfinishedDocumentImport } from '@/src/lib/unfinished-document-import';
 import { pollDocumentImport } from '@/src/lib/document-import-poll';
@@ -67,6 +68,18 @@ export default function LoadShipment() {
     function openReview(id: string) {
         reviewDestination.current = id;
         modalRef.current?.dismiss();
+    }
+    async function previewPdf(url: string) {
+        const handoff = handoffRef.current;
+        if (!handoff?.active || handoff.running) return;
+        try {
+            // Wait for the sheet portal and iOS FullWindowOverlay to detach.
+            await handoff.run(async () => {
+                await WebBrowser.openBrowserAsync(url, { showTitle: true });
+            });
+        } catch {
+            if (handoff.active) setError("Could not open the PDF. Please try again.");
+        }
     }
     function dismissUpload() {
         if (handoffRef.current?.onDismiss()) return;
@@ -387,7 +400,7 @@ export default function LoadShipment() {
                             <View style={s.card}>
                                 <Text style={s.heading}>Continue your last upload?</Text>
                                 <Text style={s.body}>We noticed that you didn’t finish processing your last upload. Would you like to continue with it?</Text>
-                                <DeliveryNoteFilePreview key={`${session?.user.user_id}:${unfinished.id}`} importId={unfinished.id} filename={unfinished.filename} token={session!.token} />
+                                <DeliveryNoteFilePreview key={`${session?.user.user_id}:${unfinished.id}`} importId={unfinished.id} filename={unfinished.filename} token={session!.token} openBrowser={previewPdf} />
                                 <ImportButton label="Yes, continue" onPress={continueUnfinished} />
                                 <ImportButton secondary label="No, let’s start a new upload" onPress={() => void startNewUpload()} />
                             </View>

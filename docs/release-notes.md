@@ -1,5 +1,133 @@
 # Release Notes
 
+## 2026-10-09 | Version: new-run-route-inside-radio-v1
+
+- **Summary:** Show new-run endpoints inside the selected Create new run radio card.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Selected existing/new-run cards both show Run start and Planned end below a divider. Remove the separate new-run route panel; retain the assigned-vehicle chooser and preview/confirmation behavior.
+- **Breaking Changes:** None.
+- **Verification:** Component lint and diff checks pass; Figma new-run state/handoff aligned and screenshot checked. Native layout pending.
+
+## 2026-10-09 | Version: default-run-choice-preview-v1
+
+- **Summary:** Prepare the default run choice automatically on entering Step 5.
+- **API Changes:** None; use the existing scoped preview API.
+- **Database Changes:** None.
+- **Behavior Changes:** Preview the preselected upload-linked/in-progress/first eligible run on entry, without another radio tap. Preserve restored or explicitly selected new-run choices; no-run contexts retain new run. Enable confirmation after successful preview and required vehicle selection; final upload stays explicit.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused lint with the existing import effect rule excluded and diff checks pass; Figma handoff aligned. Native entry/choice/retry verification pending.
+
+## 2026-10-09 | Version: remove-review-footer-back-v1
+
+- **Summary:** Remove Back to locations below the shipment-review Continue button.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use the existing header Back to return from Step 4 to trip locations; keep Continue and draft preservation.
+- **Breaking Changes:** None.
+- **Verification:** Focused lint with the existing import effect rule excluded and diff checks pass. Figma review footer already aligned; scenario handoff updated.
+
+## 2026-10-09 | Version: run-ticket-choice-ui-v1
+
+- **Summary:** Implement selected Figma option 2, Run ticket, for delivery-note Step 5.
+- **API Changes:** None; retain run-preview readiness and explicit confirmation APIs.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace text actions with exclusive accessible radio choices. Selected existing-run ticket contains confirmed endpoints; new-run state shows assigned-vehicle chooser and route panel. Keep live compact shipment/status/matched-stop previews. Add optional persistent confirmation footer to the shared scrollable sheet and reserve scroll clearance; other sheets retain their existing layout. Use Choose run header, theme-aware cards and four bundled Figma SVGs. Vehicle selection and run selection do not submit.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint with the existing effect rule excluded, ten existing step-navigation/sheet-handoff regressions and diff checks pass. Figma current/new-run design contexts/screenshots and SVG root dimensions checked. Dashboard plan v2.61 records selection/local implementation. Native SVG/radio/footer/scroll, dark/large-text, multiple-run and preview/save interaction checks remain pending; Simulator opened at the iOS home screen without a Step 5 review available.
+
+## 2026-10-09 | Version: circular-sheet-back-button-v1
+
+- **Summary:** Match sheet Back buttons to the circular close-button appearance.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Shared sheet Back uses a 44-point circle with the same muted light/dark background as close; preserve disabled feedback and navigation.
+- **Breaking Changes:** None.
+- **Verification:** Component lint and diff checks pass; Figma review/run-choice headers and handoff aligned, screenshot reviewed. Native appearance pending.
+
+## 2026-10-09 | Version: default-missing-collection-date-v1
+
+- **Summary:** Use today when no collection date is available during delivery-note review.
+- **API Changes:** None; reuse authenticated context today in the merchant timezone.
+- **Database Changes:** None.
+- **Behavior Changes:** Fill missing document/line dates in new and restored drafts, preserving explicit extracted/edited dates and document-date inheritance. Persist defaults for review, editor and confirmation.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused lint with the existing import effect rule excluded and diff checks pass; Figma handoff aligned. Native restoration/date-edit verification pending.
+
+## 2026-10-09 | Version: run-choice-design-exploration-v1
+
+- **Summary:** Create three Figma alternatives for Step 5 using radio choices for the current run and Create new run.
+- **Internal Changes:** Add Radio cards (recommended), Run ticket and Review first, with six current/new-run screens and a reusable selected/unselected radio component. Update dashboard plan v2.58 and scenario handoff; awaiting design selection.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None at runtime. Proposals retain route/shipment previews and explicit confirmation; new-run examples show required assigned-vehicle selection.
+- **Breaking Changes:** None.
+- **Verification:** Six editable SF Pro/token-bound screens visually checked, with route/reference wrapping and visible confirmation controls; diff checks pass. Static prototypes are not wired. Native implementation, additional run/vehicle/error states and accessibility checks follow selection.
+
+## 2026-10-09 | Version: import-header-back-navigation-v1
+
+- **Summary:** Replace the close button with a leading back arrow on back-capable import steps.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Revisited Step 2 and Steps 3–5 return to the previous step from the header, retaining draft edits and resetting final readiness. Hide trailing close/handle when Back is present; keep Step 1/completion and locked active-reading behavior. Lock Back during preview/saving; preserve nested editor/selector Back.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused lint with the existing import effect rule excluded, two existing step-navigation regressions and diff checks pass. Figma review/run-choice headers and handoff aligned; screenshot reviewed. Native back/draft checks remain pending.
+
+## 2026-10-09 | Version: driver-booked-status-v1
+
+- **Summary:** Add Booked first in driver delivery-status lists for import review and shipment details.
+- **API Changes:** Driver import and shipment status updates accept booked. Persist manual Booked overrides through delivery-visit matching and synchronize booking/shipment status with audit history.
+- **Database Changes:** None.
+- **Behavior Changes:** Booked requires no odometer readings or failure reason. Hide required pickup odometer for Booked in import review; clear the current delivery timestamp while retaining historical evidence and readings. Completed-run permissions and other status requirements remain.
+- **Breaking Changes:** None; deploy API validation before selecting Booked in updated clients.
+- **Verification:** 72 driver import/shipment API tests (600 assertions), mobile TypeScript, focused lint with the existing effect rule excluded and diff checks pass. Dashboard plan v2.56 and Figma status selector/handoff aligned; screenshot reviewed; native selector/save checks remain pending.
+
+## 2026-10-09 | Version: location-selection-warning-copy-v1
+
+- **Summary:** Show Choose a delivery location instead of Complete the delivery address.
+- **API Changes:** None; current API already uses the selection wording.
+- **Database Changes:** None.
+- **Behavior Changes:** Translate legacy collection/delivery address-completion warnings into Choose a collection/delivery location in shipment review.
+- **Breaking Changes:** None.
+- **Verification:** Focused import-page lint (existing effect rule excluded) and diff checks pass. Existing Figma selection-warning copy remains aligned.
+
+## 2026-10-09 | Version: require-shipment-location-selections-v1
+
+- **Summary:** Require Collection and Deliver to location selections when extracted shipment values have no saved location ID.
+- **API Changes:** Driver import preview warns to choose missing locations regardless of postal completeness. Confirmation returns 422 for new included lines missing either scoped saved ID, including grouped lines. Existing/excluded skip behavior and reviewed run-start inheritance remain.
+- **Database Changes:** None.
+- **Behavior Changes:** Show red Choose collection/delivery location controls with extracted text as context; count unresolved new rows as needing attention and disable Step 4 Continue until both IDs exist. Keep saved-location picker and draft persistence.
+- **Breaking Changes:** Driver import clients can no longer confirm new raw-address-only lines; select scoped saved locations first. Deploy API/mobile changes together.
+- **Verification:** 38 driver document-import API tests (335 assertions), mobile TypeScript and focused import-page lint with the existing effect rule excluded pass. Figma review example/scenario handoff aligned, screenshot reviewed and diff checks pass; native selection/return checks pending.
+
+## 2026-10-09 | Version: compact-pdf-preview-button-v1
+
+- **Summary:** Make the PDF preview button smaller and visually quieter.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use a white button with muted grey border/text, 13-point label, compact padding and 32-point minimum face height. Expand its touch area by 6 points; match the loading spinner to the muted text.
+- **Breaking Changes:** None.
+- **Verification:** Focused component lint and diff checks pass. Figma PDF state/scenario handoff aligned and screenshot checked; native appearance remains pending.
+
+## 2026-10-09 | Version: pdf-preview-sheet-handoff-v1
+
+- **Summary:** Prevent the upload bottom sheet from covering the PDF browser preview.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Wait for completed sheet dismissal before opening Expo WebBrowser; restore the same upload prompt after browser dismissal or an opening failure. Preserve the unfinished upload and prevent temporary dismissal from navigating away. Show opening failures on the restored screen.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and eight existing sheet-handoff regressions pass. Focused lint passes with the pre-existing upload effect rule excluded; full focused lint still reports that existing set-state-in-effect error. Diff checks pass. Native iOS/Android PDF layering and return verification remain pending; existing Figma browser/return flow remains applicable.
+
+## 2026-10-09 | Version: cancel-inline-pdf-preview-v1
+
+- **Summary:** Undo the cancelled inline PDF preview setup.
+- **Internal Changes:** Remove the newly installed WebView dependency. Package manifest and lockfile match their pre-install versions; no PDF.js dependency or viewer code was added.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None; retain the existing Expo WebBrowser PDF preview.
+- **Breaking Changes:** None.
+- **Verification:** Offline uninstall succeeded; package manifest/lockfile have no pending diff and mobile source has no WebView/PDF.js references. Diff checks pass.
+
 ## 2026-10-09 | Version: unfinished-upload-pdf-browser-preview-v1
 
 - **Summary:** Open unfinished-upload PDFs through Expo WebBrowser.
@@ -7,7 +135,7 @@
 - **Database Changes:** None.
 - **Behavior Changes:** PDF tile offers Preview PDF, with opening/error/retry states. Close the browser to return to the unchanged continuation prompt. Images keep inline previews. Android rendering or download depends on its installed browser; no external document-viewer service.
 - **Breaking Changes:** None. Deploy backend routes before mobile preview.
-- **Verification:** API/static checks and Figma alignment in progress. Native PDF reading, browser dismissal/return and Android handling remain pending.
+- **Verification:** Two PDF API regressions (17 assertions), mobile TypeScript, preview-component lint and diff checks pass. Dashboard plan v2.53 and editable Figma PDF state/scenario handoff aligned; prototype browser launch is not wired. Native PDF reading, browser dismissal/return and Android handling remain pending.
 
 ## 2026-10-09 | Version: measured-shipment-units-v1
 

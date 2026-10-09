@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, View } from 'react-native';
-import * as WebBrowser from 'expo-web-browser';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
 import { Text } from '@/component/ui/Text';
@@ -8,7 +7,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { documentImportApi } from '@/src/lib/api';
 
 /** Authenticated images and short-lived browser PDF previews. */
-export function DeliveryNoteFilePreview({ importId, filename, token }: { importId: string; filename: string; token: string }) {
+export function DeliveryNoteFilePreview({ importId, filename, token, openBrowser }: { importId: string; filename: string; token: string; openBrowser: (url: string) => Promise<void> }) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
   const [loading, setLoading] = useState(true);
@@ -26,7 +25,7 @@ export function DeliveryNoteFilePreview({ importId, filename, token }: { importI
     try {
       const { url } = await documentImportApi.pdfPreviewUrl(token, importId);
       if (!active.current) return;
-      await WebBrowser.openBrowserAsync(url, { showTitle: true });
+      await openBrowser(url);
     } catch {
       if (active.current) setPreviewError('Could not open the PDF. Please try again.');
     } finally {
@@ -45,8 +44,8 @@ export function DeliveryNoteFilePreview({ importId, filename, token }: { importI
     </View> : <View style={{ padding: 16, gap: 8, alignItems: 'center', borderRadius: 10, backgroundColor: dark ? '#18181b' : '#fff' }}>
       <Feather name="file-text" size={30} color={dark ? '#ff8585' : '#c2292e'} />
       <Text style={{ fontSize: 13, color: dark ? '#a1a1aa' : '#666', textAlign: 'center' }}>{image ? 'Preview unavailable' : pdf ? 'PDF document' : 'Document preview unavailable'}</Text>
-      {pdf && <Pressable accessibilityRole="button" accessibilityLabel="Preview PDF" accessibilityState={{ disabled: opening }} disabled={opening} onPress={() => void openPdf()} style={{ minHeight: 44, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10, backgroundColor: '#c2292e', alignItems: 'center', justifyContent: 'center' }}>
-        {opening ? <ActivityIndicator accessibilityLabel="Opening PDF preview" color="#fff" /> : <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Preview PDF</Text>}
+      {pdf && <Pressable accessibilityRole="button" accessibilityLabel="Preview PDF" accessibilityState={{ disabled: opening }} disabled={opening} onPress={() => void openPdf()} hitSlop={6} style={{ minHeight: 32, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#d4d4d8', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+        {opening ? <ActivityIndicator accessibilityLabel="Opening PDF preview" size="small" color="#52525b" /> : <Text style={{ fontSize: 13, fontWeight: '600', color: '#52525b' }}>Preview PDF</Text>}
       </Pressable>}
       {!!previewError && <Text accessibilityRole="alert" style={{ fontSize: 13, color: dark ? '#ff8585' : '#a32222', textAlign: 'center' }}>{previewError}</Text>}
     </View>}

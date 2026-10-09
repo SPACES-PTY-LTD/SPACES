@@ -12,7 +12,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ApiRequestError, CancelReason, DriverEntityFile, DriverFileType, DriverShipment, driverApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
 
-const STATUS_FLOW = ['delivered', 'in_transit', 'failed'];
+const STATUS_FLOW = ['booked', 'delivered', 'in_transit', 'failed'];
 
 export default function ShipmentDetailScreen() {
   const params = useLocalSearchParams<{ shipment_id: string; run_id?: string }>();

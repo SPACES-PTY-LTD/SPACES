@@ -882,7 +882,7 @@ export const driverApi = {
 export type ImportLine = {
   merchant_order_ref: string | null; collection_date?: string | null; description: string;
   pickup_address?: Record<string, string | null>; dropoff_address?: Record<string, string | null>;
-  status?: 'delivered' | 'in_transit' | 'failed' | null; failure_reason?: string; odometer_at_collection?: number | null; odometer_at_delivery?: number | null; excluded?: boolean;
+  status?: 'booked' | 'delivered' | 'in_transit' | 'failed' | null; failure_reason?: string; odometer_at_collection?: number | null; odometer_at_delivery?: number | null; excluded?: boolean;
   pickup_from_run_start?: boolean;
   quantity: number | null; quantity_unit?: string | null; pickup_location_id?: string | null; dropoff_location_id?: string | null; type?: string | null; weight?: number | null;
   length_cm?: number | null; width_cm?: number | null; height_cm?: number | null;

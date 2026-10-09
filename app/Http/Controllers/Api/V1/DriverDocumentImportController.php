@@ -327,13 +327,11 @@ class DriverDocumentImportController extends Controller
 
                     continue;
                 }
-                foreach (['pickup_address', 'dropoff_address'] as $kind) {
-                    // Saved IDs were scoped and resolved above; their database addresses may omit postal fields.
-                    $locationKey = $kind === 'pickup_address' ? 'pickup_location_id' : 'dropoff_location_id';
-                    if (!empty($item[$locationKey])) continue;
-                    $address = $item[$kind] ?? [];
-                    foreach (['address_line_1', 'city', 'province', 'post_code'] as $field) {
-                        if (trim($address[$field] ?? '') === '') throw ValidationException::withMessages(['line_items' => "$ref: complete the $kind $field."]);
+                foreach ($row['items'] as $line) {
+                    foreach (['pickup_location_id' => 'collection', 'dropoff_location_id' => 'delivery'] as $locationKey => $label) {
+                        if (empty($line[$locationKey])) {
+                            throw ValidationException::withMessages(['line_items' => "$ref: choose a $label location."]);
+                        }
                     }
                 }
                 $parcels = [];
@@ -382,13 +380,13 @@ class DriverDocumentImportController extends Controller
                     $booking = app(InternalBookingLifecycleService::class)->ensureBookingForShipment($shipment, $run);
                     $previousStatus = $booking->status;
                     $stop = $state['matched_stop'] ? VehicleActivity::where('uuid', $state['matched_stop']['stop_id'])->where('run_id', $run->id)->first() : null;
-                    if ($state['status_source'] === 'driver' && $booking->odometer_at_collection === null && !isset($item['odometer_at_collection'])) throw ValidationException::withMessages(['line_items' => 'Enter the pickup odometer for driver status updates.']);
+                    if ($state['status_source'] === 'driver' && $status !== 'booked' && $booking->odometer_at_collection === null && !isset($item['odometer_at_collection'])) throw ValidationException::withMessages(['line_items' => 'Enter the pickup odometer for driver status updates.']);
                     if (isset($item['odometer_at_delivery']) && $item['odometer_at_delivery'] < ($item['odometer_at_collection'] ?? $booking->odometer_at_collection ?? 0)) throw ValidationException::withMessages(['line_items' => 'Delivery odometer cannot be lower than pickup odometer.']);
                     if ($status === 'delivered' && $state['status_source'] === 'driver' && $booking->odometer_at_delivery === null && !isset($item['odometer_at_delivery'])) {
                         throw ValidationException::withMessages(['line_items' => 'Enter the delivery odometer for manually delivered shipments.']);
                     }
                     if ($status === 'failed' && trim($item['failure_reason'] ?? '') === '') throw ValidationException::withMessages(['line_items' => 'Enter a failure reason.']);
-                    if (in_array($status, ['delivered', 'in_transit', 'failed'], true)) {
+                    if (in_array($status, ['delivered', 'in_transit', 'failed'], true) || ($status === 'booked' && $state['status_source'] === 'driver')) {
                         $booking->update(['status' => $status, 'delivered_at' => $status === 'delivered' ? ($stop?->occurred_at ?? now()) : null,
                             'odometer_at_delivery' => $item['odometer_at_delivery'] ?? $booking->odometer_at_delivery,
                             'odometer_at_collection' => $item['odometer_at_collection'] ?? $booking->odometer_at_collection]);

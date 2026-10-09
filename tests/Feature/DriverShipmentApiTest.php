@@ -395,6 +395,21 @@ class DriverShipmentApiTest extends TestCase
         ]);
     }
 
+    public function test_driver_can_set_booked_without_odometer_and_clear_delivery_timestamp(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $shipment = $this->createShipment($merchant, 'BOOKED-RESET', 'delivered');
+        $booking = $this->createBooking($merchant, $shipment, 'internal', 'delivered');
+        $booking->update(['delivered_at' => now()]);
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+        $this->withHeaders($this->driverAuthHeaders($user))
+            ->patchJson("/api/v1/driver/shipments/{$shipment->uuid}/status", ['status' => 'booked'])
+            ->assertOk()->assertJsonPath('data.status', 'booked')->assertJsonPath('data.booking.status', 'booked');
+        $this->assertNull($booking->fresh()->delivered_at);
+        $this->assertDatabaseHas('tracking_events', ['shipment_id' => $shipment->id, 'event_code' => 'booked']);
+    }
+
     public function test_update_status_requires_delivery_odometer_for_delivered_status(): void
     {
         [$driverUser, $merchant] = $this->createDriverContext();
@@ -446,7 +461,7 @@ class DriverShipmentApiTest extends TestCase
 
         $this->withHeaders($this->driverAuthHeaders($driverUser))
             ->patchJson("/api/v1/driver/shipments/{$shipment->uuid}/status", [
-                'status' => 'booked',
+                'status' => 'at_delivery_location',
             ])
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'VALIDATION');

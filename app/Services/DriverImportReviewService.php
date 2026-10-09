@@ -64,7 +64,7 @@ class DriverImportReviewService
                 : (!$pickupKey || !$originKey ? 'unknown' : ($pickupKey === $originKey ? 'match' : 'mismatch'));
             $rows[] = [
                 'index' => $index, 'reference' => $reference, 'eligibility' => $eligibility,
-                'validation_warnings' => array_values(array_filter([!$reference ? 'Shipment reference is missing.' : null, empty($item['description']) ? 'Description is missing.' : null, !$pickupLocation && !$pickupKey ? 'Complete the collection address.' : null, !$dropoffLocation && !$key ? 'Complete the delivery address.' : null])),
+                'validation_warnings' => array_values(array_filter([!$reference ? 'Shipment reference is missing.' : null, empty($item['description']) ? 'Description is missing.' : null, !$pickupLocation && !(!empty($item['pickup_from_run_start']) && $origin) ? 'Choose a collection location.' : null, !$dropoffLocation ? 'Choose a delivery location.' : null])),
                 'collection_comparison' => $comparison,
                 'status' => $existing?->status ?? ($item['status'] ?? ($match ? 'delivered' : 'booked')),
                 'status_source' => !empty($item['status']) ? 'driver' : ($match ? 'matched_visit' : 'initial'),

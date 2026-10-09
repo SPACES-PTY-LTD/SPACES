@@ -13,7 +13,7 @@ class ConfirmDriverDocumentImportRequest extends ConfirmDeliveryNoteImportReques
             'origin_location_id' => ['required_with:create_new_run', 'nullable', 'uuid'],
             'destination_location_id' => ['required_with:create_new_run', 'nullable', 'uuid'],
             'review_token' => ['required_with:create_new_run', 'nullable', 'string'],
-            'line_items.*.status' => ['nullable', 'in:delivered,in_transit,failed'],
+            'line_items.*.status' => ['nullable', 'in:booked,delivered,in_transit,failed'],
             'line_items.*.failure_reason' => ['required_if:line_items.*.status,failed', 'nullable', 'string', 'max:2000'],
             'line_items.*.odometer_at_collection' => ['nullable', 'integer', 'min:0'],
             'line_items.*.odometer_at_delivery' => ['nullable', 'integer', 'min:0'],

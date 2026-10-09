@@ -37,6 +37,20 @@ class DriverDocumentImportTest extends TestCase
             ]];
     }
 
+    private function selectedDraft($merchant, $location = null): array
+    {
+        $draft = $this->draft();
+        $location ??= \App\Models\Location::create(array_merge($draft['pickup_address'], [
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'name' => 'Selected depot',
+        ]));
+        foreach ($draft['line_items'] as &$item) {
+            $item['pickup_location_id'] = $location->uuid;
+            $item['dropoff_location_id'] = $location->uuid;
+        }
+        unset($item);
+        return $draft;
+    }
+
     private function import($user, $merchant, $run = null): DeliveryNoteImport
     {
         return DeliveryNoteImport::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
@@ -152,12 +166,12 @@ class DriverDocumentImportTest extends TestCase
         $analysis = $this->apiAs($user)->post('/api/v1/driver/document-imports', ['run_id' => $run->uuid, 'file' => UploadedFile::fake()->image('note.png')])->assertCreated();
         $this->assertDatabaseCount('shipments', 0);
         $id = $analysis->json('data.import_id');
-        $response = $this->apiAs($user)->postJson("/api/v1/driver/document-imports/$id/confirm", $this->draft())->assertOk()
+        $response = $this->apiAs($user)->postJson("/api/v1/driver/document-imports/$id/confirm", $this->selectedDraft($merchant))->assertOk()
             ->assertJsonCount(3, 'data.created')->assertJsonPath('data.attached', ['TODAY', 'FUTURE', 'OLD'])->assertJsonPath('data.unassigned', []);
         $this->assertDatabaseCount('run_shipments', 3);
         $this->assertDatabaseCount('shipment_parcels', 4);
         $this->assertDatabaseHas('shipments', ['merchant_order_ref' => 'TODAY', 'collection_date' => '2026-09-14 22:00:00']);
-        $repeat = $this->apiAs($user)->postJson("/api/v1/driver/document-imports/$id/confirm", $this->draft())->assertOk();
+        $repeat = $this->apiAs($user)->postJson("/api/v1/driver/document-imports/$id/confirm", $this->selectedDraft($merchant))->assertOk();
         $this->assertSame($response->json('data'), $repeat->json('data'));
         $this->assertDatabaseCount('shipments', 3);
     }
@@ -166,11 +180,11 @@ class DriverDocumentImportTest extends TestCase
     {
         [$user, $merchant] = $this->createDriverContext();
         $first = $this->import($user, $merchant);
-        $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$first->uuid}/confirm", $this->draft())->assertOk()->assertJsonCount(3, 'data.unassigned');
+        $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$first->uuid}/confirm", $this->selectedDraft($merchant))->assertOk()->assertJsonCount(3, 'data.unassigned');
         Shipment::where('merchant_order_ref', 'TODAY')->first()->delete();
         $second = $this->import($user, $merchant);
         $this->apiAs($user)->getJson("/api/v1/driver/document-imports/{$second->uuid}")->assertOk()->assertJsonCount(3, 'data.existing_references');
-        $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$second->uuid}/confirm", $this->draft())->assertOk()->assertJsonCount(0, 'data.created')->assertJsonCount(3, 'data.skipped');
+        $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$second->uuid}/confirm", $this->selectedDraft($merchant))->assertOk()->assertJsonCount(0, 'data.created')->assertJsonCount(3, 'data.skipped');
         $this->assertSame(3, Shipment::withTrashed()->count());
         $this->assertDatabaseCount('run_shipments', 0);
     }
@@ -213,7 +227,7 @@ class DriverDocumentImportTest extends TestCase
     {
         [$user, $merchant] = $this->createDriverContext();
         $import = $this->import($user, $merchant);
-        $draft = $this->draft();
+        $draft = $this->selectedDraft($merchant);
         $draft['grouping_mode'] = 'single_shipment';
         $draft['merchant_order_ref'] = 'COMBINED';
         $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)->assertOk()->assertJsonPath('data.created', ['COMBINED']);
@@ -238,7 +252,7 @@ class DriverDocumentImportTest extends TestCase
         [$user, $merchant] = $this->createDriverContext();
         $import = $this->import($user, $merchant);
         $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'driver_id' => $user->driver->id, 'status' => 'in_progress']);
-        $draft = $this->draft(); $draft['run_id'] = $run->uuid;
+        $draft = $this->selectedDraft($merchant); $draft['run_id'] = $run->uuid;
         $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)
             ->assertOk()->assertJsonPath('data.attached', ['TODAY', 'FUTURE', 'OLD']);
         $this->assertSame($run->id, $import->fresh()->run_id);
@@ -262,7 +276,7 @@ class DriverDocumentImportTest extends TestCase
         $location = \App\Models\Location::create(array_merge($this->draft()['pickup_address'], ['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'name' => 'Depot', 'latitude' => -26.1, 'longitude' => 28.1]));
         $vehicle = \App\Models\Vehicle::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'plate_number' => 'TEST-1']);
         $user->driver->vehicles()->attach($vehicle->id);
-        return array_merge($this->draft(), ['run_id' => null, 'create_new_run' => true, 'vehicle_id' => $vehicle->uuid, 'origin_location_id' => $location->uuid, 'destination_location_id' => $location->uuid]);
+        return array_merge($this->selectedDraft($merchant, $location), ['run_id' => null, 'create_new_run' => true, 'vehicle_id' => $vehicle->uuid, 'origin_location_id' => $location->uuid, 'destination_location_id' => $location->uuid]);
     }
 
     public function test_five_step_review_creates_ready_run_only_at_confirmation(): void
@@ -314,6 +328,28 @@ class DriverDocumentImportTest extends TestCase
         $this->assertDatabaseHas('tracking_events', ['event_code' => 'failed', 'event_description' => 'Customer refused delivery']);
     }
 
+    public function test_booked_override_survives_matched_delivery_without_odometer(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $draft = $this->plannedDraft($user, $merchant);
+        $location = \App\Models\Location::where('uuid', $draft['origin_location_id'])->firstOrFail();
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'driver_id' => $user->driver->id, 'status' => 'in_progress']);
+        $draft['run_id'] = $run->uuid;
+        $draft['create_new_run'] = false;
+        $draft['line_items'][0]['status'] = 'booked';
+        \App\Models\VehicleActivity::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'run_id' => $run->id, 'vehicle_id' => $user->driver->vehicles()->first()->id, 'location_id' => $location->id, 'event_type' => 'shipment_delivery', 'occurred_at' => now()->subHour()]);
+        $url = "/api/v1/driver/document-imports/{$import->uuid}";
+        $preview = $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()
+            ->assertJsonPath('data.rows.0.status', 'booked')->assertJsonPath('data.rows.0.status_source', 'driver');
+        $draft['review_token'] = $preview->json('data.review_token');
+        $this->apiAs($user)->postJson("$url/confirm", $draft)->assertOk();
+        $shipment = Shipment::where('merchant_order_ref', 'TODAY')->firstOrFail();
+        $this->assertSame('booked', $shipment->status);
+        $this->assertDatabaseHas('bookings', ['shipment_id' => $shipment->id, 'status' => 'booked', 'delivered_at' => null]);
+        $this->assertDatabaseHas('tracking_events', ['shipment_id' => $shipment->id, 'event_code' => 'booked']);
+    }
+
     public function test_failed_reason_and_no_empty_run_are_enforced(): void
     {
         [$user, $merchant] = $this->createDriverContext();
@@ -359,7 +395,7 @@ class DriverDocumentImportTest extends TestCase
             foreach ($missing as $kind) $analysis->assertJsonPath("data.extracted_data.line_items.0.$kind", $data['line_items'][0][$kind]);
             $id = $analysis->json('data.import_id');
             $preview = $this->apiAs($user)->postJson("/api/v1/driver/document-imports/$id/preview", $data)->assertOk();
-            foreach ($missing as $kind) $this->assertContains($kind === 'pickup_address' ? 'Complete the collection address.' : 'Complete the delivery address.', $preview->json('data.rows.0.validation_warnings'));
+            foreach ($missing as $kind) $this->assertContains($kind === 'pickup_address' ? 'Choose a collection location.' : 'Choose a delivery location.', $preview->json('data.rows.0.validation_warnings'));
             $this->apiAs($user)->postJson("/api/v1/driver/document-imports/$id/confirm", $data)->assertUnprocessable();
             // Omitted fields must not silently inherit the complete document address either.
             foreach ($missing as $kind) unset($data['line_items'][0][$kind]);
@@ -375,15 +411,20 @@ class DriverDocumentImportTest extends TestCase
         $draft = $this->plannedDraft($user, $merchant);
         $start = \App\Models\Location::where('uuid', $draft['origin_location_id'])->firstOrFail();
         $start->update(['address_line_1' => 'Starting depot road']);
+        unset($draft['line_items'][0]['pickup_location_id'], $draft['line_items'][1]['pickup_location_id']);
         $draft['line_items'][0]['pickup_address'] = [];
         $draft['line_items'][1]['pickup_address'] = array_fill_keys(array_keys($draft['pickup_address']), null);
+        $explicit = \App\Models\Location::create(array_merge($draft['pickup_address'], [
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'address_line_1' => 'Explicit collection road',
+        ]));
+        $draft['line_items'][2]['pickup_location_id'] = $explicit->uuid;
         $draft['line_items'][2]['pickup_address']['address_line_1'] = 'Explicit collection road';
         $url = "/api/v1/driver/document-imports/{$import->uuid}";
         $preview = $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()
             ->assertJsonPath('data.rows.0.collection_comparison', 'match')
             ->assertJsonPath('data.rows.1.collection_comparison', 'match')
             ->assertJsonPath('data.rows.2.collection_comparison', 'mismatch');
-        $this->assertNotContains('Complete the collection address.', $preview->json('data.rows.0.validation_warnings'));
+        $this->assertNotContains('Choose a collection location.', $preview->json('data.rows.0.validation_warnings'));
         $draft['review_token'] = $preview->json('data.review_token');
         $this->apiAs($user)->postJson("$url/confirm", $draft)->assertOk();
         foreach (['TODAY', 'FUTURE'] as $ref) $this->assertSame($start->id, Shipment::where('merchant_order_ref', $ref)->firstOrFail()->pickup_location_id);
@@ -421,18 +462,51 @@ class DriverDocumentImportTest extends TestCase
         $draft['line_items'][0]['pickup_from_run_start'] = true;
         $draft['line_items'][0]['pickup_location_id'] = (string) Str::uuid(); // Ignore a stale inherited ID, use scoped origin.
         $draft['line_items'][0]['pickup_address'] = ['address_line_1' => 'Stale inherited depot'];
+        unset($draft['line_items'][0]['dropoff_location_id'], $draft['line_items'][1]['pickup_location_id']);
         $draft['line_items'][0]['dropoff_address'] = [];
         $draft['line_items'][1]['pickup_address'] = ['city' => 'Partial extracted city'];
         $url = "/api/v1/driver/document-imports/{$import->uuid}";
         $preview = $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()
             ->assertJsonPath('data.rows.0.collection_comparison', 'match');
-        $this->assertContains('Complete the delivery address.', $preview->json('data.rows.0.validation_warnings'));
-        $this->assertNotContains('Complete the collection address.', $preview->json('data.rows.0.validation_warnings'));
-        $this->assertContains('Complete the collection address.', $preview->json('data.rows.1.validation_warnings'));
+        $this->assertContains('Choose a delivery location.', $preview->json('data.rows.0.validation_warnings'));
+        $this->assertNotContains('Choose a collection location.', $preview->json('data.rows.0.validation_warnings'));
+        $this->assertContains('Choose a collection location.', $preview->json('data.rows.1.validation_warnings'));
         $this->apiAs($user)->postJson("$url/confirm", $draft)->assertUnprocessable();
         unset($draft['origin_location_id']);
         $this->apiAs($user)->postJson("$url/preview", $draft)->assertUnprocessable();
         $this->assertDatabaseCount('shipments', 0);
+    }
+
+    public function test_complete_extracted_addresses_require_both_saved_location_selections(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $location = \App\Models\Location::create(array_merge($this->draft()['pickup_address'], [
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'name' => 'Chosen depot',
+        ]));
+        foreach (['pickup_location_id', 'dropoff_location_id', 'both'] as $missing) {
+            $import = $this->import($user, $merchant);
+            $draft = $this->draft();
+            $draft['line_items'] = [$draft['line_items'][0]];
+            $draft['line_items'][0]['pickup_location_id'] = $location->uuid;
+            $draft['line_items'][0]['dropoff_location_id'] = $location->uuid;
+            foreach (['pickup_location_id', 'dropoff_location_id'] as $key) {
+                if ($missing === $key || $missing === 'both') unset($draft['line_items'][0][$key]);
+            }
+            $url = "/api/v1/driver/document-imports/{$import->uuid}";
+            $warnings = $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()->json('data.rows.0.validation_warnings');
+            foreach (['pickup_location_id' => 'collection', 'dropoff_location_id' => 'delivery'] as $key => $label) {
+                if (empty($draft['line_items'][0][$key])) $this->assertContains("Choose a $label location.", $warnings);
+                else $this->assertNotContains("Choose a $label location.", $warnings);
+            }
+            $this->apiAs($user)->postJson("$url/confirm", $draft)->assertUnprocessable();
+            $this->assertDatabaseCount('shipments', 0);
+            $draft['line_items'][0]['pickup_location_id'] = $location->uuid;
+            $draft['line_items'][0]['dropoff_location_id'] = $location->uuid;
+            $draft['line_items'][0]['merchant_order_ref'] = 'SELECTED-'.$missing;
+            $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()->assertJsonPath('data.rows.0.validation_warnings', []);
+            $this->apiAs($user)->postJson("$url/confirm", $draft)->assertOk();
+            Shipment::query()->forceDelete();
+        }
     }
 
     public function test_saved_locations_with_partial_postal_fields_are_valid_and_compare_by_identity(): void
@@ -494,7 +568,7 @@ class DriverDocumentImportTest extends TestCase
             'address_line_1' => 'Saved Street', 'latitude' => -26.1, 'longitude' => 28.1,
         ]));
         $import = $this->import($user, $merchant);
-        $draft = $this->draft();
+        $draft = $this->selectedDraft($merchant);
         $draft['line_items'][0]['pickup_location_id'] = $location->uuid;
         $draft['line_items'][0]['dropoff_location_id'] = $location->uuid;
         $draft['line_items'][0]['dropoff_address'] = []; // Driver selection resolves a missing extracted address.
@@ -535,7 +609,7 @@ class DriverDocumentImportTest extends TestCase
         [$user, $merchant] = $this->createDriverContext();
         foreach (['liters', 'kilograms', 'tonnes', 'cubic_metres'] as $unit) {
             $import = $this->import($user, $merchant);
-            $draft = $this->draft();
+            $draft = $this->selectedDraft($merchant);
             $draft['line_items'][0]['merchant_order_ref'] = strtoupper($unit);
             $draft['line_items'][0]['quantity_unit'] = $unit;
             $draft['line_items'][0]['quantity'] = 1250.5;

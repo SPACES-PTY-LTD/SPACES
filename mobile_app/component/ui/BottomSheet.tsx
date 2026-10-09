@@ -1,6 +1,6 @@
 import { Feather } from '@expo/vector-icons';
-import { BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetModal, BottomSheetScrollView, BottomSheetView } from '@gorhom/bottom-sheet';
-import { createContext, useContext, PropsWithChildren, RefObject, useCallback, useEffect, useState } from 'react';
+import { BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetModal, BottomSheetFooter, type BottomSheetFooterProps, BottomSheetScrollView, BottomSheetView } from '@gorhom/bottom-sheet';
+import { createContext, useContext, PropsWithChildren, RefObject, type ReactNode, useCallback, useEffect, useState } from 'react';
 import { BackHandler, Platform, Pressable, ScrollView, KeyboardAvoidingView, StyleSheet, useWindowDimensions, View, type ScrollViewProps } from 'react-native';
 import { FullWindowOverlay } from 'react-native-screens';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,8 @@ import { sheetTheme } from './sheet-theme';
 export type BottomSheetProps = PropsWithChildren<{
   modalRef: RefObject<BottomSheetModal | null>;
   title?: string;
+  /** Optional persistent action area above the detached sheet clearance. */
+  footer?: ReactNode;
   onDismiss?: () => void;
   /** Leading navigation control; the caller owns returning to the previous step. */
   onBack?: () => void;
@@ -41,7 +43,7 @@ function ModalContainer({ children }: PropsWithChildren) {
 }
 
 /** Shared floating sheet appearance, safe-area spacing, keyboard and dismissal behavior. */
-export function BottomSheet({ modalRef, title, children, onDismiss, accessibilityLabel,
+export function BottomSheet({ modalRef, title, children, footer, onDismiss, accessibilityLabel,
   onBack, onScroll, plainScroll = false, scrollable = false, dismissible = true, showCloseButton = true, showHandle = true,
   maxDynamicContentSize, headerBottomSpacing = 16, keyboardBehavior = 'interactive', stackBehavior = 'switch' }: BottomSheetProps) {
   const { colorScheme } = useColorScheme();
@@ -72,12 +74,16 @@ export function BottomSheet({ modalRef, title, children, onDismiss, accessibilit
     const subscription = BackHandler.addEventListener('hardwareBackPress', backSubscription);
     return () => subscription.remove();
   }, [visible, backSubscription]);
+  const renderFooter = useCallback((props: BottomSheetFooterProps) => <BottomSheetFooter {...props}>
+    <View style={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, backgroundColor: background, borderBottomLeftRadius: sheetTheme.radius, borderBottomRightRadius: sheetTheme.radius }}>{footer}</View>
+  </BottomSheetFooter>, [footer, background]);
   const header = <View style={[styles.header, { marginBottom: headerBottomSpacing - 16 }]}>
-      {onBack && <Pressable accessibilityRole="button" accessibilityLabel="Back" accessibilityState={{ disabled: !dismissible }} disabled={!dismissible} onPress={onBack} style={[styles.back, { opacity: dismissible ? 1 : 0.4 }]}><Feather name="arrow-left" size={22} color={ink} /></Pressable>}
+      {onBack && <Pressable accessibilityRole="button" accessibilityLabel="Back" accessibilityState={{ disabled: !dismissible }} disabled={!dismissible} onPress={onBack} style={[styles.back, { backgroundColor: dark ? '#303036' : '#f4f4f5', opacity: dismissible ? 1 : 0.4 }]}><Feather name="arrow-left" size={22} color={ink} /></Pressable>}
       {!!title && <Text style={[styles.title, { color: ink }]} accessibilityRole="header">{title}</Text>}
       {showCloseButton && <Pressable accessibilityRole="button" accessibilityLabel={`Close ${accessibilityLabel || title || 'sheet'}`} accessibilityState={{ disabled: !dismissible }} disabled={!dismissible} onPress={() => modalRef.current?.dismiss()} style={[styles.close, { backgroundColor: dark ? '#303036' : '#f4f4f5', opacity: dismissible ? 1 : 0.4 }]}><Feather name="x" size={22} color={ink} /></Pressable>}
     </View>;
   return <SheetDismissibleContext.Provider value={dismissible}><BottomSheetModal
+    footerComponent={footer ? renderFooter : undefined}
     ref={modalRef} stackBehavior={stackBehavior} accessible={false} containerComponent={ModalContainer} index={0} enableDynamicSizing={!plainScroll}
     snapPoints={plainScroll ? [maximumHeight] : undefined}
     enableContentPanningGesture={!plainScroll}
@@ -91,7 +97,7 @@ export function BottomSheet({ modalRef, title, children, onDismiss, accessibilit
     backdropComponent={SheetBackdrop}>
     {plainScroll ? <KeyboardAvoidingView style={styles.plainContent} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</ScrollView>
-    </KeyboardAvoidingView> : scrollable ? <BottomSheetScrollView onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</BottomSheetScrollView>
+    </KeyboardAvoidingView> : scrollable ? <BottomSheetScrollView enableFooterMarginAdjustment={!!footer} onScroll={onScroll} scrollEventThrottle={16} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</BottomSheetScrollView>
       : <BottomSheetView style={styles.content} accessibilityViewIsModal accessibilityLabel={accessibilityLabel || title}>{header}{children}</BottomSheetView>}
 
   </BottomSheetModal></SheetDismissibleContext.Provider>;
@@ -103,6 +109,6 @@ const styles = StyleSheet.create({
   plainContent: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { fontSize: 18, lineHeight: 28, fontWeight: '700', flex: 1 },
-  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  back: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   close: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginLeft: 'auto' },
 });
