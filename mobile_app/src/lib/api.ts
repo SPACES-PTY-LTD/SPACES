@@ -25,6 +25,8 @@ export type AuthUser = {
   email: string;
   telephone: string | null;
   role: string;
+  profile_photo_url?: string | null;
+  driver_merchant?: { merchant_id: string; name: string | null } | null;
   last_login_at: string | null;
 };
 
@@ -33,6 +35,8 @@ export type AuthPayload = {
   refresh_token: string;
   user: AuthUser;
 };
+
+export type PhoneLocationSettings = { enabled: boolean; last_reported_at: string | null; dispatch_alerted_at: string | null };
 
 export type SessionState = {
   token: string;
@@ -579,6 +583,9 @@ export const driverRunActionsApi = {
 };
 
 export const driverApi = {
+  locationSharing: (token: string) => request<PhoneLocationSettings>('/driver/location-sharing', { token }),
+  setLocationSharing: (token: string, enabled: boolean) => request<PhoneLocationSettings>('/driver/location-sharing', { token, method: 'PATCH', body: { enabled } }),
+  reportPhoneLocation: (token: string, body: { latitude: number; longitude: number; accuracy: number | null; observed_at: string }) => request<PhoneLocationSettings>('/driver/phone-location', { token, method: 'POST', body }),
   listRuns: (token: string, status: 'active' | 'completed', page = 1) =>
     requestWithMeta<DriverRunSummary[]>(`/driver/runs?status=${status}&page=${page}`, { token }),
   async getRun(token: string, runId: string): Promise<DriverRunDetail> {

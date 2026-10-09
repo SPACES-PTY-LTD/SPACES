@@ -11,6 +11,8 @@ import { colorScheme as appColorScheme, useColorScheme } from '@/hooks/use-color
 import { BrandLoadingScreen } from '@/src/components/BrandLoadingScreen';
 import { MessageNotifications } from '@/src/providers/message-notifications';
 import { AuthProvider, useAuth } from '@/src/providers/auth-provider';
+import { PhoneLocationProvider } from '@/src/providers/phone-location-provider';
+import { restoreThemePreference } from '@/src/lib/theme-preference';
 
 // Start in light mode; the in-app theme toggle can still change it afterwards.
 appColorScheme.set('light');
@@ -21,13 +23,14 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
+  useEffect(() => { void restoreThemePreference(); }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <BottomSheetModalProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <RootNavigator />
+            <LocationSession><RootNavigator /></LocationSession>
             <MessageNotifications />
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           </ThemeProvider>
@@ -35,6 +38,11 @@ export default function RootLayout() {
       </AuthProvider>
     </GestureHandlerRootView>
   );
+}
+
+function LocationSession({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth();
+  return <PhoneLocationProvider key={session?.token ?? 'signed-out'}>{children}</PhoneLocationProvider>;
 }
 
 function RootNavigator() {

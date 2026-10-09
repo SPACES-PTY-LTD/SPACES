@@ -1,9 +1,10 @@
 import * as DocumentPicker from 'expo-document-picker';
+import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import {
   ActivityIndicator,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,6 +13,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/component/ui/Text';
+import { BottomSheet } from '@/component/ui/BottomSheet';
+import { createSheetHandoff } from '@/component/ui/sheet-handoff';
 import { PageHeader } from '@/component/ui/PageHeader';
 import { DateInput } from '@/component/ui/DateInput';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -33,11 +36,47 @@ export default function DocumentsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const uploadSheetRef = useRef<BottomSheetModal>(null);
+  const pickerHandoff = useRef<ReturnType<typeof createSheetHandoff> | null>(null);
+  const [fileTypeExpanded, setFileTypeExpanded] = useState(false);
+  const [isPicking, setIsPicking] = useState(false);
+
+  useEffect(() => {
+    const handoff = createSheetHandoff(
+      () => uploadSheetRef.current?.dismiss(),
+      () => uploadSheetRef.current?.present(),
+    );
+    pickerHandoff.current = handoff;
+    return () => handoff.dispose();
+  }, []);
   const [selectedFileTypeId, setSelectedFileTypeId] = useState('');
   const [selectedDocument, setSelectedDocument] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [expiresAt, setExpiresAt] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const requiredSheetRef = useRef<BottomSheetModal>(null);
+  const requiredRequest = useRef(0);
+  const [requiredNames, setRequiredNames] = useState<string[]>([]);
+  const [requirementsLoading, setRequirementsLoading] = useState(false);
+  const [requirementsError, setRequirementsError] = useState<string | null>(null);
+
+  useEffect(() => () => { requiredRequest.current++; }, []);
+
+  const loadRequirements = async () => {
+    if (!session?.token) return;
+    const request = ++requiredRequest.current;
+    setRequirementsLoading(true);
+    setRequirementsError(null);
+    try {
+      const dashboard = await driverApi.dashboard(session.token);
+      if (request !== requiredRequest.current) return;
+      setRequiredNames(dashboard.documents.missing_required_names);
+    } catch (error) {
+      if (request !== requiredRequest.current) return;
+      setRequirementsError((error as ApiRequestError).message || 'Unable to load required documents.');
+    } finally {
+      if (request === requiredRequest.current) setRequirementsLoading(false);
+    }
+  };
 
   const selectedFileType = useMemo(
     () => fileTypes.find((item) => item.file_type_id === selectedFileTypeId) ?? null,
@@ -91,27 +130,34 @@ export default function DocumentsScreen() {
     setSelectedDocument(null);
     setExpiresAt('');
     setFormError(null);
+    setFileTypeExpanded(false);
   };
 
   const openPicker = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      multiple: false,
-      copyToCacheDirectory: true,
+    const handoff = pickerHandoff.current;
+    if (!handoff || handoff.running || isUploading) return;
+    setIsPicking(true);
+    setFileTypeExpanded(false);
+    await handoff.run(async () => {
+      try {
+        const result = await DocumentPicker.getDocumentAsync({ multiple: false, copyToCacheDirectory: true });
+        if (handoff.active && !result.canceled) {
+          setSelectedDocument(result.assets[0] ?? null);
+          setFormError(null);
+        }
+      } catch (error) {
+        if (handoff.active) setFormError((error as Error).message || 'Unable to choose a file.');
+      }
     });
-
-    if (result.canceled) {
-      return;
-    }
-
-    setSelectedDocument(result.assets[0] ?? null);
+    if (handoff.active) setIsPicking(false);
   };
 
   const handleUpload = async () => {
-    if (!session?.token) {
+    if (!session?.token || isUploading || isPicking) {
       return;
     }
 
-    if (!selectedFileTypeId) {
+    if (!selectedFileType) {
       setFormError('Select a file type.');
       return;
     }
@@ -141,7 +187,7 @@ export default function DocumentsScreen() {
       });
 
       resetUploadForm();
-      setModalVisible(false);
+      uploadSheetRef.current?.dismiss();
       await loadDocuments();
     } catch (error) {
       const requestError = error as ApiRequestError;
@@ -154,7 +200,8 @@ export default function DocumentsScreen() {
   return (
     <View className="flex-1 bg-white dark:bg-[#111111]" style={{ paddingTop: insets.top }}>
       <PageHeader title="Documents" action={
-        <Pressable accessibilityRole="button" onPress={() => { resetUploadForm(); setModalVisible(true); }}
+        <Pressable accessibilityRole="button" disabled={isUploading || isPicking}
+          onPress={() => { resetUploadForm(); uploadSheetRef.current?.present(); }}
           style={{ backgroundColor: '#15803d', borderRadius: 24, minHeight: 44, paddingHorizontal: 16, justifyContent: 'center' }}>
           <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>Upload document</Text>
         </Pressable>
@@ -166,8 +213,8 @@ export default function DocumentsScreen() {
         showsVerticalScrollIndicator={false}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           {requiredDocumentCount != null && requiredDocumentCount > 0 ? (
-            <Pressable accessibilityRole="button" accessibilityLabel={`${requiredDocumentCount} required uploads. Upload document`}
-              onPress={() => { resetUploadForm(); setModalVisible(true); }}
+            <Pressable accessibilityRole="button" accessibilityLabel={`${requiredDocumentCount} required uploads. View required documents`}
+              onPress={() => { void loadRequirements(); requiredSheetRef.current?.present(); }}
               style={{ flex: 1, minHeight: 126, padding: 16, borderRadius: 20, backgroundColor: isDarkMode ? '#382B13' : '#FFF4D6' }}>
               <DocumentIcon kind="required" />
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
@@ -229,57 +276,82 @@ export default function DocumentsScreen() {
         )}
       </ScrollView>
 
-      <Modal
-        animationType="slide"
-        presentationStyle="pageSheet"
-        transparent={false}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}>
-        <View className="flex-1 bg-background">
-          <ScrollView
-            contentContainerStyle={{
-              paddingTop: insets.top + 16,
-              paddingBottom: 32,
-              paddingHorizontal: 18,
-            }}
-            showsVerticalScrollIndicator={false}>
-            <View className="flex-row items-center justify-between">
-              <Text className="text-foreground text-3xl font-semibold">Upload document</Text>
-              <Pressable onPress={() => setModalVisible(false)}>
-                <Text className="text-primary text-base font-semibold">Close</Text>
-              </Pressable>
-            </View>
-
-            <View className="bg-card mt-6 rounded-xl px-5 py-5">
-              <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">File type</Text>
-              <View className="mt-4 gap-3">
-                {fileTypes.map((fileType) => {
-                  const isSelected = fileType.file_type_id === selectedFileTypeId;
-                  return (
-                    <Pressable
-                      key={fileType.file_type_id}
-                      onPress={() => setSelectedFileTypeId(fileType.file_type_id)}
-                      className={`rounded-[22px] border px-4 py-4 ${
-                        isSelected ? 'border-primary bg-accent' : 'border-border bg-muted'
-                      }`}>
-                      <Text className="text-card-foreground text-base font-semibold">{fileType.name}</Text>
-                      {fileType.description ? (
-                        <Text className="text-muted-foreground mt-1 text-sm leading-6">{fileType.description}</Text>
-                      ) : null}
-                      {fileType.requires_expiry ? (
-                        <Text className="text-warning-foreground mt-2 text-xs font-semibold uppercase tracking-[2px]">
-                          Expiry required
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                  );
-                })}
+      <BottomSheet modalRef={requiredSheetRef} title="Required documents" scrollable>
+        <Text className="text-muted-foreground" style={{ fontSize: 14, lineHeight: 20 }}>
+          These documents still need to be added to your profile.
+        </Text>
+        {requirementsLoading ? (
+          <View style={{ paddingVertical: 24, alignItems: 'center', gap: 12 }}>
+            <ActivityIndicator color="#15803d" />
+            <Text className="text-muted-foreground">Loading required documents…</Text>
+          </View>
+        ) : requirementsError ? (
+          <View style={{ gap: 12 }}>
+            <Text className="text-warning-foreground">{requirementsError}</Text>
+            <Pressable accessibilityRole="button" onPress={() => void loadRequirements()}
+              style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text className="text-primary" style={{ fontWeight: '600' }}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : requiredNames.length === 0 ? (
+          <Text className="text-muted-foreground">No required documents are missing.</Text>
+        ) : (
+          <View style={{ gap: 12 }}>
+            {requiredNames.map((name, index) => (
+              <View key={`${index}-${name}`} className="bg-[#F5F5F8] dark:bg-muted"
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 16 }}>
+                <DocumentIcon kind="required" />
+                <Text style={{ flex: 1, fontSize: 16, lineHeight: 24, fontWeight: '600' }}>{name}</Text>
               </View>
+            ))}
+          </View>
+        )}
+      </BottomSheet>
+
+      <BottomSheet modalRef={uploadSheetRef} title="Upload document" scrollable
+        dismissible={!isUploading} onDismiss={() => { pickerHandoff.current?.onDismiss(); setFileTypeExpanded(false); }}>
+            <View style={{ gap: 4 }}>
+              <Text className="text-sm font-semibold">File type</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={`File type, ${selectedFileType?.name || 'not selected'}`}
+                accessibilityState={{ expanded: fileTypeExpanded, disabled: isUploading || isLoading || fileTypes.length === 0 }}
+                disabled={isUploading || isLoading || fileTypes.length === 0}
+                onPress={() => setFileTypeExpanded(value => !value)}
+                className="border-input-border bg-input mt-3 rounded-[9px] border"
+                style={{ minHeight: 56, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Text style={{ flex: 1, fontSize: 16 }} className={selectedFileType ? 'text-input-foreground' : 'text-muted-foreground'}>
+                  {selectedFileType?.name || 'Select file type'}
+                </Text>
+                <Feather name={fileTypeExpanded ? 'chevron-up' : 'chevron-down'} size={20} color={isDarkMode ? '#A1A1AA' : '#71717A'} />
+              </Pressable>
+              {isLoading ? <ActivityIndicator color="#15803d" /> : errorMessage ? (
+                <View style={{ gap: 8, marginTop: 12 }}>
+                  <Text className="text-warning-foreground">{errorMessage}</Text>
+                  <Pressable accessibilityRole="button" onPress={() => void loadDocuments()} style={{ minHeight: 44, justifyContent: 'center' }}>
+                    <Text className="text-primary">Retry loading file types</Text>
+                  </Pressable>
+                </View>
+              ) : fileTypes.length === 0 ? <Text className="text-muted-foreground mt-3">No file types are available for upload.</Text> : null}
+              {fileTypeExpanded && !isUploading ? (
+                <View className="border-input-border bg-input mt-2 rounded-[9px] border" style={{ overflow: 'hidden' }}>
+                  {fileTypes.map(fileType => (
+                    <Pressable key={fileType.file_type_id} accessibilityRole="button"
+                      accessibilityState={{ selected: fileType.file_type_id === selectedFileTypeId }}
+                      onPress={() => { setSelectedFileTypeId(fileType.file_type_id); setExpiresAt(''); setFormError(null); setFileTypeExpanded(false); }}
+                      className={fileType.file_type_id === selectedFileTypeId ? 'bg-accent' : ''}
+                      style={{ minHeight: 52, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Text style={{ flex: 1, fontSize: 16 }}>{fileType.name}</Text>
+                      {fileType.file_type_id === selectedFileTypeId && <Feather name="check" size={20} color="#15803d" />}
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+              {!!selectedFileType?.description && <Text className="text-muted-foreground mt-3 text-sm leading-5">{selectedFileType.description}</Text>}
+              {selectedFileType?.requires_expiry && <Text className="text-warning-foreground mt-2 text-sm">Expiry required</Text>}
             </View>
 
-            <View className="bg-card mt-4 rounded-xl px-5 py-5">
+            <View>
               <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Selected file</Text>
-              <Pressable onPress={openPicker} className="bg-secondary mt-4 rounded-full px-4 py-4">
+              <Pressable accessibilityRole="button" disabled={isUploading || isPicking} onPress={() => void openPicker()} className="bg-secondary mt-4 rounded-full px-4 py-4">
                 <Text className="text-secondary-foreground text-center text-base font-semibold">
                   {selectedDocument ? 'Choose a different file' : 'Choose file'}
                 </Text>
@@ -290,7 +362,7 @@ export default function DocumentsScreen() {
             </View>
 
             {selectedFileType?.requires_expiry ? (
-              <View className="bg-card mt-4 rounded-xl px-5 py-5">
+              <View>
                 <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Expiry date</Text>
                 <DateInput value={expiresAt} onChange={setExpiresAt} disabled={isUploading} />
               </View>
@@ -303,8 +375,8 @@ export default function DocumentsScreen() {
             ) : null}
 
             <Pressable
-              disabled={isUploading}
-              onPress={handleUpload}
+              accessibilityRole="button" disabled={isUploading || isPicking || isLoading || fileTypes.length === 0}
+              onPress={() => void handleUpload()}
               className={`mt-6 items-center rounded-full px-6 py-4 bg-primary disabled:opacity-50`}>
               {isUploading ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -312,9 +384,7 @@ export default function DocumentsScreen() {
                 <Text className="text-primary-foreground text-base font-semibold">Upload</Text>
               )}
             </Pressable>
-          </ScrollView>
-        </View>
-      </Modal>
+      </BottomSheet>
     </View>
   );
 }

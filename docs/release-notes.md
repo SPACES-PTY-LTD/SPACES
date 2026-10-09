@@ -1,5 +1,41 @@
 # Release Notes
 
+## 2026-10-09 | Version: driver-account-design-1-v1
+
+- **Summary:** Implement selected Figma Design 1 for the mobile driver account, with profile photo/initials, name, assigned merchant and a grouped settings list without an Account heading.
+- **API Changes:** Add authenticated, merchant/account-scoped GET/PATCH `/api/v1/driver/location-sharing` and POST `/api/v1/driver/phone-location`. Auth user resources include nullable `driver_merchant` with merchant UUID/name. Validate recent coordinates and throttle writes; reject reports while sharing is off and ignore older observations.
+- **Database Changes:** No migration. Store opt-in and latest phone coordinates in existing driver metadata; preserve other metadata. Disabling removes coordinates and creates one dispatch-conversation message in the same transaction. Repeated disabled saves do not duplicate alerts; failed alerts roll back the preference change.
+- **Behavior Changes:** Link to Edit profile, Vehicles, Notifications, Theme and Location. Use real profile data with initials when a photo is absent or fails. Persist Light/Dark/Device theme; Notifications reflects native permissions and opens device settings in installed builds. Phone location defaults off, requires foreground OS consent before enabling, and reports every 30 seconds only while the app is active. Pause in background/logout, ignore late coordinates/permission results, and disable sharing with a dispatch alert on detected permission revocation. Show dispatch-warning/confirmation, unavailable/retry and permission-remediation feedback. Keep vehicle tracking, driver presence and run geofencing separate. Align the selected original/review Figma Location screens with foreground-only phone sharing.
+- **Breaking Changes:** None for existing API consumers. Deploy the API before releasing the mobile client; rebuild the native client for expo-location permissions and automatic device theme support.
+- **Verification:** 30 Laravel feature tests pass (290 assertions), covering phone-location consent state, validation, scope, dispatch-inbox visibility, retry deduplication and rollback alongside merchant/conversation regressions. Seven mocked provider regressions pass for permission, opt-in, foreground/logout cancellation, failed disable and revocation. Full mobile TypeScript, focused account/theme/provider lint, PHP style and diff checks pass. iOS Expo Go visually verified profile light/dark, Theme and Location navigation/warning/unavailable feedback and Notifications fallback. Live API currently lacks these endpoints/merchant fields; no live coordinate report or dispatch alert was sent. Rebuilt iOS/Android permission flows, real phone GPS/reporting, installed notification settings and end-to-end deployed API checks remain release gates.
+
+## 2026-10-09 | Version: driver-document-upload-sheet-v1
+
+- **Summary:** Present driver document upload in a bottom sheet with a file-type dropdown.
+- **API Changes:** None; retain existing file types and driver-file upload endpoints.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the native page-sheet modal and full file-type cards with the shared scrollable bottom sheet and collapsed dropdown. Show the selected type description and conditional expiry field; clear expiry when changing type. Preserve file/expiry validation, loading/retry/no-types feedback and successful upload refresh. Dismiss the sheet before opening the native file picker and restore its draft on selection/cancellation/error; ignore late picker results after unmount. Disable controls and dismissal during upload.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused Documents lint, eight existing shared sheet-handoff regressions and diff checks pass. Dashboard plan v2.83 and editable Figma upload sheet/hand-off aligned; sheet visually checked. Native iOS/Android dropdown, date/file picker layering, large-text/dark-mode layout and live uploads remain unverified.
+
+## 2026-10-09 | Version: required-documents-sheet-v1
+
+- **Summary:** Show missing driver documents in a bottom sheet when Required uploads is tapped.
+- **API Changes:** None; use existing dashboard `missing_required_names`, including dispatch-managed requirements.
+- **Database Changes:** None.
+- **Behavior Changes:** Open the shared scrollable Required documents sheet with wrapping names, loading, Retry and confirmed empty feedback. Refresh on every opening and ignore superseded/unmounted requests. Keep the header Upload document action and its existing form separate.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript and focused Documents lint pass; diff checks pass. Dashboard plan v2.82 and editable Figma sheet/hand-off aligned; Figma sheet visually checked. Native iOS/Android interaction, dark mode and large-text scrolling remain unverified.
+
+## 2026-10-09 | Version: shipment-inline-files-v1
+
+- **Summary:** Show shipment files directly below Parcels in the shared mobile shipment page and bottom sheet.
+- **API Changes:** None; retain existing shipment file list/upload and authorized download endpoints.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the Delivery note & files receipt link with a rounded Files card, green header Upload, wrapping icon-led file rows with type/expiry/chevron, and centered No files uploaded yet with Upload a file. Both upload controls reuse the existing file-type/picker/expiry form; refresh files after upload. Share rendering with the existing menu shortcut. Show loading/retry instead of premature empty feedback, preserve known files on errors and ignore stale/unmounted list responses. Completed-run views retain scoped file access and omit upload controls.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript and focused ShipmentDetails lint pass. Seven temporary mocked rendering/action scenarios cover populated/empty/loading/error, both upload buttons, retry/open callbacks, disabled controls and dark/read-only states. Temporary mocked shipment flow verifies form entry, picker cancellation/selection, upload failure/retry, success refresh/close, authorized download/browser callback, form dismissal and completed-run list scope. Diff checks pass. Dashboard plan v2.81, selected Figma active/read-only layouts, visible Files state references and shipment handoff aligned; reference cards visually checked. Native scrolling/large text, OS picker/browser layering and real uploads remain unverified: simulator was at home with no Expo server running. No live upload, API or database mutation performed during verification.
+
 ## 2026-10-09 | Version: run-open-dashboard-green-v1
 
 - **Summary:** Explicitly render the run detail Open dashboard button in green.

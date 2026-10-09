@@ -347,6 +347,7 @@ function ShipmentDetailsContent({
 
     useEffect(() => {
         let mounted = true;
+        const filesRequests = shipmentFilesRequest;
         const refresh = () => {
             if (!mounted) return;
             void loadShipment();
@@ -359,7 +360,7 @@ function ShipmentDetailsContent({
         });
         return () => {
             mounted = false;
-            shipmentFilesRequest.current++;
+            filesRequests.current++;
             listener.remove();
         };
     }, [loadShipment, loadShipmentFiles, refreshKey]);
@@ -1560,9 +1561,9 @@ function ShipmentDetailsContent({
                                         ) : null}
                                     </>
                                 ) : null}
-                                {detailPanel === "files" && !activeAction ? (
-                                    filesSection
-                                ) : null}
+                                {detailPanel === "files" && !activeAction
+                                    ? filesSection
+                                    : null}
                                 {detailPanel === "history" && !activeAction ? (
                                     <>
                                         <View className="bg-card mt-6 rounded-xl px-5 py-5">
@@ -1774,7 +1775,14 @@ function ShipmentIcon({ name }: { name: IconName }) {
     );
 }
 function ShipmentFilesSection({
-    files, loading, error, readOnly, busy, onRetry, onOpen, onUpload,
+    files,
+    loading,
+    error,
+    readOnly,
+    busy,
+    onRetry,
+    onOpen,
+    onUpload,
 }: {
     files: DriverEntityFile[];
     loading: boolean;
@@ -1797,55 +1805,168 @@ function ShipmentFilesSection({
             disabled={busy}
             onPress={onUpload}
             style={{
-                minHeight: 44, paddingHorizontal: 16, paddingVertical: 12,
-                borderRadius: 12, backgroundColor: "#15803D",
-                opacity: busy ? 0.5 : 1, alignItems: "center", justifyContent: "center",
+                minHeight: 44,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderRadius: 12,
+                backgroundColor: "#15803D",
+                opacity: busy ? 0.5 : 1,
+                alignItems: "center",
+                justifyContent: "center",
             }}
         >
-            <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>{label}</Text>
+            <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+                {label}
+            </Text>
         </Pressable>
     );
     return (
-        <View style={{ padding: 16, borderRadius: 16, backgroundColor: dark ? "#25252B" : "#F5F5F8", gap: 16 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                <Text accessibilityRole="header" style={{ color: ink, fontSize: 16, lineHeight: 22, fontWeight: "600" }}>Files</Text>
+        <View
+            style={{
+                padding: 16,
+                borderRadius: 16,
+                backgroundColor: dark ? "#25252B" : "#F5F5F8",
+                gap: 16,
+            }}
+        >
+            <View
+                style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                }}
+            >
+                <Text
+                    accessibilityRole="header"
+                    style={{
+                        color: ink,
+                        fontSize: 16,
+                        lineHeight: 22,
+                        fontWeight: "600",
+                    }}
+                >
+                    Files
+                </Text>
                 {!readOnly && uploadButton("Upload")}
             </View>
             {loading ? (
-                <View accessibilityLiveRegion="polite" style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12 }}>
+                <View
+                    accessibilityLiveRegion="polite"
+                    style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 10,
+                        paddingVertical: 12,
+                    }}
+                >
                     <ActivityIndicator color="#15803D" />
-                    <Text style={{ color: muted, flex: 1 }}>Loading files…</Text>
+                    <Text style={{ color: muted, flex: 1 }}>
+                        Loading files…
+                    </Text>
                 </View>
             ) : (
                 <>
                     {error ? (
                         <View style={{ gap: 8 }}>
-                            <Text accessibilityRole="alert" style={{ color: dark ? "#FBBF24" : "#B45309" }}>{error}</Text>
-                            <Pressable accessibilityRole="button" onPress={onRetry} style={{ minHeight: 44, justifyContent: "center", alignSelf: "flex-start", paddingHorizontal: 12 }}>
-                                <Text className="text-primary font-semibold">Retry</Text>
+                            <Text
+                                accessibilityRole="alert"
+                                style={{ color: dark ? "#FBBF24" : "#B45309" }}
+                            >
+                                {error}
+                            </Text>
+                            <Pressable
+                                accessibilityRole="button"
+                                onPress={onRetry}
+                                style={{
+                                    minHeight: 44,
+                                    justifyContent: "center",
+                                    alignSelf: "flex-start",
+                                    paddingHorizontal: 12,
+                                }}
+                            >
+                                <Text className="text-primary font-semibold">
+                                    Retry
+                                </Text>
                             </Pressable>
                         </View>
                     ) : null}
-                    {files.length > 0 ? files.map((file) => (
-                        <Pressable
-                            key={file.file_id}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Open ${file.original_name || "Unnamed file"}`}
-                            onPress={() => onOpen(file.file_id)}
-                            style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 64, borderTopWidth: 1, borderTopColor: dark ? "#3F3F46" : "#E4E4E7", paddingTop: 14 }}
+                    {files.length > 0 ? (
+                        files.map((file) => (
+                            <Pressable
+                                key={file.file_id}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Open ${file.original_name || "Unnamed file"}`}
+                                onPress={() => onOpen(file.file_id)}
+                                style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 12,
+                                    minHeight: 64,
+                                    borderTopWidth: 1,
+                                    borderTopColor: dark
+                                        ? "#3F3F46"
+                                        : "#E4E4E7",
+                                    paddingTop: 14,
+                                }}
+                            >
+                                <ShipmentIcon name="files" />
+                                <View style={{ flex: 1, gap: 4 }}>
+                                    <Text
+                                        style={{
+                                            color: ink,
+                                            fontSize: 14,
+                                            lineHeight: 20,
+                                            fontWeight: "600",
+                                        }}
+                                    >
+                                        {file.original_name || "Unnamed file"}
+                                    </Text>
+                                    <Text
+                                        style={{
+                                            color: muted,
+                                            fontSize: 12,
+                                            lineHeight: 18,
+                                        }}
+                                    >
+                                        {file.file_type?.name ||
+                                            "Shipment file"}
+                                    </Text>
+                                    <Text
+                                        style={{
+                                            color: muted,
+                                            fontSize: 12,
+                                            lineHeight: 18,
+                                        }}
+                                    >
+                                        {file.expires_at
+                                            ? `Expires ${file.expires_at.slice(0, 10)}`
+                                            : "No expiry"}
+                                    </Text>
+                                </View>
+                                <ShipmentIcon name="chevron" />
+                            </Pressable>
+                        ))
+                    ) : !error ? (
+                        <View
+                            style={{
+                                alignItems: "center",
+                                paddingVertical: 20,
+                                gap: 12,
+                            }}
                         >
                             <ShipmentIcon name="files" />
-                            <View style={{ flex: 1, gap: 4 }}>
-                                <Text style={{ color: ink, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>{file.original_name || "Unnamed file"}</Text>
-                                <Text style={{ color: muted, fontSize: 12, lineHeight: 18 }}>{file.file_type?.name || "Shipment file"}</Text>
-                                <Text style={{ color: muted, fontSize: 12, lineHeight: 18 }}>{file.expires_at ? `Expires ${file.expires_at.slice(0, 10)}` : "No expiry"}</Text>
-                            </View>
-                            <ShipmentIcon name="chevron" />
-                        </Pressable>
-                    )) : !error ? (
-                        <View style={{ alignItems: "center", paddingVertical: 20, gap: 12 }}>
-                            <ShipmentIcon name="files" />
-                            <Text style={{ color: muted, fontSize: 14, lineHeight: 20, textAlign: "center" }}>No files uploaded yet</Text>
+                            <Text
+                                style={{
+                                    color: muted,
+                                    fontSize: 14,
+                                    lineHeight: 20,
+                                    textAlign: "center",
+                                }}
+                            >
+                                No files uploaded yet
+                            </Text>
                             {!readOnly && uploadButton("Upload a file")}
                         </View>
                     ) : null}

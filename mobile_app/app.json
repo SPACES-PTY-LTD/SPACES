@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/branding/icon.png",
     "scheme": "expodriverapp",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.spaces.logistics"

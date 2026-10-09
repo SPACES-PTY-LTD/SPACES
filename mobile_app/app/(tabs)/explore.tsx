@@ -1,86 +1,77 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { Text } from '@/component/ui/Text';
-import { PageHeader } from '@/component/ui/PageHeader';
+import { MessageSheet, type MessageSheetRef } from '@/component/ui/MessageSheet';
+import { AccountRow, useAccountColors } from '@/src/components/AccountUI';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { authApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
+import { usePhoneLocation } from '@/src/providers/phone-location-provider';
+import { useThemePreference } from '@/src/lib/theme-preference';
 
 export default function AccountScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { session, signOut } = useAuth();
-  const { colorScheme, toggleColorScheme } = useColorScheme();
+  const { session, signOut, updateSessionUser } = useAuth();
+  const { colorScheme } = useColorScheme();
+  const preference = useThemePreference();
+  const colors = useAccountColors();
+  const location = usePhoneLocation();
+  const message = useRef<MessageSheetRef>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isDarkMode = colorScheme === 'dark';
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
+  const updateUser = useRef(updateSessionUser);
+  useEffect(() => { updateUser.current = updateSessionUser; }, [updateSessionUser]);
+  const refreshLocation = location.refresh;
+  const token = session?.token;
+  useFocusEffect(useCallback(() => {
+    if (!token) return;
+    let live = true;
+    void authApi.me(token).then(user => { if (live) return updateUser.current(user); }).catch(() => {});
+    void refreshLocation();
+    return () => { live = false; };
+  }, [token, refreshLocation]));
 
-  const handleLogout = async () => {
+  const user = session?.user;
+  const name = user?.name || 'Driver account';
+  const initials = name.trim().split(/\s+/).filter(Boolean).filter((_, i, parts) => i === 0 || i === parts.length - 1).map(part => [...part][0]).join('').toUpperCase();
+  const merchant = user?.driver_merchant === undefined ? 'Merchant unavailable' : user.driver_merchant?.name || 'Merchant not assigned';
+  const photo = user?.profile_photo_url;
+  async function handleLogout() {
     setIsSubmitting(true);
-
-    try {
-      await signOut();
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <View className="flex-1 bg-white dark:bg-[#111111]" style={{ paddingTop: insets.top }}>
-      <PageHeader title="Account" />
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 24 }}
-        showsVerticalScrollIndicator={false}>
-        <View className="rounded-xl bg-[#F5F5F8] dark:bg-card px-5 py-5">
-          <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Name</Text>
-          <Text className="text-card-foreground mt-1 text-lg font-semibold">{session?.user.name ?? 'Driver account'}</Text>
-          <Text className="text-muted-foreground mt-5 text-sm uppercase tracking-[2px]">Email</Text>
-          <Text className="text-card-foreground mt-1 text-lg font-semibold">{session?.user.email}</Text>
-
-          <Text className="text-muted-foreground mt-5 text-sm uppercase tracking-[2px]">Telephone</Text>
-          <Text className="text-card-foreground mt-1 text-lg font-semibold">{session?.user.telephone || 'Not set'}</Text>
-
-          <Text className="text-muted-foreground mt-5 text-sm uppercase tracking-[2px]">Role</Text>
-          <Text className="text-card-foreground mt-1 text-lg font-semibold capitalize">{session?.user.role}</Text>
-        </View>
-
-        <Pressable accessibilityRole="button" onPress={() => router.push('/account/vehicles')}
-          className="border-border bg-[#F5F5F8] dark:bg-card mt-6 rounded-xl border px-5 py-4">
-          <Text className="text-card-foreground text-lg font-semibold">Vehicles assigned to me</Text>
-          <Text className="text-muted-foreground mt-1">View your assigned vehicles and their details.</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={toggleColorScheme}
-          className="border-border bg-[#F5F5F8] dark:bg-card mt-6 rounded-xl border px-5 py-4">
-          <Text className="text-muted-foreground text-sm uppercase tracking-[2px]">Theme</Text>
-          <Text className="text-card-foreground mt-2 text-lg font-semibold">
-            {isDarkMode ? 'Dark mode' : 'Light mode'}
-          </Text>
-          <Text className="text-muted-foreground mt-1 text-sm">
-            Tap to switch to {isDarkMode ? 'light' : 'dark'} mode.
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => router.push('/account/edit-profile')}
-          className="bg-secondary mt-6 items-center rounded-full px-6 py-4">
-          <Text className="text-secondary-foreground text-base font-semibold">Edit profile</Text>
-        </Pressable>
-
-        <Pressable
-          disabled={isSubmitting}
-          onPress={handleLogout}
-          className={`mt-6 items-center rounded-full px-6 py-4 bg-primary disabled:opacity-50`}>
-          {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text className="text-primary-foreground text-base font-semibold">Log out</Text>
-          )}
-        </Pressable>
-      </ScrollView>
-    </View>
-  );
+    try { await signOut(); }
+    catch (e) { message.current?.present('Unable to log out', e instanceof Error ? e.message : 'Please try again.'); }
+    finally { setIsSubmitting(false); }
+  }
+  return <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: insets.top + 20, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+      <View style={styles.identity}>
+        {photo && failedPhoto !== photo ? <Image source={{ uri: photo }} accessibilityLabel={`${name}'s profile picture`} style={styles.avatar} contentFit="cover" onError={() => setFailedPhoto(photo)} /> : <View accessibilityLabel={`${name}'s profile picture placeholder`} style={[styles.avatar, styles.placeholder, { backgroundColor: colors.soft }]}><Text style={{ color: colors.accent, fontSize: 28, fontWeight: '600' }}>{initials}</Text></View>}
+        <Text accessibilityRole="header" style={[styles.name, { color: colors.ink }]}>{name}</Text>
+        <Text style={[styles.merchant, { color: colors.muted }]}>{merchant} · {user?.role ? user.role[0].toUpperCase() + user.role.slice(1) : 'Driver'}</Text>
+      </View>
+      <View style={styles.links}>
+        <AccountRow label="Edit profile" icon="profile" onPress={() => router.push('/account/edit-profile')} />
+        <AccountRow label="Vehicles" icon="vehicles" onPress={() => router.push('/account/vehicles')} />
+        <AccountRow label="Notifications" icon="notifications" onPress={() => router.push('/account/notifications')} />
+        <AccountRow label="Theme" icon="theme" detail={preference === 'system' ? 'System' : colorScheme === 'dark' ? 'Dark' : 'Light'} onPress={() => router.push('/account/theme')} />
+        <AccountRow label="Location" icon="location" detail={location.loading ? 'Loading…' : location.settings ? location.settings.enabled ? 'On' : 'Off' : 'Unavailable'} hint="Manage phone location sharing. Turning it off alerts dispatch." onPress={() => router.push('/account/location')} last />
+      </View>
+      <Pressable disabled={isSubmitting} accessibilityRole="button" accessibilityLabel="Log out" accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }} onPress={handleLogout} style={styles.logout}>
+        {isSubmitting ? <ActivityIndicator color={colors.accent} /> : <Text style={{ color: colors.accent, fontSize: 17, lineHeight: 22, fontWeight: '600' }}>Log out</Text>}
+      </Pressable>
+    </ScrollView><MessageSheet ref={message} />
+  </View>;
 }
+const styles = StyleSheet.create({
+  identity: { alignItems: 'center', gap: 10 },
+  avatar: { width: 84, height: 84, borderRadius: 42 },
+  placeholder: { alignItems: 'center', justifyContent: 'center' },
+  name: { fontSize: 20, lineHeight: 26, fontWeight: '600', textAlign: 'center' },
+  merchant: { fontSize: 13, lineHeight: 17, textAlign: 'center' },
+  links: { marginTop: 66, borderRadius: 18, overflow: 'hidden' },
+  logout: { minHeight: 52, marginTop: 14, alignItems: 'center', justifyContent: 'center' },
+});

@@ -394,6 +394,9 @@ Route::prefix('v1')->group(function () {
             Route::get('document-imports/{id}', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'show']);
             Route::post('document-imports/{id}/confirm', [\App\Http\Controllers\Api\V1\DriverDocumentImportController::class, 'confirm']);
             Route::patch('profile', [MeController::class, 'updateDriverProfile']);
+            Route::get('location-sharing', [\App\Http\Controllers\Api\V1\DriverPhoneLocationController::class, 'show']);
+            Route::patch('location-sharing', [\App\Http\Controllers\Api\V1\DriverPhoneLocationController::class, 'update'])->middleware('throttle:20,1');
+            Route::post('phone-location', [\App\Http\Controllers\Api\V1\DriverPhoneLocationController::class, 'report'])->middleware('throttle:10,1');
             Route::post('devices/register', [DriverDeviceController::class, 'store']);
             Route::post('presence/heartbeat', [DriverPresenceController::class, 'heartbeat']);
             Route::post('presence/status', [DriverPresenceController::class, 'status']);
