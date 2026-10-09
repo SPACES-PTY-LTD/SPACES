@@ -7,6 +7,9 @@ import { AppState, Platform } from 'react-native';
 import { driverApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
 import { driverMessageTarget } from '@/src/lib/driver-message-notification';
+import { createDeviceRegistrationGate } from '@/src/lib/device-registration';
+
+const registerDeviceOnce = createDeviceRegistrationGate();
 
 let visibleChat: string | null = null;
 export function setVisibleDriverChat(id: string | null) {
@@ -15,18 +18,18 @@ export function setVisibleDriverChat(id: string | null) {
 
 export async function registerMessageNotificationDevice(token: string, isCurrent = () => true) {
     if (Platform.OS === 'web' || Constants.appOwnership === 'expo' || !Device.isDevice) return;
-    const permission = await Notifications.getPermissionsAsync();
-    if (!permission.granted || !isCurrent()) return;
-    const projectId = Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId;
-    if (!projectId) return;
-    const push = await Notifications.getExpoPushTokenAsync({ projectId });
-    if (!isCurrent()) return;
-    await driverApi.registerDevice(token, {
+    await registerDeviceOnce(token, isCurrent, async () => {
+        const permission = await Notifications.getPermissionsAsync();
+        if (!permission.granted || !isCurrent()) return null;
+        const projectId = Constants.easConfig?.projectId ?? Constants.expoConfig?.extra?.eas?.projectId;
+        if (!projectId) return null;
+        return (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    }, pushToken => driverApi.registerDevice(token, {
         platform: Platform.OS,
         push_provider: 'expo',
-        push_token: push.data,
+        push_token: pushToken,
         device_name: Device.deviceName ?? undefined,
-    });
+    }));
 }
 Notifications.setNotificationHandler({
     handleNotification: async (notification) => {

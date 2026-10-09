@@ -118,7 +118,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   useEffect(fit, [fit]);
   const missing = shipments.length - stops.length;
   return <View style={[styles.container, { backgroundColor: dark ? '#18181b' : '#eeeee8' }]}>
-    <NativeMap dark={dark} recoveryTopInset={topInset} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => {
+    <NativeMap dark={dark} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => {
       mapLifecycle.current.ready = true;
       setReady(true);
       fit();

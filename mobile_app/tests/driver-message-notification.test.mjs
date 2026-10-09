@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { createDeviceRegistrationGate } from '../src/lib/device-registration.ts';
 import { driverMessageTarget } from '../src/lib/driver-message-notification.ts';
 
 const conversationId = 'c8d35ab9-9e59-4775-8f84-8a1c956e58dc';
@@ -56,6 +57,7 @@ function notificationHarness(initialResponse) {
     '@/src/lib/api': { driverApi: {} }, // Tap navigation must work without a network request.
     '@/src/providers/auth-provider': { useAuth: () => state },
     '@/src/lib/driver-message-notification': { driverMessageTarget },
+    '@/src/lib/device-registration': { createDeviceRegistrationGate },
   };
   const exports = {};
   const source = ts.transpileModule(readFileSync(new URL('../src/providers/message-notifications.tsx', import.meta.url), 'utf8'), {

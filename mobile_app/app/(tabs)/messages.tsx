@@ -3,6 +3,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
 import { ChatReferenceSheet } from '@/src/components/ChatReferenceSheet';
+import { ShipmentDetailsSheet } from '@/src/components/shipments/ShipmentDetails';
+import { RunDetailsSheet } from '@/src/components/runs/RunDetailsSheet';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import * as Crypto from 'expo-crypto';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
@@ -37,12 +40,17 @@ import { setVisibleDriverChat } from '@/src/providers/message-notifications';
 
 export default function MessagesScreen() {
     const { session } = useAuth();
-    const { conversation_id } = useLocalSearchParams<{ conversation_id?: string | string[] }>();
+    const { conversation_id, draft_shipment_id, draft_shipment_label, draft_shipment_request, draft_owner } = useLocalSearchParams<{
+        conversation_id?: string | string[]; draft_shipment_id?: string | string[];
+        draft_shipment_label?: string | string[]; draft_shipment_request?: string | string[]; draft_owner?: string | string[];
+    }>();
     const requestedConversation = typeof conversation_id === 'string' ? conversation_id : undefined;
-    return <DriverChat key={`${session?.user.user_id ?? 'signed-out'}:${requestedConversation ?? 'default'}`} requestedConversation={requestedConversation} />;
+    const shipment = typeof draft_shipment_id === 'string' && typeof draft_shipment_request === 'string' && draft_owner === session?.user.user_id
+        ? { id: draft_shipment_id, type: 'shipment' as const, label: typeof draft_shipment_label === 'string' ? draft_shipment_label : draft_shipment_id, subtitle: '' } : undefined;
+    return <DriverChat key={`${session?.user.user_id ?? 'signed-out'}:${requestedConversation ?? 'default'}`} requestedConversation={requestedConversation} draftShipment={shipment} draftRequest={typeof draft_shipment_request === 'string' ? draft_shipment_request : undefined} />;
 }
 
-function DriverChat({ requestedConversation }: { requestedConversation?: string }) {
+function DriverChat({ requestedConversation, draftShipment, draftRequest }: { requestedConversation?: string; draftShipment?: ChatReference; draftRequest?: string }) {
     const { refresh: refreshUnread } = useUnreadMessages();
     const { session } = useAuth();
     const token = session?.token;
@@ -70,6 +78,13 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
     const attachmentActions = useRef<ActionSheetRef>(null);
     const [referenceType, setReferenceType] = useState<ChatReference['type'] | null>(null);
     const [references, setReferences] = useState<ChatReference[]>([]);
+    const [detailReference, setDetailReference] = useState<ChatReference | null>(null);
+    const referenceModal = useRef<BottomSheetModal>(null);
+    const openReference = (reference: ChatReference) => {
+        Keyboard.dismiss();
+        focusShipment.current = null;
+        setDetailReference(reference);
+    };
     const [picking, setPicking] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -85,6 +100,31 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
     const atBottom = useRef(true);
     const [reload, setReload] = useState(0);
     const [failedSend, setFailedSend] = useState(false);
+    const consumedShipment = useRef<string | null>(null);
+    const composer = useRef<TextInput>(null);
+    const focusShipment = useRef<string | null>(null);
+
+    useFocusEffect(useCallback(() => {
+        if (!draftShipment || !draftRequest || !conversation || sending || consumedShipment.current === draftRequest) return;
+        consumedShipment.current = draftRequest;
+        if (conversation.status !== 'active') setError('This conversation is closed. The shipment could not be attached.');
+        else if (!references.some(item => item.type === 'shipment' && item.id === draftShipment.id)) {
+            if (files.length + references.length >= 5) setError('Choose up to five attachments. Remove one, then open Message dispatch again.');
+            else { focusShipment.current = draftShipment.id; setReferences(previous => [...previous, draftShipment]); retry.current = null; }
+        }
+        router.setParams({ draft_shipment_id: undefined, draft_shipment_label: undefined, draft_shipment_request: undefined, draft_owner: undefined });
+    }, [draftShipment, draftRequest, conversation, sending, references, files.length]));
+
+    useFocusEffect(useCallback(() => {
+        if (!hasLoaded || sending || picking || conversation?.status !== 'active' ||
+            !references.some(item => item.type === 'shipment' && item.id === focusShipment.current)) return;
+        const frame = requestAnimationFrame(() => {
+            if (!active.current || !focusShipment.current) return;
+            composer.current?.focus();
+            focusShipment.current = null;
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [hasLoaded, sending, picking, conversation?.status, references]));
 
     useFocusEffect(
         useCallback(() => {
@@ -435,8 +475,7 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
                                     key={a.attachment_id}
                                     onPress={() => {
                                         if (a.reference) {
-                                            if (a.reference.type === 'run') router.push({ pathname: '/runs/[run_id]', params: { run_id: a.reference.id } });
-                                            else router.push({ pathname: '/shipments/[shipment_id]', params: { shipment_id: a.reference.id, ...(a.reference.run_id ? { run_id: a.reference.run_id } : {}) } });
+                                            openReference(a.reference);
                                         } else void download(a.attachment_id);
                                     }}
                                     accessibilityRole="button"
@@ -456,8 +495,10 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
             )}
             <View style={[styles.composerShelf, { backgroundColor: colors.shelf }]}>
                 {references.map(reference => <View key={`${reference.type}-${reference.id}`} style={[styles.draftFile, { backgroundColor: colors.background, borderColor: colors.line }]}>
-                    <Feather name={reference.type === 'run' ? 'navigation' : 'package'} size={18} color={colors.muted} />
-                    <Text numberOfLines={1} style={{ flex: 1, color: colors.ink }}>{reference.label}</Text>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${reference.label}`} onPress={() => openReference(reference)} style={{ flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Feather name={reference.type === 'run' ? 'navigation' : 'package'} size={18} color={colors.muted} />
+                        <Text numberOfLines={1} style={{ flex: 1, color: colors.ink }}>{reference.label}</Text>
+                    </Pressable>
                     <Pressable disabled={sending} accessibilityRole="button" accessibilityLabel={`Remove ${reference.label}`} onPress={() => {
                         setReferences(previous => previous.filter(item => item.id !== reference.id || item.type !== reference.type)); retry.current = null;
                     }} style={styles.removeFile}><Feather name="x" size={18} color={colors.muted} /></Pressable>
@@ -479,6 +520,7 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
                         <Image source={require('@/assets/images/messages/attachment.svg')} style={styles.attachmentIcon} />
                     </Pressable>
                     <TextInput
+                        ref={composer}
                         accessibilityLabel="Message dispatch"
                         editable={canCompose}
                         value={body}
@@ -500,6 +542,8 @@ function DriverChat({ requestedConversation }: { requestedConversation?: string 
                 )}
             </View>
             <ActionSheet ref={attachmentActions} />
+            {detailReference?.type === 'shipment' && <ShipmentDetailsSheet key={`${detailReference.id}:${detailReference.run_id ?? ''}`} modalRef={referenceModal} shipmentId={detailReference.id} runId={detailReference.run_id ?? undefined} autoPresent onDismiss={() => setDetailReference(null)} />}
+            {detailReference?.type === 'run' && token && <RunDetailsSheet key={detailReference.id} token={token} runId={detailReference.id} onDismiss={() => setDetailReference(null)} />}
             {referenceType && session && conversation && <ChatReferenceSheet token={session.token} conversationId={conversation.conversation_id} type={referenceType} onDismiss={() => setReferenceType(null)} onSelect={record => {
                 if (!active.current || conversationRef.current?.status !== 'active') return;
                 if (references.some(item => item.id === record.id && item.type === record.type)) return;

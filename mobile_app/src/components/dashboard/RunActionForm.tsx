@@ -82,7 +82,7 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
     finally { submitting.current = false; if (alive.current) setBusy(false); }
   }
   const address = (location?: ImportLocation) => location?.full_address || [location?.address_line_1, location?.city, location?.province, location?.country].filter(Boolean).join(', ');
-  return <BottomSheet plainScroll={!!choosing} modalRef={modal} title={choosing ? choosing === 'origin' ? 'Search planned start location' : 'Search planned end location' : heading} onBack={choosing ? () => { Keyboard.dismiss(); setChoosing(null); } : undefined} keyboardBehavior="interactive" onScroll={event => picker.current?.onScroll(event)} showHandle={action !== 'edit'} scrollable dismissible={!busy} onDismiss={onDismiss}>
+  return <BottomSheet showCloseButton={!choosing} plainScroll={!!choosing} modalRef={modal} title={choosing ? choosing === 'origin' ? 'Search planned start location' : 'Search planned end location' : heading} onBack={choosing ? () => { Keyboard.dismiss(); setChoosing(null); } : undefined} keyboardBehavior="interactive" onScroll={event => picker.current?.onScroll(event)} showHandle={action !== 'edit'} scrollable dismissible={!busy} onDismiss={onDismiss}>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {action === 'end' && <>
       <Text style={s.subtitle}>Request dispatch approval to end this run. Your run stays active until dispatch approves it, even if deliveries remain unfinished.</Text>

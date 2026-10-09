@@ -211,7 +211,15 @@ export default function HomeScreen() {
               </View>
               {visibleStops.length ? <RunTimeline stops={visibleStops} ink={ink} muted={muted} line={line} hasTrailingEntry={showDestinationEntry}
                 onOpenShipment={openShipment}
-                onOpenStop={setSelectedStop} /> : <Text style={{ fontSize: 13, color: muted, marginBottom: 16 }}>{runFilter === 'speeding' ? 'No speeding events recorded for this run.' : runFilter === 'shipments' ? 'No visited or planned delivery stops for this run yet.' : 'No stops recorded or planned for this run yet.'}</Text>}
+                onOpenStop={setSelectedStop} /> : runFilter === 'speeding' ? <View style={{ alignItems: 'center', paddingHorizontal: 24, paddingVertical: 32, marginBottom: 16, gap: 12 }}>
+                  <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: dark ? '#163829' : '#dcfce7', alignItems: 'center', justifyContent: 'center' }}>
+                    <Feather name="activity" size={26} color={dark ? '#86efac' : '#15803d'} />
+                  </View>
+                  <View style={{ gap: 6, maxWidth: 300 }}>
+                    <Text style={{ color: ink, fontSize: 17, lineHeight: 24, fontWeight: '600', textAlign: 'center' }}>No speeding events</Text>
+                    <Text style={{ color: muted, fontSize: 13, lineHeight: 20, textAlign: 'center' }}>No speeding events have been recorded for this run.</Text>
+                  </View>
+                </View> : <Text style={{ fontSize: 13, color: muted, marginBottom: 16 }}>{runFilter === 'shipments' ? 'No visited or planned delivery stops for this run yet.' : 'No stops recorded or planned for this run yet.'}</Text>}
               {showDestinationEntry && <View style={styles.timelineRow}>
                 <View style={styles.timelineRail}><View style={[styles.timelineMarker, { backgroundColor: '#71717a' }]}><Feather name="flag" size={14} color="#fff" /></View></View>
                 <View style={[styles.timelineContent, { paddingBottom: 20, gap: 10 }]}>

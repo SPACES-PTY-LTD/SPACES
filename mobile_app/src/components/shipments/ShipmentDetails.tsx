@@ -7,6 +7,7 @@ import {
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
+import * as Crypto from "expo-crypto";
 import { useRouter } from "expo-router";
 import {
     useCallback,
@@ -257,7 +258,8 @@ function ShipmentDetailsContent({
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [actionMessage, setActionMessage] = useState<string | null>(null);
     const shipmentActions = useRef<ActionSheetRef>(null);
-    const [detailPanel, setDetailPanel] = useState<"files" | "history" | null>(
+    const deliveryStatuses = useRef<ActionSheetRef>(null);
+    const [detailPanel, setDetailPanel] = useState<"history" | null>(
         null,
     );
     const [activeAction, setActiveAction] = useState<
@@ -690,7 +692,7 @@ function ShipmentDetailsContent({
         shipment?.total_parcel_count ?? shipment?.parcels?.length ?? 0;
     const currentStatus = shipment?.booking?.status || shipment?.status || "";
     const close = onClose ?? (() => router.back());
-    const openPanel = (panel: "files" | "history") => {
+    const openPanel = (panel: "history") => {
         setActiveAction(null);
         setDetailPanel(panel);
     };
@@ -711,6 +713,23 @@ function ShipmentDetailsContent({
             }}
         />
     );
+    const openDeliveryStatuses = () => {
+        if (readOnly || !shipment?.booking || isMutating) return;
+        deliveryStatuses.current?.present({
+            title: "Update delivery status",
+            accessibilityLabel: "Available delivery statuses",
+            stackBehavior: "push",
+            actions: getAvailableStatuses(shipment.booking.status).map(status => ({
+                id: status,
+                label: formatStatus(status),
+                selected: status === (activeAction === "status" ? statusValue : shipment.booking!.status),
+                onPress: () => {
+                    setStatusValue(status);
+                    setActiveAction("status");
+                },
+            })),
+        });
+    };
     const openShipmentActions = () => {
         if (!shipment || isMutating) return;
         shipmentActions.current?.present({
@@ -725,15 +744,10 @@ function ShipmentDetailsContent({
                           {
                               id: "status",
                               label: "Update delivery status",
-                              onPress: () => setActiveAction("status"),
+                              onPress: openDeliveryStatuses,
                           },
                       ]
                     : []),
-                {
-                    id: "files",
-                    label: "Delivery note & files",
-                    onPress: () => openPanel("files"),
-                },
                 {
                     id: "history",
                     label: "Shipment history",
@@ -788,17 +802,27 @@ function ShipmentDetailsContent({
                 action={
                     <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="More shipment actions"
+                        accessibilityLabel="Shipment actions"
+                        accessibilityHint="Opens shipment options"
+                        accessibilityState={{ disabled: !shipment || isMutating }}
                         disabled={!shipment || isMutating}
                         onPress={openShipmentActions}
                         style={{
                             minHeight: 44,
-                            minWidth: 44,
+                            paddingHorizontal: 12,
+                            borderRadius: 10,
+                            borderWidth: 1,
+                            borderColor: isDarkMode ? "#52525B" : "#E4E4E7",
+                            backgroundColor: isDarkMode ? "#27272A" : "#F5F5F8",
+                            flexDirection: "row",
+                            gap: 6,
                             alignItems: "center",
                             justifyContent: "center",
+                            opacity: !shipment || isMutating ? 0.5 : 1,
                         }}
                     >
-                        <ShipmentIcon name="more" />
+                        <Text style={{ color: ink, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>Actions</Text>
+                        <View style={{ transform: [{ rotate: "90deg" }] }}><ShipmentIcon name="chevron" /></View>
                     </Pressable>
                 }
             />
@@ -967,28 +991,7 @@ function ShipmentDetailsContent({
                                 </View>
                             ) : null}
                         </View>
-                        <View
-                            accessibilityElementsHidden
-                            importantForAccessibility="no-hide-descendants"
-                            style={{
-                                flexDirection: "row",
-                                gap: 5,
-                                paddingVertical: 6,
-                            }}
-                        >
-                            {Array.from({ length: 30 }, (_, index) => (
-                                <View
-                                    key={index}
-                                    style={{
-                                        flex: 1,
-                                        height: 1,
-                                        backgroundColor: isDarkMode
-                                            ? "#52525B"
-                                            : "#C8C6BE",
-                                    }}
-                                />
-                            ))}
-                        </View>
+                        <ReceiptDivider isDarkMode={isDarkMode} />
                         <View
                             style={{
                                 flexDirection: "row",
@@ -1162,18 +1165,6 @@ function ShipmentDetailsContent({
                                     >
                                         Parcels
                                     </Text>
-                                    <Text
-                                        style={{
-                                            color: muted,
-                                            fontSize: 13,
-                                            lineHeight: 18,
-                                        }}
-                                    >
-                                        {shipment.scanned_parcel_count ?? 0} of{" "}
-                                        {total}{" "}
-                                        {total === 1 ? "parcel" : "parcels"}{" "}
-                                        scanned
-                                    </Text>
                                 </View>
                             </View>
                             {(shipment.parcels || []).map((parcel, index) => (
@@ -1229,12 +1220,8 @@ function ShipmentDetailsContent({
                             ))}
                         </View>
                         {filesSection}
-                        <DetailLink
-                            icon="history"
-                            title="Shipment history"
-                            subtitle="Status updates and recorded visits"
-                            onPress={() => openPanel("history")}
-                        />
+                        <ReceiptDivider isDarkMode={isDarkMode} />
+                        <ShipmentHistorySection shipment={shipment} />
                         {!readOnly && (
                             <DetailLink
                                 icon="message"
@@ -1242,7 +1229,12 @@ function ShipmentDetailsContent({
                                 subtitle="Ask for help with this shipment"
                                 onPress={() => {
                                     if (presentation === "sheet") onClose?.();
-                                    router.push("/(tabs)/messages");
+                                    router.push({ pathname: "/(tabs)/messages", params: {
+                                        draft_shipment_id: shipment.shipment_id,
+                                        draft_shipment_label: shipment.merchant_order_ref || shipment.delivery_note_number || shipment.shipment_id,
+                                        draft_shipment_request: Crypto.randomUUID(),
+                                        draft_owner: session?.user.user_id,
+                                    } });
                                 }}
                             />
                         )}
@@ -1268,7 +1260,7 @@ function ShipmentDetailsContent({
                             if (readOnly) {
                                 if (presentation === "sheet") onClose?.();
                                 router.push(`/runs/${run_id}`);
-                            } else setActiveAction("status");
+                            } else openDeliveryStatuses();
                         }}
                         style={{
                             minHeight: 52,
@@ -1333,9 +1325,7 @@ function ShipmentDetailsContent({
                                   ? "Delivery proof"
                                   : activeAction === "cancel"
                                     ? "Cancel shipment"
-                                    : detailPanel === "files"
-                                      ? "Shipment files"
-                                      : detailPanel === "history"
+                                    : detailPanel === "history"
                                         ? "Shipment history"
                                         : "More actions"
                         }
@@ -1385,13 +1375,10 @@ function ShipmentDetailsContent({
                                                 title="Update delivery status"
                                                 description="Choose the next shipment state available to this driver booking."
                                             >
-                                                <OptionRow
-                                                    options={getAvailableStatuses(
-                                                        shipment.booking.status,
-                                                    )}
-                                                    selected={statusValue}
-                                                    onSelect={setStatusValue}
-                                                />
+                                                <Pressable accessibilityRole="button" accessibilityLabel={`Delivery status: ${formatStatus(statusValue)}. Choose a different status`} disabled={isMutating} onPress={openDeliveryStatuses} style={{ minHeight: 48, justifyContent: "center" }}>
+                                                    <Text className="text-card-foreground font-semibold">{formatStatus(statusValue)}</Text>
+                                                    <Text className="text-primary text-sm">Choose a different status</Text>
+                                                </Pressable>
                                                 <Input
                                                     label={
                                                         statusValue === "failed"
@@ -1619,171 +1606,10 @@ function ShipmentDetailsContent({
                                         ) : null}
                                     </>
                                 ) : null}
-                                {detailPanel === "files" && !activeAction
-                                    ? filesSection
-                                    : null}
                                 {detailPanel === "history" && !activeAction ? (
-                                    <>
-                                        <View className="bg-card mt-6 rounded-xl px-5 py-5">
-                                            <Text className="text-card-foreground text-lg font-semibold">
-                                                Timeline
-                                            </Text>
-                                            {shipment.status_history?.map(
-                                                (event, index) => (
-                                                    <View
-                                                        key={index}
-                                                        className="mt-4"
-                                                    >
-                                                        <Text className="text-card-foreground font-semibold">
-                                                            {formatStatus(
-                                                                event.status,
-                                                            )}{" "}
-                                                            ·{" "}
-                                                            {event.source ===
-                                                            "matched_visit"
-                                                                ? "Matched recorded visit"
-                                                                : event.source ===
-                                                                    "driver"
-                                                                  ? "Driver update"
-                                                                  : "Status update"}
-                                                        </Text>
-                                                        <Text className="text-muted-foreground">
-                                                            {event.description}
-                                                        </Text>
-                                                        <Text className="text-muted-foreground">
-                                                            {event.occurred_at}
-                                                        </Text>
-                                                    </View>
-                                                ),
-                                            )}
-                                            <InfoRow
-                                                label="Booked at"
-                                                value={
-                                                    shipment.booking?.booked_at
-                                                }
-                                            />
-                                            <InfoRow
-                                                label="Collected at"
-                                                value={
-                                                    shipment.booking
-                                                        ?.collected_at
-                                                }
-                                            />
-                                            <InfoRow
-                                                label="Pickup odometer"
-                                                value={formatOdometerDisplay(
-                                                    shipment.booking
-                                                        ?.odometer_at_collection,
-                                                )}
-                                            />
-                                            <InfoRow
-                                                label="Delivered at"
-                                                value={
-                                                    shipment.booking
-                                                        ?.delivered_at
-                                                }
-                                            />
-                                            <InfoRow
-                                                label="Delivery odometer"
-                                                value={formatOdometerDisplay(
-                                                    shipment.booking
-                                                        ?.odometer_at_delivery,
-                                                )}
-                                            />
-                                            <InfoRow
-                                                label="Shipment km"
-                                                value={formatOdometerDisplay(
-                                                    shipment.booking
-                                                        ?.total_km_from_collection,
-                                                )}
-                                            />
-                                            <InfoRow
-                                                label="Returned at"
-                                                value={
-                                                    shipment.booking
-                                                        ?.returned_at
-                                                }
-                                            />
-                                            <InfoRow
-                                                label="Cancelled at"
-                                                value={
-                                                    shipment.booking
-                                                        ?.cancelled_at
-                                                }
-                                            />
-                                        </View>
-
-                                        <View className="bg-card mt-6 rounded-xl px-5 py-5">
-                                            <Text className="text-card-foreground text-lg font-semibold">
-                                                Shipment info
-                                            </Text>
-                                            <InfoRow
-                                                label="Service type"
-                                                value={shipment.service_type}
-                                            />
-                                            <InfoRow
-                                                label="Priority"
-                                                value={shipment.priority}
-                                            />
-                                            <InfoRow
-                                                label="Invoice"
-                                                value={shipment.invoice_number}
-                                            />
-                                            <InfoRow
-                                                label="Delivery note"
-                                                value={
-                                                    shipment.delivery_note_number
-                                                }
-                                            />
-                                            <InfoRow
-                                                label="Carrier job"
-                                                value={
-                                                    shipment.booking
-                                                        ?.carrier_job_id
-                                                }
-                                            />
-                                            <InfoRow
-                                                label="Run status"
-                                                value={shipment.run_status}
-                                            />
-                                            <InfoRow
-                                                label="Cancellation reason"
-                                                value={
-                                                    shipment.booking
-                                                        ?.cancel_reason ||
-                                                    shipment.booking
-                                                        ?.cancellation_reason_code
-                                                }
-                                            />
-                                        </View>
-
-                                        <View className="bg-card mt-6 rounded-xl px-5 py-5">
-                                            <Text className="text-card-foreground text-lg font-semibold">
-                                                Proof of delivery
-                                            </Text>
-                                            <InfoRow
-                                                label="Signed by"
-                                                value={
-                                                    shipment.booking?.pod
-                                                        ?.signed_by
-                                                }
-                                            />
-                                            <InfoRow
-                                                label="File type"
-                                                value={
-                                                    shipment.booking?.pod
-                                                        ?.file_type
-                                                }
-                                            />
-                                            <InfoRow
-                                                label="Captured at"
-                                                value={
-                                                    shipment.booking?.pod
-                                                        ?.created_at
-                                                }
-                                            />
-                                        </View>
-                                    </>
+                                    <ShipmentHistorySection
+                                        shipment={shipment}
+                                    />
                                 ) : null}
                             </>
                         )}
@@ -1988,6 +1814,7 @@ function ShipmentDetailsContent({
             </BottomSheet>
             <ActionSheet ref={shipmentFileSources} />
             <ActionSheet ref={shipmentActions} />
+            <ActionSheet ref={deliveryStatuses} />
         </>
     );
 }
@@ -2328,14 +2155,187 @@ function ActionCard({
     );
 }
 
+function ReceiptDivider({ isDarkMode }: { isDarkMode: boolean }) {
+    return (
+        <View
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={{
+                flexDirection: "row",
+                gap: 5,
+                paddingVertical: 6,
+            }}
+        >
+            {Array.from({ length: 30 }, (_, index) => (
+                <View
+                    key={index}
+                    style={{
+                        flex: 1,
+                        height: 1,
+                        backgroundColor: isDarkMode ? "#52525B" : "#C8C6BE",
+                    }}
+                />
+            ))}
+        </View>
+    );
+}
+
+function hasDetailValue(value?: string | null) {
+    return !!value?.trim() && value.trim().toLowerCase() !== "not available";
+}
+
+function formatShipmentDateTime(value?: string | null) {
+    if (!hasDetailValue(value)) return null;
+    const date = new Date(value!);
+    if (!Number.isFinite(date.getTime())) return value;
+    return `${date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} · ${date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+}
+
+function ShipmentHistorySection({ shipment }: { shipment: DriverShipment }) {
+    const { colorScheme } = useColorScheme();
+    const hasTimeline = !!shipment.status_history?.length || [
+        shipment.booking?.booked_at, shipment.booking?.collected_at,
+        shipment.booking?.delivered_at, shipment.booking?.returned_at,
+        shipment.booking?.cancelled_at,
+        formatOdometerDisplay(shipment.booking?.odometer_at_collection),
+        formatOdometerDisplay(shipment.booking?.odometer_at_delivery),
+        formatOdometerDisplay(shipment.booking?.total_km_from_collection),
+    ].some(hasDetailValue);
+    const hasInfo = [shipment.service_type, shipment.priority, shipment.invoice_number,
+        shipment.delivery_note_number, shipment.booking?.carrier_job_id, shipment.run_status,
+        shipment.booking?.cancel_reason || shipment.booking?.cancellation_reason_code,
+    ].some(hasDetailValue);
+    const hasPod = [shipment.booking?.pod?.signed_by, shipment.booking?.pod?.file_type,
+        shipment.booking?.pod?.created_at,
+    ].some(hasDetailValue);
+    if (!hasTimeline && !hasInfo && !hasPod) return null;
+    return (
+        <View
+            style={{
+                backgroundColor: colorScheme === "dark" ? "#25252B" : "#F5F5F8",
+                borderRadius: 16,
+                padding: 16,
+            }}
+        >
+            {hasInfo && <View>
+                <Text className="text-card-foreground text-lg font-semibold">
+                    Shipment info
+                </Text>
+                <InfoRow label="Service type" value={shipment.service_type} />
+                <InfoRow label="Priority" value={shipment.priority} />
+                <InfoRow label="Invoice" value={shipment.invoice_number} />
+                <InfoRow
+                    label="Delivery note"
+                    value={shipment.delivery_note_number}
+                />
+                <InfoRow
+                    label="Carrier job"
+                    value={shipment.booking?.carrier_job_id}
+                />
+                <InfoRow label="Run status" value={shipment.run_status} />
+                <InfoRow
+                    label="Cancellation reason"
+                    value={
+                        shipment.booking?.cancel_reason ||
+                        shipment.booking?.cancellation_reason_code
+                    }
+                />
+            </View>}
+
+            {hasTimeline && <View className={hasInfo ? "border-border mt-5 border-t pt-5" : undefined}>
+                {!shipment.status_history?.length && (
+                    <Text className="text-muted-foreground">
+                        No history recorded yet
+                    </Text>
+                )}
+                {shipment.status_history?.map((event, index) => (
+                    <View key={index} className={index === 0 ? undefined : "mt-4"}>
+                        <Text className="text-card-foreground font-semibold">
+                            {formatStatus(event.status)} ·{" "}
+                            {event.source === "matched_visit"
+                                ? "Matched recorded visit"
+                                : event.source === "driver"
+                                  ? "Driver update"
+                                  : "Status update"}
+                        </Text>
+                        <Text className="text-muted-foreground">
+                            {event.description}
+                        </Text>
+                        <Text className="text-muted-foreground">
+                            {formatShipmentDateTime(event.occurred_at)}
+                        </Text>
+                    </View>
+                ))}
+                <InfoRow
+                    label="Booked at"
+                    value={formatShipmentDateTime(shipment.booking?.booked_at)}
+                />
+                <InfoRow
+                    label="Collected at"
+                    value={formatShipmentDateTime(shipment.booking?.collected_at)}
+                />
+                <InfoRow
+                    label="Pickup odometer"
+                    value={formatOdometerDisplay(
+                        shipment.booking?.odometer_at_collection,
+                    )}
+                />
+                <InfoRow
+                    label="Delivered at"
+                    value={formatShipmentDateTime(shipment.booking?.delivered_at)}
+                />
+                <InfoRow
+                    label="Delivery odometer"
+                    value={formatOdometerDisplay(
+                        shipment.booking?.odometer_at_delivery,
+                    )}
+                />
+                <InfoRow
+                    label="Shipment km"
+                    value={formatOdometerDisplay(
+                        shipment.booking?.total_km_from_collection,
+                    )}
+                />
+                <InfoRow
+                    label="Returned at"
+                    value={formatShipmentDateTime(shipment.booking?.returned_at)}
+                />
+                <InfoRow
+                    label="Cancelled at"
+                    value={formatShipmentDateTime(shipment.booking?.cancelled_at)}
+                />
+            </View>}
+
+            {hasPod && <View className={hasInfo || hasTimeline ? "border-border mt-5 border-t pt-5" : undefined}>
+                <Text className="text-card-foreground text-lg font-semibold">
+                    Proof of delivery
+                </Text>
+                <InfoRow
+                    label="Signed by"
+                    value={shipment.booking?.pod?.signed_by}
+                />
+                <InfoRow
+                    label="File type"
+                    value={shipment.booking?.pod?.file_type}
+                />
+                <InfoRow
+                    label="Captured at"
+                    value={formatShipmentDateTime(shipment.booking?.pod?.created_at)}
+                />
+            </View>}
+        </View>
+    );
+}
+
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
+    if (!hasDetailValue(value)) return null;
     return (
         <View className="mt-4 flex-row justify-between gap-4">
             <Text className="text-muted-foreground flex-1 text-sm uppercase tracking-[2px]">
                 {label}
             </Text>
             <Text className="text-card-foreground flex-1 text-right text-base font-medium">
-                {value || "Not available"}
+                {value}
             </Text>
         </View>
     );

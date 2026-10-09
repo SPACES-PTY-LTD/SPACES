@@ -49,6 +49,7 @@ export type ApiRequestError = Error & {
   details?: Record<string, string[]>;
   requestId?: string;
   status?: number;
+  retryAfterMs?: number;
 };
 
 type RequestOptions = {
@@ -496,7 +497,8 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
   } else payload = (await response.json()) as ApiEnvelope<T>;
 
   if (!response.ok || !payload.success) {
-    console.error(`[api] request failed: ${method} ${url}`, {
+    const logFailure = response.status === 429 && path === '/driver/devices/register' ? console.warn : console.error;
+    logFailure(`[api] request failed: ${method} ${url}`, {
       status: response.status,
       error: payload.error,
       meta: payload.meta,
@@ -507,6 +509,13 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
     error.details = payload.error?.details;
     error.requestId = payload.error?.request_id;
     error.status = response.status;
+    if (response.status === 429) {
+      const retryAfter = (response as Response).headers?.get('Retry-After');
+      if (retryAfter) {
+        const milliseconds = /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1000 : Date.parse(retryAfter) - Date.now();
+        if (Number.isFinite(milliseconds)) error.retryAfterMs = Math.max(0, milliseconds);
+      }
+    }
 
     throw error;
   }

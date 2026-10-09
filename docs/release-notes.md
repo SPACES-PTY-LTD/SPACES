@@ -1,5 +1,149 @@
 # Release Notes
 
+## 2026-10-09 | Version: shipment-remove-files-menu-v1
+
+- **Summary:** Remove the redundant Delivery note & files action from Shipment options.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove the menu action and unused duplicate files panel from the shared shipment page/sheet. Use the existing Files section below Parcels for file upload/download/loading/retry/empty feedback. Retain Update delivery status, Shipment history and destructive Cancel shipment for active bookings; completed-run views retain history and authorized inline file downloads without uploads.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails lint and diff checks pass. Mocked status/menu checks pass; additional mocked checks confirm active/read-only menu contents and retained inline Files controls. Dashboard plan v2.113 and shared Figma menu/handoff aligned. Native menu/file interaction remains unverified; locked Mac prevents simulator and GitHub Desktop access.
+
+## 2026-10-09 | Version: shipment-status-action-sheet-v1
+
+- **Summary:** Show all available driver statuses in an action sheet when Update delivery status is pressed.
+- **API Changes:** None; reuse authorized shipment-status update endpoint.
+- **Database Changes:** None.
+- **Behavior Changes:** After Shipment options dismisses, show Booked, Delivered, In transit and Failed Delivery in the shared push-stacked ActionSheet with current selection and close control. Selecting dismisses the picker, then opens the existing status confirmation form; selection does not save. Replace inline status pills with selected status and Choose a different status, which reopens the picker with the draft selected. Preserve failure-reason and odometer validation, error/retry drafts, saved-state refresh and completed-run read-only guards.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails lint and diff checks pass. Temporary mocked flow verifies all four options/current selection, deferred form/mutation, each selection, reselection, required failure reason and successful mocked save, and omission of status actions for completed-run views. Dashboard plan v2.112 and Figma handoff aligned. Native iOS/Android stacking/dismissal/keyboard and live status saves remain unverified.
+
+## 2026-10-09 | Version: shipment-hide-scanned-count-v1
+
+- **Summary:** Remove the scanned-parcel subtitle from shipment details while scanning is unavailable.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hide the X of Y parcels scanned line beneath Parcels on the shared shipment page/sheet, including completed-run views. Retain the Parcels heading, total parcel summary, tracking codes/contents, recorded scan data and collection-status logic.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails lint and diff checks pass. Dashboard plan v2.111 and affected Figma receipt references/handoff aligned. Native light/dark/large-text parcel-card spacing remains pending.
+
+## 2026-10-09 | Version: shipment-history-remove-titles-v1
+
+- **Summary:** Remove Shipment history and Timeline titles from the shared history card.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Begin the inline/nested history card with events or existing empty-history feedback and booking fields. Remove heading-only top spacing; retain Shipment info, Proof of delivery, filtering and all recorded data. Keep history menu/panel navigation titles.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails lint and diff checks pass. Selected Figma receipt/state headings and handoff aligned; dashboard plan 2.110 updated. Native theme/large-text/layout checks and GitHub Desktop draft access remain blocked while the Mac is locked.
+
+## 2026-10-09 | Version: shipment-actions-button-v1
+
+- **Summary:** Replace the shipment header ellipsis with an Actions button and down chevron.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show a compact rounded outlined Actions button in the shared shipment page and receipt sheet, including completed-run read-only views. Retain the existing Shipment options menu, mutation/data disabled guards and post-dismissal action handoff. Use light/dark surfaces, a 44-point minimum target, accessible label/hint/state and disabled opacity.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript and focused ShipmentDetails lint pass; diff checks pass. Selected active/completed Figma headers visually checked and handoff aligned; dashboard plan 2.109, status, acceptance and revision history updated. Native light/dark/large-text layout and menu opening remain unverified because the Mac is locked; GitHub Desktop draft fields could not be accessed.
+
+## 2026-10-09 | Version: remove-map-recovery-button-v1
+
+- **Summary:** Remove the floating Use Apple Maps button from the dashboard and shared native maps.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove the manual recovery control/state/style and unused top-inset prop. Keep normal provider selection, automatic catchable-render-error fallback, routes/markers, map refs and settings/info controls. Silent tile failures no longer have an explicit manual provider switch.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused NativeMap lint and RunMap lint with its pre-existing purity-rule violation excluded, nine existing provider-policy regressions and diff checks pass. Dashboard plan v2.108 and Figma handoff aligned. Native visual/provider verification remains pending.
+
+## 2026-10-09 | Version: delivery-order-native-drag-v1
+
+- **Summary:** Fix delivery-order handle dragging competing with native list scrolling.
+- **API Changes:** None; retain full shipment order and expected-order payload.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace per-render PanResponder handles with stable native Gesture Handler Pan recognizers that block the list's Native scroll gesture. Preserve row-body scrolling, edge auto-scroll, accessible earlier/later moves, disabled/busy/conflict guards and final release displacement. Successful gestures commit the draft; cancellations discard drag displacement. Sheet content panning remains disabled. Retain save/reload errors and completed shipment slots.
+- **Breaking Changes:** None. Uses the existing Gesture Handler dependency; reload the development client to receive the JavaScript update.
+- **Verification:** Full mobile TypeScript, focused DeliveryOrderSheet lint and three mocked regressions pass for gesture ownership/stability/current callbacks, cancellation/disabled accessibility and reordered save/concurrency payload. Diff checks pass. Dashboard plan v2.107 and Figma scenario handoff aligned. Mac lock prevented simulator/desktop access; physical iOS/Android dragging, edge scrolling, interrupted gestures and live save/reload remain unverified. Gesture-callback ref lint is locally suppressed because these callbacks run on touch events, not during render.
+
+## 2026-10-09 | Version: endpoint-search-hide-close-v1
+
+- **Summary:** Remove the top-right close button from planned start/end location search.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hide the shared BottomSheet close control only while selecting an Edit Run endpoint. Keep the leading back arrow, keyboard dismissal, confirmed endpoint drafts and existing location selection/save behavior. Other run-action steps retain close.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused RunActionForm lint and diff checks pass. Dashboard plan v2.106 and Figma scenario handoff aligned. Native light/dark/keyboard/long-title layout remains pending.
+
+## 2026-10-09 | Version: shipment-readable-dates-v1
+
+- **Summary:** Replace raw ISO shipment history timestamps with readable dates and times.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Format booked/collected/delivered/returned/cancelled dates, proof capture and status-event timestamps as 9 Oct 2026 · 12:56 in the device's local timezone, using 24-hour time without seconds. Apply to shared inline/nested history; retain unavailable filtering and unexpected invalid source text.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails ESLint, formatter checks and diff checks pass. Verified supplied timestamp examples, equivalent UTC/offset values, missing values and invalid source text using Africa/Johannesburg. Dashboard plan v2.104/Figma handoff aligned. Native wrapping/theme/large-text checks remain pending.
+
+## 2026-10-09 | Version: speeding-empty-state-v1
+
+- **Summary:** Improve the dashboard's empty speeding-events presentation.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the plain sentence with a centered activity icon in a themed green circle, No speeding events heading and wrapping recorded-events explanation. Preserve filter/count controls, populated timelines and other empty states; avoid inferring safe driving from absent records.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript and diff checks pass. Focused dashboard ESLint passes with react-hooks/set-state-in-effect excluded; normal lint still reports the two pre-existing effects at lines 79/113. Dashboard plan v2.105 and Figma empty-state reference/handoff aligned. Native light/dark/large-text and sheet-position verification pending.
+
+## 2026-10-09 | Version: message-reference-detail-sheets-v1
+
+- **Summary:** Open run and shipment message references in bottom sheets.
+- **API Changes:** None; reuse authorized driver run/shipment APIs.
+- **Database Changes:** None.
+- **Behavior Changes:** Make draft reference chips tappable with separate removal; replace sent reference page navigation with detail sheets. Dismiss the keyboard and retain Messages/draft state. Reuse ShipmentDetailsSheet with optional completed-run scope. Add RunDetailsSheet with shared run summary/timeline, shipment/stop drilldowns, loading/retry and stale-response guards. Keep completed-run shipment access read-only; file downloads remain unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Twelve mocked Messages/run-sheet regressions pass for draft/sent sheet opening, retained drafts, completed shipment scope, authorized loading/retry and ignored unmounted responses, alongside prior draft/focus/refresh checks. Full mobile TypeScript, focused Messages/RunDetailsSheet ESLint and diff checks pass. Dashboard plan v2.103/Figma handoff aligned. Native keyboard, sheet stacking/dismissal and live authorization remain unverified.
+
+## 2026-10-09 | Version: shipment-message-autofocus-v1
+
+- **Summary:** Focus the message input after a shipment is automatically attached from Message dispatch.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Schedule composer focus after the shipment chip is rendered and the chat is loaded/editable. Focus once per successful handoff; cancel scheduled focus on blur/unmount and preserve pending focus for return. Ordinary Messages visits, removed attachments, closed/full drafts and mismatched accounts do not trigger autofocus.
+- **Breaking Changes:** None.
+- **Verification:** Eight mocked Messages screen regressions, full mobile TypeScript, focused Messages ESLint and diff checks pass. Covers focus once after attachment, loaded-composer gating, blur cancellation/return and blocked handoffs. Dashboard plan v2.101/Figma handoff aligned. Physical-device keyboard/navigation remains unverified.
+
+## 2026-10-09 | Version: shipment-inline-history-card-v1
+
+- **Summary:** Display full shipment history in a card below Files, separated by a matching dashed receipt divider.
+- **API Changes:** None; reuse the existing shipment history, booking and proof fields.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the receipt history link with a rounded card grouping status updates/recorded visits, booking dates/odometers/distance, shipment info and proof metadata. Share the content with the More history shortcut on page/sheet and retain completed-run scope. Preserve existing event order/source labels/timestamps and the parallel unavailable-row/empty-section filtering. Keep the upper receipt divider and Message dispatch placement.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails ESLint, 15 backdrop/sheet-handoff regressions, five actual-component rendering checks and diff checks pass. Fixtures cover missing/empty data, all existing details/long descriptions, event order/source labels, zero odometer, both card surfaces and decorative dividers. iOS Expo Go verifies completed-run shipment opening, scrolling to Files/history, the new divider/card surface and More options opening. History shortcut selection, deeper scrolling, active upload/Message dispatch, native dark/large text and Android remain unverified; the Mac locked during final checks. Dashboard plan v2.102 and selected editable Figma receipt/history references aligned and visually reviewed.
+
+## 2026-10-09 | Version: shipment-hide-unavailable-details-v1
+
+- **Summary:** Show only populated shipment history and metadata details.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hide rows with null, empty, whitespace or literal Not available values. Omit empty Timeline, Shipment info and Proof of delivery sections and an entirely empty history card. Apply to shared inline receipt and nested history content. Preserve populated events, dates, references and valid zero odometer/distance values.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails ESLint, mocked row/section render checks and diff checks pass. Render checks cover case-insensitive unavailable values, empty history/POD, populated references/dates and zero odometer. Dashboard plan v2.100/Figma handoff aligned; native theme/large-text layouts remain unverified.
+
+## 2026-10-09 | Version: shipment-dispatch-draft-reference-v1
+
+- **Summary:** Automatically attach the current shipment to the Messages draft opened by Message dispatch.
+- **API Changes:** None; reuse existing chat reference send payload and backend authorization.
+- **Database Changes:** None.
+- **Behavior Changes:** Pass shipment ID/reference, a unique handoff request and originating account to Messages. Add a removable shipment reference once after the driver chat opens, preserving draft text/files/references. Clear handoff parameters to avoid reattaching after removal, send or tab return. Keep explicit Send, duplicate prevention, closed-chat feedback and the five-attachment limit; do not apply another account's handoff. Read-only shipment availability remains unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Seven mocked actual Messages screen regressions pass for draft prefill/removal/refocus, text preservation, duplicates/capacity and closed/account guards, alongside existing refresh behavior. Full mobile TypeScript, focused Messages/ShipmentDetails ESLint and diff checks pass. Dashboard plan v2.99/Figma handoff aligned. Native navigation/dismissal and live message send remain unverified.
+
+## 2026-10-09 | Version: notification-registration-backoff-v1
+
+- **Summary:** Prevent repeated message-notification device registration from flooding the API and opening the development error screen on HTTP 429.
+- **API Changes:** No server contract change. Mobile API errors expose optional `retryAfterMs` parsed from Retry-After seconds or HTTP dates.
+- **Database Changes:** None.
+- **Behavior Changes:** Share concurrent registration across foreground, notification settings and native token callbacks. Limit attempts to once per minute, skip posting an unchanged successfully registered token for 24 hours, register changed tokens or sessions, and back off failed attempts exponentially up to 15 minutes while honoring longer server retry delays. Retain authentication/lifetime guards and retry on later foreground/token/settings triggers. Log device-registration 429 as a warning while continuing to throw its typed error; other request failures retain existing error logging. No backend limiter weakening or visual design change; existing Figma notification screens remain applicable.
+- **Breaking Changes:** None. Mobile update required; no API deployment needed.
+- **Verification:** 15 focused mobile registration, notification navigation and settings tests pass, including callback reentry, concurrent triggers, unchanged/rotated tokens, session expiry, failure recovery, Retry-After parsing and log severity. Full mobile TypeScript, focused API/provider/helper ESLint and diff checks pass. Live physical-device push registration and deployed rate-limit recovery remain unverified.
+
 ## 2026-10-09 | Version: shipment-empty-files-single-upload-v1
 
 - **Summary:** Show one upload action in empty shipment Files cards.

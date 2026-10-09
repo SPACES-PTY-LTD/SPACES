@@ -1,6 +1,6 @@
 import { Component, forwardRef, useSyncExternalStore, type ReactNode } from 'react';
 import { isRunningInExpoGo } from 'expo';
-import { Platform, Pressable, StyleSheet, UIManager, View } from 'react-native';
+import { Platform, StyleSheet, UIManager, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, type MapViewProps } from 'react-native-maps';
 import { Text } from '@/component/ui/Text';
 import { nativeMapCapabilities, selectNativeMapProvider, type NativeMapProvider } from './native-map-provider';
@@ -9,12 +9,10 @@ import { runMapStyle, runMapDarkStyle } from './run-map-style';
 const capabilities = nativeMapCapabilities(Platform.OS, name => UIManager.hasViewManagerConfig(name), { isExpoGo: isRunningInExpoGo() });
 const failed = new Set<NativeMapProvider>();
 const listeners = new Set<() => void>();
-let preferApple = false;
-const snapshot = () => selectNativeMapProvider(capabilities, failed, preferApple);
+const snapshot = () => selectNativeMapProvider(capabilities, failed);
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
-function changeProvider(provider?: NativeMapProvider) {
-  if (provider) failed.add(provider);
-  else preferApple = true;
+function changeProvider(provider: NativeMapProvider) {
+  failed.add(provider);
   listeners.forEach(listener => listener());
 }
 
@@ -33,10 +31,10 @@ class MapRenderBoundary extends Component<{ children: ReactNode; fallback: React
   render() { return this.state.failed ? this.props.fallback : this.props.children; }
 }
 
-type NativeMapProps = Omit<MapViewProps, 'provider' | 'customMapStyle' | 'mapType'> & { dark?: boolean; recoveryTopInset?: number };
+type NativeMapProps = Omit<MapViewProps, 'provider' | 'customMapStyle' | 'mapType'> & { dark?: boolean };
 
 /** One provider policy for every native map, retaining caller coordinates, children and ref. */
-export const NativeMap = forwardRef<MapView, NativeMapProps>(function NativeMap({ dark = false, recoveryTopInset = 0, style, children, onMapReady, ...props }, ref) {
+export const NativeMap = forwardRef<MapView, NativeMapProps>(function NativeMap({ dark = false, style, children, onMapReady, ...props }, ref) {
   const provider = useSyncExternalStore(subscribe, snapshot, snapshot);
   const fallback = <MapUnavailable dark={dark} />;
   return <View style={style}>
@@ -53,17 +51,11 @@ export const NativeMap = forwardRef<MapView, NativeMapProps>(function NativeMap(
         {children}
       </MapView>
     </MapRenderBoundary>}
-    {provider === 'google' && capabilities.apple && !failed.has('apple') && <Pressable
-      accessibilityRole="button" accessibilityLabel="Map not loading? Use Apple Maps"
-      onPress={() => changeProvider()}
-      style={[styles.recovery, { top: recoveryTopInset + 8, backgroundColor: dark ? '#27272a' : '#ffffff' }]}>
-      <Text style={{ color: dark ? '#fafafa' : '#18181b', fontSize: 12, fontWeight: '600' }}>Use Apple Maps</Text>
-    </Pressable>}
+
   </View>;
 });
 
 const styles = StyleSheet.create({
   unavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20 },
   message: { fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  recovery: { position: 'absolute', left: 12, minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: '#a1a1aa' },
 });
