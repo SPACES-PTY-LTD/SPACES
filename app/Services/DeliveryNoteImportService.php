@@ -255,7 +255,7 @@ class DeliveryNoteImportService
     private function parcel(array $item): array
     {
         return array_filter([
-            'type' => $item['type'] ?? null,
+            'type' => 'standard',
             'weight' => $item['weight'] ?? null,
             'weight_measurement' => 'kg',
             'length_cm' => $item['length_cm'] ?? null,

@@ -31,9 +31,9 @@ class DriverDocumentImportTest extends TestCase
 
         return ['grouping_mode' => 'separate_shipments', 'collection_date' => '2026-09-15', 'pickup_address' => $address, 'dropoff_address' => $address,
             'line_items' => [
-                ['merchant_order_ref' => 'TODAY', 'description' => 'Boxes', 'quantity' => 2],
-                ['merchant_order_ref' => 'FUTURE', 'description' => 'Box', 'collection_date' => '2026-09-16'],
-                ['merchant_order_ref' => 'OLD', 'description' => 'Box', 'collection_date' => '2026-09-14'],
+                ['merchant_order_ref' => 'TODAY', 'description' => 'Boxes', 'quantity' => 2, 'pickup_address' => $address, 'dropoff_address' => $address],
+                ['merchant_order_ref' => 'FUTURE', 'description' => 'Box', 'collection_date' => '2026-09-16', 'pickup_address' => $address, 'dropoff_address' => $address],
+                ['merchant_order_ref' => 'OLD', 'description' => 'Box', 'collection_date' => '2026-09-14', 'pickup_address' => $address, 'dropoff_address' => $address],
             ]];
     }
 
@@ -143,7 +143,7 @@ class DriverDocumentImportTest extends TestCase
         $draft['line_items'][1]['merchant_order_ref'] = 'TODAY';
         $this->apiAs($user)->postJson($url, $draft)->assertStatus(422);
         $draft = $this->draft();
-        $draft['pickup_address'] = [];
+        $draft['line_items'][0]['pickup_address'] = [];
         $this->apiAs($user)->postJson($url, $draft)->assertStatus(422);
         $draft = $this->draft();
         $draft['pickup_location_id'] = (string) Str::uuid();
@@ -284,6 +284,83 @@ class DriverDocumentImportTest extends TestCase
         $url = "/api/v1/driver/document-imports/{$import->uuid}";
         $draft['review_token'] = $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()->json('data.review_token');
         $this->apiAs($user)->postJson("$url/confirm", $draft)->assertOk()->assertJsonCount(3, 'data.created')->assertJsonCount(1, 'data.skipped');
+    }
+
+    public function test_missing_shipment_addresses_remain_blank_after_analysis_and_block_confirmation(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        Storage::fake('local');
+        config(['filesystems.default' => 'local', 'services.openai.api_key' => 'test']);
+        foreach ([['pickup_address'], ['dropoff_address'], ['pickup_address', 'dropoff_address']] as $missing) {
+            $data = $this->draft();
+            foreach ($missing as $kind) $data['line_items'][0][$kind] = array_fill_keys(array_keys($data[$kind]), null);
+            Http::swap(new \Illuminate\Http\Client\Factory());
+            Http::fake(['api.openai.com/v1/responses' => Http::response(['model' => 'test', 'output' => [['content' => [['type' => 'output_text', 'text' => json_encode($data)]]]]])]);
+            $analysis = $this->apiAs($user)->post('/api/v1/driver/document-imports', ['file' => UploadedFile::fake()->image('note.png')])
+                ->assertCreated()->assertJsonPath('data.status', 'analyzed');
+            foreach ($missing as $kind) $analysis->assertJsonPath("data.extracted_data.line_items.0.$kind", $data['line_items'][0][$kind]);
+            $id = $analysis->json('data.import_id');
+            $preview = $this->apiAs($user)->postJson("/api/v1/driver/document-imports/$id/preview", $data)->assertOk();
+            foreach ($missing as $kind) $this->assertContains($kind === 'pickup_address' ? 'Complete the collection address.' : 'Complete the delivery address.', $preview->json('data.rows.0.validation_warnings'));
+            $this->apiAs($user)->postJson("/api/v1/driver/document-imports/$id/confirm", $data)->assertUnprocessable();
+            // Omitted fields must not silently inherit the complete document address either.
+            foreach ($missing as $kind) unset($data['line_items'][0][$kind]);
+            $this->apiAs($user)->postJson("/api/v1/driver/document-imports/$id/confirm", $data)->assertUnprocessable();
+        }
+        $this->assertDatabaseCount('shipments', 0);
+    }
+
+    public function test_saved_only_collection_search_never_geocodes_missing_locations(): void
+    {
+        [$user] = $this->createDriverContext();
+        Http::fake();
+        $this->apiAs($user)->postJson('/api/v1/driver/trip-locations/search', ['query' => 'Missing depot', 'saved_only' => true])
+            ->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.next_page', null);
+        Http::assertNothingSent();
+    }
+
+    public function test_driver_import_preserves_quantity_unit_and_uses_saved_collection(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $location = \App\Models\Location::create(array_merge($this->draft()['pickup_address'], [
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'name' => 'Saved collection',
+            'address_line_1' => 'Saved Street', 'latitude' => -26.1, 'longitude' => 28.1,
+        ]));
+        $import = $this->import($user, $merchant);
+        $draft = $this->draft();
+        $draft['line_items'][0]['pickup_location_id'] = $location->uuid;
+        $draft['line_items'][0]['dropoff_location_id'] = $location->uuid;
+        $draft['line_items'][0]['dropoff_address'] = []; // Driver selection resolves a missing extracted address.
+        $draft['line_items'][0]['pickup_address'] = $draft['pickup_address']; // Deliberately stale client address.
+        $draft['line_items'][0]['quantity_unit'] = 'drums';
+        $draft['line_items'][0]['type'] = 'DR';
+        $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)->assertOk();
+        $shipment = Shipment::where('merchant_order_ref', 'TODAY')->firstOrFail();
+        $this->assertSame($location->id, $shipment->pickup_location_id);
+        $this->assertSame($location->id, $shipment->dropoff_location_id);
+        $this->assertSame('drums', $shipment->metadata['delivery_note_items'][0]['quantity_unit']);
+        $this->assertSame(2, $shipment->parcels()->count());
+        $this->assertSame(['standard'], $shipment->parcels()->pluck('type')->unique()->values()->all());
+    }
+
+    public function test_collection_selection_rejects_unknown_or_other_merchant_locations_and_invalid_units(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        [, $otherMerchant] = $this->createDriverContext();
+        $foreign = \App\Models\Location::create(array_merge($this->draft()['pickup_address'], ['account_id' => $otherMerchant->account_id, 'merchant_id' => $otherMerchant->id]));
+        $import = $this->import($user, $merchant);
+        $draft = $this->draft();
+        foreach (['pickup_location_id', 'dropoff_location_id'] as $kind) {
+            foreach ([$foreign->uuid, (string) Str::uuid()] as $uuid) {
+                $draft['line_items'][0][$kind] = $uuid;
+                $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/preview", $draft)->assertStatus(422);
+                $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)->assertStatus(422);
+            }
+            unset($draft['line_items'][0][$kind]);
+        }
+        $draft['line_items'][0]['quantity_unit'] = 'unsupported';
+        $this->apiAs($user)->postJson("/api/v1/driver/document-imports/{$import->uuid}/confirm", $draft)->assertStatus(422);
+        $this->assertDatabaseCount('shipments', 0);
     }
 
     public function test_address_search_returns_scoped_draft_choices_without_saving_locations(): void

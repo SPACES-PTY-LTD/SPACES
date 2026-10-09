@@ -269,7 +269,7 @@ export type DriverRunDetail = DriverRunSummary & {
 
 export type DriverDashboard = {
   trip_endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
-  current_run: { run_id: string; status: string; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
+  current_run: { run_id: string; status: string; has_delivery_note?: boolean; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
   run_shipments: DriverShipment[];
   recorded_stops?: { latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
   planned_delivery_stops?: { latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
@@ -882,7 +882,7 @@ export type ImportLine = {
   merchant_order_ref: string | null; collection_date?: string | null; description: string;
   pickup_address?: Record<string, string | null>; dropoff_address?: Record<string, string | null>;
   status?: 'delivered' | 'in_transit' | 'failed' | null; failure_reason?: string; odometer_at_collection?: number | null; odometer_at_delivery?: number | null; excluded?: boolean;
-  quantity: number | null; type?: string | null; weight?: number | null;
+  quantity: number | null; quantity_unit?: string | null; pickup_location_id?: string | null; dropoff_location_id?: string | null; type?: string | null; weight?: number | null;
   length_cm?: number | null; width_cm?: number | null; height_cm?: number | null;
 };
 export type ImportDraft = {
@@ -903,7 +903,7 @@ export type ImportReviewRow = { index: number; reference: string; eligibility: '
 export type ImportReview = { rows: ImportReviewRow[]; review_token: string };
 export type ImportContext = { vehicles: { vehicle_id: string; label: string }[]; locations: ImportLocation[]; recent_imports: { import_id: string; filename: string; status: string }[]; today: string; timezone: string; runs: { run_id: string; label: string; status: string; origin_location_id?: string; destination_location_id?: string; vehicle_id?: string }[] };
 export const documentImportApi = {
-  searchLocationPage: (token: string, query: string, page = 1) => requestWithMeta<ImportLocation[]>('/driver/trip-locations/search', { token, method: 'POST', body: { query, page } }) as Promise<{ data: ImportLocation[]; meta: { next_page: number | null } }>,
+  searchLocationPage: (token: string, query: string, page = 1, savedOnly = false) => requestWithMeta<ImportLocation[]>('/driver/trip-locations/search', { token, method: 'POST', body: { query, page, saved_only: savedOnly } }) as Promise<{ data: ImportLocation[]; meta: { next_page: number | null } }>,
   searchLocations: (token: string, query: string) => request<ImportLocation[]>('/driver/trip-locations/search', { token, method: 'POST', body: { query } }),
   chooseFinalDestination: (token: string, runId: string, locationId: string) => request(`/driver/runs/${encodeURIComponent(runId)}/final-destination`, { token, method: 'PATCH', body: { destination_location_id: locationId } }),
   startRun: (token: string, id: string) => request(`/driver/runs/${id}/start`, { token, method: 'POST' }),

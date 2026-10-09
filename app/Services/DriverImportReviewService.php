@@ -29,8 +29,8 @@ class DriverImportReviewService
             if (!empty($item['excluded'])) $item = ['excluded' => true, 'merchant_order_ref' => $item['merchant_order_ref'] ?? null];
             $reference = trim((string) ($item['merchant_order_ref'] ?? ''));
             $existing = $reference ? Shipment::withTrashed()->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)->where('merchant_order_ref', $reference)->first() : null;
-            $pickup = $item['pickup_address'] ?? $data['pickup_address'] ?? [];
-            $dropoff = $item['dropoff_address'] ?? $data['dropoff_address'] ?? [];
+            $pickup = $item['pickup_address'] ?? [];
+            $dropoff = $item['dropoff_address'] ?? [];
             $key = $this->addressKey($dropoff);
             $matches = $key ? $events->filter(fn ($event) => $event->location && $this->addressKey($event->location->toAddressArray()) === $key)
                 ->unique(fn ($event) => $event->location_id.':'.($event->entered_at ?? $event->occurred_at)->toIso8601String())->values() : collect();
@@ -41,7 +41,7 @@ class DriverImportReviewService
             $originKey = $origin ? $this->addressKey($origin->toAddressArray()) : null;
             $rows[] = [
                 'index' => $index, 'reference' => $reference, 'eligibility' => $eligibility,
-                'validation_warnings' => array_values(array_filter([!$reference ? 'Shipment reference is missing.' : null, empty($item['description']) ? 'Description is missing.' : null, empty($item['type']) ? 'Shipment type is missing.' : null, !$this->addressKey($dropoff) ? 'Complete the delivery address.' : null])),
+                'validation_warnings' => array_values(array_filter([!$reference ? 'Shipment reference is missing.' : null, empty($item['description']) ? 'Description is missing.' : null, !$this->addressKey($pickup) ? 'Complete the collection address.' : null, !$this->addressKey($dropoff) ? 'Complete the delivery address.' : null])),
                 'collection_comparison' => !$pickupKey || !$originKey ? 'unknown' : ($pickupKey === $originKey ? 'match' : 'mismatch'),
                 'status' => $existing?->status ?? ($item['status'] ?? ($match ? 'delivered' : 'booked')),
                 'status_source' => !empty($item['status']) ? 'driver' : ($match ? 'matched_visit' : 'initial'),

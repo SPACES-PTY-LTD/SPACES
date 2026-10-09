@@ -12,8 +12,9 @@ const routable = (location: ImportLocation) => location.latitude != null && loca
 export type LocationSearchPickerHandle = { onScroll: NonNullable<ScrollViewProps['onScroll']> };
 
 /** Shared search, pagination and selection preview; callers own endpoint persistence. */
-export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedLabel = 'SELECTED LOCATION', selectionIcon = 'map-pin', onBusyChange, confirmOnSelect = false, ref }: {
+export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedLabel = 'SELECTED LOCATION', selectionIcon = 'map-pin', onBusyChange, confirmOnSelect = false, savedOnly = false, ref }: {
   token: string;
+  savedOnly?: boolean;
   onConfirm: (location: ImportLocation) => Promise<void> | void;
   confirmLabel: string;
   selectedLabel?: string;
@@ -52,7 +53,7 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
     if (!search.trim()) { setLoading(false); setHasSearched(false); return; }
     setLoading(true); setHasSearched(true);
     try {
-      const result = await documentImportApi.searchLocationPage(token, search.trim());
+      const result = await documentImportApi.searchLocationPage(token, search.trim(), 1, savedOnly);
       if (version === request.current) { setLocations(result.data.filter(routable)); nextPage.current = result.meta.next_page; }
     } catch (e) { if (version === request.current) setError(errorMessage(e)); }
     finally { if (version === request.current) setLoading(false); }
@@ -63,7 +64,7 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
     if (!page || loading || moreRequest.current === version || selected) return;
     moreRequest.current = version; setLoadingMore(true); setMoreError('');
     try {
-      const result = await documentImportApi.searchLocationPage(token, searchedQuery.current, page);
+      const result = await documentImportApi.searchLocationPage(token, searchedQuery.current, page, savedOnly);
       if (version !== request.current) return;
       setLocations(previous => [...new Map([...previous, ...result.data.filter(routable)].map(location => [location.location_id, location])).values()]);
       nextPage.current = result.meta.next_page;
@@ -117,7 +118,7 @@ export function LocationSearchPicker({ token, onConfirm, confirmLabel, selectedL
       {!loading && locations.length > 0 && <View style={styles.listHeading}><Text style={[styles.eyebrow, { color: muted }]}>Search results</Text></View>}
       {loading ? <View style={styles.empty}><ActivityIndicator accessibilityLabel="Loading locations" color="#f54a4a" /><Text style={{ color: muted }}>Finding locations…</Text></View> : <>
         {!!error && <Pressable accessibilityRole="button" onPress={() => void load(query)} style={[styles.retry, { borderColor: border }]}><Feather name="refresh-cw" size={16} color={ink} /><Text style={{ color: ink, fontWeight: '600' }}>Retry loading locations</Text></Pressable>}
-        {hasSearched && !error && !locations.length && <View style={[styles.empty, { backgroundColor: surface, borderRadius: 16 }]}><Feather name="map-pin" size={24} color={muted} /><Text style={[styles.name, { color: ink }]}>No locations found</Text><Text style={[styles.subtitle, { color: muted, textAlign: 'center' }]}>Try another location name or a full street address.</Text></View>}
+        {hasSearched && !error && !locations.length && <View style={[styles.empty, { backgroundColor: surface, borderRadius: 16 }]}><Feather name="map-pin" size={24} color={muted} /><Text style={[styles.name, { color: ink }]}>No locations found</Text><Text style={[styles.subtitle, { color: muted, textAlign: 'center' }]}>{savedOnly ? 'Only saved locations can be selected. If your location is missing, contact dispatch.' : 'Try another location name or a full street address.'}</Text></View>}
         {locations.length > 0 && <View style={{ gap: 8 }}>{locations.map(location => <Pressable key={location.location_id} accessibilityRole="button" accessibilityLabel={`${location.name}, ${address(location)}`} disabled={saving} accessibilityState={{ disabled: saving }} onPress={() => { if (confirmOnSelect) void save(location); else { setSelected(location); setError(''); } }} style={[styles.location, { borderColor: border, backgroundColor: dark ? '#18181b' : '#fff' }]}>
           <View style={[styles.icon, { backgroundColor: surface }]}><Feather name="map-pin" size={19} color={muted} /></View>
           <View style={styles.details}><Text style={[styles.name, { color: ink }]}>{location.name}</Text><Text style={[styles.address, { color: muted }]}>{address(location)}</Text></View>

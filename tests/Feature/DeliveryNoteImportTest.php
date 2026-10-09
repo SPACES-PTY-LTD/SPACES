@@ -76,6 +76,7 @@ class DeliveryNoteImportTest extends TestCase
             'auto_assign' => false,
         ]);
         $this->assertDatabaseCount('delivery_note_import_shipments', 2);
+        $this->assertSame(['standard'], \App\Models\ShipmentParcel::query()->pluck('type')->unique()->values()->all());
         $this->assertDatabaseHas('run_shipments', [
             'run_id' => $run->id,
             'status' => 'active',

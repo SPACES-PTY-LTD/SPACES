@@ -22,7 +22,10 @@ class ConfirmDriverDocumentImportRequest extends ConfirmDeliveryNoteImportReques
             'line_items' => ['required', 'array', 'min:1', 'max:100'],
             'line_items.*.collection_date' => ['nullable', 'date_format:Y-m-d'],
             'line_items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:100'],
-            // Driver imports use reviewed address fields, never unrestricted location IDs.
+            'line_items.*.quantity_unit' => ['nullable', 'in:units,boxes,pallets,drums,bags,crates,rolls'],
+            'line_items.*.pickup_location_id' => ['nullable', 'uuid'],
+            'line_items.*.dropoff_location_id' => ['nullable', 'uuid'],
+            // Per-line saved location IDs are scoped in the controller; top-level IDs stay prohibited.
             'pickup_location_id' => ['prohibited'],
             'dropoff_location_id' => ['prohibited'],
         ]);

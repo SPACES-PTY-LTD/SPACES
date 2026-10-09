@@ -25,6 +25,8 @@ export type BottomSheetProps = PropsWithChildren<{
   /** Gap after the header; defaults to the shared 16-point content gap. */
   headerBottomSpacing?: number;
   maxDynamicContentSize?: number;
+  /** Keep an underlying modal visible with push; default switch preserves existing callers. */
+  stackBehavior?: 'push' | 'switch' | 'replace';
   keyboardBehavior?: 'interactive' | 'extend' | 'fillParent';
 }>;
 
@@ -41,7 +43,7 @@ function ModalContainer({ children }: PropsWithChildren) {
 /** Shared floating sheet appearance, safe-area spacing, keyboard and dismissal behavior. */
 export function BottomSheet({ modalRef, title, children, onDismiss, accessibilityLabel,
   onBack, onScroll, plainScroll = false, scrollable = false, dismissible = true, showCloseButton = true, showHandle = true,
-  maxDynamicContentSize, headerBottomSpacing = 16, keyboardBehavior = 'interactive' }: BottomSheetProps) {
+  maxDynamicContentSize, headerBottomSpacing = 16, keyboardBehavior = 'interactive', stackBehavior = 'switch' }: BottomSheetProps) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
   const { height } = useWindowDimensions();
@@ -76,7 +78,7 @@ export function BottomSheet({ modalRef, title, children, onDismiss, accessibilit
       {showCloseButton && <Pressable accessibilityRole="button" accessibilityLabel={`Close ${accessibilityLabel || title || 'sheet'}`} accessibilityState={{ disabled: !dismissible }} disabled={!dismissible} onPress={() => modalRef.current?.dismiss()} style={[styles.close, { backgroundColor: dark ? '#303036' : '#f4f4f5', opacity: dismissible ? 1 : 0.4 }]}><Feather name="x" size={22} color={ink} /></Pressable>}
     </View>;
   return <SheetDismissibleContext.Provider value={dismissible}><BottomSheetModal
-    ref={modalRef} accessible={false} containerComponent={ModalContainer} index={0} enableDynamicSizing={!plainScroll}
+    ref={modalRef} stackBehavior={stackBehavior} accessible={false} containerComponent={ModalContainer} index={0} enableDynamicSizing={!plainScroll}
     snapPoints={plainScroll ? [maximumHeight] : undefined}
     enableContentPanningGesture={!plainScroll}
     maxDynamicContentSize={maximumHeight} topInset={keyboardBehavior === 'fillParent' ? insets.top + 12 : 0} detached bottomInset={bottomInset}

@@ -1,5 +1,239 @@
 # Release Notes
 
+## 2026-10-09 | Version: legacy-run-note-action-visibility-v1
+
+- **Summary:** Show the run upload action with the live API’s existing upload-required signal.
+- **API Changes:** None; use the existing delivery_note_required_run_id only when current_run.has_delivery_note is absent.
+- **Database Changes:** None.
+- **Behavior Changes:** An older API can show Upload delivery note for the selected run when its existing upload-required notice is present. Explicit has_delivery_note=true always hides it; a notice for another run never enables it.
+- **Breaking Changes:** None. Legacy notices infer need from shipment absence; deploy the new dashboard field for exact stored-upload evidence independently of shipments.
+- **Verification:** iOS simulator confirms the previously absent action now appears and opens Step 1 / Choose document; closed without uploading. Mobile TypeScript, focused dashboard lint with the existing effect rule excluded and diff checks pass. Dashboard plan v2.45/Figma handoff aligned. Uploaded-state/Android checks remain pending; backend deployment is required for exact upload-history evidence.
+
+## 2026-10-09 | Version: run-actions-first-delivery-note-v1
+
+- **Summary:** Add Upload delivery note to run Actions until a note has been uploaded for that run.
+- **API Changes:** Driver dashboard adds `current_run.has_delivery_note`, based on run-linked imports matching account, merchant and environment. Any stored upload counts, independently of analysis status.
+- **Database Changes:** None.
+- **Behavior Changes:** Show the outlined upload option after Add additional cost only when the boolean is explicitly false; navigate to the existing upload screen with the selected run ID after dismissal. Shipment counts do not control visibility. Hide when evidence is missing from an older API. Existing import recovery and dashboard return refresh remain available.
+- **Breaking Changes:** None; deploy the additive API field for the new option to appear.
+- **Verification:** 31 driver-shipment API tests pass (228 assertions); mobile TypeScript, focused dashboard/API lint with the existing effect rule excluded, and diff checks pass. Dashboard plan v2.44 and both Figma action menus/scenario handoff aligned. Native visibility/navigation/return and deployment remain unverified.
+
+## 2026-10-08 | Version: red-review-missing-address-v1
+
+- **Summary:** Highlight missing shipment review addresses in red.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Collection and Deliver to show Address missing in the existing error red (#a32222). Available addresses retain their normal colour; preserve bold underlined text and saved-location selection.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused review-screen lint and diff checks pass. Dashboard plan v2.43/Figma component handoff aligned; native visual verification pending.
+
+## 2026-10-08 | Version: shipment-options-sheet-layering-v1
+
+- **Summary:** Keep the shipment review sheet visible beneath Options.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Add optional stackBehavior forwarding to shared BottomSheet/ActionSheet and select push for review Options and its status picker. Preserve review position underneath, top-menu dismissal and post-dismissal actions. Other callers retain switch behavior.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused review/shared-sheet lint and diff checks pass. Installed Gorhom source confirms push preserves the underlying modal. Dashboard plan v2.42/Figma interaction handoff aligned; native layering and dismissal checks pending.
+
+## 2026-10-08 | Version: review-date-status-row-v1
+
+- **Summary:** Place Delivery status beside Collection date on shipment review cards.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use equal-width columns with muted labels and bold 15-point values, matching Quantity / Shipment type. Remove the lower combined status row; preserve draft/review/Booked fallback, status editing and all visit/failure/odometer evidence.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused review-screen lint and diff checks pass. Dashboard plan v2.41/shared Figma row aligned; native long-status and large-text verification pending.
+
+## 2026-10-08 | Version: bold-review-collection-date-v1
+
+- **Summary:** Match the review Collection date value to Quantity typography.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show the date or Not found in bold 15-point body text, retaining its label, placement and fallback.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused review-screen lint and diff checks pass. Dashboard plan v2.40/shared Figma date values aligned; native visual verification pending.
+
+## 2026-10-08 | Version: compact-review-address-spacing-v1
+
+- **Summary:** Reduce the gap between review address labels and values.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Group each Collection / Deliver to label and bold value in one 44-point-minimum press target with a 2-point gap. Remove the previous 16-point gap and value-only vertical centering; preserve selection and busy guards.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused review-screen lint and diff checks pass. Dashboard plan v2.39/shared Figma gaps aligned; native wrapping and tap checks pending.
+
+## 2026-10-08 | Version: shipment-review-address-value-style-v1
+
+- **Summary:** Match Collection and Deliver to value typography to Quantity.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Render both address values and Address missing in the same bold 15-point body style as Quantity, retaining underlines, wrapping and saved-location selection. Labels remain unchanged.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused review-screen lint and diff checks pass. Dashboard plan v2.38/shared Figma address values aligned; native long-address and large-text checks pending.
+
+## 2026-10-08 | Version: remove-import-diagnostics-v1
+
+- **Summary:** Remove temporary delivery-note diagnostic cards.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove upload/status response text, HTTP details and import UUID from reading and recovery sheets, along with their temporary component state and capture callbacks. Preserve reading animation, polling, pending-import recovery and user-facing errors.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint with the existing set-state-in-effect rule excluded, all 10 existing mobile/website polling regressions and diff checks pass. Native layout verification pending. Dashboard plan v2.37 updated; existing Figma flow remains applicable because the temporary panel was never part of permanent designs.
+
+## 2026-10-08 | Version: shipment-review-address-links-v1
+
+- **Summary:** Make shipment collection and delivery addresses directly selectable from review cards.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Match Collection / Deliver to labels to Collection date, underline both values (including Address missing), and open saved-only location search on tap. Apply selections to the tapped shipment, persist the draft and refresh review. Back cancels; busy preview disables links. Editor selections retain Save/Cancel semantics.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused review-screen lint and diff checks pass. Dashboard plan v2.36 and shared Figma styles/interaction handoff aligned. Native picker, cancellation, draft restoration and accessibility verification pending.
+
+## 2026-10-08 | Version: shipment-review-value-size-v1
+
+- **Summary:** Match Quantity and Shipment type value sizes to the shipment number.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the two 22-point values with the same bold 15-point body style used by the shipment number; labels remain unchanged.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused review-screen lint and diff checks pass. Dashboard plan v2.35/shared Figma values aligned; native visual verification pending.
+
+## 2026-10-08 | Version: inline-shipment-eligibility-v1
+
+- **Summary:** Show shipment eligibility beside the shipment number.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Place New, Existing · skipped or Excluded next to the bold number under Shipment number, with a 6-point gap and wrapping when needed. Keep Options at the right.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused review-screen lint and diff checks pass. Dashboard plan v2.34/shared Figma headers aligned; native long-reference and large-text checks pending.
+
+## 2026-10-08 | Version: shipment-review-number-label-v1
+
+- **Summary:** Label the shipment number in review card headers.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show Shipment number above each bold reference with a 2-point gap, retaining the missing-reference fallback, badge and compact Options.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused review-screen lint and diff checks pass. Dashboard plan v2.33/shared Figma headers aligned; native long-reference and large-text verification pending.
+
+## 2026-10-08 | Version: compact-shipment-options-v1
+
+- **Summary:** Reduce the shipment review Options button size.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use a 30-point visible outline with smaller text/icon/padding; prevent header stretching and retain a 44-point-minimum press target and existing actions.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused review-screen lint and diff checks pass. Dashboard plan v2.32/Figma headers aligned; native visual verification pending.
+
+## 2026-10-08 | Version: shipment-editor-keyboard-sheet-v1
+
+- **Summary:** Make the shipment editor bottom sheet expand safely when the keyboard opens.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** The shared scrollable import sheet uses fill-parent keyboard behavior during shipment editing, including its location/date subviews, with safe top clearance, restore-on-blur and Android adjustResize. Keep sheet-aware form inputs. Save, Cancel and editor Back dismiss the keyboard; existing edit/save/cancel semantics remain.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused editor/shared-import UI lint with the existing effect rule excluded, and diff checks pass. Dashboard plan v2.31 and Figma handoff aligned. Native text/numeric focus, lower-field scrolling, picker/calendar return and keyboard dismissal verification pending.
+
+## 2026-10-08 | Version: preserve-missing-shipment-addresses-v1
+
+- **Summary:** Keep unidentified shipment collection/delivery addresses blank for driver selection.
+- **API Changes:** Driver preview warns about missing collection and delivery addresses; confirmation validates per-line addresses or scoped saved IDs without document-address fallback. Analysis shape and success behavior are unchanged; no automatic location matching.
+- **Database Changes:** None; no historical repair.
+- **Behavior Changes:** Preserve partial/extracted addresses and driver draft selections. Remove mobile document-level fallback and show Choose saved collection location / Choose saved delivery location for empty selectors, with saved-only search and dispatch guidance. AI retains its existing explicit-row inheritance instructions.
+- **Breaking Changes:** Driver clients that omit per-line addresses must provide each shipment address or select a saved location before confirmation. Admin confirmation is unchanged. Existing saved mobile drafts are retained because prior inferred values cannot be distinguished from deliberate edits.
+- **Verification:** 31 Laravel import/OpenAI tests / 242 assertions and 2 mobile address-draft tests pass, along with TypeScript, focused lint and diff checks. Native selection/restoration and live AI verification pending. Dashboard plan v2.31 and Figma guidance aligned.
+
+## 2026-10-08 | Version: unit-dependent-measurements-v1
+
+- **Summary:** Show only relevant shipment-editor measurement fields for the selected quantity unit.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Units/default hides all measurements. Boxes, Pallets and Crates show Weight, Length, Width and Height; Drums, Bags and Rolls show Weight only. Unit changes update visibility immediately without clearing entered/extracted values. Existing kg/cm storage and quantity count are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused shipment-editor lint with the existing effect rule excluded, and diff checks pass. Dashboard plan v2.30 and Figma handoff aligned. Native unit switching, value retention and keyboard/layout verification pending.
+
+## 2026-10-08 | Version: remove-saved-delivery-placeholder-v1
+
+- **Summary:** Remove “Choose saved delivery location” from the shipment editor.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hide the delivery name row when no name exists; keep selected names/addresses, Change location, accessible selector label and saved-only selection. Collection placeholder is unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused shipment-editor lint pass with the existing effect rule excluded. Diff checks pass. Dashboard plan v2.29 and Figma scenario handoff aligned. Native visual verification pending.
+
+## 2026-10-08 | Version: shipment-review-options-v1
+
+- **Summary:** Consolidate shipment review actions under a top-right Options button.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Options opens Edit Shipment, Exclude shipment from run (Include shipment in run when excluded), and Change shipment status. Disable status changes for ineligible rows and Options during review requests. Remove separate card action buttons; retain the collection date below quantity/type, existing editor, three-status picker, failure reason and odometer requirements. Exclusion changes the import draft only. Use separate Options/status sheet instances so the status picker opens after dismissal.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused review-screen lint with the existing effect-rule exclusion, and diff checks pass. Dashboard plan v2.28 and shared Figma card headers/handoff aligned. Native action-sheet/editor/status/cancellation verification pending; Figma Options navigation is not wired.
+
+## 2026-10-08 | Version: shipment-review-date-order-v1
+
+- **Summary:** Move the shipment review collection date directly after quantity information.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Collection date and its Edit button appear below Quantity / Shipment type, before addresses and warnings. Preserve date fallback and editing.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint and diff checks pass. Dashboard plan v2.27 and shared Figma review card variants aligned; native visual verification pending.
+
+## 2026-10-08 | Version: collection-date-sheet-v1
+
+- **Summary:** Select shipment collection dates in a compact bottom-sheet calendar.
+- **API Changes:** None; YYYY-MM-DD values retained.
+- **Database Changes:** None.
+- **Behavior Changes:** Date field opens a calendar sheet view with Back. Selection applies only through Use date; Back preserves the editor date and other pending edits. Day/weekday/month text uses 14/12/16 points with accessible day targets and month/year navigation. Other expiry-date pickers are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint and diff checks pass. Dashboard plan v2.27 and Figma handoff aligned. Native interaction and accessibility scaling remain pending.
+
+## 2026-10-08 | Version: saved-delivery-location-button-v1
+
+- **Summary:** Make Deliver to match the saved Collection location selector.
+- **API Changes:** Driver preview/confirmation accepts scoped per-line dropoff_location_id and resolves its canonical database address. Reject unknown/foreign IDs; retain legacy address-only compatibility.
+- **Database Changes:** None. Persist the existing selected dropoff_location_id.
+- **Behavior Changes:** Show current delivery name/address in a button opening saved-only search, with dispatch guidance when missing. Search Back preserves editor changes; saving edits requires saved collection and delivery selections.
+- **Breaking Changes:** None. Deploy backend before updated mobile clients.
+- **Verification:** Focused Laravel import regressions, mobile TypeScript/lint, PHP syntax and diff checks pass. Figma editor/handoff aligned; native picker/back/cancellation verification pending.
+
+## 2026-10-08 | Version: shipment-editor-address-alignment-v1
+
+- **Summary:** Align Collection and Deliver to sections with the shipment editor form.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove the sections' extra 18-point card padding, retaining 16-point internal gaps and collection-button padding. Shared cards elsewhere are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint and diff checks pass. Dashboard plan v2.25/Figma handoff aligned; native visual verification pending.
+
+## 2026-10-08 | Version: shipment-collection-date-picker-v1
+
+- **Summary:** Use a date picker for collection date in the mobile shipment editor.
+- **API Changes:** None; collection_date remains YYYY-MM-DD.
+- **Database Changes:** None.
+- **Behavior Changes:** Reuse shared DateInput with Android date dialog, iOS inline calendar/Done/Cancel and browser date input. Preserve extracted dates, local calendar-day formatting and existing editor Save/Back behavior.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint, date-only behavior checks and diff checks pass. Figma editor/handoff aligned. Native picker interaction/scrolling inside the sheet remains unverified.
+
+## 2026-10-08 | Version: standard-delivery-note-shipments-v1
+
+- **Summary:** Hide mobile shipment type input and default imported shipments to Standard.
+- **API Changes:** Driver/admin confirmation now forces newly created import parcels to type standard, ignoring extracted/client type. Endpoint shapes unchanged.
+- **Database Changes:** None; existing shipments/parcels are unchanged.
+- **Behavior Changes:** Normalize new/restored mobile draft types, show Standard in review and remove missing-type warnings. Quantity unit remains independent.
+- **Breaking Changes:** New imported parcels no longer retain extracted/custom type values.
+- **Verification:** Focused Laravel import regressions, mobile TypeScript/lint and diff checks pass. Figma editor/handoff aligned; native visual verification pending.
+
+## 2026-10-08 | Version: shipment-editor-units-saved-collection-v1
+
+- **Summary:** Add quantity units, editor Back navigation and saved collection selection to mobile import review.
+- **API Changes:** Driver location search accepts optional saved_only to skip geocoding. Driver preview/confirmation accept scoped per-line pickup_location_id; confirmation validates quantity_unit against units/boxes/pallets/drums/bags/crates/rolls. Resolve selected collection from the database, rejecting foreign/unknown IDs and ignoring client address overrides. Existing clients retain address compatibility.
+- **Database Changes:** No schema change. Persist quantity/unit/reference per source line in existing shipment metadata.delivery_note_items; quantity remains parcel count and weight remains separate.
+- **Behavior Changes:** Trailing unit dropdown in Quantity defaults to Units; review displays unit. Back cancels editor changes and returns to the original review step; search Back returns to the editor. Collection button shows name/address and opens saved-only location search. Save requires a saved collection selection; missing locations direct drivers to dispatch. Delivery-address and trip-endpoint flows remain unchanged.
+- **Breaking Changes:** None. Deploy backend support before updated mobile clients.
+- **Verification:** 28 Laravel import tests / 207 assertions cover persistence, saved collection resolution, invalid/foreign selections and no geocoding on missing saved locations. Mobile TypeScript, focused lint with existing effect-rule exclusion, PHP syntax and diff checks pass. Figma editor/handoff aligned. Native dropdown/back/keyboard/cancellation and accessibility layouts remain unverified.
+
 ## 2026-10-08 | Version: default-queue-delivery-note-analysis-v1
 
 - **Summary:** Process new delivery-note analysis jobs through the Laravel default queue.

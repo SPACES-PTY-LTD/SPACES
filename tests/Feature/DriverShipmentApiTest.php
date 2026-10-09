@@ -782,6 +782,47 @@ class DriverShipmentApiTest extends TestCase
             ->assertOk()->assertJsonPath('data.delivery_note_required_run_id', null);
     }
 
+    public function test_dashboard_delivery_note_evidence_is_run_scoped_and_independent_of_shipments(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $run = Run::create([
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'driver_id' => $user->driver->id, 'status' => Run::STATUS_IN_PROGRESS,
+        ]);
+        $headers = $this->driverAuthHeaders($user);
+        $assertUploaded = fn (bool $expected) => $this->getJson('/api/v1/driver/dashboard', $headers)
+            ->assertOk()->assertJsonPath('data.current_run.has_delivery_note', $expected);
+        $assertUploaded(false);
+        $shipment = $this->createShipment($merchant, 'NOTE-EVIDENCE', 'booked');
+        $attachment = RunShipment::create(['run_id' => $run->id, 'shipment_id' => $shipment->id, 'sequence' => 1, 'status' => RunShipment::STATUS_ACTIVE]);
+        $assertUploaded(false); // Dispatch/manual shipments are not uploaded notes.
+        $otherRun = Run::create([
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'driver_id' => $user->driver->id, 'status' => Run::STATUS_COMPLETED,
+        ]);
+        $import = \App\Models\DeliveryNoteImport::create([
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'environment_id' => $run->environment_id, 'run_id' => $otherRun->id,
+            'uploaded_by_user_id' => $user->id, 'status' => 'confirmed',
+            'disk' => 'local', 'path' => 'test/note.pdf', 'original_name' => 'note.pdf',
+            'mime_type' => 'application/pdf', 'size_bytes' => 10,
+        ]);
+        $assertUploaded(false);
+        $import->update(['run_id' => $run->id]);
+        foreach (['queued', 'processing', 'analyzed', 'confirmed', 'failed'] as $status) {
+            $import->update(['status' => $status]);
+            $assertUploaded(true); // The file was uploaded even if analysis failed.
+        }
+        $attachment->update(['status' => RunShipment::STATUS_REMOVED]);
+        $shipment->delete();
+        $assertUploaded(true);
+        [, $foreignMerchant] = $this->createDriverContext();
+        $import->update(['merchant_id' => $foreignMerchant->id]);
+        $assertUploaded(false);
+        $import->delete();
+        $assertUploaded(false);
+    }
+
     private function createDriverContext(?Merchant $merchant = null, ?string $email = null): array
     {
         if (!$merchant) {

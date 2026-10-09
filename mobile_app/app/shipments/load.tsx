@@ -85,16 +85,6 @@ export default function LoadShipment() {
     const [busy, setBusy] = useState(false);
     const [uploaded, setUploaded] = useState(false);
     const [analysisFailed, setAnalysisFailed] = useState(false);
-    // Temporary, visible diagnostics for investigating stalled background analysis.
-    const [diagnostics, setDiagnostics] = useState<Record<string, string>>({});
-    function recordResponse(phase: string, status: number, body: string) {
-        let formatted = body;
-        try { formatted = JSON.stringify(JSON.parse(body), null, 2); } catch { /* Show non-JSON gateway replies as text. */ }
-        setDiagnostics(previous => ({ ...previous, [phase]: `${new Date().toLocaleTimeString()} · HTTP ${status}\n${formatted.slice(0, 4000)}${formatted.length > 4000 ? '\n[Response truncated]' : ''}` }));
-    }
-    function recordTransportError(phase: string, error: unknown) {
-        setDiagnostics(previous => ({ ...previous, [phase]: `${new Date().toLocaleTimeString()} · No server response\n${(error as Error).message || 'Network request failed'}` }));
-    }
     const [pendingImport, setPendingImport] = useState<{ id: string; filename: string } | null>(null);
     const polling = useRef<AbortController | null>(null);
     const pendingStorageKey = session ? `delivery-note-processing:${session.user.user_id}` : null;
@@ -116,15 +106,8 @@ export default function LoadShipment() {
     async function checkProcessing(pending: { id: string; filename: string }, controller: AbortController) {
         if (!session || !handoffRef.current?.active || controller.signal.aborted) return;
         const result = await pollDocumentImport(
-            async (signal) => {
-                try {
-                    return await documentImportApi.show(session.token, pending.id, signal,
-                        (status, body) => { if (!controller.signal.aborted) recordResponse('Processing status', status, body); });
-                } catch (error) {
-                    if (!controller.signal.aborted && !(error as { status?: number }).status) recordTransportError('Processing status', error);
-                    throw error;
-                }
-            }, controller.signal,
+            (signal) => documentImportApi.show(session.token, pending.id, signal),
+            controller.signal,
             () => setUploaded(true),
         );
         if (controller.signal.aborted || !handoffRef.current?.active) return;
@@ -298,7 +281,6 @@ export default function LoadShipment() {
                 return;
             }
             if (!selected) return;
-            setDiagnostics({});
             let uploadRun = run;
             if (!context) {
                 const available = await documentImportApi.context(session.token);
@@ -324,13 +306,12 @@ export default function LoadShipment() {
             if (controller.signal.aborted || !handoffRef.current?.active) return;
             setPendingImport(pending);
             try {
-                await documentImportApi.upload(session.token, body, () => { if (!controller.signal.aborted && handoffRef.current?.active) setUploaded(true); }, (status, body) => { if (!controller.signal.aborted) recordResponse('Upload', status, body); });
+                await documentImportApi.upload(session.token, body, () => { if (!controller.signal.aborted && handoffRef.current?.active) setUploaded(true); });
                 if (controller.signal.aborted) return;
                 setUploaded(true);
             } catch (error) {
                 if (controller.signal.aborted) return;
                 const status = (error as { status?: number }).status;
-                if (!status) recordTransportError('Upload', error);
                 if (status && status >= 400 && status < 500 && ![408, 429].includes(status)) {
                     await clearPending();
                     throw error;
@@ -438,18 +419,6 @@ export default function LoadShipment() {
                             />
                         ) : null}
                     </>
-                )}
-                {Object.keys(diagnostics).length > 0 && (
-                    <View style={s.card}>
-                        <Text style={s.body}>Temporary server diagnostics</Text>
-                        {!!pendingImport && <Text selectable style={s.note}>Import: {pendingImport.id}</Text>}
-                        {Object.entries(diagnostics).map(([phase, response]) => (
-                            <View key={phase} style={{ gap: 4 }}>
-                                <Text style={s.body}>{phase}</Text>
-                                <Text selectable style={[s.note, { fontSize: 12, lineHeight: 17 }]}>{response}</Text>
-                            </View>
-                        ))}
-                    </View>
                 )}
             </BottomSheet>
             <MessageSheet ref={messageSheet} />

@@ -2,8 +2,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Feather } from "@expo/vector-icons";
 import { Href, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Keyboard, Pressable, View } from "react-native";
 import { Text } from "@/component/ui/Text";
+import { CollectionDateCalendar } from "@/src/components/CollectionDateCalendar";
 import { ActionSheet, ActionSheetRef } from "@/component/ui/ActionSheet";
 import {
     ApiRequestError,
@@ -25,16 +26,11 @@ import { LocationSearchPicker, type LocationSearchPickerHandle } from "@/src/com
 import { ImportStepIndicator } from "@/src/components/ImportStepIndicator";
 import { canReturnToImportStep, type ImportStep } from "@/src/components/import-steps";
 import { TripLocationStep } from "@/src/components/TripLocationStep";
+import { shipmentAddressDraft } from "@/src/lib/import-addresses";
 import { DeliveryNoteProgress } from "@/src/components/delivery-note-progress";
 
-const addressFields = [
-    ["name", "Location name"],
-    ["address_line_1", "Street address"],
-    ["city", "City"],
-    ["province", "Province"],
-    ["post_code", "Postal code"],
-    ["country", "Country"],
-];
+const quantityUnits = ["Units", "Boxes", "Pallets", "Drums", "Bags", "Crates", "Rolls"];
+
 const statusLabel = (value: string) => {
     if (value === "at_delivery_location") return "At delivery location";
     if (value === "failed") return "Failed Delivery";
@@ -55,7 +51,6 @@ const fullAddress = (a?: Record<string, any>) =>
         .map((k) => a?.[k])
         .filter(Boolean)
         .join(", ");
-const hasAddress = (a?: Record<string, any>) => !!a?.address_line_1;
 
 export default function ReviewImport() {
     const { import_id } = useLocalSearchParams<{ import_id: string }>();
@@ -72,14 +67,17 @@ export default function ReviewImport() {
     const [error, setError] = useState("");
     const [editing, setEditing] = useState<number | null>(null);
     const [editValue, setEditValue] = useState<ImportLine>();
+    const [choosingDate, setChoosingDate] = useState(false);
     const [failureIndex, setFailureIndex] = useState<number | null>(null);
     const [failureReason, setFailureReason] = useState("");
     const [locationKind, setLocationKind] = useState<
-        "origin_location_id" | "destination_location_id" | null
+        "origin_location_id" | "destination_location_id" | "pickup_location_id" | "dropoff_location_id" | null
     >(null);
+    const [locationItemIndex, setLocationItemIndex] = useState<number | null>(null);
     const locationPicker = useRef<LocationSearchPickerHandle>(null);
     const [choiceReady, setChoiceReady] = useState(false);
     const actions = useRef<ActionSheetRef>(null);
+    const shipmentOptions = useRef<ActionSheetRef>(null);
     const inFlight = useRef(false);
     const previewRequest = useRef(0);
     const storageKey = `delivery-note-draft:${session?.user?.user_id || session?.token?.slice(-12)}:${import_id}`;
@@ -126,18 +124,13 @@ export default function ReviewImport() {
                 dropoff_address: extracted.dropoff_address || {},
                 line_items: (extracted.line_items || []).map((row) => ({
                     ...row,
-                    pickup_address: hasAddress(row.pickup_address)
-                        ? row.pickup_address
-                        : extracted.pickup_address || {},
-                    dropoff_address: hasAddress(row.dropoff_address)
-                        ? row.dropoff_address
-                        : extracted.dropoff_address || {},
+                    ...shipmentAddressDraft(row),
                     collection_date:
                         row.collection_date || extracted.collection_date,
                 })),
             };
             const restored: ImportDraft = saved && !item.confirmation_result ? JSON.parse(saved) : initial;
-            setDraft(restored);
+            setDraft({ ...restored, line_items: restored.line_items.map(row => ({ ...row, type: "standard" })) });
             if (restored.trip_locations?.length) setContext({ ...available, locations: [...available.locations, ...restored.trip_locations.filter(l => !available.locations.some(existing => existing.location_id === l.location_id))] });
             setError("");
         } catch (e) {
@@ -213,6 +206,7 @@ export default function ReviewImport() {
     function chooseStatus(index: number) {
         actions.current?.present({
             title: "Change delivery status",
+            stackBehavior: "push",
             actions: ["delivered", "in_transit", "failed"].map((value) => ({
                 id: value,
                 label: statusLabel(value),
@@ -228,6 +222,38 @@ export default function ReviewImport() {
                         });
                 },
             })),
+        });
+    }
+    function showShipmentOptions(index: number) {
+        const item = draft?.line_items[index];
+        if (!item) return;
+        const eligible = review?.rows[index]?.eligibility === "new";
+        shipmentOptions.current?.present({
+            title: "Shipment options",
+            stackBehavior: "push",
+            accessibilityLabel: `Options for shipment ${item.merchant_order_ref || index + 1}`,
+            actions: [
+                {
+                    id: "edit",
+                    label: "Edit Shipment",
+                    onPress: () => {
+                        setEditing(index);
+                        setEditValue(JSON.parse(JSON.stringify(item)));
+                    },
+                },
+                {
+                    id: "exclude",
+                    label: item.excluded ? "Include shipment in run" : "Exclude shipment from run",
+                    onPress: () => updateItem(index, { excluded: !item.excluded }),
+                },
+                {
+                    id: "status",
+                    label: "Change shipment status",
+                    disabled: !eligible,
+                    accessibilityHint: eligible ? undefined : "Only new included shipments can change status during import review.",
+                    onPress: () => chooseStatus(index),
+                },
+            ],
         });
     }
     async function selectRun(runId: string | null) {
@@ -263,7 +289,11 @@ export default function ReviewImport() {
         ? "Upload completed"
         : creating
           ? "Processing delivery note"
-          : editing !== null
+          : locationKind === "pickup_location_id" || locationKind === "dropoff_location_id"
+            ? locationKind === "pickup_location_id" ? "Choose collection location" : "Choose delivery location"
+            : choosingDate
+            ? "Collection date"
+            : editing !== null
             ? "Edit shipment"
             : failureIndex !== null
               ? "Failed Delivery"
@@ -284,7 +314,8 @@ export default function ReviewImport() {
                 title={title}
                 destination={destination}
                 backDisabled={creating}
-                onBack={locationKind ? () => setLocationKind(null) : undefined}
+                keyboardBehavior={editing !== null ? "fillParent" : undefined}
+                onBack={choosingDate ? () => setChoosingDate(false) : locationKind ? () => { setLocationKind(null); setLocationItemIndex(null); } : editing !== null ? () => { Keyboard.dismiss(); setEditing(null); setEditValue(undefined); setError(""); } : undefined}
                 plainScroll={!!locationKind}
                 onScroll={event => locationPicker.current?.onScroll(event)}
             >
@@ -377,10 +408,24 @@ export default function ReviewImport() {
                             ref={locationPicker}
                             token={session!.token}
                             confirmOnSelect
+                            savedOnly={locationKind === "pickup_location_id" || locationKind === "dropoff_location_id"}
                             selectionIcon={locationKind === "origin_location_id" ? "map-pin" : "flag"}
                             selectedLabel={locationKind === "origin_location_id" ? "SELECTED STARTING POINT" : "SELECTED PLANNED END"}
                             confirmLabel={locationKind === "origin_location_id" ? "Use starting point" : "Use planned end location"}
                             onConfirm={location => {
+                                if (locationKind === "pickup_location_id" || locationKind === "dropoff_location_id") {
+                                    const addressKey = locationKind === "pickup_location_id" ? "pickup_address" : "dropoff_address";
+                                    const patch = { [locationKind]: location.location_id, [addressKey]: location };
+                                    if (locationItemIndex !== null) {
+                                        updateItem(locationItemIndex, patch);
+                                        setLocationItemIndex(null);
+                                    } else {
+                                        setEditValue(current => current ? { ...current, ...patch } : current);
+                                    }
+                                    setLocationKind(null);
+                                    setError("");
+                                    return;
+                                }
                                 setContext(current => current ? { ...current, locations: [...current.locations.filter(l => l.location_id !== location.location_id), location] } : current);
                                 update({
                                     [locationKind]: location.location_id,
@@ -390,6 +435,8 @@ export default function ReviewImport() {
                             }}
                         />
                     </>
+                ) : choosingDate && editValue ? (
+                    <CollectionDateCalendar value={editValue.collection_date || ""} onConfirm={collection_date => { setEditValue(current => current ? { ...current, collection_date } : current); setChoosingDate(false); }} />
                 ) : editing !== null && editValue ? (
                     <>
                         <ImportField
@@ -402,16 +449,10 @@ export default function ReviewImport() {
                                 })
                             }
                         />
-                        <ImportField
-                            label="Collection date (YYYY-MM-DD)"
-                            value={editValue.collection_date}
-                            onChange={(v) =>
-                                setEditValue({
-                                    ...editValue,
-                                    collection_date: v,
-                                })
-                            }
-                        />
+                        <View style={{ gap: 6 }}>
+                            <Text style={s.label}>Collection date</Text>
+                            <Pressable accessibilityRole="button" accessibilityLabel={`Choose collection date, ${editValue.collection_date || "not selected"}`} onPress={() => { Keyboard.dismiss(); setChoosingDate(true); }} style={[s.input, { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }]}><Text style={s.body}>{editValue.collection_date || "Choose date"}</Text><Feather name="calendar" size={18} color="#666" /></Pressable>
+                        </View>
                         <ImportField
                             label="Description"
                             value={editValue.description}
@@ -421,6 +462,7 @@ export default function ReviewImport() {
                         />
                         <ImportField
                             label="Quantity"
+                            trailing={<Pressable accessibilityRole="button" accessibilityLabel="Unit of measure" onPress={() => { Keyboard.dismiss(); actions.current?.present({ title: "Unit of measure", actions: quantityUnits.map(label => ({ id: label.toLowerCase(), label, onPress: () => setEditValue(current => current ? { ...current, quantity_unit: label.toLowerCase() } : current) })) }); }} style={{ borderLeftWidth: 1, borderLeftColor: "#d4d4d8", paddingHorizontal: 12, minHeight: 46, flexDirection: "row", alignItems: "center", gap: 8 }}><Text style={s.body}>{quantityUnits.find(unit => unit.toLowerCase() === editValue.quantity_unit) || "Units"}</Text><Feather name="chevron-down" size={16} color="#666" /></Pressable>}
                             numeric
                             value={editValue.quantity}
                             onChange={(v) =>
@@ -430,40 +472,17 @@ export default function ReviewImport() {
                                 })
                             }
                         />
-                        <ImportField
-                            label="Shipment type"
-                            value={editValue.type}
-                            onChange={(v) =>
-                                setEditValue({ ...editValue, type: v })
-                            }
-                        />
-                        {(["pickup_address", "dropoff_address"] as const).map(
-                            (kind) => (
-                                <View style={s.card} key={kind}>
-                                    <Text style={s.heading}>
-                                        {kind === "pickup_address"
-                                            ? "Collection"
-                                            : "Deliver to"}
-                                    </Text>
-                                    {addressFields.map(([key, label]) => (
-                                        <ImportField
-                                            key={key}
-                                            label={label}
-                                            value={editValue[kind]?.[key]}
-                                            onChange={(v) =>
-                                                setEditValue({
-                                                    ...editValue,
-                                                    [kind]: {
-                                                        ...editValue[kind],
-                                                        [key]: v,
-                                                    },
-                                                })
-                                            }
-                                        />
-                                    ))}
-                                </View>
-                            ),
-                        )}
+                        {([['pickup_location_id', 'pickup_address', 'Collection'], ['dropoff_location_id', 'dropoff_address', 'Deliver to']] as const).map(([kind, addressKey, label]) => (
+                            <View key={kind} style={{ gap: 16 }}>
+                                <Text style={s.heading}>{label}</Text>
+                                <Pressable accessibilityRole="button" accessibilityLabel={`Choose ${label === 'Collection' ? 'collection' : 'delivery'} location`} onPress={() => setLocationKind(kind)} style={[s.choice, { gap: 6 }]}>
+                                    <Text style={s.body}>{editValue[addressKey]?.name || (fullAddress(editValue[addressKey]) ? label : `Choose saved ${label === 'Collection' ? 'collection' : 'delivery'} location`)}</Text>
+                                    {!!fullAddress(editValue[addressKey]) && <Text style={s.note}>{fullAddress(editValue[addressKey])}</Text>}
+                                    <Text style={s.note}>Change location ›</Text>
+                                </Pressable>
+                                <Text style={s.note}>Only saved locations can be selected. If your location is missing, contact dispatch.</Text>
+                            </View>
+                        ))}
                         {(
                             [
                                 "weight",
@@ -471,6 +490,9 @@ export default function ReviewImport() {
                                 "width_cm",
                                 "height_cm",
                             ] as const
+                        ).filter(key => key === "weight"
+                            ? quantityUnits.slice(1).some(unit => unit.toLowerCase() === editValue.quantity_unit)
+                            : ["boxes", "pallets", "crates"].includes(editValue.quantity_unit || "units")
                         ).map((key) => (
                             <ImportField
                                 key={key}
@@ -488,14 +510,16 @@ export default function ReviewImport() {
                         <ImportButton
                             label="Save changes"
                             onPress={() => {
-                                updateItem(editing, editValue);
+                                if (!editValue.pickup_location_id || !editValue.dropoff_location_id) { setError("Choose saved collection and delivery locations. If a location is missing, contact dispatch."); return; }
+                                Keyboard.dismiss();
+                                updateItem(editing, { ...editValue, quantity_unit: editValue.quantity_unit || "units" });
                                 setEditing(null);
                             }}
                         />
                         <ImportButton
                             secondary
                             label="Cancel"
-                            onPress={() => setEditing(null)}
+                            onPress={() => { Keyboard.dismiss(); setEditing(null); }}
                         />
                     </>
                 ) : (
@@ -578,33 +602,41 @@ export default function ReviewImport() {
                                                     gap: 8,
                                                 }}
                                             >
-                                                <Text
-                                                    style={{
-                                                        ...s.body,
-                                                        fontWeight: "700",
-                                                        flex: 1,
-                                                    }}
+                                                <View style={{ flex: 1, gap: 2 }}>
+                                                    <Text style={s.note}>Shipment number</Text>
+                                                    <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+                                                        <Text style={{ ...s.body, fontWeight: "700", flexShrink: 1 }}>
+                                                            {item.merchant_order_ref || "Reference missing"}
+                                                        </Text>
+                                                        <Text
+                                                            style={{
+                                                                color: "#24753a",
+                                                                backgroundColor: "#e8f7ed",
+                                                                padding: 5,
+                                                                borderRadius: 8,
+                                                            }}
+                                                        >
+                                                            {state?.eligibility === "existing"
+                                                                ? "Existing · skipped"
+                                                                : state?.eligibility === "excluded"
+                                                                  ? "Excluded"
+                                                                  : "New"}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <Pressable
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Options for shipment ${item.merchant_order_ref || index + 1}`}
+                                                    accessibilityState={{ disabled: busy }}
+                                                    disabled={busy}
+                                                    onPress={() => showShipmentOptions(index)}
+                                                    style={{ minHeight: 44, alignSelf: "flex-start", justifyContent: "center", opacity: busy ? 0.45 : 1 }}
                                                 >
-                                                    {item.merchant_order_ref ||
-                                                        "Reference missing"}
-                                                </Text>
-                                                <Text
-                                                    style={{
-                                                        color: "#24753a",
-                                                        backgroundColor:
-                                                            "#e8f7ed",
-                                                        padding: 5,
-                                                        borderRadius: 8,
-                                                    }}
-                                                >
-                                                    {state?.eligibility ===
-                                                    "existing"
-                                                        ? "Existing · skipped"
-                                                        : state?.eligibility ===
-                                                            "excluded"
-                                                          ? "Excluded"
-                                                          : "New"}
-                                                </Text>
+                                                    <View style={{ minHeight: 30, paddingHorizontal: 8, borderWidth: 1, borderColor: "#e0e3e8", borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                                                        <Text style={[s.body, { fontSize: 13, fontWeight: "600" }]}>Options</Text>
+                                                        <Feather name="chevron-down" size={12} color="#666" />
+                                                    </View>
+                                                </Pressable>
                                             </View>
                                             <View
                                                 style={{
@@ -618,11 +650,11 @@ export default function ReviewImport() {
                                                     </Text>
                                                     <Text
                                                         style={{
-                                                            ...s.heading,
-                                                            fontSize: 22,
+                                                            ...s.body,
+                                                            fontWeight: "700",
                                                         }}
                                                     >
-                                                        {item.quantity ?? 1}
+                                                        {item.quantity ?? 1} {item.quantity_unit || "units"}
                                                     </Text>
                                                 </View>
                                                 <View style={{ flex: 1 }}>
@@ -631,31 +663,50 @@ export default function ReviewImport() {
                                                     </Text>
                                                     <Text
                                                         style={{
-                                                            ...s.heading,
-                                                            fontSize: 22,
+                                                            ...s.body,
+                                                            fontWeight: "700",
                                                         }}
                                                     >
-                                                        {item.type ||
-                                                            "Not found"}
+                                                        Standard
                                                     </Text>
                                                 </View>
                                             </View>
-                                            <Text style={{ color: "#2563eb" }}>
-                                                Collection
-                                            </Text>
-                                            <Text style={s.body}>
-                                                {fullAddress(
-                                                    item.pickup_address,
-                                                ) || "Address missing"}
-                                            </Text>
-                                            <Text style={{ color: "#24753a" }}>
-                                                Deliver to
-                                            </Text>
-                                            <Text style={s.body}>
-                                                {fullAddress(
-                                                    item.dropoff_address,
-                                                ) || "Address missing"}
-                                            </Text>
+                                            <View style={{ flexDirection: "row", gap: 24 }}>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={s.note}>Collection date</Text>
+                                                    <Text style={[s.body, { fontWeight: "700" }]}>
+                                                        {item.collection_date || "Not found"}
+                                                    </Text>
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={s.note}>Delivery status</Text>
+                                                    <Text style={[s.body, { fontWeight: "700" }]}>
+                                                        {statusLabel(item.status || state?.status || "booked")}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            {([
+                                                ["pickup_location_id", "pickup_address", "Collection"],
+                                                ["dropoff_location_id", "dropoff_address", "Deliver to"],
+                                            ] as const).map(([kind, addressKey, label]) => (
+                                                <Pressable
+                                                    key={kind}
+                                                    accessibilityRole="button"
+                                                    accessibilityLabel={`Change ${label === "Collection" ? "collection" : "delivery"} location for shipment ${item.merchant_order_ref || index + 1}`}
+                                                    accessibilityState={{ disabled: busy }}
+                                                    disabled={busy}
+                                                    onPress={() => {
+                                                        setLocationItemIndex(index);
+                                                        setLocationKind(kind);
+                                                    }}
+                                                    style={{ minHeight: 44, gap: 2, opacity: busy ? 0.45 : 1 }}
+                                                >
+                                                    <Text style={s.note}>{label}</Text>
+                                                    <Text style={[s.body, { fontWeight: "700", textDecorationLine: "underline" }, !fullAddress(item[addressKey]) && { color: s.error.color }]}>
+                                                        {fullAddress(item[addressKey]) || "Address missing"}
+                                                    </Text>
+                                                </Pressable>
+                                            ))}
                                             {eligible &&
                                                 state?.collection_comparison !==
                                                     "match" && (
@@ -702,14 +753,6 @@ export default function ReviewImport() {
                                                         )}
                                                     </Text>
                                                 )}
-                                            <Text style={s.body}>
-                                                Delivery status ·{" "}
-                                                {statusLabel(
-                                                    item.status ||
-                                                        state?.status ||
-                                                        "booked",
-                                                )}
-                                            </Text>
                                             {state?.matched_stop && (
                                                 <Text style={s.note}>
                                                     Matched visit ·{" "}
@@ -733,16 +776,6 @@ export default function ReviewImport() {
                                                     Failure reason:{" "}
                                                     {item.failure_reason}
                                                 </Text>
-                                            )}
-                                            {eligible && (
-                                                <ImportButton
-                                                    secondary
-                                                    label="Change delivery status  ›"
-                                                    disabled={busy}
-                                                    onPress={() =>
-                                                        chooseStatus(index)
-                                                    }
-                                                />
                                             )}
                                             {item.status && (
                                                 <ImportField
@@ -778,52 +811,6 @@ export default function ReviewImport() {
                                                     }
                                                 />
                                             )}
-                                            <View
-                                                style={{
-                                                    flexDirection: "row",
-                                                    justifyContent:
-                                                        "space-between",
-                                                    alignItems: "center",
-                                                }}
-                                            >
-                                                <View>
-                                                    <Text style={s.note}>
-                                                        Collection date
-                                                    </Text>
-                                                    <Text style={s.note}>
-                                                        {item.collection_date ||
-                                                            "Not found"}
-                                                    </Text>
-                                                </View>
-                                                <ImportButton
-                                                    secondary
-                                                    label="Edit"
-                                                    onPress={() => {
-                                                        setEditing(index);
-                                                        setEditValue(
-                                                            JSON.parse(
-                                                                JSON.stringify(
-                                                                    item,
-                                                                ),
-                                                            ),
-                                                        );
-                                                    }}
-                                                />
-                                            </View>
-                                            <ImportButton
-                                                secondary
-                                                label={
-                                                    item.excluded
-                                                        ? "Include shipment"
-                                                        : "Exclude shipment"
-                                                }
-                                                onPress={() =>
-                                                    updateItem(index, {
-                                                        excluded:
-                                                            !item.excluded,
-                                                    })
-                                                }
-                                            />
                                         </View>
                                     );
                                 })}
@@ -984,6 +971,7 @@ export default function ReviewImport() {
                     </>
                 )}
             </ImportSheetPage>
+            <ActionSheet ref={shipmentOptions} />
             <ActionSheet ref={actions} />
         </>
     );

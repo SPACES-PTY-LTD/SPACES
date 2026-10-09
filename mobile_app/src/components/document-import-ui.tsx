@@ -1,13 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { Href, useRouter } from 'expo-router';
-import { PropsWithChildren, useEffect, useRef } from 'react';
+import { PropsWithChildren, type ReactNode, useEffect, useRef } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, type ScrollViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/component/ui/Text';
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { BottomSheet } from '@/component/ui/BottomSheet';
+import { BottomSheet, type BottomSheetProps } from '@/component/ui/BottomSheet';
 
-export function ImportSheetPage({ title, children, backDisabled = false, destination, plainScroll = false, onScroll, onBack }: PropsWithChildren<{ title: string; backDisabled?: boolean; destination?: Href; plainScroll?: boolean; onScroll?: ScrollViewProps['onScroll']; onBack?: () => void }>) {
+export function ImportSheetPage({ title, children, backDisabled = false, destination, plainScroll = false, onScroll, onBack, keyboardBehavior }: PropsWithChildren<{ title: string; backDisabled?: boolean; destination?: Href; plainScroll?: boolean; onScroll?: ScrollViewProps['onScroll']; onBack?: () => void; keyboardBehavior?: BottomSheetProps['keyboardBehavior'] }>) {
   const modalRef = useRef<BottomSheetModal>(null);
   const router = useRouter();
   useEffect(() => {
@@ -15,7 +15,7 @@ export function ImportSheetPage({ title, children, backDisabled = false, destina
     return () => cancelAnimationFrame(frame);
   }, []);
   useEffect(() => { if (destination) modalRef.current?.dismiss(); }, [destination]);
-  return <BottomSheet modalRef={modalRef} title={title} onBack={onBack} showCloseButton={!onBack} showHandle={!onBack} plainScroll={plainScroll} onScroll={onScroll} scrollable dismissible={!backDisabled} onDismiss={() => {
+  return <BottomSheet modalRef={modalRef} keyboardBehavior={keyboardBehavior} title={title} onBack={onBack} showCloseButton={!onBack} showHandle={!onBack} plainScroll={plainScroll} onScroll={onScroll} scrollable dismissible={!backDisabled} onDismiss={() => {
     if (destination) router.replace(destination);
     else if (router.canGoBack()) router.back(); else router.replace('/(tabs)');
   }}>{children}</BottomSheet>;
@@ -33,8 +33,8 @@ export function ImportPage({ title, children, backDisabled = false }: PropsWithC
 export function ImportButton({ label, onPress, disabled = false, secondary = false }: { label: string; onPress: () => void; disabled?: boolean; secondary?: boolean }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={[s.button, { backgroundColor: secondary ? '#fff' : '#f54a4a', opacity: disabled ? 0.5 : 1 }]}><Text style={{ color: secondary ? '#c63333' : '#fff', fontSize: 16, fontWeight: '600', textAlign: 'center' }}>{label}</Text></Pressable>;
 }
-export function ImportField({ label, value, onChange, numeric = false, multiline = false }: { label: string; value?: string | number | null; onChange: (value: string) => void; numeric?: boolean; multiline?: boolean }) {
-  return <View style={{ gap: 6 }}><Text style={s.label}>{label}</Text><BottomSheetTextInput multiline={multiline} accessibilityLabel={label} value={value == null ? '' : String(value)} onChangeText={onChange} keyboardType={numeric ? 'decimal-pad' : 'default'} autoCapitalize="none" style={s.input} placeholderTextColor="#777" /></View>;
+export function ImportField({ label, value, onChange, numeric = false, multiline = false, trailing }: { trailing?: ReactNode; label: string; value?: string | number | null; onChange: (value: string) => void; numeric?: boolean; multiline?: boolean }) {
+  return <View style={{ gap: 6 }}><Text style={s.label}>{label}</Text><View style={{ flexDirection: trailing ? 'row' : 'column', alignItems: 'stretch', borderWidth: trailing ? 1 : 0, borderColor: '#d4d4d8', borderRadius: 4 }}><BottomSheetTextInput multiline={multiline} accessibilityLabel={label} value={value == null ? '' : String(value)} onChangeText={onChange} keyboardType={numeric ? 'decimal-pad' : 'default'} autoCapitalize="none" style={[s.input, trailing ? { flex: 1, borderWidth: 0 } : undefined]} placeholderTextColor="#777" />{trailing}</View></View>;
 }
 const s = StyleSheet.create({
   subtitle: { fontSize: 15, color: '#606067', lineHeight: 23 }, body: { fontSize: 15, color: '#111' },

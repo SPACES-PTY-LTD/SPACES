@@ -79,12 +79,29 @@ class DriverDocumentImportController extends Controller
         return new Location($candidate);
     }
 
+    private function resolveShipmentLocations($driver, array $data): array
+    {
+        foreach ($data['line_items'] ?? [] as $index => $item) {
+            $data['line_items'][$index]['type'] = 'standard';
+            if (!empty($item['excluded'])) continue;
+            foreach (['pickup_location_id' => 'pickup_address', 'dropoff_location_id' => 'dropoff_address'] as $idKey => $addressKey) {
+                if (empty($item[$idKey])) continue;
+                $location = Location::where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)
+                    ->where('uuid', $item[$idKey])->first();
+                if (!$location) throw ValidationException::withMessages(["line_items.$index.$idKey" => 'Choose a saved location available to your account, or contact dispatch.']);
+                // Use the database address, never client overrides.
+                $data['line_items'][$index][$addressKey] = array_intersect_key($location->toAddressArray(), array_flip(['name', 'address_line_1', 'address_line_2', 'town', 'city', 'province', 'post_code', 'country', 'company', 'first_name', 'last_name', 'phone']));
+            }
+        }
+        return $data;
+    }
+
     public function searchLocations(Request $request)
     {
         $driver = $this->driver($request);
-        $data = $request->validate(['query' => ['required', 'string', 'min:1', 'max:255'], 'page' => ['sometimes', 'integer', 'min:1']]);
+        $data = $request->validate(['query' => ['required', 'string', 'min:1', 'max:255'], 'page' => ['sometimes', 'integer', 'min:1'], 'saved_only' => ['sometimes', 'boolean']]);
         $saved = Location::where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)->where(fn ($q) => $q->where('name', 'like', '%'.$data['query'].'%')->orWhere('full_address', 'like', '%'.$data['query'].'%')->orWhere('address_line_1', 'like', '%'.$data['query'].'%'))->whereNotNull('latitude')->whereNotNull('longitude')->orderBy('id')->simplePaginate(20, ['*'], 'page', $data['page'] ?? 1);
-        if ($saved->isNotEmpty() || ($data['page'] ?? 1) > 1) return ApiResponse::success($saved->getCollection()->map(fn ($l) => $l->toAddressArray()), ['next_page' => $saved->hasMorePages() ? $saved->currentPage() + 1 : null]);
+        if (!empty($data['saved_only']) || $saved->isNotEmpty() || ($data['page'] ?? 1) > 1) return ApiResponse::success($saved->getCollection()->map(fn ($l) => $l->toAddressArray()), ['next_page' => $saved->hasMorePages() ? $saved->currentPage() + 1 : null]);
         $key = config('services.google_maps.geocoding_api_key');
         abort_unless($key, 503, 'Address search is not configured. Choose a saved location or contact dispatch.');
         $response = Http::timeout(15)->get('https://maps.googleapis.com/maps/api/geocode/json', ['address' => $data['query'], 'key' => $key]);
@@ -109,6 +126,7 @@ class DriverDocumentImportController extends Controller
         $this->owned($request, $id);
         $data = $request->validate(['run_id' => ['nullable', 'uuid'], 'create_new_run' => ['sometimes', 'boolean'], 'origin_location_id' => ['nullable', 'uuid'], 'destination_location_id' => ['nullable', 'uuid'], 'line_items' => ['required', 'array', 'max:100'], 'pickup_address' => ['nullable', 'array'], 'dropoff_address' => ['nullable', 'array']]);
         $driver = $this->driver($request);
+        $data = $this->resolveShipmentLocations($driver, $data);
         $run = empty($data['run_id']) || !empty($data['create_new_run']) ? null : $this->runs($driver)->where('uuid', $data['run_id'])->firstOrFail();
         return ApiResponse::success($review->review($driver, $run, $data, $this->location($driver, $data['origin_location_id'] ?? null)));
     }
@@ -184,6 +202,7 @@ class DriverDocumentImportController extends Controller
                 return $import->confirmation_result;
             }
             abort_unless($import->status === 'analyzed', 409, 'This document has not been successfully analyzed.');
+            $data = $this->resolveShipmentLocations($driver, $data);
             // Run confirmation happens after extraction; never trust an arbitrary run UUID.
             if (array_key_exists('run_id', $data)) {
                 $run = $data['run_id'] ? $this->runs($driver)->where('uuid', $data['run_id'])->lockForUpdate()->first() : null;
@@ -250,7 +269,7 @@ class DriverDocumentImportController extends Controller
                     continue;
                 }
                 foreach (['pickup_address', 'dropoff_address'] as $kind) {
-                    $address = $item[$kind] ?? $data[$kind];
+                    $address = $item[$kind] ?? [];
                     foreach (['address_line_1', 'city', 'province', 'post_code'] as $field) {
                         if (trim($address[$field] ?? '') === '') throw ValidationException::withMessages(['line_items' => "$ref: complete the $kind $field."]);
                     }
@@ -258,7 +277,7 @@ class DriverDocumentImportController extends Controller
                 $parcels = [];
                 foreach ($row['items'] as $item) {
                     $parcel = array_filter([
-                        'type' => $item['type'] ?? null, 'contents_description' => $item['description'],
+                        'type' => 'standard', 'contents_description' => $item['description'],
                         'weight' => $item['weight'] ?? null, 'weight_measurement' => 'kg',
                         'length_cm' => $item['length_cm'] ?? null, 'width_cm' => $item['width_cm'] ?? null, 'height_cm' => $item['height_cm'] ?? null,
                     ], fn ($value) => $value !== null && $value !== '');
@@ -269,10 +288,15 @@ class DriverDocumentImportController extends Controller
                 $created = $shipments->createShipment([
                     'merchant_id' => $driver->merchant->uuid, 'environment_id' => $run?->environment?->uuid,
                     'merchant_order_ref' => $ref, 'collection_date' => CarbonImmutable::parse($row['collection_date'], $timezone)->startOfDay()->utc(),
-                    'pickup_address' => $item['pickup_address'] ?? $data['pickup_address'], 'dropoff_address' => $item['dropoff_address'] ?? $data['dropoff_address'],
+                    'pickup_location_id' => $item['pickup_location_id'] ?? null,
+                    'dropoff_location_id' => $item['dropoff_location_id'] ?? null,
+                    'pickup_address' => $item['pickup_address'] ?? [], 'dropoff_address' => $item['dropoff_address'] ?? [],
                     'delivery_note_number' => $data['delivery_note_number'] ?? null,
                     'pickup_instructions' => $data['pickup_instructions'] ?? null, 'dropoff_instructions' => $data['dropoff_instructions'] ?? null,
-                    'auto_assign' => false, 'parcels' => $parcels, 'metadata' => ['delivery_note_import_id' => $import->uuid],
+                    'auto_assign' => false, 'parcels' => $parcels, 'metadata' => [
+                        'delivery_note_import_id' => $import->uuid,
+                        'delivery_note_items' => array_map(fn ($line) => ['reference' => $line['merchant_order_ref'] ?? null, 'quantity' => $line['quantity'] ?? 1, 'quantity_unit' => $line['quantity_unit'] ?? 'units'], $row['items']),
+                    ],
                 ]);
                 if (! $created['created']) {
                     $result['skipped'][] = $ref;

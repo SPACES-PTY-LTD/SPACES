@@ -3,7 +3,7 @@ import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { TouchableOpacity, StyleSheet } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { BottomSheet } from './BottomSheet';
+import { BottomSheet, type BottomSheetProps } from './BottomSheet';
 import { Text } from './Text';
 
 export type ActionSheetAction = {
@@ -21,6 +21,7 @@ export type ActionSheetConfig = {
   accessibilityLabel?: string;
   showCloseButton?: boolean;
   showHandle?: boolean;
+  stackBehavior?: BottomSheetProps['stackBehavior'];
   onDismiss?: (actionId?: string) => void;
   onError?: (error: unknown) => void;
 };
@@ -50,7 +51,7 @@ export const ActionSheet = forwardRef<ActionSheetRef>(function ActionSheet(_, re
     const frame = requestAnimationFrame(() => modalRef.current?.present());
     return () => cancelAnimationFrame(frame);
   }, [config]);
-  return <><BottomSheet modalRef={modalRef} title={config?.title} showCloseButton={config?.showCloseButton ?? false} showHandle={config?.showHandle ?? false} accessibilityLabel={config?.accessibilityLabel || 'Actions'} scrollable={(config?.actions.length || 0) > 5} onDismiss={() => {
+  return <><BottomSheet modalRef={modalRef} stackBehavior={config?.stackBehavior} title={config?.title} showCloseButton={config?.showCloseButton ?? false} showHandle={config?.showHandle ?? false} accessibilityLabel={config?.accessibilityLabel || 'Actions'} scrollable={(config?.actions.length || 0) > 5} onDismiss={() => {
     const action = selected.current;
     selected.current = null;
     const previous = config;

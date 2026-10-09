@@ -95,10 +95,17 @@ export default function HomeScreen() {
   }, [load]));
 
   useEffect(() => { setRunAction(null); }, [dashboard?.current_run?.run_id]);
+  // Older servers already identify runs needing a note through the map notice.
+  const canUploadRunNote = dashboard?.current_run?.has_delivery_note === false
+    || (dashboard?.current_run?.has_delivery_note === undefined && !!requiredNoteRunId && requiredNoteRunId === dashboard?.current_run?.run_id);
   const openRunActions = () => runActionsSheet.current?.present({ title: '', actions: [
     { id: 'end', label: 'End Run', variant: 'destructive', disabled: dashboard?.current_run?.end_request?.status === 'pending', onPress: () => setRunAction('end') },
     { id: 'edit', label: 'Edit Run', onPress: () => setRunAction('edit') },
     { id: 'cost', label: 'Add additional cost', onPress: () => setRunAction('cost') },
+    ...(canUploadRunNote ? [{
+      id: 'upload-delivery-note', label: 'Upload delivery note',
+      onPress: () => router.push({ pathname: '/shipments/load', params: { run_id: dashboard.current_run!.run_id } }),
+    }] : []),
   ] });
 
   const shipments = dashboard?.run_shipments ?? [];
