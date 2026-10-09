@@ -79,12 +79,15 @@ class DriverDocumentImportController extends Controller
         return new Location($candidate);
     }
 
-    private function resolveShipmentLocations($driver, array $data): array
+    private function resolveShipmentLocations($driver, array $data, ?Location $origin = null): array
     {
+        if ($origin) abort_unless((int) $origin->account_id === (int) $driver->account_id && (int) $origin->merchant_id === (int) $driver->merchant_id, 422, 'Choose a starting point available to your account.');
         foreach ($data['line_items'] ?? [] as $index => $item) {
             $data['line_items'][$index]['type'] = 'standard';
             if (!empty($item['excluded'])) continue;
+            if (!empty($item['pickup_from_run_start']) && !$origin) throw ValidationException::withMessages(['origin_location_id' => 'Choose a run starting point for the collection location.']);
             foreach (['pickup_location_id' => 'pickup_address', 'dropoff_location_id' => 'dropoff_address'] as $idKey => $addressKey) {
+                if ($idKey === 'pickup_location_id' && !empty($item['pickup_from_run_start'])) continue;
                 if (empty($item[$idKey])) continue;
                 $location = Location::where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)
                     ->where('uuid', $item[$idKey])->first();
@@ -92,6 +95,7 @@ class DriverDocumentImportController extends Controller
                 // Use the database address, never client overrides.
                 $data['line_items'][$index][$addressKey] = array_intersect_key($location->toAddressArray(), array_flip(['name', 'address_line_1', 'address_line_2', 'town', 'city', 'province', 'post_code', 'country', 'company', 'first_name', 'last_name', 'phone']));
             }
+            $data['line_items'][$index] = app(DriverImportReviewService::class)->collectionFromRunStart($data['line_items'][$index], $origin);
         }
         return $data;
     }
@@ -126,9 +130,10 @@ class DriverDocumentImportController extends Controller
         $this->owned($request, $id);
         $data = $request->validate(['run_id' => ['nullable', 'uuid'], 'create_new_run' => ['sometimes', 'boolean'], 'origin_location_id' => ['nullable', 'uuid'], 'destination_location_id' => ['nullable', 'uuid'], 'line_items' => ['required', 'array', 'max:100'], 'pickup_address' => ['nullable', 'array'], 'dropoff_address' => ['nullable', 'array']]);
         $driver = $this->driver($request);
-        $data = $this->resolveShipmentLocations($driver, $data);
         $run = empty($data['run_id']) || !empty($data['create_new_run']) ? null : $this->runs($driver)->where('uuid', $data['run_id'])->firstOrFail();
-        return ApiResponse::success($review->review($driver, $run, $data, $this->location($driver, $data['origin_location_id'] ?? null)));
+        $origin = $this->location($driver, $data['origin_location_id'] ?? null) ?? $run?->originLocation;
+        $data = $this->resolveShipmentLocations($driver, $data, $origin);
+        return ApiResponse::success($review->review($driver, $run, $data, $origin));
     }
 
     public function chooseFinalDestination(Request $request, string $run_uuid)
@@ -202,7 +207,6 @@ class DriverDocumentImportController extends Controller
                 return $import->confirmation_result;
             }
             abort_unless($import->status === 'analyzed', 409, 'This document has not been successfully analyzed.');
-            $data = $this->resolveShipmentLocations($driver, $data);
             // Run confirmation happens after extraction; never trust an arbitrary run UUID.
             if (array_key_exists('run_id', $data)) {
                 $run = $data['run_id'] ? $this->runs($driver)->where('uuid', $data['run_id'])->lockForUpdate()->first() : null;
@@ -213,7 +217,8 @@ class DriverDocumentImportController extends Controller
                 $run = $import->run_id ? $this->runs($driver)->whereKey($import->run_id)->lockForUpdate()->first() : null;
                 abort_if($import->run_id && ! $run, 409, 'The selected run is no longer assigned or active. Choose a current run.');
             }
-            $origin = $this->location($driver, $data['origin_location_id'] ?? null);
+            $origin = $this->location($driver, $data['origin_location_id'] ?? null) ?? (empty($data['create_new_run']) ? $run?->originLocation : null);
+            $data = $this->resolveShipmentLocations($driver, $data, $origin);
             $end = $this->location($driver, $data['destination_location_id'] ?? null);
             foreach ([$origin, $end] as $location) {
                 if ($location && (!is_numeric($location->latitude) || !is_numeric($location->longitude))) {
@@ -245,6 +250,12 @@ class DriverDocumentImportController extends Controller
                 $run->update(['origin_location_id' => $origin->id, 'destination_location_id' => $end->id, 'driver_workflow' => true]);
                 $import->run_id = $run->id;
                 $import->environment_id = $run->environment_id;
+            }
+            if ($origin) {
+                foreach ($data['line_items'] as &$item) {
+                    if (!empty($item['pickup_from_run_start'])) $item['pickup_location_id'] = $origin->uuid;
+                }
+                unset($item);
             }
             $timezone = $driver->merchant->timezone ?: config('app.timezone');
             $today = now($timezone)->toDateString();

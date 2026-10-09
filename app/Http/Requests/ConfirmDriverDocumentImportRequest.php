@@ -23,6 +23,7 @@ class ConfirmDriverDocumentImportRequest extends ConfirmDeliveryNoteImportReques
             'line_items.*.collection_date' => ['nullable', 'date_format:Y-m-d'],
             'line_items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:100'],
             'line_items.*.quantity_unit' => ['nullable', 'in:units,boxes,pallets,drums,bags,crates,rolls'],
+            'line_items.*.pickup_from_run_start' => ['sometimes', 'boolean'],
             'line_items.*.pickup_location_id' => ['nullable', 'uuid'],
             'line_items.*.dropoff_location_id' => ['nullable', 'uuid'],
             // Per-line saved location IDs are scoped in the controller; top-level IDs stay prohibited.

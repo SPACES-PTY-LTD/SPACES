@@ -310,6 +310,73 @@ class DriverDocumentImportTest extends TestCase
         $this->assertDatabaseCount('shipments', 0);
     }
 
+    public function test_missing_collection_uses_reviewed_run_start_and_persists_the_same_location(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $draft = $this->plannedDraft($user, $merchant);
+        $start = \App\Models\Location::where('uuid', $draft['origin_location_id'])->firstOrFail();
+        $start->update(['address_line_1' => 'Starting depot road']);
+        $draft['line_items'][0]['pickup_address'] = [];
+        $draft['line_items'][1]['pickup_address'] = array_fill_keys(array_keys($draft['pickup_address']), null);
+        $draft['line_items'][2]['pickup_address']['address_line_1'] = 'Explicit collection road';
+        $url = "/api/v1/driver/document-imports/{$import->uuid}";
+        $preview = $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()
+            ->assertJsonPath('data.rows.0.collection_comparison', 'match')
+            ->assertJsonPath('data.rows.1.collection_comparison', 'match')
+            ->assertJsonPath('data.rows.2.collection_comparison', 'mismatch');
+        $this->assertNotContains('Complete the collection address.', $preview->json('data.rows.0.validation_warnings'));
+        $draft['review_token'] = $preview->json('data.review_token');
+        $this->apiAs($user)->postJson("$url/confirm", $draft)->assertOk();
+        foreach (['TODAY', 'FUTURE'] as $ref) $this->assertSame($start->id, Shipment::where('merchant_order_ref', $ref)->firstOrFail()->pickup_location_id);
+        $this->assertSame('Explicit collection road', Shipment::where('merchant_order_ref', 'OLD')->firstOrFail()->pickupLocation->address_line_1);
+    }
+
+    public function test_missing_collection_uses_a_scoped_draft_start_saved_during_confirmation(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $draft = $this->plannedDraft($user, $merchant);
+        $draftId = (string) Str::uuid();
+        \Illuminate\Support\Facades\Cache::put("driver-trip-location:{$user->driver->id}:$draftId", array_merge($draft['pickup_address'], [
+            'uuid' => $draftId, 'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'name' => 'Reviewed new starting point', 'address_line_1' => 'New starting road', 'latitude' => -26.2, 'longitude' => 28.2,
+        ]), 3600);
+        $draft['origin_location_id'] = $draftId;
+        $draft['line_items'][0]['pickup_from_run_start'] = true;
+        $draft['line_items'][0]['pickup_location_id'] = $draftId;
+        $draft['line_items'][0]['pickup_address'] = [];
+        $url = "/api/v1/driver/document-imports/{$import->uuid}";
+        $preview = $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()->assertJsonPath('data.rows.0.collection_comparison', 'match');
+        $draft['review_token'] = $preview->json('data.review_token');
+        $this->apiAs($user)->postJson("$url/confirm", $draft)->assertOk();
+        $shipment = Shipment::where('merchant_order_ref', 'TODAY')->firstOrFail();
+        $this->assertSame($draftId, $shipment->pickupLocation->uuid);
+        $this->assertSame('New starting road', $shipment->pickupLocation->address_line_1);
+    }
+
+    public function test_inherited_collection_follows_start_and_never_fills_missing_delivery_or_partial_collection(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $import = $this->import($user, $merchant);
+        $draft = $this->plannedDraft($user, $merchant);
+        $draft['line_items'][0]['pickup_from_run_start'] = true;
+        $draft['line_items'][0]['pickup_location_id'] = (string) Str::uuid(); // Ignore a stale inherited ID, use scoped origin.
+        $draft['line_items'][0]['pickup_address'] = ['address_line_1' => 'Stale inherited depot'];
+        $draft['line_items'][0]['dropoff_address'] = [];
+        $draft['line_items'][1]['pickup_address'] = ['city' => 'Partial extracted city'];
+        $url = "/api/v1/driver/document-imports/{$import->uuid}";
+        $preview = $this->apiAs($user)->postJson("$url/preview", $draft)->assertOk()
+            ->assertJsonPath('data.rows.0.collection_comparison', 'match');
+        $this->assertContains('Complete the delivery address.', $preview->json('data.rows.0.validation_warnings'));
+        $this->assertNotContains('Complete the collection address.', $preview->json('data.rows.0.validation_warnings'));
+        $this->assertContains('Complete the collection address.', $preview->json('data.rows.1.validation_warnings'));
+        $this->apiAs($user)->postJson("$url/confirm", $draft)->assertUnprocessable();
+        unset($draft['origin_location_id']);
+        $this->apiAs($user)->postJson("$url/preview", $draft)->assertUnprocessable();
+        $this->assertDatabaseCount('shipments', 0);
+    }
+
     public function test_saved_only_collection_search_never_geocodes_missing_locations(): void
     {
         [$user] = $this->createDriverContext();

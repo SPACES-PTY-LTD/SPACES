@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-09 | Version: shipment-review-location-names-v1
+
+- **Summary:** Show location names in Collection and Deliver to on shipment review cards.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Display the selected saved location name, then extracted name/company. Address-only rows show Location name unavailable; missing addresses retain red Address missing. Keep full addresses for validation/saving, underlined selection links and run-start collection fallback. Editor/picker details remain unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript/focused review lint and diff checks pass. Dashboard plan v2.48/Figma review component/guide aligned; native review checks pending.
+
+## 2026-10-09 | Version: missing-collection-run-start-v1
+
+- **Summary:** Use the reviewed run starting-point location when a shipment has no collection address.
+- **API Changes:** Optional per-line pickup_from_run_start marks inherited collections. Driver preview/confirmation re-resolve the scoped origin and canonical address, overriding stale inherited row values. An existing selected run’s origin supplies the default when no reviewed origin is given.
+- **Database Changes:** None; cached trip-start locations are saved in the existing confirmation transaction before shipment pickup assignment.
+- **Behavior Changes:** Initial/restored drafts and reviewed-start changes populate missing collections from the run start. Inherited values follow later start changes; explicit saved selections disable inheritance and extracted partial addresses are preserved. Delivery remains independent. Missing/incomplete/expired/foreign start still requires correction. Existing duplicate shipments remain unchanged.
+- **Breaking Changes:** None. Deploy the API change for authoritative inherited-source re-resolution; mobile drafts send explicit origin pickup IDs/addresses for existing saved starting points.
+- **Verification:** 30 driver import API tests (235 assertions), five mobile address-draft tests, TypeScript, focused review/helper lint with the existing effect rule excluded and diff checks pass. Dashboard plan v2.47/Figma review component and guide aligned. Simulator is at upload Step 1, so native restored-review/source-switch/override checks remain pending.
+
 ## 2026-10-09 | Version: truck-popup-address-geofence-v1
 
 - **Summary:** Show the truck’s last known address or containing geofence name/address in its popup.

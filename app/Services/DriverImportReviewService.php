@@ -17,6 +17,19 @@ class DriverImportReviewService
         return in_array('', $parts, true) ? null : implode('|', $parts);
     }
 
+    public function collectionFromRunStart(array $item, ?Location $origin): array
+    {
+        $address = $item['pickup_address'] ?? [];
+        $hasAddress = collect(['full_address', 'address_line_1', 'address_line_2', 'town', 'city', 'province', 'post_code', 'country'])
+            ->contains(fn ($key) => is_string($address[$key] ?? null) && trim($address[$key]) !== '');
+        if (empty($item['pickup_from_run_start']) && (!empty($item['pickup_location_id']) || $hasAddress)) return $item;
+        if (! $origin) return $item;
+        $item['pickup_from_run_start'] = true;
+        $item['pickup_location_id'] = $origin->exists ? $origin->uuid : null;
+        $item['pickup_address'] = array_intersect_key($origin->toAddressArray(), array_flip(['name', 'address_line_1', 'address_line_2', 'town', 'city', 'province', 'post_code', 'country', 'company', 'first_name', 'last_name', 'phone']));
+        return $item;
+    }
+
     public function review(Driver $driver, ?Run $run, array $data, ?Location $origin = null): array
     {
         $events = $run ? $run->vehicleActivities()->where('account_id', $driver->account_id)
@@ -26,6 +39,7 @@ class DriverImportReviewService
         $items = $data['line_items'] ?? [];
         ksort($items, SORT_NUMERIC);
         foreach ($items as $index => $item) {
+            $item = $this->collectionFromRunStart($item, $origin);
             if (!empty($item['excluded'])) $item = ['excluded' => true, 'merchant_order_ref' => $item['merchant_order_ref'] ?? null];
             $reference = trim((string) ($item['merchant_order_ref'] ?? ''));
             $existing = $reference ? Shipment::withTrashed()->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)->where('merchant_order_ref', $reference)->first() : null;

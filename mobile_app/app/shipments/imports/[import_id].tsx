@@ -26,7 +26,7 @@ import { LocationSearchPicker, type LocationSearchPickerHandle } from "@/src/com
 import { ImportStepIndicator } from "@/src/components/ImportStepIndicator";
 import { canReturnToImportStep, type ImportStep } from "@/src/components/import-steps";
 import { TripLocationStep } from "@/src/components/TripLocationStep";
-import { shipmentAddressDraft } from "@/src/lib/import-addresses";
+import { shipmentAddressDraft, collectionFromRunStart } from "@/src/lib/import-addresses";
 import { DeliveryNoteProgress } from "@/src/components/delivery-note-progress";
 
 const quantityUnits = ["Units", "Boxes", "Pallets", "Drums", "Bags", "Crates", "Rolls"];
@@ -130,7 +130,7 @@ export default function ReviewImport() {
                 })),
             };
             const restored: ImportDraft = saved && !item.confirmation_result ? JSON.parse(saved) : initial;
-            setDraft({ ...restored, line_items: restored.line_items.map(row => ({ ...row, type: "standard" })) });
+            setDraft(applyRunStart({ ...restored, line_items: restored.line_items.map(row => ({ ...row, type: "standard" })) }, available.locations));
             if (restored.trip_locations?.length) setContext({ ...available, locations: [...available.locations, ...restored.trip_locations.filter(l => !available.locations.some(existing => existing.location_id === l.location_id))] });
             setError("");
         } catch (e) {
@@ -150,13 +150,17 @@ export default function ReviewImport() {
         setChoiceReady(false);
         setStage(target);
     }
+    function applyRunStart(value: ImportDraft, locations = context?.locations ?? []): ImportDraft {
+        const start = [...locations, ...(value.trip_locations ?? [])].find(l => l.location_id === value.origin_location_id);
+        return { ...value, line_items: value.line_items.map(row => collectionFromRunStart(row, start)) };
+    }
     function update(patch: Partial<ImportDraft>) {
-        setDraft((d) => (d ? { ...d, ...patch } : d));
+        setDraft((d) => (d ? applyRunStart({ ...d, ...patch }) : d));
         setChoiceReady(false);
     }
     function updateItem(index: number, patch: Partial<ImportLine>) {
         if (!draft) return;
-        const next = {
+        const next = applyRunStart({
             ...draft,
             ...(index === 0
                 ? {
@@ -169,9 +173,9 @@ export default function ReviewImport() {
                   }
                 : {}),
             line_items: draft.line_items.map((r, i) =>
-                i === index ? { ...r, ...patch } : r,
+                i === index ? { ...r, ...patch, ...(patch.pickup_location_id ? { pickup_from_run_start: patch.pickup_from_run_start ?? false } : {}) } : r,
             ),
-        };
+        });
         setDraft(next);
         setChoiceReady(false);
         void refreshReview(next);
@@ -203,6 +207,11 @@ export default function ReviewImport() {
     const end = context?.locations.find(
         (l) => l.location_id === draft?.destination_location_id,
     );
+    const locationLabel = (address?: Record<string, any>, locationId?: string | null) =>
+        context?.locations.find(location => location.location_id === locationId)?.name?.trim()
+        || address?.name?.trim()
+        || address?.company?.trim()
+        || (fullAddress(address) ? "Location name unavailable" : "Address missing");
     function chooseStatus(index: number) {
         actions.current?.present({
             title: "Change delivery status",
@@ -415,7 +424,7 @@ export default function ReviewImport() {
                             onConfirm={location => {
                                 if (locationKind === "pickup_location_id" || locationKind === "dropoff_location_id") {
                                     const addressKey = locationKind === "pickup_location_id" ? "pickup_address" : "dropoff_address";
-                                    const patch = { [locationKind]: location.location_id, [addressKey]: location };
+                                    const patch = { [locationKind]: location.location_id, [addressKey]: location, ...(locationKind === "pickup_location_id" ? { pickup_from_run_start: false } : {}) };
                                     if (locationItemIndex !== null) {
                                         updateItem(locationItemIndex, patch);
                                         setLocationItemIndex(null);
@@ -703,7 +712,7 @@ export default function ReviewImport() {
                                                 >
                                                     <Text style={s.note}>{label}</Text>
                                                     <Text style={[s.body, { fontWeight: "700", textDecorationLine: "underline" }, !fullAddress(item[addressKey]) && { color: s.error.color }]}>
-                                                        {fullAddress(item[addressKey]) || "Address missing"}
+                                                        {locationLabel(item[addressKey], item[kind])}
                                                     </Text>
                                                 </Pressable>
                                             ))}
