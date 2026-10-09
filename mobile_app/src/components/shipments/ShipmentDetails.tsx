@@ -30,7 +30,8 @@ import {
     View,
 } from "react-native";
 import { FullWindowOverlay } from "react-native-screens";
-import { sheetTheme } from "@/component/ui/sheet-theme";
+import { StopLocationMap } from "@/src/components/dashboard/StopLocationMap";
+import { locationCoordinate } from "@/src/components/dashboard/run-map-data";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PageHeader } from "@/component/ui/PageHeader";
@@ -86,7 +87,7 @@ export function ShipmentDetailsSheet({
     const insets = useSafeAreaInsets();
     const [visible, setVisible] = useState(false);
     const { height } = useWindowDimensions();
-    const bottomInset = insets.bottom + (Platform.OS === "android" ? 16 : 12);
+    const bottomInset = 0;
     const contentHeight = Math.max(
         200,
         (height - insets.top - 12 - bottomInset) * 0.9 - 24,
@@ -115,7 +116,6 @@ export function ShipmentDetailsSheet({
             enableDynamicSizing={false}
             topInset={insets.top + 12}
             bottomInset={bottomInset}
-            detached
             style={{ marginHorizontal: 12 }}
             containerComponent={ShipmentSheetContainer}
             keyboardBehavior="interactive"
@@ -127,11 +127,11 @@ export function ShipmentDetailsSheet({
                 onDismiss?.();
             }}
             backgroundStyle={{
-                backgroundColor:
-                    colorScheme === "dark"
-                        ? sheetTheme.darkBackground
-                        : sheetTheme.background,
-                borderRadius: sheetTheme.radius,
+                backgroundColor: colorScheme === "dark" ? "#1C1C1F" : "#FFFEFA",
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
             }}
             backdropComponent={(p) => (
                 <BottomSheetBackdrop
@@ -512,7 +512,8 @@ function ShipmentDetailsContent({
     const ink = isDarkMode ? "#FAFAFA" : "#111111";
     const muted = isDarkMode ? "#A1A1AA" : "#71717A";
     const card = isDarkMode ? "#25252B" : "#F5F5F8";
-    const surface = isDarkMode ? "#17171B" : "#FFFFFF";
+    const surface = isDarkMode ? "#1C1C1F" : "#FFFEFA";
+    const deliveryCoordinate = locationCoordinate(shipment?.dropoff_location);
     const total =
         shipment?.total_parcel_count ?? shipment?.parcels?.length ?? 0;
     const currentStatus = shipment?.booking?.status || shipment?.status || "";
@@ -573,7 +574,11 @@ function ShipmentDetailsContent({
             />
             <BodyScroll
                 style={{ flex: 1 }}
-                contentContainerStyle={{ padding: 20, gap: 16 }}
+                contentContainerStyle={{
+                    padding: 20,
+                    paddingBottom: Math.max(insets.bottom, 20) + 20,
+                    gap: 16,
+                }}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
@@ -614,6 +619,148 @@ function ShipmentDetailsContent({
                     <>
                         <View
                             style={{
+                                backgroundColor: surface,
+                                gap: 12,
+                            }}
+                        >
+                            <View
+                                style={{
+                                    height: 185,
+                                    overflow: "hidden",
+                                    borderRadius: 12,
+                                    backgroundColor: card,
+                                }}
+                            >
+                                {deliveryCoordinate ? (
+                                    <StopLocationMap
+                                        coordinate={deliveryCoordinate}
+                                        name={
+                                            shipment.dropoff_location?.name ||
+                                            "Delivery location"
+                                        }
+                                        dark={isDarkMode}
+                                    />
+                                ) : (
+                                    <View
+                                        style={{
+                                            flex: 1,
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            padding: 20,
+                                        }}
+                                    >
+                                        <ShipmentIcon name="delivery" />
+                                        <Text
+                                            style={{
+                                                color: muted,
+                                                marginTop: 8,
+                                            }}
+                                        >
+                                            Map coordinates unavailable
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                            <View
+                                style={{
+                                    flexDirection: "row",
+                                    gap: 8,
+                                    alignItems: "center",
+                                }}
+                            >
+                                <ShipmentIcon name="delivery" />
+                                <Text
+                                    style={{
+                                        fontSize: 12,
+                                        fontWeight: "600",
+                                        color: isDarkMode
+                                            ? "#86EFAC"
+                                            : "#24753A",
+                                    }}
+                                >
+                                    Delivery
+                                </Text>
+                            </View>
+                            <Text
+                                style={{
+                                    color: ink,
+                                    fontSize: 21,
+                                    lineHeight: 28,
+                                    fontWeight: "600",
+                                }}
+                            >
+                                {shipment.dropoff_location?.name ||
+                                    shipment.dropoff_location?.company ||
+                                    "Delivery location"}
+                            </Text>
+                            <Text
+                                style={{
+                                    color: muted,
+                                    fontSize: 14,
+                                    lineHeight: 19,
+                                }}
+                            >
+                                {shipment.dropoff_location?.full_address ||
+                                    "No delivery address available"}
+                            </Text>
+                            {!readOnly ? (
+                                <View
+                                    style={{
+                                        flexDirection: "row",
+                                        flexWrap: "wrap",
+                                        gap: 10,
+                                    }}
+                                >
+                                    {!!shipment.dropoff_location
+                                        ?.full_address && (
+                                        <LocationButton
+                                            icon="navigate"
+                                            label="Navigate"
+                                            onPress={() =>
+                                                openLocation(
+                                                    `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(shipment.dropoff_location!.full_address!)}&travelmode=driving`,
+                                                )
+                                            }
+                                        />
+                                    )}
+                                    {!!shipment.dropoff_location?.phone && (
+                                        <LocationButton
+                                            icon="phone"
+                                            label="Call location"
+                                            onPress={() =>
+                                                openLocation(
+                                                    `tel:${shipment.dropoff_location!.phone!.replace(/[^+0-9]/g, "")}`,
+                                                )
+                                            }
+                                        />
+                                    )}
+                                </View>
+                            ) : null}
+                        </View>
+                        <View
+                            accessibilityElementsHidden
+                            importantForAccessibility="no-hide-descendants"
+                            style={{
+                                flexDirection: "row",
+                                gap: 5,
+                                paddingVertical: 6,
+                            }}
+                        >
+                            {Array.from({ length: 30 }, (_, index) => (
+                                <View
+                                    key={index}
+                                    style={{
+                                        flex: 1,
+                                        height: 1,
+                                        backgroundColor: isDarkMode
+                                            ? "#52525B"
+                                            : "#C8C6BE",
+                                    }}
+                                />
+                            ))}
+                        </View>
+                        <View
+                            style={{
                                 flexDirection: "row",
                                 alignItems: "center",
                                 gap: 12,
@@ -623,8 +770,12 @@ function ShipmentDetailsContent({
                                 <Text
                                     style={{
                                         color: ink,
-                                        fontSize: 17,
-                                        lineHeight: 23,
+                                        fontSize: 15,
+                                        lineHeight: 22,
+                                        fontFamily:
+                                            Platform.OS === "ios"
+                                                ? "Menlo"
+                                                : "monospace",
                                         fontWeight: "600",
                                     }}
                                 >
@@ -707,103 +858,6 @@ function ShipmentDetailsContent({
                                 shipment does not have a booking yet.
                             </Text>
                         ) : null}
-                        <Text
-                            style={{
-                                color: muted,
-                                fontSize: 13,
-                                fontWeight: "600",
-                            }}
-                        >
-                            {readOnly
-                                ? "Delivery information"
-                                : "Your delivery stop"}
-                        </Text>
-                        <View
-                            style={{
-                                backgroundColor: isDarkMode
-                                    ? "#382427"
-                                    : "#FFF0F0",
-                                padding: 16,
-                                borderRadius: 12,
-                                gap: 8,
-                            }}
-                        >
-                            <View
-                                style={{
-                                    flexDirection: "row",
-                                    gap: 8,
-                                    alignItems: "center",
-                                }}
-                            >
-                                <ShipmentIcon name="delivery" />
-                                <Text
-                                    style={{
-                                        fontSize: 12,
-                                        fontWeight: "600",
-                                        color: isDarkMode
-                                            ? "#86EFAC"
-                                            : "#24753A",
-                                    }}
-                                >
-                                    Delivery
-                                </Text>
-                            </View>
-                            <Text
-                                style={{
-                                    color: ink,
-                                    fontSize: 21,
-                                    lineHeight: 28,
-                                    fontWeight: "600",
-                                }}
-                            >
-                                {shipment.dropoff_location?.name ||
-                                    shipment.dropoff_location?.company ||
-                                    "Delivery location"}
-                            </Text>
-                            <Text
-                                style={{
-                                    color: muted,
-                                    fontSize: 14,
-                                    lineHeight: 19,
-                                }}
-                            >
-                                {shipment.dropoff_location?.full_address ||
-                                    "No delivery address available"}
-                            </Text>
-                            {!readOnly ? (
-                                <View
-                                    style={{
-                                        flexDirection: "row",
-                                        flexWrap: "wrap",
-                                        gap: 10,
-                                    }}
-                                >
-                                    {!!shipment.dropoff_location
-                                        ?.full_address && (
-                                        <LocationButton
-                                            icon="navigate"
-                                            label="Navigate"
-                                            onPress={() =>
-                                                openLocation(
-                                                    `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(shipment.dropoff_location!.full_address!)}&travelmode=driving`,
-                                                )
-                                            }
-                                        />
-                                    )}
-                                    {!!shipment.dropoff_location?.phone && (
-                                        <LocationButton
-                                            icon="phone"
-                                            label="Call location"
-                                            onPress={() =>
-                                                openLocation(
-                                                    `tel:${shipment.dropoff_location!.phone!.replace(/[^+0-9]/g, "")}`,
-                                                )
-                                            }
-                                        />
-                                    )}
-                                </View>
-                            ) : null}
-                        </View>
                         {!!shipment.dropoff_instructions && (
                             <Text
                                 style={{
@@ -941,10 +995,7 @@ function ShipmentDetailsContent({
                     style={{
                         paddingHorizontal: 20,
                         paddingTop: 20,
-                        paddingBottom:
-                            presentation === "page"
-                                ? Math.max(insets.bottom, 20)
-                                : 20,
+                        paddingBottom: Math.max(insets.bottom, 20),
                         gap: 8,
                         backgroundColor: surface,
                     }}

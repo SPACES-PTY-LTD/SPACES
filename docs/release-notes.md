@@ -1,5 +1,25 @@
 # Release Notes
 
+## 2026-10-09 | Version: messages-clear-inbox-v1
+
+- **Summary:** Implement selected Clear Inbox design in `/admin/messages`, preserving the main menu and shared admin shell.
+- **API Changes:** Add optional `search` (up to 255 characters) and `type` (`driver` or `normal`) to GET `/api/v1/conversations`. Search authorized conversation titles/descriptions, active participant names and driver user names before pagination. Preserve response shape and unfiltered client behavior; consume existing optional `updated_at` on the website.
+- **Database Changes:** None.
+- **Behavior Changes:** Add debounced inbox search, All/Drivers/Groups filters, selected conversation rows, desktop split panes, mobile inbox/thread navigation, creation/details dialogs, labelled metadata forms and member management. Style message bubbles, file download cards and removable pending attachments; preserve polling, read marking, older messages, send retry IDs and closed-thread restrictions. Reset workspace state on merchant changes and ignore stale inbox results. Re-selecting the current thread preserves messages and drafts; responsive pane sizing keeps the composer accessible.
+- **Internal Changes:** Retain a synthetic local verification fixture under website tests. Remove its temporary preview route from application routing.
+- **Breaking Changes:** None. Deploy the API addition alongside the website for server search/filter support; no deployment performed in this task.
+- **Verification:** 12 conversation API/push tests pass (173 assertions), including search/type combinations, pagination, validation, legacy requests and tenant/visibility isolation. Website TypeScript, focused lint and PHP style checks pass. Local synthetic desktop/mobile checks cover search pagination reset, group filtering, driver/group creation, metadata save, close/reopen, member add/remove, older-message loading, send failure/retry, current-thread reselection, oversized-file rejection, merchant reset, read-only controls and dialog focus trapping. Six-file rejection is covered by API tests; pending-file removal was inspected but not browser exercised. Live API integration, real signed-file downloads and physical-device keyboard behavior remain unverified.
+
+
+## 2026-10-09 | Version: shipment-receipt-map-v1
+
+- **Summary:** Present shipment details as a paper receipt with a location map at the top.
+- **API Changes:** None; reuse saved delivery coordinates.
+- **Database Changes:** None.
+- **Behavior Changes:** Shared page/sheet shows a non-interactive delivery map, name/address underneath, warm paper surface, monospaced reference and perforated divider. Sheet extends to the screen bottom with flat lower corners and safe-area content padding. Missing/invalid coordinates show an explicit unavailable state. Header actions and completed-run read-only access remain.
+- **Breaking Changes:** None.
+- **Verification:** iOS live delivery map, address and bottom-anchored sheet visually reviewed. TypeScript and focused component lint pass. Android, dark/large-text and missing-coordinate native layouts remain unverified. Dashboard plan v2.71 and Figma handoff aligned.
+
 ## 2026-10-09 | Version: shipment-details-footer-removal-v1
 
 - **Summary:** Remove the active-shipment bottom action section shown in the supplied screenshot.

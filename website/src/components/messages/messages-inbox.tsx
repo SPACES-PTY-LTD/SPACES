@@ -509,8 +509,8 @@ export function MessagesInbox({
     };
 
     return (
-        <div className="min-w-0 space-y-5">
-            <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex h-[calc(100dvh-7rem)] min-h-[560px] min-w-0 flex-col gap-5 lg:h-[calc(100dvh-3rem)]">
+            <header className="flex shrink-0 flex-wrap items-start justify-between gap-4">
                 <div>
                     <h1 className="text-[28px] font-bold leading-tight">
                         Messages
@@ -527,6 +527,7 @@ export function MessagesInbox({
                             className={cn(control, 'max-w-64 text-foreground')}
                             value={merchant}
                             onChange={(e) => {
+                                if (e.target.value === merchant) return;
                                 invalidateInbox();
                                 setMerchant(e.target.value);
                                 setPage(1);
@@ -556,7 +557,7 @@ export function MessagesInbox({
                 </div>
             </header>
             {!createOpen && !detailsOpen && errorAlert}
-            <div className="grid h-[calc(100dvh-12rem)] min-h-[480px] overflow-hidden rounded-xl border bg-background lg:grid-cols-[352px_minmax(0,1fr)]">
+            <div className="grid min-h-[320px] flex-1 overflow-hidden rounded-xl border bg-background lg:grid-cols-[352px_minmax(0,1fr)]">
                 <aside
                     aria-label="Conversation inbox"
                     className={cn(
@@ -769,16 +770,18 @@ export function MessagesInbox({
                     ) : (
                         <>
                             <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 px-4 py-5 sm:px-6">
-                                <div className="min-w-0 flex-1">
+                                <div className="w-full lg:hidden">
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="mb-2 -ml-2 lg:hidden"
+                                        className="-ml-2 lg:hidden"
                                         onClick={() => setMobileThread(false)}
                                     >
                                         <ArrowLeft aria-hidden="true" />
                                         Back to conversations
                                     </Button>
+                                </div>
+                                <div className="min-w-0 flex-1">
                                     <h2 className="break-words text-lg font-bold">
                                         {chatTitle}
                                     </h2>
@@ -795,6 +798,7 @@ export function MessagesInbox({
                                 <Button
                                     variant="outline"
                                     className="rounded-lg"
+                                    aria-label="Conversation details"
                                     disabled={loading}
                                     onClick={() => {
                                         setError(null);
@@ -805,7 +809,10 @@ export function MessagesInbox({
                                         setDetailsOpen(true);
                                     }}
                                 >
-                                    Conversation details
+                                    <span className="hidden sm:inline">
+                                        Conversation details
+                                    </span>
+                                    <span className="sm:hidden">Details</span>
                                 </Button>
                             </header>
                             <div
