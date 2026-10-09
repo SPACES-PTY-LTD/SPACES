@@ -57,7 +57,11 @@ class ConversationController extends Controller
 
     public function index(Request $request)
     {
-        $data = $request->validate(['merchant_id' => 'nullable|uuid', 'page' => 'nullable|integer|min:1', 'per_page' => 'nullable|integer|min:1|max:100']);
+        $data = $request->validate([
+            'merchant_id' => 'nullable|uuid', 'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'search' => 'nullable|string|max:255', 'type' => 'nullable|in:driver,normal',
+        ]);
         $user = $request->user();
         $merchant = $this->service->merchant($user, $data['merchant_id'] ?? $request->header('X-Merchant-Id'));
         $query = Conversation::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id);
@@ -71,6 +75,21 @@ class ConversationController extends Controller
                 $query->orWhere(fn ($q) => $q->where('type', 'driver')->where('type_entry_id', $user->driver?->id));
             }
         });
+        if (! empty($data['type'])) {
+            $query->where('type', $data['type']);
+        }
+        $search = trim($data['search'] ?? '');
+        if ($search !== '') {
+            // Keep all search alternatives inside the authorized merchant query.
+            $query->where(function ($query) use ($search) {
+                $pattern = '%'.$search.'%';
+                $query->where('title', 'like', $pattern)->orWhere('description', 'like', $pattern)
+                    ->orWhereHas('members', fn ($members) => $members->where('state', 'active')
+                        ->whereHas('user', fn ($users) => $users->where('name', 'like', $pattern)))
+                    ->orWhere(fn ($drivers) => $drivers->where('type', 'driver')
+                        ->whereHas('driver.user', fn ($users) => $users->where('name', 'like', $pattern)));
+            });
+        }
         $page = $query->with(['merchant', 'driver', 'members.user', 'latestMessage.user', 'latestMessage.attachments'])->orderByDesc('updated_at')->orderByDesc('id')->paginate($data['per_page'] ?? 20);
 
         return ApiResponse::success($page->getCollection()->map(fn ($c) => $this->conversationData($c, $user)), [

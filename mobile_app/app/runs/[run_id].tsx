@@ -1,4 +1,6 @@
-import { StopDetailsSheet } from '@/src/components/dashboard/StopDetailsSheet';
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
+import { ShipmentDetailsSheet } from "@/src/components/shipments/ShipmentDetails";
+import { StopDetailsSheet } from "@/src/components/dashboard/StopDetailsSheet";
 import { Feather } from "@expo/vector-icons";
 import {
     Stack,
@@ -50,6 +52,10 @@ function RunDetail({ token, runId }: { token: string; runId: string }) {
     const dark = colorScheme === "dark";
     const [selectedStop, setSelectedStop] = useState<RunStop | null>(null);
     const sheet = useRef<MessageSheetRef>(null);
+    const shipmentSheet = useRef<BottomSheetModal>(null);
+    const [selectedShipment, setSelectedShipment] = useState<string | null>(
+        null,
+    );
     const version = useRef(0);
     const [run, setRun] = useState<DriverRunDetail | null>(null);
     const [loading, setLoading] = useState(true);
@@ -97,14 +103,7 @@ function RunDetail({ token, runId }: { token: string; runId: string }) {
             };
         }, [load]),
     );
-    const openShipment = (id: string) =>
-        router.push({
-            pathname: "/shipments/[shipment_id]",
-            params: {
-                shipment_id: id,
-                ...(run?.status === "completed" ? { run_id: runId } : {}),
-            },
-        });
+    const openShipment = (id: string) => setSelectedShipment(id);
     return (
         <View
             className="flex-1 bg-white dark:bg-[#111111]"
@@ -258,8 +257,25 @@ function RunDetail({ token, runId }: { token: string; runId: string }) {
                 )}
             </ScrollView>
             <MessageSheet ref={sheet} />
-            <StopDetailsSheet shipments={run?.shipments} stop={selectedStop} onDismiss={() => setSelectedStop(null)}
-                onOpenShipment={openShipment} />
+            {selectedShipment && run && (
+                <ShipmentDetailsSheet
+                    key={`${selectedShipment}:${run.status === "completed" ? runId : ""}`}
+                    modalRef={shipmentSheet}
+                    shipmentId={selectedShipment}
+                    runId={run.status === "completed" ? runId : undefined}
+                    autoPresent
+                    onDismiss={() => {
+                        setSelectedShipment(null);
+                        void load();
+                    }}
+                />
+            )}
+            <StopDetailsSheet
+                shipments={run?.shipments}
+                stop={selectedStop}
+                onDismiss={() => setSelectedStop(null)}
+                onOpenShipment={openShipment}
+            />
         </View>
     );
 }

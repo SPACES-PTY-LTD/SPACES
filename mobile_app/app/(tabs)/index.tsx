@@ -1,3 +1,5 @@
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
+import { ShipmentDetailsSheet } from "@/src/components/shipments/ShipmentDetails";
 import { StopDetailsSheet } from '@/src/components/dashboard/StopDetailsSheet';
 import { RunTimeline, type RunStop } from '@/src/components/dashboard/RunTimeline';
 import { DeliveryOrderSheet } from '@/src/components/dashboard/DeliveryOrderSheet';
@@ -28,6 +30,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const [selectedStop, setSelectedStop] = useState<RunStop | null>(null);
   const messageSheet = useRef<MessageSheetRef>(null);
+  const shipmentSheet = useRef<BottomSheetModal>(null);
+  const [selectedShipment, setSelectedShipment] = useState<string | null>(null);
+  const openShipment = (id: string) => setSelectedShipment(id);
   const runActionsSheet = useRef<ActionSheetRef>(null);
   const [runAction, setRunAction] = useState<RunAction | 'order' | null>(null);
   const runFilterSheet = useRef<ActionSheetRef>(null);
@@ -65,7 +70,7 @@ export default function HomeScreen() {
   const [lastUpdated, setLastUpdated] = useState<string>();
   const [starting, setStarting] = useState(false);
   const requestNumber = useRef(0);
-  useEffect(() => { requestNumber.current++; setSelectedStop(null); setRunAction(null); setDashboard(null); setOffers([]); setError(null); setLastUpdated(undefined); }, [session?.token]);
+  useEffect(() => { requestNumber.current++; setSelectedStop(null); setSelectedShipment(null); setRunAction(null); setDashboard(null); setOffers([]); setError(null); setLastUpdated(undefined); }, [session?.token]);
 
   const load = useCallback(async (isCurrent: () => boolean = () => true) => {
     if (!session?.token) return;
@@ -137,7 +142,7 @@ export default function HomeScreen() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#ffffff' }}>
       <View style={{ flex: 1, overflow: 'hidden' }} onLayout={event => setContainerHeight(event.nativeEvent.layout.height)}>
       <Animated.View style={mapStyle}>
-        <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset} onOpenShipment={id => router.push(`/shipments/${id}`)} />
+        <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset} onOpenShipment={openShipment} />
       {requiredNoteRunId ? <View pointerEvents="box-none" style={[styles.documentNoticeOverlay, { paddingTop: insets.top }]}>
           <Pressable style={styles.documentNotice} onPress={() => router.push({ pathname: '/shipments/load', params: { run_id: requiredNoteRunId } })} accessibilityRole="button" accessibilityLabel="Important: upload a delivery note" accessibilityHint="Opens delivery-note upload for this run">
             <Feather name="alert-triangle" size={24} color={dark ? '#fda4af' : '#a32136'} />
@@ -193,7 +198,7 @@ export default function HomeScreen() {
               </Pressable>
               </View>
               {visibleStops.length ? <RunTimeline stops={visibleStops} ink={ink} muted={muted} line={line} hasTrailingEntry={showDestinationEntry}
-                onOpenShipment={id => router.push(`/shipments/${id}`)}
+                onOpenShipment={openShipment}
                 onOpenStop={setSelectedStop} /> : <Text style={{ fontSize: 13, color: muted, marginBottom: 16 }}>{runFilter === 'speeding' ? 'No speeding events recorded for this run.' : runFilter === 'shipments' ? 'No visited or planned delivery stops for this run yet.' : 'No stops recorded or planned for this run yet.'}</Text>}
               {showDestinationEntry && <View style={styles.timelineRow}>
                 <View style={styles.timelineRail}><View style={[styles.timelineMarker, { backgroundColor: '#71717a' }]}><Feather name="flag" size={14} color="#fff" /></View></View>
@@ -230,8 +235,13 @@ export default function HomeScreen() {
       </PersistentBottomSheet>
       </View>
       <MessageSheet ref={messageSheet} />
+      {selectedShipment && session && <ShipmentDetailsSheet
+        key={`${session.token}:${selectedShipment}`}
+        modalRef={shipmentSheet} shipmentId={selectedShipment} autoPresent
+        onDismiss={() => { setSelectedShipment(null); void load(); }}
+      />}
       <StopDetailsSheet shipments={shipments} endpoints={dashboard?.trip_endpoints} stop={selectedStop} onDismiss={() => setSelectedStop(null)}
-        onOpenShipment={id => router.push({ pathname: '/shipments/[shipment_id]', params: { shipment_id: id } })} />
+        onOpenShipment={openShipment} />
       <ActionSheet ref={runFilterSheet} />
       <ActionSheet ref={runActionsSheet} />
       {runAction === 'order' && session && dashboard?.current_run?.status === 'in_progress' && <DeliveryOrderSheet key={`${session.user.user_id}:${dashboard.current_run.run_id}`} token={session.token} runId={dashboard.current_run.run_id} onDismiss={() => setRunAction(null)} onSaved={() => void load()} />}

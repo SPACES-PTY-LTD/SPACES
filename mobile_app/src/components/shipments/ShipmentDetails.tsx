@@ -7,7 +7,7 @@ import {
 } from "@gorhom/bottom-sheet";
 import * as DocumentPicker from "expo-document-picker";
 import * as WebBrowser from "expo-web-browser";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import {
     useCallback,
     useEffect,
@@ -17,6 +17,9 @@ import {
 } from "react";
 import {
     ActivityIndicator,
+    BackHandler,
+    AppState,
+    useWindowDimensions,
     Linking,
     KeyboardAvoidingView,
     Platform,
@@ -26,6 +29,8 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { FullWindowOverlay } from "react-native-screens";
+import { sheetTheme } from "@/component/ui/sheet-theme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PageHeader } from "@/component/ui/PageHeader";
@@ -46,6 +51,8 @@ const STATUS_FLOW = ["booked", "delivered", "in_transit", "failed"];
 
 export type ShipmentDetailsProps = {
     shipmentId: string;
+    /** Host increments this when a standalone route regains focus. */
+    refreshKey?: number;
     /** Passing an owned completed run grants scoped, read-only access. */
     runId?: string;
     onClose?: () => void;
@@ -67,20 +74,50 @@ export function ShipmentDetails(props: ShipmentDetailsProps) {
 export function ShipmentDetailsSheet({
     modalRef,
     onDismiss,
+    autoPresent = false,
     ...props
 }: Omit<ShipmentDetailsProps, "presentation" | "onClose"> & {
     modalRef: RefObject<BottomSheetModal | null>;
     onDismiss?: () => void;
+    /** Present after conditional mounting, once the selected shipment props are committed. */
+    autoPresent?: boolean;
 }) {
     const { colorScheme } = useColorScheme();
     const insets = useSafeAreaInsets();
     const [visible, setVisible] = useState(false);
+    const { height } = useWindowDimensions();
+    const bottomInset = insets.bottom + (Platform.OS === "android" ? 16 : 12);
+    const contentHeight = Math.max(
+        200,
+        (height - insets.top - 12 - bottomInset) * 0.9 - 24,
+    );
+    useEffect(() => {
+        if (!autoPresent) return;
+        const frame = requestAnimationFrame(() => modalRef.current?.present());
+        return () => cancelAnimationFrame(frame);
+    }, [autoPresent, modalRef]);
+    useEffect(() => {
+        if (!visible) return;
+        const subscription = BackHandler.addEventListener(
+            "hardwareBackPress",
+            () => {
+                modalRef.current?.dismiss();
+                return true;
+            },
+        );
+        return () => subscription.remove();
+    }, [visible, modalRef]);
     return (
         <BottomSheetModal
             ref={modalRef}
+            accessible={false}
             snapPoints={["90%"]}
             enableDynamicSizing={false}
             topInset={insets.top + 12}
+            bottomInset={bottomInset}
+            detached
+            style={{ marginHorizontal: 12 }}
+            containerComponent={ShipmentSheetContainer}
             keyboardBehavior="interactive"
             keyboardBlurBehavior="restore"
             android_keyboardInputMode="adjustResize"
@@ -90,7 +127,11 @@ export function ShipmentDetailsSheet({
                 onDismiss?.();
             }}
             backgroundStyle={{
-                backgroundColor: colorScheme === "dark" ? "#17171B" : "#FFFFFF",
+                backgroundColor:
+                    colorScheme === "dark"
+                        ? sheetTheme.darkBackground
+                        : sheetTheme.background,
+                borderRadius: sheetTheme.radius,
             }}
             backdropComponent={(p) => (
                 <BottomSheetBackdrop
@@ -100,16 +141,60 @@ export function ShipmentDetailsSheet({
                 />
             )}
         >
-            <BottomSheetView style={{ flex: 1 }}>
-                {visible && (
-                    <ShipmentDetails
-                        {...props}
-                        presentation="sheet"
-                        onClose={() => modalRef.current?.dismiss()}
-                    />
-                )}
+            <BottomSheetView style={{ height: contentHeight }}>
+                <ShipmentDetails
+                    {...props}
+                    presentation="sheet"
+                    onClose={() => modalRef.current?.dismiss()}
+                />
             </BottomSheetView>
         </BottomSheetModal>
+    );
+}
+
+function ShipmentPanel({
+    visible,
+    presentation,
+    children,
+    onRequestClose,
+}: {
+    visible: boolean;
+    presentation: "page" | "sheet";
+    children: ReactNode;
+    onRequestClose: () => void;
+}) {
+    if (presentation === "sheet")
+        return visible ? (
+            <View
+                accessibilityViewIsModal
+                style={{
+                    position: "absolute",
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    left: 0,
+                }}
+            >
+                {children}
+            </View>
+        ) : null;
+    return (
+        <Modal
+            visible={visible}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={onRequestClose}
+        >
+            {children}
+        </Modal>
+    );
+}
+
+function ShipmentSheetContainer({ children }: { children?: ReactNode }) {
+    return Platform.OS === "ios" ? (
+        <FullWindowOverlay>{children}</FullWindowOverlay>
+    ) : (
+        <>{children}</>
     );
 }
 
@@ -118,6 +203,7 @@ function ShipmentDetailsContent({
     runId: run_id,
     onClose,
     presentation = "page",
+    refreshKey,
 }: ShipmentDetailsProps) {
     const insets = useSafeAreaInsets();
     const router = useRouter();
@@ -248,17 +334,23 @@ function ShipmentDetailsContent({
         }
     }, [session, shipment_id, run_id, readOnly]);
 
-    useFocusEffect(
-        useCallback(() => {
-            loadShipment();
-        }, [loadShipment]),
-    );
-
-    useFocusEffect(
-        useCallback(() => {
-            loadShipmentFiles();
-        }, [loadShipmentFiles]),
-    );
+    useEffect(() => {
+        let mounted = true;
+        const refresh = () => {
+            if (!mounted) return;
+            void loadShipment();
+            void loadShipmentFiles();
+        };
+        // Modal content lives in a portal outside screen navigation context.
+        void Promise.resolve().then(refresh);
+        const listener = AppState.addEventListener("change", (state) => {
+            if (state === "active") refresh();
+        });
+        return () => {
+            mounted = false;
+            listener.remove();
+        };
+    }, [loadShipment, loadShipmentFiles, refreshKey]);
 
     useEffect(() => {
         async function loadCancelReasons() {
@@ -844,7 +936,7 @@ function ShipmentDetailsContent({
                     </>
                 ) : null}
             </BodyScroll>
-            {shipment ? (
+            {shipment && readOnly ? (
                 <View
                     style={{
                         paddingHorizontal: 20,
@@ -895,71 +987,19 @@ function ShipmentDetailsContent({
                                 : "Update delivery status"}
                         </Text>
                     </Pressable>
-                    {readOnly ? (
-                        <Text style={{ color: muted, fontSize: 12 }}>
-                            Read-only · Changes are unavailable
-                        </Text>
-                    ) : (
-                        <View
-                            style={{
-                                flexDirection: "row",
-                                gap: 12,
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                            }}
-                        >
-                            <Pressable
-                                accessibilityRole="button"
-                                disabled={!shipment.booking || isMutating}
-                                onPress={() => setActiveAction("pod")}
-                                style={{
-                                    minHeight: 44,
-                                    justifyContent: "center",
-                                }}
-                            >
-                                <Text
-                                    style={{
-                                        color: ink,
-                                        fontSize: 14,
-                                        fontWeight: "600",
-                                    }}
-                                >
-                                    Add delivery proof
-                                </Text>
-                            </Pressable>
-                            <Text style={{ color: ink }}>·</Text>
-                            <Pressable
-                                accessibilityRole="button"
-                                disabled={isMutating}
-                                onPress={() => openPanel("more")}
-                                style={{
-                                    minHeight: 44,
-                                    justifyContent: "center",
-                                }}
-                            >
-                                <Text
-                                    style={{
-                                        color: ink,
-                                        fontSize: 14,
-                                        fontWeight: "600",
-                                    }}
-                                >
-                                    More actions
-                                </Text>
-                            </Pressable>
-                        </View>
-                    )}
+                    <Text style={{ color: muted, fontSize: 12 }}>
+                        Read-only · Changes are unavailable
+                    </Text>
                 </View>
             ) : null}
-            <Modal
+            <ShipmentPanel
+                presentation={presentation}
                 visible={
                     !!shipment &&
                     (detailPanel !== null ||
                         (!readOnly &&
                             (activeAction !== null || fileModalVisible)))
                 }
-                animationType="slide"
-                presentationStyle="pageSheet"
                 onRequestClose={() => {
                     if (!isMutating) {
                         setDetailPanel(null);
@@ -972,7 +1012,7 @@ function ShipmentDetailsContent({
                     style={{
                         flex: 1,
                         backgroundColor: surface,
-                        paddingTop: insets.top,
+                        paddingTop: presentation === "page" ? insets.top : 0,
                     }}
                     behavior={Platform.OS === "ios" ? "padding" : undefined}
                 >
@@ -1665,7 +1705,7 @@ function ShipmentDetailsContent({
                         )}
                     </ScrollView>
                 </KeyboardAvoidingView>
-            </Modal>
+            </ShipmentPanel>
         </KeyboardAvoidingView>
     );
 }

@@ -48,6 +48,82 @@ class ConversationApiTest extends TestCase
         return $this->postJson('/api/v1/conversations/driver', [], $this->headers($driver))->assertOk()->assertJsonPath('data.status', 'active')->assertJsonPath('data.is_private', true)->json('data.conversation_id');
     }
 
+    public function test_inbox_searches_titles_descriptions_active_members_and_driver_names_before_pagination(): void
+    {
+        [$owner, $merchant, $driverUser, $profile] = $this->context();
+        $service = app(ConversationService::class);
+        $driver = $service->driverChat($owner, $merchant, $profile->uuid);
+        $driverUser->update(['name' => 'Renamed Road Driver']);
+        $member = User::factory()->create(['account_id' => $merchant->account_id, 'name' => 'Warehouse Participant']);
+        $make = function ($title, $description = null) use ($owner, $merchant, $service) {
+            $chat = Conversation::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+                'type' => 'normal', 'title' => $title, 'description' => $description]);
+            $service->addMember($chat, $owner, 'owner');
+
+            return $chat;
+        };
+        $title = $make('Dispatch coordination');
+        $description = $make('Operations', 'Dispatch paperwork');
+        $participant = $make('Team');
+        $service->addMember($participant, $member);
+        $removed = $make('Former team');
+        $service->addMember($removed, $member)->update(['state' => 'removed']);
+        $headers = $this->headers($owner);
+        $url = '/api/v1/conversations?merchant_id='.$merchant->uuid;
+        $this->getJson($url.'&search=Dispatch&per_page=1', $headers)->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('meta.total', 2)->assertJsonPath('meta.last_page', 2);
+        $first = $this->getJson($url.'&search=Dispatch&per_page=1', $headers)->json('data.0.conversation_id');
+        $second = $this->getJson($url.'&search=Dispatch&per_page=1&page=2', $headers)->assertOk()->json('data.0.conversation_id');
+        $this->assertEqualsCanonicalizing([$title->uuid, $description->uuid], [$first, $second]);
+        $this->getJson($url.'&search=Warehouse', $headers)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.conversation_id', $participant->uuid);
+        $this->getJson($url.'&search=Renamed', $headers)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.conversation_id', $driver->uuid);
+        $this->getJson($url.'&type=driver&search=Renamed', $headers)->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson($url.'&type=normal&search=Renamed', $headers)->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson($url.'&type=normal', $headers)->assertOk()->assertJsonCount(4, 'data');
+        $this->getJson($url.'&search=%20%20', $headers)->assertOk()->assertJsonCount(5, 'data');
+        $this->getJson($url.'&search=NoMatchingConversation', $headers)->assertOk()->assertJsonPath('meta.total', 0);
+    }
+
+    public function test_inbox_search_cannot_expand_conversation_or_merchant_visibility(): void
+    {
+        [$owner, $merchant, $driverUser, $profile] = $this->context();
+        $service = app(ConversationService::class);
+        $chat = $service->driverChat($owner, $merchant, $profile->uuid);
+        $chat->update(['title' => 'Shared needle']);
+        $driverUser->update(['name' => 'Needle driver']);
+        $outsider = User::factory()->create(['account_id' => $merchant->account_id, 'name' => 'Needle outsider']);
+        $hidden = Conversation::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'type' => 'normal', 'title' => 'Needle hidden', 'description' => 'Needle description']);
+        $service->addMember($hidden, $outsider, 'owner');
+        $otherMerchant = Merchant::factory()->create(['account_id' => $merchant->account_id, 'owner_user_id' => $owner->id]);
+        $foreign = Conversation::create(['account_id' => $merchant->account_id, 'merchant_id' => $otherMerchant->id,
+            'type' => 'normal', 'title' => 'Needle foreign']);
+        $service->addMember($foreign, $owner, 'owner');
+        [$foreignOwner, $foreignMerchant, , $foreignDriver] = $this->context();
+        $service->driverChat($foreignOwner, $foreignMerchant, $foreignDriver->uuid)->update(['title' => 'Needle another account']);
+        $url = '/api/v1/conversations?merchant_id='.$merchant->uuid.'&search=Needle';
+        $this->getJson($url, $this->headers($owner))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.conversation_id', $chat->uuid);
+        $viewer = User::factory()->create(['account_id' => $merchant->account_id, 'role' => 'user']);
+        $merchant->users()->attach($viewer, ['role' => 'read_only']);
+        $this->getJson($url, $this->headers($viewer))->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson($url.'&type=driver', $this->headers($viewer))->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson($url, $this->headers($foreignOwner))->assertForbidden();
+        $this->getJson($url, $this->headers($driverUser))->assertOk()->assertJsonCount(1, 'data');
+    }
+
+    public function test_inbox_filter_validation_and_legacy_requests(): void
+    {
+        [$owner, $merchant, , $profile] = $this->context();
+        app(ConversationService::class)->driverChat($owner, $merchant, $profile->uuid);
+        $url = '/api/v1/conversations?merchant_id='.$merchant->uuid;
+        $headers = $this->headers($owner);
+        $this->getJson($url, $headers)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.total', 1);
+        foreach (['&type=group', '&type[]=driver', '&search[]=bad', '&search='.str_repeat('x', 256)] as $invalid) {
+            $this->getJson($url.$invalid, $headers)->assertUnprocessable();
+        }
+        $this->getJson($url.'&type=driver&search=', $headers)->assertOk()->assertJsonCount(1, 'data');
+    }
+
     public function test_driver_unread_badge_counts_only_received_live_messages_and_clears_on_read(): void
     {
         Queue::fake();

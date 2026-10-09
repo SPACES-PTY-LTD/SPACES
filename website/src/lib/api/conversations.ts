@@ -32,6 +32,7 @@ export type Conversation = {
     can_manage: boolean;
     members: ChatMember[];
     latest_message: ChatMessage | null;
+    updated_at?: string | null;
 };
 export type ChatResult<T> = {
     data: T;

@@ -1,5 +1,24 @@
 # Release Notes
 
+## 2026-10-09 | Version: shipment-details-footer-removal-v1
+
+- **Summary:** Remove the active-shipment bottom action section shown in the supplied screenshot.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Shared shipment page and bottom sheet omit Update delivery status, Add delivery proof and More actions at the bottom. Existing header action menu retains status/proof/scan/cancel access; completed-run history footer remains.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused component lint pass; Figma selected design and dashboard plan v2.70 aligned.
+
+## 2026-10-09 | Version: run-shipment-details-sheet-v1
+
+- **Summary:** Open shipment details in a reusable bottom sheet from run timelines and the run details page.
+- **API Changes:** None; retain shipment and completed-run scoped file/detail APIs.
+- **Database Changes:** None.
+- **Behavior Changes:** Dashboard timeline/map shipment taps, run-detail shipment cards/recorded-timeline links and location-sheet delivery/collection cards open ShipmentDetailsSheet over the current screen. Location sheets dismiss before handoff. Completed runs pass run ID for read-only access; active shipments retain existing actions. Dismissal refreshes the parent run/dashboard. Keep standalone shipment routes available for direct navigation and accepted offers.
+- **Internal Changes:** Add optional automatic presentation after conditional mounting, iOS FullWindowOverlay, shared floating-sheet theme/safe-area clearance and Android Back dismissal to the reusable wrapper. Clear dashboard shipment selection on session changes. Place AuthProvider above the sheet portal, remove portal dependence on screen focus context while preserving standalone-route focus refresh, bound the body height and render secondary panels inside the sheet.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused run-detail/shared-component lint pass without exclusions; dashboard lint passes with its pre-existing effect rule excluded. Dashboard plan v2.69 and Figma handoffs aligned. iOS live dashboard timeline and run-detail card taps open loaded shipment sheets with visible destination and persistent status footer; dismissal/reopening and embedded delivery-status/files panels verified without saving live changes. Native stop-sheet handoff, mutation-save refresh, completed-run files, scrolling/keyboard/theme and Android Back checks remain pending. Production iOS export passes with the shared shipment sheet and all eleven shipment SVGs.
+
 ## 2026-10-09 | Version: driver-run-delivery-order-v1
 
 - **Summary:** Let drivers choose which remaining shipment gets delivered first from the run Actions menu.
