@@ -13,7 +13,6 @@ module.exports = ({ config }) => ({
     ...(config.plugins || []),
     '@react-native-community/datetimepicker',
     'expo-notifications',
-    ['expo-location', { locationWhenInUsePermission: 'Allow Spaces Digital to share your phone location with dispatch while the app is open.' }],
     ['expo-dev-client', { launchMode: 'most-recent' }],
     ["expo-image-picker", { photosPermission: "Allow Spaces Digital to choose delivery note photos.", cameraPermission: "Allow Spaces Digital to photograph delivery notes.", microphonePermission: false }],
     ["react-native-maps", {

@@ -1,5 +1,41 @@
 # Release Notes
 
+## 2026-10-09 | Version: shipment-empty-files-single-upload-v1
+
+- **Summary:** Show one upload action in empty shipment Files cards.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hide the top-right Upload action when the file list has no entries. Keep centered Upload a file after a confirmed empty response, retain header Upload when entries exist and preserve loading/error/read-only behavior. Applies to the shared shipment receipt/page/files panel.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails ESLint and diff checks pass. Dashboard plan v2.98 and Figma active empty/reference cards and handoff aligned; empty Figma card visually checked. Native device layout remains unverified.
+
+## 2026-10-09 | Version: background-phone-location-v1
+
+- **Summary:** Request background phone-location access and share opted-in driver location while the app is in the background.
+- **API Changes:** None; reuse existing scoped location-sharing/report endpoints.
+- **Database Changes:** None. Local AsyncStorage stores the opted-in driver ID/consent time; background reports read the existing persisted authenticated session rather than copying credentials.
+- **Behavior Changes:** Explain background use before requesting foreground then iOS Always/Android Allow all the time access. Offer Allow background location to existing foreground-only users without automatic prompting; retain existing opted-in foreground fallback. Register a module-scope Expo location task with balanced native updates targeting 30 seconds/25 metres, iOS indicator and Android service notification. Recheck current session/local consent/server opt-in before sending the newest recent point; ignore pre-consent/stale coordinates. Serialize start/stop and halt on off/logout, revoked authorization or server-disabled sharing; transient failures retry on the next observation. Preserve off-warning OK flow, dispatch alerts and save/permission guidance. Account copy explains background access and force-quit/device limits.
+- **Breaking Changes:** Native app rebuild required for expo-task-manager and iOS/Android background permissions; Metro reload/OTA alone cannot enable this feature. Old clients retain foreground fallback and show update guidance for background opt-in. Background execution is unavailable in Expo Go/web and is not guaranteed after force-quit or device restrictions.
+- **Verification:** Full mobile TypeScript and focused location screen/provider/task lint pass. Sixteen provider/native-task mocked regressions cover permission denial, opt-in/background retention, logout/stale-session cancellation, failed off, revocation, persisted authenticated task reporting, remote-off, old/pre-consent points and transient/authorization errors. Expo config introspection confirms iOS location background mode/Always rationale and Android background/foreground-service permissions. Dashboard plan v2.97 and Figma scenario handoff aligned; diff checks pass. Rebuilt physical iOS/Android permission/background/locked-screen/off/logout, dispatch reporting and battery behavior remain unverified. No live locations transmitted or user permissions changed.
+
+## 2026-10-09 | Version: endpoint-search-header-back-v1
+
+- **Summary:** Move planned start/end location-search back navigation beside the title.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use the shared BottomSheet header back control to return to Edit Run and dismiss the keyboard. Remove bottom Back to endpoints and Cancel actions while searching. Preserve previously confirmed endpoint drafts, location previews/confirmation, header close and atomic Save endpoints. Edit Run retains Cancel outside the search step.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused RunActionForm ESLint and diff checks pass. Dashboard plan v2.96 and Figma run-action/scenario handoff aligned. Native back/keyboard/layout verification remains pending.
+
+## 2026-10-09 | Version: shipment-backdrop-order-v1
+
+- **Summary:** Prevent an opening/refreshing shipment receipt from remounting its backdrop above the content.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the inline receipt backdrop renderer with a stable module-level component. Preserve animated props, backdrop open/closed indices, close/dismissal and shipment upload/source/native-picker flows. The iOS FullWindowOverlay mounts new native children at the top; stabilizing the backdrop prevents rerenders from putting its dimming/touch layer above the receipt. Corrects the overlay defect still present after the earlier scroll change.
+- **Breaking Changes:** None.
+- **Verification:** Two mocked receipt-host regressions pass for stable identity on open/refresh and retained header close/post-removal dismissal; both fail with the prior inline renderer. Full mobile TypeScript, focused ShipmentDetails ESLint and diff checks pass. Dashboard plan v2.95 and Figma handoff aligned. Simulator/device interaction remains unverified: computer-use reports the Mac is locked and requires manual unlock.
+
 ## 2026-10-09 | Version: location-off-alert-sheet-v1
 
 - **Summary:** Show the location-sharing dispatch warning only when the user tries to switch sharing off.

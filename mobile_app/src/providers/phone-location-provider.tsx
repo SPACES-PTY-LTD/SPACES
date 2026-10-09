@@ -1,6 +1,7 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { driverApi, type PhoneLocationSettings } from '@/src/lib/api';
+import { backgroundLocationAvailable, startPhoneLocation, stopPhoneLocation } from '@/src/lib/phone-location-task';
 import { useAuth } from './auth-provider';
 
 type LocationContextValue = {
@@ -9,24 +10,30 @@ type LocationContextValue = {
   saving: boolean;
   error: string | null;
   permissionRequired: boolean;
+  backgroundGranted: boolean;
   refresh: () => Promise<void>;
   setEnabled: (enabled: boolean) => Promise<void>;
 };
 const Context = createContext<LocationContextValue | null>(null);
 
 export function PhoneLocationProvider({ children }: { children: ReactNode }) {
-  const { session } = useAuth();
+  const { session, isHydrating } = useAuth();
   const token = session?.token;
-  const [settings, setSettings] = useState<PhoneLocationSettings | null>(null);
+  const [savedSettings, setSettings] = useState<PhoneLocationSettings | null>(null);
+  const [settingsToken, setSettingsToken] = useState<string>();
+  const settings = settingsToken === token ? savedSettings : null;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [permissionRequired, setPermissionRequired] = useState(false);
+  const [backgroundGranted, setBackgroundGranted] = useState(false);
   const [active, setActive] = useState(AppState.currentState === 'active');
   const mutating = useRef(false);
   const mounted = useRef(true);
   const revision = useRef(0);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+
+  useEffect(() => { revision.current++; }, [token]);
 
   const refresh = useCallback(async () => {
     if (!token || mutating.current) return;
@@ -34,6 +41,7 @@ export function PhoneLocationProvider({ children }: { children: ReactNode }) {
     try {
       const next = await driverApi.locationSharing(token);
       if (!mounted.current || version !== revision.current) return;
+      setSettingsToken(token);
       setSettings(next);
       setError(null);
     } catch (e) {
@@ -55,26 +63,34 @@ export function PhoneLocationProvider({ children }: { children: ReactNode }) {
   const setEnabled = useCallback(async (enabled: boolean) => {
     if (!token || mutating.current) return;
     mutating.current = true;
-    ++revision.current;
+    const version = ++revision.current;
     setSaving(true);
     setError(null);
     try {
       if (enabled) {
         const Location = await import('expo-location');
-        if (!mounted.current) return;
+        if (!mounted.current || version !== revision.current) return;
+        if (!await backgroundLocationAvailable()) throw new Error('Install the updated app to share location in the background.');
+        if (!mounted.current || version !== revision.current) return;
         const permission = await Location.requestForegroundPermissionsAsync();
-        if (!mounted.current) return;
+        if (!mounted.current || version !== revision.current) return;
         if (!permission.granted) {
           setPermissionRequired(true);
           throw new Error('Allow location access in your device settings before enabling phone location sharing.');
         }
-        setPermissionRequired(false);
+        const background = await Location.requestBackgroundPermissionsAsync();
+        if (!mounted.current || version !== revision.current) return;
+        setBackgroundGranted(background.granted);
+        setPermissionRequired(!background.granted);
+        if (!background.granted) throw new Error('Choose Always on iOS or Allow all the time on Android in device settings to share location in the background.');
+      } else {
+        await stopPhoneLocation();
       }
-      if (!mounted.current) return;
+      if (!mounted.current || version !== revision.current) return;
       const next = await driverApi.setLocationSharing(token, enabled);
-      if (mounted.current) { setSettings(next); setLoading(false); }
+      if (mounted.current && version === revision.current) { setSettingsToken(token); setSettings(next); setLoading(false); }
     } catch (e) {
-      if (mounted.current) setError(e instanceof Error ? e.message : 'Unable to save location settings.');
+      if (mounted.current && version === revision.current) setError(e instanceof Error ? e.message : 'Unable to save location settings.');
       throw e;
     } finally {
       mutating.current = false;
@@ -82,7 +98,34 @@ export function PhoneLocationProvider({ children }: { children: ReactNode }) {
     }
   }, [token]);
 
-  // Foreground only. Never request permission or collect coordinates before opt-in.
+  // Resume an existing opt-in without silently prompting for broader access.
+  useEffect(() => {
+    let cancelled = false;
+    async function sync() {
+      try {
+        if (isHydrating) return;
+        if (!token || !settings?.enabled) {
+          await stopPhoneLocation();
+          if (!cancelled) setBackgroundGranted(false);
+          return;
+        }
+        if (saving || !active) return;
+        const Location = await import('expo-location');
+        const permission = await Location.getBackgroundPermissionsAsync();
+        const available = await backgroundLocationAvailable();
+        if (cancelled) return;
+        setBackgroundGranted(permission.granted && available);
+        if (permission.granted && available) await startPhoneLocation(session!.user.user_id);
+        else await stopPhoneLocation();
+      } catch (failure) {
+        if (!cancelled) { setBackgroundGranted(false); setError(failure instanceof Error ? failure.message : 'Unable to start background sharing.'); }
+      }
+    }
+    void sync();
+    return () => { cancelled = true; };
+  }, [token, session, isHydrating, settings, saving, active]);
+
+  // Foreground feedback/fallback; the native task continues when inactive.
   useEffect(() => {
     if (!token || !settings?.enabled || saving || !active) return;
     let cancelled = false;
@@ -119,7 +162,7 @@ export function PhoneLocationProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; clearInterval(timer); };
   }, [token, settings?.enabled, saving, active, refresh, setEnabled]);
 
-  return <Context.Provider value={{ settings, loading, saving, error, permissionRequired, refresh, setEnabled }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ settings, loading, saving, error, permissionRequired, backgroundGranted, refresh, setEnabled }}>{children}</Context.Provider>;
 }
 export function usePhoneLocation() {
   const value = useContext(Context);

@@ -50,6 +50,16 @@
             "backgroundColor": "#ffffff"
           }
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Spaces Digital to share your phone location with dispatch.",
+          "locationAlwaysAndWhenInUsePermission": "Allow Spaces Digital to share your location with dispatch even when the app is in the background.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
       ]
     ],
     "experiments": {

@@ -1,6 +1,6 @@
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as Crypto from 'expo-crypto';
@@ -82,7 +82,7 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
     finally { submitting.current = false; if (alive.current) setBusy(false); }
   }
   const address = (location?: ImportLocation) => location?.full_address || [location?.address_line_1, location?.city, location?.province, location?.country].filter(Boolean).join(', ');
-  return <BottomSheet plainScroll={!!choosing} modalRef={modal} title={choosing ? choosing === 'origin' ? 'Search planned start location' : 'Search planned end location' : heading} keyboardBehavior="interactive" onScroll={event => picker.current?.onScroll(event)} showHandle={action !== 'edit'} scrollable dismissible={!busy} onDismiss={onDismiss}>
+  return <BottomSheet plainScroll={!!choosing} modalRef={modal} title={choosing ? choosing === 'origin' ? 'Search planned start location' : 'Search planned end location' : heading} onBack={choosing ? () => { Keyboard.dismiss(); setChoosing(null); } : undefined} keyboardBehavior="interactive" onScroll={event => picker.current?.onScroll(event)} showHandle={action !== 'edit'} scrollable dismissible={!busy} onDismiss={onDismiss}>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {action === 'end' && <>
       <Text style={s.subtitle}>Request dispatch approval to end this run. Your run stays active until dispatch approves it, even if deliveries remain unfinished.</Text>
@@ -111,7 +111,6 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
           if (choosing === 'origin') setOrigin(location); else setDestination(location);
           setChoosing(null); setError('');
         }} />
-        <ImportButton secondary label="Back to endpoints" onPress={() => setChoosing(null)} />
       </> : <>
         <View style={[styles.notice, { backgroundColor: surface }]}><Feather name="info" size={16} color={muted} /><Text style={[styles.note, { color: muted }]}>Update the planned start and end. Deliveries and recorded visits stay the same.</Text></View>
         {loading && <ActivityIndicator color="#15803d" />}
@@ -135,7 +134,7 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
     </>}
     {action === 'edit' || action === 'cost' ? <>
       {!choosing && <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy || loading || (action === 'edit' && (!origin || !destination)) }} disabled={busy || loading || (action === 'edit' && (!origin || !destination))} onPress={() => void save()} style={[styles.save, { opacity: busy || loading || (action === 'edit' && (!origin || !destination)) ? 0.45 : 1 }]}>{busy ? <ActivityIndicator color="#fff" /> : <Feather name={action === 'cost' ? 'plus' : 'check'} size={18} color="#fff" />}<Text style={styles.saveText}>{busy ? 'Saving…' : action === 'cost' ? 'Add cost' : 'Save endpoints'}</Text></Pressable>}
-      {action === 'edit' && <Pressable accessibilityRole="button" disabled={busy} onPress={() => modal.current?.dismiss()} style={styles.cancel}><Text style={{ color: ink, fontSize: 14, fontWeight: '600' }}>Cancel</Text></Pressable>}
+      {action === 'edit' && !choosing && <Pressable accessibilityRole="button" disabled={busy} onPress={() => modal.current?.dismiss()} style={styles.cancel}><Text style={{ color: ink, fontSize: 14, fontWeight: '600' }}>Cancel</Text></Pressable>}
     </> : <>
     {!choosing && <ImportButton label={busy ? 'Saving…' : action === 'end' ? 'Request approval' : 'Add cost'} disabled={busy || loading || (action === 'end' && !reason.trim())} onPress={() => void save()} />}
     <ImportButton secondary label="Cancel" disabled={busy} onPress={() => modal.current?.dismiss()} />

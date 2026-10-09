@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import {
     BottomSheetModal,
     BottomSheetBackdrop,
+    type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
@@ -169,13 +170,7 @@ export function ShipmentDetailsSheet({
                         borderBottomLeftRadius: 0,
                         borderBottomRightRadius: 0,
                     }}
-                    backdropComponent={(p) => (
-                        <BottomSheetBackdrop
-                            {...p}
-                            appearsOnIndex={0}
-                            disappearsOnIndex={-1}
-                        />
-                    )}
+                    backdropComponent={ShipmentSheetBackdrop}
                 >
                     <View style={{ height: contentHeight }}>
                         {content}
@@ -222,6 +217,12 @@ function ShipmentPanel({
             {children}
         </Modal>
     );
+}
+
+// Keep this component identity stable: FullWindowOverlay mounts new native
+// children above existing ones, so remounting a backdrop can cover the receipt.
+function ShipmentSheetBackdrop(props: BottomSheetBackdropProps) {
+    return <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} />;
 }
 
 function ShipmentSheetContainer({ children }: { children?: ReactNode }) {
@@ -2103,7 +2104,7 @@ function ShipmentFilesSection({
                 >
                     Files
                 </Text>
-                {!readOnly && uploadButton("Upload")}
+                {!readOnly && files.length > 0 && uploadButton("Upload")}
             </View>
             {loading ? (
                 <View
