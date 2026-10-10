@@ -216,9 +216,9 @@ export default function HomeScreen() {
         {loading && !dashboard ? <ActivityIndicator style={{ paddingVertical: 70 }} size="large" color="#15803d" /> : dashboard?.current_run ? (
           <View style={[styles.deliveryCard, { backgroundColor: dark ? '#18181b' : '#ffffff' }]}>
             {dashboard.current_run.status !== 'in_progress' && <Text style={[styles.runTitle, { color: ink }]}>Ready to start</Text>}
-            {dashboard.current_run.end_request?.status === 'pending' && <View accessibilityRole="text" style={{ backgroundColor: '#dc2626', borderRadius: 28, padding: 16, marginTop: 8, marginBottom: 12, minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Feather name="info" size={24} color="#ffffff" accessible={false} />
-              <Text style={{ color: '#ffffff', fontSize: 16, lineHeight: 24, fontWeight: '600', flex: 1 }}>End run requested — awaiting dispatch approval</Text>
+            {dashboard.current_run.end_request?.status === 'pending' && <View accessibilityRole="text" style={{ backgroundColor: '#dc2626', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 10, marginTop: 8, marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Feather name="info" size={20} color="#ffffff" accessible={false} />
+              <Text style={{ color: '#ffffff', fontSize: 14, lineHeight: 20, fontWeight: '600', flex: 1 }}>End run requested — awaiting dispatch approval</Text>
             </View>}
             {dashboard.current_run.end_request?.status === 'rejected' && <Text style={{ color: warning, marginTop: 8 }}>End run request rejected: {dashboard.current_run.end_request.review_reason}</Text>}
             <View style={styles.shipmentTotals}>

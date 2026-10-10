@@ -1,5 +1,50 @@
 # Release Notes
 
+## 2026-10-10 | Version: timeline-entry-departure-labels-v1
+
+- **Summary:** Label timeline arrival and departure on separate lines.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Dashboard and run-detail recorded rows show Entered at: and Left at: with local date/time, including departure dates for overnight visits. Omit unavailable departures; retain explicit missing-entry and planned Not visited yet states.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused timeline lint and git diff --check pass. Dashboard plan v2.177 and Figma handoff aligned; native wrapping/large-text verification pending.
+
+## 2026-10-10 | Version: timeline-unknown-location-address-v1
+
+- **Summary:** Hide addresses for named timeline locations.
+- **API Changes:** None; full address data remains available.
+- **Database Changes:** None.
+- **Behavior Changes:** Dashboard and run-detail timeline rows show addresses only for unknown/unnamed locations or generic location placeholders. Named stops, collections and planned deliveries show their name and timing without the address row. Stop details retain full addresses and existing coordinate/shipment matching data.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused RunTimeline lint and git diff --check pass. Dashboard plan v2.176 and Figma active timeline/handoff aligned. Native known/unknown and large-text visual checks pending.
+
+## 2026-10-10 | Version: compact-end-run-approval-notice-v1
+
+- **Summary:** Reduce the dashboard pending End Run banner's text size and padding.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use 14-point text with 20-point line height, 12-point horizontal/10-point vertical padding, an 8-point gap and a 20-point info icon/radius. Remove the fixed minimum height; retain wrapping and accessibility font scaling. Dashboard plan v2.175 and both Figma approval states aligned.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused dashboard lint (existing set-state-in-effect rule excluded) and git diff --check pass. Figma notice rendered at its compact natural height. Native device/large-text visual verification pending.
+
+## 2026-10-10 | Version: shared-active-run-actions-v1
+
+- **Summary:** Add the dashboard's reusable Actions control to the top right of active run details.
+- **API Changes:** GET /api/v1/driver/runs/{run} adds has_delivery_note, based on stored uploads scoped to the run/account/merchant/environment. Existing clients remain compatible; older responses omit the detail upload option until the field is deployed.
+- **Database Changes:** None.
+- **Behavior Changes:** One RunActions component owns the button, menu, Edit Run/End Run/Add cost forms, delivery-order sheet, conditional note upload and Message dispatch draft handoff for dashboard and active details. Use the viewed run's IDs/endpoints/reference and current driver owner. Refresh the caller after saves. Hide actions outside in-progress status; disable detail actions on loading/errors and End Run for a pending request. Unmount/reset guards prevent stale callbacks and cross-run/session state. Reuse existing post-dismissal sheet handoff, permissions and backend validation. Dashboard plan v2.174 and Figma active detail/handoff aligned; completed detail remains read-only.
+- **Breaking Changes:** None.
+- **Verification:** Seventeen mobile shared-menu/dock/dashboard/detail regressions pass, covering options/forms, note/pending gates, upload/dispatch parameters, save refresh, completed/error/access-revoked hiding and stale callbacks. Full mobile TypeScript and focused component/detail/test lint pass; dashboard lint passes with its existing set-state-in-effect violations excluded. Twenty-one run API/action tests with 223 assertions pass. git diff --check passes. Native iOS/Android nested sheet interaction, upload/dispatch navigation and deployed API checks pending.
+
+## 2026-10-10 | Version: run-end-request-conversation-v1
+
+- **Summary:** Deliver End Run requests to the driver’s dispatch conversation and admin unread inbox.
+- **API Changes:** Existing End Run request endpoint now creates a message and typed Run reference atomically with each new request; response unchanged. Repeated pending requests remain idempotent.
+- **Database Changes:** None; reuse conversations, messages and attachments.
+- **Behavior Changes:** Automatically create a driver-authored pending-approval message with run number, trimmed reason and run link. Touch the conversation so it appears in recent/admin unread messages, visible to authorized staff and the driver. A rejected-request resubmission creates a new message. Closed chats receive operational events without reopening ordinary messaging; delivery failure rolls back request/audit creation. Existing dispatch approval and run status remain unchanged.
+- **Breaking Changes:** None. Backend deployment required; no historical backfill.
+- **Verification:** 27 run-action/conversation tests pass (401 assertions), covering first chat creation, scope, admin unread, driver/admin visibility, duplicates, rejection/resubmission, closed chat and deleted-chat atomic rollback. PHP style and diff checks pass; Figma/canonical plan aligned. Live admin/driver inbox polling and production deployment remain pending.
+
 ## 2026-10-10 | Version: end-run-pending-red-notice-v1
 
 - **Summary:** Make the pending End Run approval notice prominent and readable.

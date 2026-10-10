@@ -6,6 +6,11 @@ import type { DriverDashboard } from "@/src/lib/api";
 
 export type RunStop = NonNullable<DriverDashboard["recorded_stops"]>[number];
 
+function isUnknownLocation(stop: RunStop) {
+    const name = stop.name?.trim().toLowerCase() ?? "";
+    return !name || ["unknown", "unknown location", "unknown stop", "truck stop", "speeding event", "delivery location not provided"].includes(name);
+}
+
 export function runStopDescription(stop: RunStop) {
     return [
         stop.address,
@@ -137,7 +142,7 @@ export function RunTimeline({
                                         : " · Speed limit not recorded"}
                                 </Text>
                             ) : null}
-                            {stop.address ? (
+                            {stop.address && isUnknownLocation(stop) ? (
                                 <Text
                                     style={[styles.shipmentRoute, { color: muted }]}
                                 >
@@ -145,15 +150,15 @@ export function RunTimeline({
                                 </Text>
                             ) : null}
                             <Text
-                                style={{ fontSize: 12, color: muted, marginTop: 6 }}
+                                style={{ fontSize: 12, lineHeight: 18, color: muted, marginTop: 6 }}
                             >
                                 {stop.planned
                                     ? "Not visited yet"
                                     : stop.occurred_at
-                                      ? new Date(stop.occurred_at).toLocaleString()
-                                      : "Time not recorded"}
+                                      ? `Entered at: ${new Date(stop.occurred_at).toLocaleString()}`
+                                      : "Entered at: Time not recorded"}
                                 {stop.exited_at
-                                    ? ` · Left ${new Date(stop.exited_at).toLocaleTimeString()}`
+                                    ? `\nLeft at: ${new Date(stop.exited_at).toLocaleString()}`
                                     : ""}
                             </Text>
                         </Pressable>

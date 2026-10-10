@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\ActivityLog;
+use App\Models\Conversation;
 use App\Models\Driver;
 use App\Models\Location;
 use App\Models\Merchant;
@@ -11,6 +12,7 @@ use App\Models\Run;
 use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\User;
+use App\Services\ConversationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -49,6 +51,7 @@ class DriverRunActionsTest extends TestCase
         [$driver, , $merchant, $run] = $this->context();
         $links = collect(['booked', 'delivered', 'in_transit'])->map(function ($status, $index) use ($merchant, $run) {
             $shipment = Shipment::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'status' => $status, 'merchant_order_ref' => 'ORDER-'.$index]);
+
             return RunShipment::create(['run_id' => $run->id, 'shipment_id' => $shipment->id, 'sequence' => $index + 1, 'status' => $status === 'delivered' ? 'done' : 'active']);
         });
         $headers = $this->auth($driver);
@@ -124,6 +127,60 @@ class DriverRunActionsTest extends TestCase
         $this->postJson("/api/v1/runs/{$run->uuid}/end-requests/$id/review", ['decision' => 'approved', 'confirm_early_closure' => true], $this->auth($owner))->assertOk();
         $this->assertSame('booked', $shipment->fresh()->status);
         $this->assertEquals($before, $assignment->fresh()->getAttributes());
+    }
+
+    public function test_end_request_posts_one_scoped_driver_message_and_admin_unread_reference(): void
+    {
+        [$driver, $owner, $merchant, $run] = $this->context();
+        $url = "/api/v1/driver/runs/{$run->uuid}/end-requests";
+        $headers = $this->auth($driver);
+        $this->postJson($url, ['reason' => ' '], $headers)->assertUnprocessable();
+        $this->assertDatabaseCount('messages', 0);
+        $id = $this->postJson($url, ['reason' => ' Truck breakdown '], $headers)->assertCreated()->json('data.request_id');
+        $this->postJson($url, ['reason' => 'Truck breakdown'], $headers)->assertOk();
+        $chat = Conversation::sole();
+        $message = $chat->messages()->sole();
+        $this->assertSame($driver->id, $message->user_id);
+        $this->assertSame($merchant->account_id, $message->account_id);
+        $this->assertSame($merchant->id, $message->merchant_id);
+        $this->assertStringContainsString('Reason: Truck breakdown', $message->body);
+        $this->assertSame('run-end-request:'.$id, $message->temporary_id);
+        $this->assertNull($message->read_at);
+        $this->assertSame($run->uuid, $message->attachments()->sole()->meta['reference']['id']);
+        $this->getJson("/api/v1/conversations/{$chat->uuid}/messages", $headers)->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.attachments.0.reference.type', 'run');
+        $this->getJson("/api/v1/conversations/{$chat->uuid}/messages", $this->auth($owner))->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/v1/conversations/unread?merchant_id='.$merchant->uuid, $this->auth($owner))
+            ->assertOk()->assertJsonPath('data.unread_count', 1);
+        [$foreign] = $this->context();
+        $this->getJson("/api/v1/conversations/{$chat->uuid}/messages", $this->auth($foreign))->assertForbidden();
+        $this->assertSame('in_progress', $run->fresh()->status);
+    }
+
+    public function test_end_request_event_reaches_closed_chat_and_resubmission_gets_a_new_message(): void
+    {
+        [$driver, $owner, $merchant, $run] = $this->context();
+        $chat = app(ConversationService::class)->driverChat($driver, $merchant, null);
+        $chat->update(['status' => 'closed']);
+        $url = "/api/v1/driver/runs/{$run->uuid}/end-requests";
+        $id = $this->postJson($url, ['reason' => 'Breakdown'], $this->auth($driver))->assertCreated()->json('data.request_id');
+        $this->assertSame('closed', $chat->fresh()->status);
+        $this->postJson("/api/v1/runs/{$run->uuid}/end-requests/$id/review", ['decision' => 'rejected', 'reason' => 'Try again'], $this->auth($owner))->assertOk();
+        $this->postJson($url, ['reason' => 'Still broken'], $this->auth($driver))->assertCreated();
+        $this->assertSame(2, $chat->messages()->count());
+        $this->assertStringContainsString('Still broken', $chat->latestMessage->body);
+    }
+
+    public function test_end_request_and_audit_roll_back_when_conversation_delivery_fails(): void
+    {
+        [$driver, , $merchant, $run] = $this->context();
+        $chat = app(ConversationService::class)->driverChat($driver, $merchant, null);
+        $chat->delete();
+        $this->postJson("/api/v1/driver/runs/{$run->uuid}/end-requests", ['reason' => 'Breakdown'], $this->auth($driver))->assertStatus(410);
+        $this->assertDatabaseCount('run_end_requests', 0);
+        $this->assertDatabaseCount('messages', 0);
+        $this->assertSame(0, ActivityLog::where('action', 'run_end_requested')->count());
+        $this->assertSame('in_progress', $run->fresh()->status);
     }
 
     public function test_manual_costs_are_zar_exact_deduplicated_and_scoped(): void

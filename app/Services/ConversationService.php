@@ -6,6 +6,8 @@ use App\Models\Conversation;
 use App\Models\ConversationMember;
 use App\Models\Driver;
 use App\Models\Merchant;
+use App\Models\Run;
+use App\Models\RunEndRequest;
 use App\Models\User;
 use App\Support\MerchantAccess;
 use Illuminate\Support\Facades\DB;
@@ -94,6 +96,29 @@ class ConversationService
 
             return $conversation;
         });
+    }
+
+    /** Record the operational request atomically with its run-end request. */
+    public function runEndRequested(User $user, Run $run, RunEndRequest $request): void
+    {
+        $conversation = $this->driverChat($user, $run->merchant, null);
+        $conversation = Conversation::whereKey($conversation->id)->lockForUpdate()->firstOrFail();
+        // Closed chats still receive operational events without reopening ordinary messaging.
+        $message = $conversation->messages()->create([
+            'account_id' => $run->account_id, 'merchant_id' => $run->merchant_id,
+            'user_id' => $user->id, 'type' => 'file',
+            'temporary_id' => 'run-end-request:'.$request->uuid,
+            'body' => "End run requested — awaiting dispatch approval\nRun {$run->id}\nReason: {$request->reason}\nThe run remains active until dispatch approves.",
+        ]);
+        $message->attachments()->create([
+            'account_id' => $run->account_id, 'merchant_id' => $run->merchant_id,
+            'type' => 'run', 'path' => 'reference/run/'.$run->uuid, 'filename' => 'Run '.$run->id,
+            'meta' => ['run_end_request_id' => $request->uuid, 'reference' => [
+                'id' => $run->uuid, 'type' => 'run', 'label' => 'Run '.$run->id,
+                'subtitle' => str_replace('_', ' ', $run->status),
+            ]],
+        ]);
+        $conversation->touch();
     }
 
     public function memberUser(Merchant $merchant, string $uuid): User

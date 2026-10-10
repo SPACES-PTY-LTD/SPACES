@@ -9,6 +9,7 @@ use App\Models\Run;
 use App\Models\RunCost;
 use App\Models\RunShipment;
 use App\Services\ActivityLogService;
+use App\Services\ConversationService;
 use App\Support\ApiResponse;
 use App\Support\CostMoney;
 use Illuminate\Http\Request;
@@ -48,6 +49,7 @@ class DriverRunActionsController extends Controller
                 return ApiResponse::success($existing->toSummary());
             }
             $entry = $run->endRequests()->create(['status' => 'pending', 'requested_by' => $request->user()->id, 'reason' => trim($data['reason'])]);
+            app(ConversationService::class)->runEndRequested($request->user(), $run, $entry);
             $this->audit($request, $run, 'run_end_requested', ['after' => $entry->toSummary()]);
 
             return ApiResponse::success($entry->toSummary(), [], 201);
@@ -143,7 +145,9 @@ class DriverRunActionsController extends Controller
             $expected = array_values($data['expected_shipment_ids']);
             abort_unless(collect($after)->sort()->values()->all() === collect($before)->sort()->values()->all(), 409, 'The remaining shipments changed. Reload the delivery order and try again.');
             // A repeated successful save is safe; a different stale draft must be reviewed.
-            if ($before === $after) return ApiResponse::success(['shipment_ids' => $after]);
+            if ($before === $after) {
+                return ApiResponse::success(['shipment_ids' => $after]);
+            }
             abort_unless($before === $expected, 409, 'The delivery order changed. Reload and review it before saving.');
             $byUuid = $remaining->keyBy('shipment.uuid');
             $index = 0;
