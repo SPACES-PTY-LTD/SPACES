@@ -7,6 +7,7 @@ use App\Models\UserDevice;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 class SendDriverMessagePush implements ShouldQueue
 {
@@ -34,10 +35,14 @@ class SendDriverMessagePush implements ShouldQueue
         }
         $devices = UserDevice::where('user_id', $driver->user_id)->where('account_id', $conversation->account_id)
             ->where('push_provider', 'expo')->whereNotNull('push_token')->get()->unique('push_token');
+        $text = trim($message->body ?? '');
+        $body = $message->type === 'text' && $text !== ''
+            ? Str::limit($text, 500)
+            : 'You have a new message from dispatch.';
         foreach ($devices->chunk(100) as $chunk) {
             $devicesBatch = $chunk->values();
             $response = Http::timeout(20)->post('https://exp.host/--/api/v2/push/send', $devicesBatch->map(fn ($device) => [
-                'to' => $device->push_token, 'title' => 'New message', 'body' => 'You have a new message from dispatch.',
+                'to' => $device->push_token, 'title' => 'Message from dispatch', 'body' => $body,
                 'sound' => 'default', 'channelId' => 'default', 'priority' => 'high', 'data' => ['kind' => 'driver_message', 'conversation_id' => $conversation->uuid, 'message_id' => $message->uuid],
             ])->all())->throw();
             $receipts = [];

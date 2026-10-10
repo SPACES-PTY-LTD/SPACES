@@ -1,5 +1,95 @@
 # Release Notes
 
+## 2026-10-10 | Version: end-run-pending-red-notice-v1
+
+- **Summary:** Make the pending End Run approval notice prominent and readable.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace plain pending text with a red rounded box, white 16-point semibold wrapping text and a leading white info icon. Use 28-point corners, 16-point padding and 12-point gap. Preserve the message, pending-request disabling and dispatch approval workflow.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused dashboard lint with existing effect-rule violations excluded, six dashboard refresh regressions and diff checks pass. The broader dashboard suite passes 9/10; its navigation case fails because the current test mock lacks Alert.alert, unrelated to notice styling. Figma approval references and canonical plan aligned. Native light/dark/large-text visual check pending.
+
+## 2026-10-10 | Version: end-run-remove-bottom-cancel-v1
+
+- **Summary:** Remove the redundant bottom Cancel button from End Run.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** End Run retains Request approval and the shared top-right close, backdrop/swipe dismissal and busy dismissal guards; remove only its secondary bottom Cancel action. Preserve reason validation and dispatch approval workflow.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused RunActionForm lint and diff checks pass. Canonical dashboard plan/Figma references and handoff aligned. Native visual verification pending.
+
+## 2026-10-10 | Version: typed-message-reference-labels-v1
+
+- **Summary:** Identify Shipment and Run links in Messages.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Sent and draft record references show Shipment or Run before their label/number, without duplicating existing prefixes. Accessible Open/Remove labels match. Preserve detail-sheet actions and document/photo presentation. Dashboard plan v2.171 and Figma conversation/handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** Fifteen Messages regressions pass, including an unprefixed shipment label opening its scoped details and an already-prefixed run label without duplication. Full mobile TypeScript, focused Messages/test lint and git diff --check pass. Native long-label/large-text review pending.
+
+## 2026-10-10 | Version: message-photo-gallery-v1
+
+- **Summary:** Preview message photos as thumbnails and open a full-screen image gallery.
+- **API Changes:** None; reuse the existing scoped attachment-download endpoint and five-minute signed URLs.
+- **Database Changes:** None.
+- **Behavior Changes:** Image attachments show rounded 112-point thumbnails with loading/retry. Tap opens the selected image in a black modal; swipe among photos from loaded messages in chronological order, pinch 1–5× and pan while zoomed. Reset zoom, Previous/Next, filename/counter and Close/Android Back are available. Photo changes reset zoom; zoomed panning does not switch photos. Resolve private URLs only for mounted previews/viewer, use no image disk cache and ignore late responses after unmount. Retry remounts the preview and requests a fresh URL. Documents/references keep their actions and chat/composer state is retained. Dashboard plan v2.170 and editable Figma references/handoff aligned. No new package or native configuration.
+- **Breaking Changes:** None.
+- **Verification:** Twenty-seven photo helper, preview/gesture handler, date and Messages screen checks pass, including signed-request scope, loading/error/retry, late-response rejection, gallery selection/order, zoom/pan bounds, photo-change suppression/reset and close/Android Back callbacks. Full mobile TypeScript, focused Messages/new component/helper/test lint and git diff --check pass. Physical iOS/Android gestures, portrait/landscape appearance, accessibility and live private-storage signed URL/expiry checks pending.
+
+## 2026-10-10 | Version: message-day-separators-v1
+
+- **Summary:** Show date headings between Messages from different days.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Center a muted localized weekday/date/year before the first loaded message and each phone-local calendar-day change. Adjacent same-day messages share a heading; pagination and polling recompute boundaries. Keep existing sender/timestamp labels, bubble alignment, attachment actions and composer. Invalid dates do not produce headings. Dashboard plan v2.169 and Figma populated conversation reference/handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** Eighteen date helper and Messages screen regressions, full mobile TypeScript, focused Messages/helper/test lint and git diff --check pass. Native light/dark, large-text and older-page visual checks pending.
+
+## 2026-10-10 | Version: required-uploads-compact-padding-v1
+
+- **Summary:** Reduce the Documents Required uploads card padding and height.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reduce card minimum height from 76 to 56 points, horizontal padding from 16 to 12 and vertical padding to 8. Preserve icons, count, label, rounded corners, colors and required-document sheet action.
+- **Breaking Changes:** None.
+- **Verification:** Focused Documents lint and git diff --check pass. Native large-text visual verification pending.
+
+## 2026-10-10 | Version: android-splash-safe-area-v1
+
+- **Summary:** Prevent the Android splash logo from being cropped by the system icon mask.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Override expo-splash-screen imageWidth to 160 on Android, preserving the complete existing logo inside the 192dp circular safe area of the generated 288dp canvas. Retain contain scaling, white light/dark backgrounds, iOS size 200 and the in-app loading screen. Requires a rebuilt Android binary; Metro reload/OTA does not update native splash assets.
+- **Breaking Changes:** None.
+- **Verification:** Actual Expo plugin drawable generation and pixel-mask regression pass at mdpi, hdpi, xhdpi, xxhdpi and xxxhdpi in light/dark modes. The regression reproduces clipping at the old size. Full mobile TypeScript and config/test lint pass. Physical release-build cold/warm launch verification remains pending; Expo Go/development clients do not faithfully represent the standalone splash.
+
+## 2026-10-10 | Version: borderless-guidance-controls-v1
+
+- **Summary:** Remove outline borders from the white navigation sound and recenter buttons.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use borderless white controls with existing black icons, corner radius and 44-point touch targets.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused GuidanceMap lint and git diff --check pass. Dashboard plan v2.168 and existing borderless Figma reference/handoff aligned. Physical-device visual verification pending.
+
+## 2026-10-10 | Version: navigation-startup-loading-card-v1
+
+- **Summary:** Improve navigation startup with a loading spinner and destination location icon.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show a rounded black card with light-green live spinner, white heading, a grey location pin and wrapping destination, plus a white 44-point Cancel button with black text. Fall back to the address or selected target title. Preserve startup cancellation and map placement; do not fabricate progress or ETA.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused map lint with existing hook-rule exclusions, existing map startup/cancellation regressions and git diff --check. Dashboard plan v2.167 and editable Figma startup state aligned. Physical-device spinner, wrapping, theme and Cancel interaction remain pending.
+
+## 2026-10-10 | Version: dispatch-message-push-preview-v1
+
+- **Summary:** Show dispatch message text in driver push notifications.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Notification title is “Message from dispatch”. Text messages preview their trimmed body, limited to 500 characters plus an ellipsis for long messages. Attachment and empty-text notifications retain the generic dispatch description. Existing recipients, notification deep links and receipt handling are preserved.
+- **Breaking Changes:** None.
+- **Verification:** 17 conversation API/push tests pass (302 assertions), covering text previews, long text, non-text/empty fallbacks, recipient data and receipt cleanup. PHP syntax and git diff checks pass. Live-device push verification pending; backend deployment and queue-worker restart required for existing workers to use the change.
+
 ## 2026-10-10 | Version: run-summary-tap-to-expand-v1
 
 - **Summary:** Open the run timeline by tapping the timer or route summary.

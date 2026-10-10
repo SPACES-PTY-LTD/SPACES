@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { AppState, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/component/ui/Text';
@@ -21,12 +21,12 @@ export function activeRunRoute(endpoints: DriverDashboard['trip_endpoints']) {
   return `From ${start || 'Start unavailable'} → ${end || 'End not set'}`;
 }
 
-export function ActiveRunDock({ startedAt, endpoints, showInfo, onShowTimeline, onActions, onHeightChange }: {
+export function ActiveRunDock({ startedAt, endpoints, showInfo, onShowTimeline, actions, onHeightChange }: {
   startedAt?: string | null;
   endpoints: DriverDashboard['trip_endpoints'];
   showInfo: boolean;
   onShowTimeline: () => void;
-  onActions: () => void;
+  actions: ReactNode;
   onHeightChange: (height: number) => void;
 }) {
   const { colorScheme } = useColorScheme();
@@ -63,10 +63,7 @@ export function ActiveRunDock({ startedAt, endpoints, showInfo, onShowTimeline, 
         onPress={onShowTimeline} style={[styles.info, { borderColor: dark ? line : '#dbdbe0' }]}>
         <Feather name="info" size={20} color={ink} />
       </Pressable>}
-      <Pressable accessibilityRole="button" accessibilityLabel="Run actions" onPress={onActions}
-        style={[styles.actions, { borderColor: dark ? line : '#dbdbe0' }]}>
-        <Text style={[styles.actionText, { color: ink }]}>Actions</Text>
-      </Pressable>
+      {actions}
     </View>
     <Pressable onPress={onShowTimeline} accessibilityRole="button" accessibilityLabel="Show run timeline from route"
       accessibilityHint="Expands the dashboard bottom sheet to show run details" hitSlop={{ top: 6, bottom: 6 }}>
@@ -82,7 +79,5 @@ const styles = StyleSheet.create({
   label: { fontSize: 11, lineHeight: 13.2, fontWeight: '600' },
   elapsed: { fontSize: 24, lineHeight: 28.8, fontWeight: '700', fontVariant: ['tabular-nums'], flexShrink: 1 },
   info: { width: 44, height: 44, borderWidth: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  actions: { width: 100, minHeight: 44, borderWidth: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
-  actionText: { fontSize: 16, fontWeight: '600' },
   route: { fontSize: 12, lineHeight: 16 },
 });

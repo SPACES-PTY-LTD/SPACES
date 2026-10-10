@@ -27,6 +27,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/component/ui/Text';
 import { PageHeader } from '@/component/ui/PageHeader';
+import { messageDayLabel } from '@/src/lib/message-date';
+import { chatImages, isChatImage } from '@/src/lib/chat-images';
+import { ChatImage } from '@/src/components/ChatImage';
+import { ChatPhotoViewer } from '@/src/components/ChatPhotoViewer';
 import {
     appendUploadFile,
     chatApi,
@@ -43,6 +47,12 @@ function isDraftPicture(file: DocumentPicker.DocumentPickerAsset) {
     if (mime?.startsWith('image/')) return true;
     if (mime && mime !== 'application/octet-stream') return false;
     return /\.(jpe?g|png|gif|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name);
+}
+
+function referenceLabel(reference: ChatReference) {
+    const kind = reference.type === 'run' ? 'Run' : 'Shipment';
+    const label = reference.label.trim() || reference.id;
+    return new RegExp(`^${kind}\\b`, 'i').test(label) ? label : `${kind} ${label}`;
 }
 
 export default function MessagesScreen() {
@@ -85,6 +95,7 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
         null,
     );
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [photoGallery, setPhotoGallery] = useState<{ images: ReturnType<typeof chatImages>; initialId: string } | null>(null);
     const [before, setBefore] = useState<string | null>(null);
     const [body, setBody] = useState('');
     const [files, setFiles] = useState<DocumentPicker.DocumentPickerAsset[]>(
@@ -468,53 +479,68 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                             </View>
                         </View>
                     ) : null}
-                    renderItem={({ item }) => (
-                        <View
-                            style={[styles.bubble, { alignSelf: item.user_id === session?.user.user_id ? 'flex-end' : 'flex-start', backgroundColor: item.user_id === session?.user.user_id ? colors.selectedSurface : colors.soft }]}
-                        >
-                            <Text
-                                style={{ fontSize: 12, lineHeight: 17, color: colors.muted }}
-                            >
-                                {item.sender_name} ·{' '}
-                                {new Date(item.created_at).toLocaleString()}
-                            </Text>
-                            {item.body && (
-                                <Text
-                                    style={{ marginTop: 6, fontSize: 16, lineHeight: 23, color: colors.ink }}
+                    renderItem={({ item, index }) => {
+                        const dayLabel = messageDayLabel(item.created_at, messages[index - 1]?.created_at);
+                        return (
+                            <View>
+                                {dayLabel && <Text style={[styles.daySeparator, { color: colors.muted }]}>{dayLabel}</Text>}
+                                <View
+                                    style={[styles.bubble, { alignSelf: item.user_id === session?.user.user_id ? 'flex-end' : 'flex-start', backgroundColor: item.user_id === session?.user.user_id ? colors.selectedSurface : colors.soft }]}
                                 >
-                                    {item.body}
-                                </Text>
-                            )}
-                            {item.attachments.map((a) => (
-                                <Pressable
-                                    key={a.attachment_id}
-                                    onPress={() => {
-                                        if (a.reference) {
-                                            openReference(a.reference);
-                                        } else void download(a.attachment_id);
-                                    }}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Open ${a.filename || 'attachment'}`}
-                                    style={styles.attachment}
-                                >
-                                    <Feather name="file-text" size={18} color="#15803d" />
-                                    <Text style={{ color: '#15803d', flexShrink: 1 }}>
-                                        {a.filename || 'Attachment'}
+                                    <Text
+                                        style={{ fontSize: 12, lineHeight: 17, color: colors.muted }}
+                                    >
+                                        {item.sender_name} ·{' '}
+                                        {new Date(item.created_at).toLocaleString()}
                                     </Text>
-                                    <Feather name={a.reference ? "chevron-right" : "download"} size={16} color="#15803d" />
-                                </Pressable>
-                            ))}
-                        </View>
-                    )}
+                                    {item.body && (
+                                        <Text
+                                            style={{ marginTop: 6, fontSize: 16, lineHeight: 23, color: colors.ink }}
+                                        >
+                                            {item.body}
+                                        </Text>
+                                    )}
+                                    {token && conversation && item.attachments.some(isChatImage) && <View style={styles.photoGrid}>
+                                        {item.attachments.filter(isChatImage).map(photo => <Pressable key={photo.attachment_id} accessibilityRole="button" accessibilityLabel={`View photo ${photo.filename || ''}`} onPress={() => {
+                                                Keyboard.dismiss();
+                                                setPhotoGallery({ images: chatImages(messages), initialId: photo.attachment_id });
+                                            }}>
+                                                <ChatImage token={token} conversationId={conversation.conversation_id} attachment={photo} />
+                                            </Pressable>)}
+                                    </View>}
+                                    {item.attachments.filter(a => !isChatImage(a)).map((a) => (
+                                        <Pressable
+                                            key={a.attachment_id}
+                                            onPress={() => {
+                                                if (a.reference) {
+                                                    openReference(a.reference);
+                                                } else void download(a.attachment_id);
+                                            }}
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`Open ${a.reference ? referenceLabel(a.reference) : a.filename || 'attachment'}`}
+                                            style={styles.attachment}
+                                        >
+                                            <Feather name="file-text" size={18} color="#15803d" />
+                                            <Text style={{ color: '#15803d', flexShrink: 1 }}>
+                                                {a.reference ? referenceLabel(a.reference) : a.filename || 'Attachment'}
+                                            </Text>
+                                            <Feather name={a.reference ? "chevron-right" : "download"} size={16} color="#15803d" />
+                                        </Pressable>
+                                    ))}
+                                </View>
+                            </View>
+                        );
+                    }}
                 />
             )}
+            {photoGallery && token && conversation && <ChatPhotoViewer token={token} conversationId={conversation.conversation_id} images={photoGallery.images} initialId={photoGallery.initialId} onClose={() => setPhotoGallery(null)} />}
             <View style={[styles.composerShelf, { backgroundColor: colors.shelf }]}>
                 {references.map(reference => <View key={`${reference.type}-${reference.id}`} style={[styles.draftFile, { backgroundColor: colors.background, borderColor: colors.line }]}>
-                    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${reference.label}`} onPress={() => openReference(reference)} style={{ flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Open ${referenceLabel(reference)}`} onPress={() => openReference(reference)} style={{ flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <Feather name={reference.type === 'run' ? 'navigation' : 'package'} size={18} color={colors.muted} />
-                        <Text numberOfLines={1} style={{ flex: 1, color: colors.ink }}>{reference.label}</Text>
+                        <Text numberOfLines={1} style={{ flex: 1, color: colors.ink }}>{referenceLabel(reference)}</Text>
                     </Pressable>
-                    <Pressable disabled={sending} accessibilityRole="button" accessibilityLabel={`Remove ${reference.label}`} onPress={() => {
+                    <Pressable disabled={sending} accessibilityRole="button" accessibilityLabel={`Remove ${referenceLabel(reference)}`} onPress={() => {
                         setReferences(previous => previous.filter(item => item.id !== reference.id || item.type !== reference.type)); retry.current = null;
                     }} style={styles.removeFile}><Feather name="x" size={18} color={colors.muted} /></Pressable>
                 </View>)}
@@ -587,7 +613,9 @@ const styles = StyleSheet.create({
     loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     error: { marginHorizontal: 20, marginTop: 12, padding: 14, borderRadius: 16 },
     retry: { minHeight: 44, justifyContent: 'center' },
+    daySeparator: { textAlign: 'center', fontSize: 12, lineHeight: 18, fontWeight: '500', marginTop: 8, marginBottom: 16 },
     bubble: { maxWidth: '88%', padding: 14, borderRadius: 20, marginBottom: 12 },
+    photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
     attachment: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, minHeight: 44 },
     composerShelf: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 6, gap: 6 },
     composer: { minHeight: 54, borderWidth: 1, borderRadius: 27, padding: 4, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },

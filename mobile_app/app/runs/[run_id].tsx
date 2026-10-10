@@ -29,6 +29,7 @@ import {
     RunTimeline,
     type RunStop,
 } from "@/src/components/dashboard/RunTimeline";
+import { RunActions } from "@/src/components/runs/RunActions";
 import { RunSummaryCard } from "@/src/components/runs/RunSummaryCard";
 import { driverApi, type DriverRunDetail } from "@/src/lib/api";
 import { useAuth } from "@/src/providers/auth-provider";
@@ -39,13 +40,14 @@ export default function RunDetailScreen() {
     return session?.token ? (
         <RunDetail
             key={`${session.token}:${run_id}`}
+            ownerId={session.user.user_id}
             token={session.token}
             runId={run_id}
         />
     ) : null;
 }
 
-function RunDetail({ token, runId }: { token: string; runId: string }) {
+function RunDetail({ token, runId, ownerId }: { token: string; runId: string; ownerId: string }) {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const { colorScheme } = useColorScheme();
@@ -128,6 +130,7 @@ function RunDetail({ token, runId }: { token: string; runId: string }) {
             </Pressable>
             <PageHeader
                 title={run?.reference || "Run details"}
+                action={run?.status === 'in_progress' ? <RunActions token={token} ownerId={ownerId} run={{ ...run, origin_location_id: run.origin?.location_id, destination_location_id: run.destination?.location_id }} reference={run.reference} disabled={loading || !!error} onSaved={() => void load()} /> : undefined}
                 status={
                     run?.status === "completed"
                         ? "Completed · Read-only"

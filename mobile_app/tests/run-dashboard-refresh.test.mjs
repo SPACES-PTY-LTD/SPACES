@@ -22,17 +22,21 @@ function harness(screen) {
     useState(initial) { const i = cursor++; slots[i] ??= { value: initial }; return [slots[i].value, value => { slots[i].value = typeof value === 'function' ? value(slots[i].value) : value; }]; },
     useRef(initial) { const i = cursor++; slots[i] ??= { current: initial }; return slots[i]; },
     useCallback(callback, deps) { const i = cursor++; if (!slots[i] || deps.some((dep, j) => !Object.is(dep, slots[i].deps[j]))) slots[i] = { callback, deps }; return slots[i].callback; },
+    useMemo(callback, deps) { const i = cursor++; if (!slots[i] || deps.some((dep, j) => !Object.is(dep, slots[i].deps[j]))) slots[i] = { value: callback(), deps }; return slots[i].value; },
     useEffect: effect,
   };
   const native = Object.fromEntries(['View', 'Pressable', 'FlatList', 'ScrollView', 'RefreshControl', 'ActivityIndicator'].map(name => [name, name]));
   Object.assign(native, { StyleSheet: { create: styles => styles }, useWindowDimensions: () => ({ height: 900 }), AppState: { addEventListener: (_, fn) => { foreground = fn; return { remove() {} }; } } });
+  const guidance = { state: { phase: 'idle', muted: false }, available: true, start: async target => { guidance.state = { phase: 'active', muted: false, target }; }, exit: async () => { guidance.state = { phase: 'idle', muted: false }; } };
   const modules = {
-    '@/src/navigation/GuidanceProvider': { useGuidance: () => ({ state: { phase: 'idle', muted: false }, available: true, start: async () => {}, exit: async () => {} }) },
+    '@/src/components/dashboard/run-map-data': { locationCoordinate: location => location && typeof location.latitude === 'number' && typeof location.longitude === 'number' ? { latitude: location.latitude, longitude: location.longitude } : null },
+    '@/src/components/runs/RunActions': { RunActions: 'RunActions' },
+    '@/src/navigation/GuidanceProvider': { useGuidance: () => guidance },
     '@/src/navigation/GuidanceMap': { GuidanceMap: 'GuidanceMap' },
     react,
     'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     'react-native': native,
-    'expo-router': { useFocusEffect: fn => effect(() => focused ? fn() : undefined, [fn, focused]), useRouter: () => ({ push() {} }), useLocalSearchParams: () => ({}) },
+    'expo-router': { useFocusEffect: fn => effect(() => focused ? fn() : undefined, [fn, focused]), useRouter: () => ({ push() {} }), useLocalSearchParams: () => screen === 'detail' ? { run_id: 'run' } : {}, Stack: { Screen: 'StackScreen' } },
     'expo-router/js-tabs': { useBottomTabBarHeight: () => 80 },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 40 }) },
     'react-native-reanimated': { default: { View: 'AnimatedView' }, useSharedValue: value => ({ value }), useAnimatedStyle: fn => fn() },
@@ -40,7 +44,7 @@ function harness(screen) {
     '@/src/providers/auth-provider': { useAuth: () => ({ session }) },
     '@/src/providers/required-documents-provider': { useRequiredDocuments: () => ({ updateCount }) },
     '@/hooks/use-color-scheme': { useColorScheme: () => ({ colorScheme: 'dark' }) },
-    '@/src/lib/api': { driverApi: { listRuns: request, dashboard: request, listOffers: async () => [] }, documentImportApi: {} },
+    '@/src/lib/api': { driverApi: { getRun: request, listRuns: request, dashboard: request, listOffers: async () => [] }, documentImportApi: {} },
     '@/component/ui/Text': { Text: 'Text' },
     '@/component/ui/PageHeader': { PageHeader: 'PageHeader' },
     '@/src/components/runs/RunSummaryCard': { RunSummaryCard: 'RunSummaryCard', runStatusLabel: status => status },
@@ -53,19 +57,19 @@ function harness(screen) {
     '@/src/components/dashboard/ShipmentSummarySheet': { ShipmentSummarySheet: 'ShipmentSummarySheet' },
     '@/src/components/dashboard/ActiveRunDock': { ActiveRunDock: 'ActiveRunDock' },
   };
-  for (const name of ['ShipmentDetails', 'StopDetailsSheet', 'RunTimeline', 'DeliveryOrderSheet', 'RunActionForm', 'FinalDestinationSheet', 'RunMap']) {
+  for (const name of ['ShipmentDetails', 'StopDetailsSheet', 'RunTimeline', 'DeliveryOrderSheet', 'RunActionForm', 'FinalDestinationSheet', 'RunMap', 'RunAdditionalCosts']) {
     const prefix = name === 'ShipmentDetails' ? '@/src/components/shipments/' : '@/src/components/dashboard/';
     modules[prefix + name] = { [name === 'ShipmentDetails' ? 'ShipmentDetailsSheet' : name]: name };
   }
   for (const name of ['MessageSheet', 'ActionSheet', 'PersistentBottomSheet']) modules['@/component/ui/' + name] = { [name]: name };
-  const source = ts.transpileModule(readFileSync(new URL(`../app/(tabs)/${screen}.tsx`, import.meta.url), 'utf8'), {
+  const source = ts.transpileModule(readFileSync(new URL(screen === 'detail' ? '../app/runs/[run_id].tsx' : `../app/(tabs)/${screen}.tsx`, import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: false },
   }).outputText;
   const exports = {};
   vm.runInNewContext(source, { exports, require: name => { assert.ok(name in modules, name); return modules[name]; }, Date, Map, Error });
   function nodes(type) {
     const result = [];
-    function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); if (node.type === type) result.push(node); visit(node.props?.children); visit(typeof node.props?.header === 'function' ? node.props.header(() => {}) : node.props?.header); }
+    function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); if (node.type === type) result.push(node); visit(node.props?.children); visit(node.props?.actions); visit(node.props?.action); visit(typeof node.props?.header === 'function' ? node.props.header(() => {}) : node.props?.header); }
     visit(tree); return result;
   }
   function render() {
@@ -74,6 +78,7 @@ function harness(screen) {
       const list = tree.props.children.find(child => typeof child?.type === 'function');
       tree = list.type(list.props);
     }
+    if (screen === 'detail') tree = tree.type(tree.props);
     while (effects.length) effects.shift()();
   }
   return {
@@ -176,4 +181,17 @@ test('dashboard status buttons open matching actual shipment lists and hand off 
     assert.equal(h.nodes('ShipmentSummarySheet').length, 0);
     assert.equal(h.nodes('ShipmentDetails').at(-1).props.shipmentId, filter === 'Delivered' ? 'b' : 'a');
   }
+});
+
+
+test('active run detail uses shared top-right actions with scoped data; completed/error states cannot mutate', async () => {
+  const app = harness('detail'); app.render();
+  app.resolve(0, { run_id: 'run', reference: 'Run 123', status: 'in_progress', has_delivery_note: false, origin: { location_id: 'start' }, destination: { location_id: 'end' }, shipments: [], recorded_stops: [] }); await app.flush();
+  const action = app.nodes('PageHeader')[0].props.action;
+  assert.equal(action.type, 'RunActions'); assert.equal(action.props.ownerId, 'driver'); assert.equal(action.props.token, 'token');
+  assert.equal(action.props.run.origin_location_id, 'start'); assert.equal(action.props.run.destination_location_id, 'end'); assert.equal(action.props.disabled, false);
+  action.props.onSaved(); app.render(); assert.equal(app.nodes('PageHeader')[0].props.action.props.disabled, true);
+  app.requests.at(-1).reject(new Error('Offline')); await app.flush(); assert.equal(app.nodes('PageHeader')[0].props.action.props.disabled, true);
+  app.foreground(); app.resolve(app.requests.length - 1, { run_id: 'run', status: 'completed', shipments: [], recorded_stops: [] }); await app.flush(); assert.equal(app.nodes('PageHeader')[0].props.action, undefined);
+  app.foreground(); app.requests.at(-1).reject(Object.assign(new Error('Forbidden'), { status: 403 })); await app.flush(); assert.equal(app.nodes('RunSummaryCard').length, 0);
 });

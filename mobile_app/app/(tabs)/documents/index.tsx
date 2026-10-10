@@ -265,7 +265,7 @@ export default function DocumentsScreen() {
           {requiredDocumentCount != null && requiredDocumentCount > 0 ? (
             <Pressable accessibilityRole="button" accessibilityLabel={`${requiredDocumentCount} required uploads. View required documents`}
               onPress={() => { void loadRequirements(); requiredSheetRef.current?.present(); }}
-              style={{ flexBasis: '100%', minHeight: 76, padding: 16, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: isDarkMode ? '#382B13' : '#FFF4D6' }}>
+              style={{ flexBasis: '100%', minHeight: 56, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: isDarkMode ? '#382B13' : '#FFF4D6' }}>
               <DocumentIcon kind="required" />
               <Text style={{ fontSize: 24, lineHeight: 32, fontWeight: '700', color: isDarkMode ? '#FDE68A' : '#744700' }}>{requiredDocumentCount}</Text>
               <Text style={{ flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '600', color: isDarkMode ? '#FDE68A' : '#744700' }}>Required uploads</Text>

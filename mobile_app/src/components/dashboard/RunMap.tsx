@@ -1,7 +1,7 @@
 import { useIsFocused } from 'expo-router/react-navigation';
 import { Feather } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, AppState, Pressable, StyleSheet, View } from 'react-native';
 import MapView, { Callout, Marker, Polyline } from 'react-native-maps';
 import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -283,11 +283,17 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       <Text style={[styles.truckStatusText, { color: muted }]}>{positionFailed ? 'Truck location unavailable' : position ? (position.vehicle_id ? 'Truck location not reported yet' : 'No truck assigned') : 'Locating truck…'}</Text>
     </View> : null}
     <ActionSheet ref={actions} />
-    {starting && <View style={[styles.navigationPanel, { top: topInset + 12, backgroundColor: surface }]}>
-      <Text accessibilityLiveRegion="polite" style={{ color: ink, fontSize: 18, fontWeight: '600' }}>Starting navigation…</Text>
-      <Text style={{ color: muted, fontSize: 13 }}>{navigationShipment?.dropoff_location?.name || 'Delivery destination'}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Cancel navigation startup" onPress={() => void guidance.exit()} style={{ minHeight: 44, justifyContent: 'center' }}>
-        <Text style={{ color: accent }}>Cancel</Text>
+    {starting && <View style={[styles.navigationPanel, styles.startupPanel, { top: topInset + 12 }]}>
+      <View style={styles.startupHeader}>
+        <View style={styles.startupSpinner}><ActivityIndicator size="small" color="#86efac" accessibilityLabel="Loading navigation" /></View>
+        <Text accessibilityLiveRegion="polite" style={styles.startupTitle}>Starting navigation…</Text>
+      </View>
+      <View style={styles.startupDestination}>
+        <Feather name="map-pin" size={18} color="#a1a1aa" />
+        <Text style={styles.startupDestinationText}>{navigationShipment?.dropoff_location?.name || navigationShipment?.dropoff_location?.full_address || guidance.state.target?.title || 'Delivery destination'}</Text>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Cancel navigation startup" onPress={() => void guidance.exit()} style={styles.startupCancel}>
+        <Text style={styles.startupCancelText}>Cancel</Text>
       </Pressable>
     </View>}
     {navigationShipment && !starting && <View style={[styles.navigationPanel, { top: topInset + 12, backgroundColor: surface }]}
@@ -332,6 +338,14 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
 }
 
 const styles = StyleSheet.create({
+  startupPanel: { backgroundColor: '#111111', gap: 12, shadowColor: '#000000', shadowOpacity: 0.18, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
+  startupHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  startupSpinner: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#27272a', alignItems: 'center', justifyContent: 'center' },
+  startupTitle: { flex: 1, color: '#ffffff', fontSize: 17, fontWeight: '600' },
+  startupDestination: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  startupDestinationText: { flex: 1, color: '#d4d4d8', fontSize: 14, lineHeight: 20 },
+  startupCancel: { alignSelf: 'flex-end', minWidth: 96, minHeight: 44, paddingHorizontal: 20, borderRadius: 12, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
+  startupCancelText: { color: '#111111', fontSize: 14, fontWeight: '600' },
   navigationPanel: { position: 'absolute', left: 20, right: 20, borderRadius: 16, padding: 16, gap: 8 },
   modeToggle: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', padding: 4, borderRadius: 24, backgroundColor: '#ffffff' },
   modeButton: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20 },

@@ -5,8 +5,7 @@ import { shipmentSummaryFilters, summaryShipments, type ShipmentSummaryFilter } 
 import { StopDetailsSheet } from '@/src/components/dashboard/StopDetailsSheet';
 import { RunTimeline, type RunStop } from '@/src/components/dashboard/RunTimeline';
 import { RunAdditionalCosts } from '@/src/components/dashboard/RunAdditionalCosts';
-import { DeliveryOrderSheet } from '@/src/components/dashboard/DeliveryOrderSheet';
-import { RunActionForm, type RunAction } from '@/src/components/dashboard/RunActionForm';
+import { RunActions } from '@/src/components/runs/RunActions';
 import { MessageSheet, type MessageSheetRef } from '@/component/ui/MessageSheet';
 import { FinalDestinationSheet } from '@/src/components/dashboard/FinalDestinationSheet';
 import { filterRunStops } from '@/src/components/dashboard/run-stop-filter';
@@ -22,7 +21,6 @@ import { RunMap } from '@/src/components/dashboard/RunMap';
 import { locationCoordinate } from '@/src/components/dashboard/run-map-data';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
-import * as Crypto from 'expo-crypto';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,8 +41,6 @@ export default function HomeScreen() {
   const [shipmentList, setShipmentList] = useState<{ key: string; filter: ShipmentSummaryFilter } | null>(null);
   const [selectedShipment, setSelectedShipment] = useState<string | null>(null);
   const openShipment = (id: string) => setSelectedShipment(id);
-  const runActionsSheet = useRef<ActionSheetRef>(null);
-  const [runAction, setRunAction] = useState<RunAction | 'order' | null>(null);
   const runFilterSheet = useRef<ActionSheetRef>(null);
   const [choosingDestination, setChoosingDestination] = useState(false);
   const [runFilter, setRunFilter] = useState<'all' | 'shipments' | 'speeding'>('all');
@@ -87,7 +83,7 @@ export default function HomeScreen() {
   const [lastUpdated, setLastUpdated] = useState<string>();
   const [starting, setStarting] = useState(false);
   const requestNumber = useRef(0);
-  useEffect(() => { requestNumber.current++; setSelectedStop(null); setSelectedShipment(null); setRunAction(null); setDashboard(null); setOffers([]); setError(null); setLastUpdated(undefined); setRefreshing(false); }, [session?.token]);
+  useEffect(() => { requestNumber.current++; setSelectedStop(null); setSelectedShipment(null); setDashboard(null); setOffers([]); setError(null); setLastUpdated(undefined); setRefreshing(false); }, [session?.token]);
 
   const load = useCallback(async (isCurrent: () => boolean = () => true, pullToRefresh = false) => {
     if (!session?.token) return;
@@ -121,28 +117,9 @@ export default function HomeScreen() {
     return () => { current = false; requestNumber.current++; setRefreshing(false); listener.remove(); };
   }, [load]));
 
-  useEffect(() => { setRunAction(null); }, [dashboard?.current_run?.run_id]);
   // Older servers already identify runs needing a note through the map notice.
   const canUploadRunNote = dashboard?.current_run?.has_delivery_note === false
     || (dashboard?.current_run?.has_delivery_note === undefined && !!requiredNoteRunId && requiredNoteRunId === dashboard?.current_run?.run_id);
-  const openRunActions = () => {
-    const runId = dashboard?.current_run?.run_id;
-    if (!runId || !session) return;
-    runActionsSheet.current?.present({ title: '', actions: [
-      { id: 'edit', label: 'Edit Run', onPress: () => setRunAction('edit') },
-      { id: 'order', label: 'Update delivery order', onPress: () => setRunAction('order') },
-      { id: 'cost', label: 'Add additional cost', onPress: () => setRunAction('cost') },
-      ...(canUploadRunNote ? [{
-        id: 'upload-delivery-note', label: 'Upload delivery note',
-        onPress: () => router.push({ pathname: '/shipments/load', params: { run_id: dashboard.current_run!.run_id } }),
-      }] : []),
-      { id: 'message-dispatch', label: 'Message dispatch', onPress: () => router.push({
-        pathname: '/(tabs)/messages', params: { draft_run_id: runId, draft_run_label: 'Current run',
-          draft_run_request: Crypto.randomUUID(), draft_owner: session.user.user_id },
-      }) },
-      { id: 'end', label: 'End Run', variant: 'destructive', disabled: dashboard?.current_run?.end_request?.status === 'pending', onPress: () => setRunAction('end') },
-    ] });
-  };
 
   const shipments = useMemo(() => dashboard?.run_shipments ?? [], [dashboard?.run_shipments]);
   const next = nextDelivery(shipments);
@@ -221,7 +198,7 @@ export default function HomeScreen() {
         initialSnapIndex={showRunDock ? 0 : 1} collapsedHeight={showRunDock ? runDockHeight + 28 : undefined}
         header={showRunDock && dashboard?.current_run ? (expand, isExpanded) => <ActiveRunDock key={dashboard.current_run?.run_id}
           startedAt={dashboard.current_run?.started_at} endpoints={dashboard.trip_endpoints}
-          showInfo={!isExpanded} onShowTimeline={expand} onActions={openRunActions} onHeightChange={setRunDockHeight} /> : undefined}>
+          showInfo={!isExpanded} onShowTimeline={expand} actions={session && dashboard.current_run && <RunActions key={`${session.user.user_id}:${dashboard.current_run.run_id}`} token={session.token} ownerId={session.user.user_id} run={dashboard.current_run} canUploadDeliveryNote={canUploadRunNote} disabled={!!error || refreshing} onSaved={() => void load()} />} onHeightChange={setRunDockHeight} /> : undefined}>
       <ScrollView
         style={{ flex: 1 }}
         contentInsetAdjustmentBehavior="never"
@@ -239,7 +216,10 @@ export default function HomeScreen() {
         {loading && !dashboard ? <ActivityIndicator style={{ paddingVertical: 70 }} size="large" color="#15803d" /> : dashboard?.current_run ? (
           <View style={[styles.deliveryCard, { backgroundColor: dark ? '#18181b' : '#ffffff' }]}>
             {dashboard.current_run.status !== 'in_progress' && <Text style={[styles.runTitle, { color: ink }]}>Ready to start</Text>}
-            {dashboard.current_run.end_request?.status === 'pending' && <Text style={{ color: warning, marginTop: 8 }}>End run requested — awaiting dispatch approval</Text>}
+            {dashboard.current_run.end_request?.status === 'pending' && <View accessibilityRole="text" style={{ backgroundColor: '#dc2626', borderRadius: 28, padding: 16, marginTop: 8, marginBottom: 12, minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Feather name="info" size={24} color="#ffffff" accessible={false} />
+              <Text style={{ color: '#ffffff', fontSize: 16, lineHeight: 24, fontWeight: '600', flex: 1 }}>End run requested — awaiting dispatch approval</Text>
+            </View>}
             {dashboard.current_run.end_request?.status === 'rejected' && <Text style={{ color: warning, marginTop: 8 }}>End run request rejected: {dashboard.current_run.end_request.review_reason}</Text>}
             <View style={styles.shipmentTotals}>
               {shipmentSummaryFilters.map(filter => {
@@ -323,9 +303,6 @@ export default function HomeScreen() {
       <StopDetailsSheet shipments={shipments} endpoints={dashboard?.trip_endpoints} stop={selectedStop} onDismiss={() => setSelectedStop(null)}
         onOpenShipment={openShipment} />
       <ActionSheet ref={runFilterSheet} />
-      <ActionSheet ref={runActionsSheet} />
-      {runAction === 'order' && session && dashboard?.current_run?.status === 'in_progress' && <DeliveryOrderSheet key={`${session.user.user_id}:${dashboard.current_run.run_id}`} token={session.token} runId={dashboard.current_run.run_id} onDismiss={() => setRunAction(null)} onSaved={() => void load()} />}
-      {runAction && runAction !== 'order' && session && dashboard?.current_run?.status === 'in_progress' && <RunActionForm key={`${session.user.user_id}:${dashboard.current_run.run_id}:${runAction}`} action={runAction} token={session.token} run={dashboard.current_run} onDismiss={() => setRunAction(null)} onSaved={() => void load()} />}
       {choosingDestination && session && dashboard?.current_run && <FinalDestinationSheet key={`${session.user.user_id}:${dashboard.current_run.run_id}`} token={session.token} runId={dashboard.current_run.run_id} onDismiss={() => setChoosingDestination(false)} onSaved={() => void load()} />}
     </GestureHandlerRootView>
   );

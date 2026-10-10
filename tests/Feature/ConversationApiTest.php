@@ -470,6 +470,26 @@ class ConversationApiTest extends TestCase
         $this->assertSame('duplicate', $latest->fresh()->push_token);
     }
 
+    public function test_dispatch_push_preview_handles_non_text_empty_and_long_messages(): void
+    {
+        Queue::fake();
+        [$owner, $merchant, $driver, $profile] = $this->context();
+        $conversation = app(ConversationService::class)->driverChat($owner, $merchant, $profile->uuid);
+        app(UserDeviceService::class)->register($driver, ['platform' => 'ios', 'push_provider' => 'expo', 'push_token' => 'ExponentPushToken[preview]']);
+        foreach ([
+            ['file', null, 'You have a new message from dispatch.'],
+            ['file', 'Attachment caption', 'You have a new message from dispatch.'],
+            ['text', '   ', 'You have a new message from dispatch.'],
+            ['text', '  Meet at the depot.  ', 'Meet at the depot.'],
+            ['text', str_repeat('A', 10000), str_repeat('A', 500).'...'],
+        ] as [$type, $body, $expected]) {
+            Http::fake(['*/push/send' => Http::response(['data' => [['status' => 'ok', 'id' => 'preview-receipt']]])]);
+            $message = $conversation->messages()->create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'user_id' => $owner->id, 'type' => $type, 'body' => $body]);
+            (new SendDriverMessagePush($message->id))->handle();
+            Http::assertSent(fn ($request) => $request[0]['title'] === 'Message from dispatch' && $request[0]['body'] === $expected);
+        }
+    }
+
     public function test_push_recipient_receipt_cleanup_and_token_ownership(): void
     {
         Queue::fake();
@@ -479,7 +499,7 @@ class ConversationApiTest extends TestCase
         $device = app(UserDeviceService::class)->register($driver, ['platform' => 'android', 'push_provider' => 'expo', 'push_token' => 'ExponentPushToken[test]']);
         Http::fake(['*/push/send' => Http::response(['data' => [['status' => 'ok', 'id' => 'receipt-1']]]), '*/push/getReceipts' => Http::response(['data' => ['receipt-1' => ['status' => 'error', 'details' => ['error' => 'DeviceNotRegistered']]]])]);
         (new SendDriverMessagePush($message->id))->handle();
-        Http::assertSent(fn ($request) => $request[0]['to'] === $device->push_token && $request[0]['data']['conversation_id'] === $conversation->uuid && $request[0]['data']['kind'] === 'driver_message' && $request[0]['data']['message_id'] === $message->uuid && $request[0]['channelId'] === 'default' && $request[0]['priority'] === 'high' && $request[0]['sound'] === 'default' && $request[0]['body'] !== 'Private body');
+        Http::assertSent(fn ($request) => $request[0]['to'] === $device->push_token && $request[0]['data']['conversation_id'] === $conversation->uuid && $request[0]['data']['kind'] === 'driver_message' && $request[0]['data']['message_id'] === $message->uuid && $request[0]['channelId'] === 'default' && $request[0]['priority'] === 'high' && $request[0]['sound'] === 'default' && $request[0]['title'] === 'Message from dispatch' && $request[0]['body'] === 'Private body');
         Queue::assertPushed(CheckMessagePushReceipts::class);
         (new CheckMessagePushReceipts(['receipt-1' => $device->push_token]))->handle();
         $this->assertNull($device->fresh()->push_token);

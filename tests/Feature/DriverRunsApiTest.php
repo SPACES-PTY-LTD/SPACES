@@ -146,6 +146,28 @@ class DriverRunsApiTest extends TestCase
         $this->getJson("/api/v1/driver/runs/{$run->uuid}", $headers)->assertOk()->assertJsonPath('data.shipments.0.run_id', $run->uuid);
     }
 
+    public function test_run_detail_delivery_note_availability_matches_scoped_run_uploads(): void
+    {
+        [$user, $driver] = $this->context();
+        $run = $this->makeRun($driver, 'in_progress');
+        $otherRun = $this->makeRun($driver, 'in_progress');
+        $headers = $this->headers($user);
+        $url = "/api/v1/driver/runs/{$run->uuid}";
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.has_delivery_note', false);
+        $note = \App\Models\DeliveryNoteImport::create([
+            'account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id,
+            'environment_id' => $run->environment_id, 'run_id' => $otherRun->id,
+            'uploaded_by_user_id' => $user->id, 'status' => 'confirmed', 'disk' => 'local',
+            'path' => 'test/note.pdf', 'original_name' => 'note.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 10,
+        ]);
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.has_delivery_note', false);
+        $note->update(['run_id' => $run->id]);
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.has_delivery_note', true);
+        [, $otherDriver] = $this->context();
+        $note->update(['account_id' => $otherDriver->account_id, 'merchant_id' => $otherDriver->merchant_id]);
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.has_delivery_note', false);
+    }
+
     public function test_completed_shipment_files_require_owned_retained_run_membership(): void
     {
         [$user, $driver] = $this->context();

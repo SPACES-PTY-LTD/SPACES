@@ -65,6 +65,6 @@ export function GuidanceMap({ topInset }: { topInset: number }) {
 }
 const styles = StyleSheet.create({
   footer: { backgroundColor: '#111111', position: 'absolute', bottom: footerBottom, left: 12, right: 12, borderRadius: 16, padding: 12, gap: 12, flexDirection: 'row', alignItems: 'center' },
-  icon: { backgroundColor: '#ffffff', width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#a1a1aa', borderRadius: 14 },
+  icon: { backgroundColor: '#ffffff', width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
   exit: { minWidth: 64, minHeight: 44, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#dc2626', borderRadius: 14 },
 });

@@ -22,7 +22,7 @@ function harness() {
     exports, require: name => modules[name], Date: Clock,
     setInterval: (fn, ms) => { assert.equal(ms, 1000); tick = fn; return 1; }, clearInterval: () => { tick = undefined; },
   });
-  const render = () => exports.ActiveRunDock({ startedAt: '2026-10-10T08:00:00Z', endpoints: [], showInfo: true, onShowTimeline: () => revealed++, onActions: () => opened++, onHeightChange() {} });
+  const render = () => exports.ActiveRunDock({ startedAt: '2026-10-10T08:00:00Z', endpoints: [], showInfo: true, onShowTimeline: () => revealed++, actions: { type: 'Pressable', props: { accessibilityLabel: 'Run actions', onPress: () => opened++ } }, onHeightChange() {} });
   return { exports, render, focus: () => { cleanup = focus(); }, blur: () => cleanup(), advance: ms => { now += ms; tick?.(); }, state: state => { native.AppState.currentState = state; listener(state); }, ticking: () => !!tick, opened: () => opened, revealed: () => revealed };
 }
 function nodes(tree) { if (!tree || typeof tree !== 'object') return []; return [tree, ...[tree.props?.children].flat().flatMap(nodes)]; }

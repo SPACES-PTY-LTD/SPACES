@@ -63,6 +63,8 @@ class DriverRunController extends Controller
         $timeline = $data->timeline($run, $driver, $shipments);
 
         return ApiResponse::success(array_merge((new DriverRunResource($run))->toArray($request), [
+            'has_delivery_note' => $run->deliveryNoteImports()->where('account_id', $driver->account_id)
+                ->where('merchant_id', $driver->merchant_id)->where('environment_id', $run->environment_id)->exists(),
             'shipments' => DriverShipmentResource::collection($shipments),
             'recorded_stops' => $timeline['recorded_stops'],
         ]));

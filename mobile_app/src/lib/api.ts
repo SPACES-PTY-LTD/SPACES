@@ -269,6 +269,7 @@ export type DriverRunSummary = {
 };
 
 export type DriverRunDetail = DriverRunSummary & {
+  has_delivery_note?: boolean;
   shipments: DriverShipment[];
   recorded_stops: NonNullable<DriverDashboard['recorded_stops']>;
 };

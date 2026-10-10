@@ -137,7 +137,6 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
       {action === 'edit' && !choosing && <Pressable accessibilityRole="button" disabled={busy} onPress={() => modal.current?.dismiss()} style={styles.cancel}><Text style={{ color: ink, fontSize: 14, fontWeight: '600' }}>Cancel</Text></Pressable>}
     </> : <>
     {!choosing && <ImportButton label={busy ? 'Saving…' : action === 'end' ? 'Request approval' : 'Add cost'} disabled={busy || loading || (action === 'end' && !reason.trim())} onPress={() => void save()} />}
-    <ImportButton secondary label="Cancel" disabled={busy} onPress={() => modal.current?.dismiss()} />
     </>}
   </BottomSheet>;
 }

@@ -22,7 +22,15 @@ function harness(initialParams = {}) {
       effects.push(() => { slots[i].cleanup = callback(); });
     }
   }
+  const dateExports = {};
+  vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/message-date.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: dateExports, Date, Number });
+  const imageExports = {};
+  vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/chat-images.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: imageExports, Math });
   const modules = {
+    '@/src/lib/chat-images': imageExports,
+    '@/src/components/ChatImage': { ChatImage: 'ChatImage' },
+    '@/src/components/ChatPhotoViewer': { ChatPhotoViewer: 'ChatPhotoViewer' },
+    '@/src/lib/message-date': dateExports,
     react: {
       useState(initial) { const i = cursor++; slots[i] ??= { value: initial }; return [slots[i].value, value => { slots[i].value = typeof value === 'function' ? value(slots[i].value) : value; }]; },
       useRef(initial) { const i = cursor++; slots[i] ??= { current: initial }; return slots[i]; },
@@ -150,7 +158,7 @@ test('draft shipment opens scoped bottom sheet and closing preserves draft', asy
 });
 test('sent run and completed shipment references open sheets without navigation', async () => {
   const app = harness(); app.render();
-  const item = { ...message('1'), attachments: [{ attachment_id: 'a', filename: 'Run 123', reference: { type: 'run', id: 'run-1', label: 'Run 123' } }, { attachment_id: 'b', filename: 'Shipment 123', reference: { type: 'shipment', id: 'shipment-1', run_id: 'completed-run', label: 'Shipment 123' } }] };
+  const item = { ...message('1'), attachments: [{ attachment_id: 'a', filename: 'Run 123', reference: { type: 'run', id: 'run-1', label: 'Run 123' } }, { attachment_id: 'b', filename: '123', reference: { type: 'shipment', id: 'shipment-1', run_id: 'completed-run', label: '123' } }] };
   app.resolve([item]); await app.flush(); app.render();
   function buttons(node, result = []) { if (!node || typeof node !== 'object') return result; if (Array.isArray(node)) { node.forEach(n => buttons(n, result)); return result; } if (node.type === 'Pressable') result.push(node); buttons(node.props?.children, result); return result; }
   const row = app.nodes('FlatList')[0].props.renderItem({ item });
@@ -213,4 +221,49 @@ test('run drafts respect owner, closed chats, mixed attachment limit and typed i
   assert.ok(app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Remove Run same-id'));
   assert.ok(app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Remove Shipment same-id'));
   assert.ok(app.nodes('Text').some(n => typeof n.props.children === 'string' && n.props.children.includes('Choose up to five'))); app.unmount();
+});
+
+
+test('message list separates local days without repeating a heading for adjacent messages', async () => {
+  const app = harness(); app.render();
+  app.resolve([
+    { ...message('1'), created_at: '2026-10-09T12:00:00Z' },
+    { ...message('2'), created_at: '2026-10-09T13:00:00Z' },
+    { ...message('3'), created_at: '2026-10-10T12:00:00Z' },
+  ]);
+  await app.flush();
+  const list = app.nodes('FlatList')[0].props;
+  const rows = list.data.map((item, index) => list.renderItem({ item, index }));
+  assert.equal(rows[0].props.children[0].type, 'Text');
+  assert.equal(rows[1].props.children[0], null);
+  assert.equal(rows[2].props.children[0].type, 'Text');
+  assert.notEqual(rows[0].props.children[0].props.children, rows[2].props.children[0].props.children);
+  assert.equal(rows[0].props.children[1].props.style[1].alignSelf, 'flex-start');
+  app.unmount();
+});
+
+
+test('sent photos open a chronological gallery while documents keep download actions', async () => {
+  const photo = id => ({ attachment_id: id, type: 'file', mime_type: 'image/jpeg', filename: `${id}.jpg` });
+  const document = { attachment_id: 'doc', type: 'file', mime_type: 'application/pdf', filename: 'note.pdf' };
+  const app = harness(); app.render(); app.resolve([
+    { ...message('1'), attachments: [photo('a'), document] },
+    { ...message('2'), attachments: [photo('b')] },
+  ]); await app.flush();
+  const props = app.nodes('FlatList')[0].props;
+  const row = props.renderItem({ item: props.data[1], index: 1 });
+  const find = (node, type) => {
+    if (!node || typeof node !== 'object') return [];
+    if (Array.isArray(node)) return node.flatMap(child => find(child, type));
+    return [...(node.type === type ? [node] : []), ...find(node.props?.children, type)];
+  };
+  assert.equal(find(row, 'ChatImage').length, 1);
+  find(row, 'Pressable').find(node => node.props.accessibilityLabel === 'View photo b.jpg').props.onPress();
+  app.render(); const viewer = app.nodes('ChatPhotoViewer')[0].props;
+  assert.equal(viewer.initialId, 'b'); assert.equal(viewer.token, 'token'); assert.equal(viewer.conversationId, 'chat');
+  assert.deepEqual(Array.from(viewer.images, image => image.attachment_id), ['a', 'b']);
+  const first = props.renderItem({ item: props.data[0], index: 0 });
+  assert.ok(find(first, 'Pressable').some(node => node.props.accessibilityLabel === 'Open note.pdf'));
+  viewer.onClose(); app.render(); assert.equal(app.nodes('ChatPhotoViewer').length, 0);
+  app.unmount();
 });

@@ -48,6 +48,9 @@
           "backgroundColor": "#ffffff",
           "dark": {
             "backgroundColor": "#ffffff"
+          },
+          "android": {
+            "imageWidth": 160
           }
         }
       ],
