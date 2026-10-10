@@ -239,6 +239,29 @@ class DriverShipmentApiTest extends TestCase
         $this->getJson('/api/v1/driver/runs/'.$run->uuid.'/directions', $this->driverAuthHeaders($user))->assertNotFound();
     }
 
+    public function test_next_delivery_route_uses_ordered_remaining_shipment_and_fresh_scoped_truck(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $shipment = $this->createShipment($merchant, 'NEXT-ROUTE', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+        $run = RunShipment::where('shipment_id', $shipment->id)->firstOrFail()->run;
+        $vehicle->update(['last_location_address' => ['latitude' => -26.1, 'longitude' => 28.1], 'location_updated_at' => now()]);
+        $service = $this->mock(\App\Services\RunDirectionsService::class);
+        $service->shouldReceive('route')->once()->with(\Mockery::on(fn ($points) => $points[0]->latitude === -26.1 && $points[1]->id === $shipment->dropoff_location_id))
+            ->andReturn(['status' => 'ready', 'duration_seconds' => 720]);
+        $headers = $this->driverAuthHeaders($user);
+        $url = '/api/v1/driver/runs/'.$run->uuid.'/directions?next_delivery=1';
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.shipment_id', $shipment->uuid)->assertJsonPath('data.duration_seconds', 720);
+        $vehicle->update(['location_updated_at' => now()->subMinutes(16)]);
+        $service->shouldReceive('route')->once()->with(\Mockery::on(fn ($points) => $points[0] === null))->andReturn(['status' => 'missing_locations']);
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.status', 'missing_locations');
+        $shipment->update(['status' => 'delivered']);
+        $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.status', 'not_needed')->assertJsonPath('data.shipment_id', null);
+        [$other] = $this->createDriverContext($merchant);
+        $this->getJson($url, $this->driverAuthHeaders($other))->assertNotFound();
+    }
+
     public function test_dashboard_counts_due_work_and_deliveries_in_the_merchant_day(): void
     {
         $this->travelTo(\Carbon\Carbon::parse('2026-09-15 12:00:00', 'UTC'));

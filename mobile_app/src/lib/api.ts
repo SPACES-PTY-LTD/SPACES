@@ -730,8 +730,8 @@ export const driverApi = {
   async truckPosition(token: string) {
     return positionWithAddress(token, await request<RunPosition>('/driver/position', { token }));
   },
-  async runDirections(token: string, runId: string) {
-    return request<RunDirections>(`/driver/runs/${encodeURIComponent(runId)}/directions`, { token });
+  async runDirections(token: string, runId: string, nextDelivery = false) {
+    return request<RunDirections>(`/driver/runs/${encodeURIComponent(runId)}/directions${nextDelivery ? "?next_delivery=1" : ""}`, { token });
   },
   async dashboard(token: string, runId?: string) {
     const response = await request<DriverDashboard>(`/driver/dashboard${runId ? `?run_id=${encodeURIComponent(runId)}` : ''}`, { token });
@@ -964,6 +964,8 @@ export const documentImportApi = {
 };
 
 export type RunDirections = {
+  shipment_id?: string | null;
+  calculated_at?: string;
   status: 'ready' | 'missing_locations' | 'not_configured' | 'not_needed' | 'too_many_stops' | 'unavailable';
   coordinates?: { latitude: number; longitude: number }[];
   distance_meters?: number;

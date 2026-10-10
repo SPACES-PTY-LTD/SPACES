@@ -12,9 +12,11 @@ import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanima
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { PersistentBottomSheet } from '@/component/ui/PersistentBottomSheet';
+import { NextDeliveryCard, nextDelivery } from '@/src/components/dashboard/NextDeliveryCard';
 import { RunMap } from '@/src/components/dashboard/RunMap';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
+import * as Crypto from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -114,18 +116,29 @@ export default function HomeScreen() {
   // Older servers already identify runs needing a note through the map notice.
   const canUploadRunNote = dashboard?.current_run?.has_delivery_note === false
     || (dashboard?.current_run?.has_delivery_note === undefined && !!requiredNoteRunId && requiredNoteRunId === dashboard?.current_run?.run_id);
-  const openRunActions = () => runActionsSheet.current?.present({ title: '', actions: [
-    { id: 'edit', label: 'Edit Run', onPress: () => setRunAction('edit') },
-    { id: 'order', label: 'Update delivery order', onPress: () => setRunAction('order') },
-    { id: 'cost', label: 'Add additional cost', onPress: () => setRunAction('cost') },
-    ...(canUploadRunNote ? [{
-      id: 'upload-delivery-note', label: 'Upload delivery note',
-      onPress: () => router.push({ pathname: '/shipments/load', params: { run_id: dashboard.current_run!.run_id } }),
-    }] : []),
-    { id: 'end', label: 'End Run', variant: 'destructive', disabled: dashboard?.current_run?.end_request?.status === 'pending', onPress: () => setRunAction('end') },
-  ] });
+  const openRunActions = () => {
+    const runId = dashboard?.current_run?.run_id;
+    if (!runId || !session) return;
+    runActionsSheet.current?.present({ title: '', actions: [
+      { id: 'edit', label: 'Edit Run', onPress: () => setRunAction('edit') },
+      { id: 'order', label: 'Update delivery order', onPress: () => setRunAction('order') },
+      { id: 'cost', label: 'Add additional cost', onPress: () => setRunAction('cost') },
+      ...(canUploadRunNote ? [{
+        id: 'upload-delivery-note', label: 'Upload delivery note',
+        onPress: () => router.push({ pathname: '/shipments/load', params: { run_id: dashboard.current_run!.run_id } }),
+      }] : []),
+      { id: 'message-dispatch', label: 'Message dispatch', onPress: () => router.push({
+        pathname: '/(tabs)/messages', params: { draft_run_id: runId, draft_run_label: 'Current run',
+          draft_run_request: Crypto.randomUUID(), draft_owner: session.user.user_id },
+      }) },
+      { id: 'end', label: 'End Run', variant: 'destructive', disabled: dashboard?.current_run?.end_request?.status === 'pending', onPress: () => setRunAction('end') },
+    ] });
+  };
 
   const shipments = dashboard?.run_shipments ?? [];
+  const next = nextDelivery(shipments);
+  const [nextCardHeight, setNextCardHeight] = useState(0);
+  const showNext = !requiredNoteRunId && dashboard?.current_run?.status === "in_progress" && !!next;
   const needsDestination = !!dashboard?.current_run && !dashboard.current_run.destination_location_id && !dashboard.trip_endpoints?.some(endpoint => endpoint.role === 'Planned end location');
   const showDestinationEntry = needsDestination && runFilter === 'all';
   const visibleStops = filterRunStops([...(dashboard?.recorded_stops ?? []), ...(dashboard?.planned_delivery_stops ?? [])], runFilter);
@@ -152,7 +165,8 @@ export default function HomeScreen() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: surface }}>
       <View style={{ flex: 1, overflow: 'hidden' }} onLayout={event => setContainerHeight(event.nativeEvent.layout.height)}>
       <Animated.View style={mapStyle}>
-        <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset} onOpenShipment={openShipment} />
+        <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset + (showNext ? nextCardHeight : 0)} onOpenShipment={openShipment} />
+      {showNext && next && session && dashboard?.current_run && <NextDeliveryCard key={dashboard.current_run.run_id} shipment={next} runId={dashboard.current_run.run_id} token={session.token} topInset={mapTopInset} onHeightChange={setNextCardHeight} onOpenShipment={openShipment} />}
       {requiredNoteRunId ? <View pointerEvents="box-none" style={[styles.documentNoticeOverlay, { paddingTop: insets.top }]}>
           <Pressable style={[styles.documentNotice, { backgroundColor: surface }]} onPress={() => router.push({ pathname: '/shipments/load', params: { run_id: requiredNoteRunId } })} accessibilityRole="button" accessibilityLabel="Important: upload a delivery note" accessibilityHint="Opens delivery-note upload for this run">
             <Feather name="alert-triangle" size={24} color={dark ? '#fde68a' : '#92400e'} />

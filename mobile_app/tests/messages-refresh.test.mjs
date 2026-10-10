@@ -58,6 +58,7 @@ function harness(initialParams = {}) {
   return {
     async pickFiles(assets) { pickedAssets = assets; nodes('Pressable').find(n => n.props.accessibilityLabel === 'Add attachment').props.onPress(); await actions.find(a => a.id === 'file').onPress(); render(); },
     requestShipment(id, request = id) { params = { draft_shipment_id: id, draft_shipment_label: `Shipment ${id}`, draft_shipment_request: request, draft_owner: 'driver' }; render(); },
+    requestRun(id, request = id) { params = { draft_run_id: id, draft_run_label: `Run ${id}`, draft_run_request: request, draft_owner: 'driver' }; render(); },
     closed() { chat.status = 'closed'; },
     owner(value) { params.draft_owner = value; },
     frames() { const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback()); },
@@ -180,4 +181,36 @@ test('draft pictures preview local images without filenames; documents retain na
   assert.equal(app.nodes('TextInput')[0].props.value, 'Keep this draft');
   assert.equal(app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Send message').props.disabled, false);
   app.unmount();
+});
+
+
+test('run handoff preserves draft, avoids duplicates, opens selected run and can be removed', async () => {
+  const app = harness(); app.render(); app.resolve([]); await app.flush();
+  app.nodes('TextInput')[0].props.onChangeText('Help with this run'); app.render();
+  app.requestRun('run-1'); app.render(); app.frames(); assert.equal(app.focusCount, 1);
+  app.requestRun('run-1', 'again'); app.render();
+  assert.equal(app.nodes('Pressable').filter(n => n.props.accessibilityLabel === 'Remove Run run-1').length, 1);
+  app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Open Run run-1').props.onPress(); app.render();
+  assert.equal(app.nodes('RunDetailsSheet')[0].props.runId, 'run-1');
+  app.nodes('RunDetailsSheet')[0].props.onDismiss(); app.render();
+  assert.equal(app.nodes('TextInput')[0].props.value, 'Help with this run');
+  app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Remove Run run-1').props.onPress(); app.render();
+  app.focus(false); app.focus(true); await app.flush(); app.render();
+  assert.equal(app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Remove Run run-1'), undefined); app.unmount();
+});
+test('run drafts respect owner, closed chats, mixed attachment limit and typed identity', async () => {
+  for (const otherOwner of [false, true]) {
+    const app = harness({ draft_run_id: 'run-1', draft_run_request: 'request-run', draft_owner: 'driver' });
+    if (otherOwner) app.owner('another-driver'); else app.closed();
+    app.render(); app.resolve([]); await app.flush(); app.render();
+    assert.equal(app.nodes('Pressable').filter(n => n.props.accessibilityLabel?.startsWith('Remove ')).length, 0); app.unmount();
+  }
+  const app = harness(); app.render(); app.resolve([]); await app.flush();
+  app.requestShipment('same-id'); app.render(); app.requestRun('same-id', 'run-request'); app.render();
+  for (let i = 1; i <= 3; i++) { app.requestRun(`run-${i}`); app.render(); }
+  app.requestRun('over-limit'); app.render();
+  assert.equal(app.nodes('Pressable').filter(n => n.props.accessibilityLabel?.startsWith('Remove ')).length, 5);
+  assert.ok(app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Remove Run same-id'));
+  assert.ok(app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Remove Shipment same-id'));
+  assert.ok(app.nodes('Text').some(n => typeof n.props.children === 'string' && n.props.children.includes('Choose up to five'))); app.unmount();
 });

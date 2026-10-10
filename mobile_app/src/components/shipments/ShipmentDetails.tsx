@@ -38,6 +38,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ActionSheet, type ActionSheetRef } from "@/component/ui/ActionSheet";
 import { BottomSheet } from "@/component/ui/BottomSheet";
+import { DeliveryStatusSheet } from "./DeliveryStatusSheet";
+import { CancelShipmentSheet } from "./CancelShipmentSheet";
 import { createSheetHandoff } from "@/component/ui/sheet-handoff";
 import { PageHeader } from "@/component/ui/PageHeader";
 import { Text } from "@/component/ui/Text";
@@ -45,7 +47,6 @@ import { DateInput } from "@/component/ui/DateInput";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     ApiRequestError,
-    CancelReason,
     DriverEntityFile,
     DriverFileType,
     DriverShipment,
@@ -252,7 +253,6 @@ function ShipmentDetailsContent({
     const { colorScheme } = useColorScheme();
     const isDarkMode = colorScheme === "dark";
     const [shipment, setShipment] = useState<DriverShipment | null>(null);
-    const [cancelReasons, setCancelReasons] = useState<CancelReason[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isMutating, setIsMutating] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -263,16 +263,10 @@ function ShipmentDetailsContent({
         "cancel" | "pod" | "status" | null
     >(null);
     const [statusValue, setStatusValue] = useState("in_transit");
-    const [statusNote, setStatusNote] = useState("");
-    const [pickupOdometer, setPickupOdometer] = useState("");
-    const [deliveryOdometer, setDeliveryOdometer] = useState("");
     const [podFileKey, setPodFileKey] = useState("");
     const [podFileType, setPodFileType] = useState("image/jpeg");
     const [podSignedBy, setPodSignedBy] = useState("");
     const [podDeliveryOdometer, setPodDeliveryOdometer] = useState("");
-    const [cancelReasonCode, setCancelReasonCode] = useState("");
-    const [cancelReasonText, setCancelReasonText] = useState("");
-    const [cancelNote, setCancelNote] = useState("");
     const [shipmentFilesLoading, setShipmentFilesLoading] = useState(true);
     const shipmentFilesRequest = useRef(0);
     const [shipmentFiles, setShipmentFiles] = useState<DriverEntityFile[]>([]);
@@ -342,20 +336,6 @@ function ShipmentDetailsContent({
             );
             setPodSignedBy(
                 (current) => current || response?.dropoff_location?.name || "",
-            );
-            setPickupOdometer(
-                (current) =>
-                    current ||
-                    formatOdometerInput(
-                        response?.booking?.odometer_at_collection,
-                    ),
-            );
-            setDeliveryOdometer(
-                (current) =>
-                    current ||
-                    formatOdometerInput(
-                        response?.booking?.odometer_at_delivery,
-                    ),
             );
             setPodDeliveryOdometer(
                 (current) =>
@@ -427,28 +407,6 @@ function ShipmentDetailsContent({
             listener.remove();
         };
     }, [loadShipment, loadShipmentFiles, refreshKey]);
-
-    useEffect(() => {
-        async function loadCancelReasons() {
-            if (!session?.token) {
-                return;
-            }
-
-            try {
-                const response = await driverApi.listCancelReasons(
-                    session.token,
-                );
-                setCancelReasons(response.data);
-                setCancelReasonCode(
-                    (current) => current || response.data[0]?.code || "",
-                );
-            } catch {
-                setCancelReasons([]);
-            }
-        }
-
-        loadCancelReasons();
-    }, [session?.token]);
 
     async function runAction(
         action: (token: string) => Promise<DriverShipment>,
@@ -662,20 +620,7 @@ function ShipmentDetailsContent({
         }
     }
 
-    const statusRequiresPickupOdometer = requiresPickupOdometer(statusValue);
-    const statusRequiresDeliveryOdometer =
-        requiresDeliveryOdometer(statusValue);
-    const parsedPickupOdometer = parseOdometer(pickupOdometer);
-    const parsedDeliveryOdometer = parseOdometer(deliveryOdometer);
     const parsedPodDeliveryOdometer = parseOdometer(podDeliveryOdometer);
-    const needsPickupOdometer =
-        statusRequiresPickupOdometer &&
-        shipment?.booking?.odometer_at_collection == null &&
-        parsedPickupOdometer === null;
-    const needsDeliveryOdometer =
-        statusRequiresDeliveryOdometer &&
-        shipment?.booking?.odometer_at_delivery == null &&
-        parsedDeliveryOdometer === null;
 
     // A bounded receipt uses native scrolling rather than a second Gorhom
     // scrollable registration competing with the outer sheet content.
@@ -717,10 +662,21 @@ function ShipmentDetailsContent({
                 selected: status === (activeAction === "status" ? statusValue : shipment.booking!.status),
                 onPress: () => {
                     setStatusValue(status);
+                    setErrorMessage(null);
                     setActiveAction("status");
                 },
             })),
         });
+    };
+    const messageDispatch = () => {
+        if (!shipment || !session) return;
+        if (presentation === "sheet") onClose?.();
+        router.push({ pathname: "/(tabs)/messages", params: {
+            draft_shipment_id: shipment.shipment_id,
+            draft_shipment_label: shipment.merchant_order_ref || shipment.delivery_note_number || shipment.shipment_id,
+            draft_shipment_request: Crypto.randomUUID(),
+            draft_owner: session.user.user_id,
+        } });
     };
     const openShipmentActions = () => {
         if (!shipment?.booking || readOnly || isMutating) return;
@@ -740,13 +696,14 @@ function ShipmentDetailsContent({
                           },
                       ]
                     : []),
+                { id: "message-dispatch", label: "Message dispatch", onPress: messageDispatch },
                 ...(!readOnly && shipment.booking
                     ? [
                           {
                               id: "cancel-shipment",
                               label: "Cancel shipment",
                               variant: "destructive" as const,
-                              onPress: () => setActiveAction("cancel"),
+                              onPress: () => { setErrorMessage(null); setActiveAction("cancel"); },
                           },
                       ]
                     : []),
@@ -1214,15 +1171,7 @@ function ShipmentDetailsContent({
                                 icon="message"
                                 title="Message dispatch"
                                 subtitle="Ask for help with this shipment"
-                                onPress={() => {
-                                    if (presentation === "sheet") onClose?.();
-                                    router.push({ pathname: "/(tabs)/messages", params: {
-                                        draft_shipment_id: shipment.shipment_id,
-                                        draft_shipment_label: shipment.merchant_order_ref || shipment.delivery_note_number || shipment.shipment_id,
-                                        draft_shipment_request: Crypto.randomUUID(),
-                                        draft_owner: session?.user.user_id,
-                                    } });
-                                }}
+                                onPress={messageDispatch}
                             />
                         )}
                     </>
@@ -1285,7 +1234,7 @@ function ShipmentDetailsContent({
                 presentation={presentation}
                 visible={
                     !!shipment &&
-                    !readOnly && activeAction !== null
+                    !readOnly && activeAction === "pod"
                 }
                 onRequestClose={() => {
                     if (!isMutating) {
@@ -1303,15 +1252,7 @@ function ShipmentDetailsContent({
                     behavior={Platform.OS === "ios" ? "padding" : undefined}
                 >
                     <PageHeader
-                        title={
-                            activeAction === "status"
-                                ? "Delivery status"
-                                : activeAction === "pod"
-                                  ? "Delivery proof"
-                                  : activeAction === "cancel"
-                                    ? "Cancel shipment"
-                                    : "More actions"
-                        }
+                        title="Delivery proof"
                         action={
                             <Pressable
                                 accessibilityRole="button"
@@ -1352,92 +1293,6 @@ function ShipmentDetailsContent({
                             <>
                                 {!readOnly && shipment.booking ? (
                                     <>
-                                        {activeAction === "status" ? (
-                                            <ActionCard
-                                                title="Update delivery status"
-                                                description="Choose the next shipment state available to this driver booking."
-                                            >
-                                                <Pressable accessibilityRole="button" accessibilityLabel={`Delivery status: ${formatStatus(statusValue)}. Choose a different status`} disabled={isMutating} onPress={openDeliveryStatuses} style={{ minHeight: 48, justifyContent: "center" }}>
-                                                    <Text className="text-card-foreground font-semibold">{formatStatus(statusValue)}</Text>
-                                                    <Text className="text-primary text-sm">Choose a different status</Text>
-                                                </Pressable>
-                                                <Input
-                                                    label={
-                                                        statusValue === "failed"
-                                                            ? "Failure reason · Required"
-                                                            : "Note"
-                                                    }
-                                                    value={statusNote}
-                                                    onChangeText={setStatusNote}
-                                                    placeholder={
-                                                        statusValue === "failed"
-                                                            ? "Why could delivery not be completed?"
-                                                            : "Optional status note"
-                                                    }
-                                                    multiline
-                                                />
-                                                {statusRequiresPickupOdometer ? (
-                                                    <Input
-                                                        label="Pickup odometer"
-                                                        value={pickupOdometer}
-                                                        onChangeText={
-                                                            setPickupOdometer
-                                                        }
-                                                        placeholder="Current kilometres"
-                                                        keyboardType="number-pad"
-                                                    />
-                                                ) : null}
-                                                {statusRequiresDeliveryOdometer ? (
-                                                    <Input
-                                                        label="Delivery odometer"
-                                                        value={deliveryOdometer}
-                                                        onChangeText={
-                                                            setDeliveryOdometer
-                                                        }
-                                                        placeholder="Current kilometres"
-                                                        keyboardType="number-pad"
-                                                    />
-                                                ) : null}
-                                                <SubmitButton
-                                                    label={
-                                                        isMutating
-                                                            ? "Saving..."
-                                                            : "Save status"
-                                                    }
-                                                    disabled={
-                                                        isMutating ||
-                                                        needsPickupOdometer ||
-                                                        needsDeliveryOdometer ||
-                                                        (statusValue ===
-                                                            "failed" &&
-                                                            !statusNote.trim())
-                                                    }
-                                                    onPress={() =>
-                                                        runAction(
-                                                            (token) =>
-                                                                driverApi.updateShipmentStatus(
-                                                                    token,
-                                                                    shipment.shipment_id,
-                                                                    {
-                                                                        status: statusValue,
-                                                                        note:
-                                                                            statusNote.trim() ||
-                                                                            undefined,
-                                                                        odometer_at_collection:
-                                                                            parsedPickupOdometer ??
-                                                                            undefined,
-                                                                        odometer_at_delivery:
-                                                                            parsedDeliveryOdometer ??
-                                                                            undefined,
-                                                                    },
-                                                                ),
-                                                            "Shipment status updated.",
-                                                        )
-                                                    }
-                                                />
-                                            </ActionCard>
-                                        ) : null}
-
                                         {activeAction === "pod" ? (
                                             <ActionCard
                                                 title="Attach POD"
@@ -1511,81 +1366,6 @@ function ShipmentDetailsContent({
                                             </ActionCard>
                                         ) : null}
 
-                                        {activeAction === "cancel" ? (
-                                            <ActionCard
-                                                title="Cancel shipment"
-                                                description="Choose a cancel reason and optionally provide additional detail."
-                                            >
-                                                <OptionRow
-                                                    options={cancelReasons.map(
-                                                        (reason) => reason.code,
-                                                    )}
-                                                    selected={cancelReasonCode}
-                                                    onSelect={
-                                                        setCancelReasonCode
-                                                    }
-                                                    renderLabel={(value) =>
-                                                        cancelReasons.find(
-                                                            (reason) =>
-                                                                reason.code ===
-                                                                value,
-                                                        )?.title || value
-                                                    }
-                                                    emptyLabel="No cancel reasons available"
-                                                />
-                                                <Input
-                                                    label="Reason text"
-                                                    value={cancelReasonText}
-                                                    onChangeText={
-                                                        setCancelReasonText
-                                                    }
-                                                    placeholder="Required when using 'other'"
-                                                    multiline
-                                                />
-                                                <Input
-                                                    label="Note"
-                                                    value={cancelNote}
-                                                    onChangeText={setCancelNote}
-                                                    placeholder="Optional cancellation note"
-                                                    multiline
-                                                />
-                                                <SubmitButton
-                                                    label={
-                                                        isMutating
-                                                            ? "Cancelling..."
-                                                            : "Cancel shipment"
-                                                    }
-                                                    disabled={
-                                                        isMutating ||
-                                                        !cancelReasonCode ||
-                                                        (cancelReasonCode ===
-                                                            "other" &&
-                                                            !cancelReasonText.trim())
-                                                    }
-                                                    destructive
-                                                    onPress={() =>
-                                                        runAction(
-                                                            (token) =>
-                                                                driverApi.cancelShipment(
-                                                                    token,
-                                                                    shipment.shipment_id,
-                                                                    {
-                                                                        reason_code:
-                                                                            cancelReasonCode,
-                                                                        reason:
-                                                                            cancelReasonText.trim() ||
-                                                                            undefined,
-                                                                        note:
-                                                                            cancelNote.trim() ||
-                                                                            undefined,
-                                                                    },
-                                                                ),
-                                                            "Shipment cancelled.",
-                                                        )
-                                                    }
-                                                />
-                                            </ActionCard>
-                                        ) : null}
                                     </>
                                 ) : null}
                             </>
@@ -1598,6 +1378,33 @@ function ShipmentDetailsContent({
     return (
         <>
             {renderSurface(surfaceContent)}
+            {activeAction === "cancel" && shipment?.booking && session?.token && !readOnly && (
+                <CancelShipmentSheet
+                    token={session.token}
+                    busy={isMutating}
+                    error={errorMessage}
+                    onDismiss={() => { if (!isMutating) setActiveAction(null); }}
+                    onSave={(payload) => void runAction(
+                        (token) => driverApi.cancelShipment(token, shipment.shipment_id, payload),
+                        "Shipment cancelled.",
+                    )}
+                />
+            )}
+            {activeAction === "status" && shipment?.booking && !readOnly && (
+                <DeliveryStatusSheet
+                    status={statusValue}
+                    onStatusChange={setStatusValue}
+                    collectionOdometer={shipment.booking.odometer_at_collection}
+                    deliveryOdometer={shipment.booking.odometer_at_delivery}
+                    busy={isMutating}
+                    error={errorMessage}
+                    onDismiss={() => { if (!isMutating) setActiveAction(null); }}
+                    onSave={(payload) => void runAction(
+                        (token) => driverApi.updateShipmentStatus(token, shipment.shipment_id, payload),
+                        "Shipment status updated.",
+                    )}
+                />
+            )}
             <BottomSheet
                 modalRef={shipmentUploadSheet}
                 title="Upload shipment file"
@@ -2352,52 +2159,6 @@ function Input({
     );
 }
 
-function OptionRow({
-    emptyLabel,
-    onSelect,
-    options,
-    renderLabel,
-    selected,
-}: {
-    emptyLabel?: string;
-    onSelect: (value: string) => void;
-    options: string[];
-    renderLabel?: (value: string) => string;
-    selected: string;
-}) {
-    if (options.length === 0) {
-        return (
-            <Text className="text-muted-foreground text-sm">
-                {emptyLabel || "No options available"}
-            </Text>
-        );
-    }
-
-    return (
-        <View className="flex-row flex-wrap gap-2">
-            {options.map((option) => {
-                const isSelected = option === selected;
-
-                return (
-                    <Pressable
-                        key={option}
-                        onPress={() => onSelect(option)}
-                        className={`rounded-full px-4 py-3 ${isSelected ? "bg-secondary" : "bg-card"}`}
-                    >
-                        <Text
-                            className={`text-sm font-medium ${isSelected ? "text-secondary-foreground" : "text-card-foreground"}`}
-                        >
-                            {renderLabel
-                                ? renderLabel(option)
-                                : formatStatus(option)}
-                        </Text>
-                    </Pressable>
-                );
-            })}
-        </View>
-    );
-}
-
 function SubmitButton({
     destructive = false,
     disabled,
@@ -2451,12 +2212,4 @@ function formatOdometerDisplay(value?: string | number | null) {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return null;
     return `${numeric.toLocaleString()} km`;
-}
-
-function requiresPickupOdometer(status: string) {
-    return ["delivered", "in_transit", "failed"].includes(status);
-}
-
-function requiresDeliveryOdometer(status: string) {
-    return status === "delivered";
 }

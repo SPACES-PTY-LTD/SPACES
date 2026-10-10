@@ -1,5 +1,80 @@
 # Release Notes
 
+## 2026-10-10 | Version: next-delivery-card-v1
+
+- **Summary:** Implement design 4 as a collapsible next-delivery card above the active-run map.
+- **API Changes:** Optional `next_delivery=1` on authorized run directions returns the first remaining shipment's truck-to-dropoff road estimate with shipment_id/calculated_at. Default whole-run routing remains unchanged. Require a fresh scoped run vehicle report; no client origin is accepted. Deploy backend support to populate ETA.
+- **Database Changes:** None.
+- **Behavior Changes:** Black rounded card with safe-area clearance, 20-point sides, reference/destination and ETA pill. Expanded offers View shipment, Navigate and Collapse details; collapsed retains destination/ETA and Expand. Use run sequence and skip terminal work, hide without eligible work or when the delivery-note notice takes priority. Navigation uses valid coordinates or saved address and is disabled without a destination. Refresh estimates on focus/foreground and every minute; reject mismatched/stale calculations. Missing routing/position shows ETA unavailable. Adjust map-fit padding to the card height.
+- **Breaking Changes:** None. Older backend responses omit matching ETA metadata and display ETA unavailable.
+- **Verification:** Full mobile TypeScript, focused card/API lint and dashboard lint excluding two pre-existing effect-rule errors pass. Four mocked mobile card/helper tests and 35 driver API tests (308 assertions), plus diff checks pass. Figma selected direction/handoff and dashboard plan v2.125 aligned. Native safe-area/theme/large-text/collapse/action checks and live configured route estimates remain pending.
+
+## 2026-10-10 | Version: next-delivery-overlay-actions-design-v1
+
+- **Summary:** Add View shipment and Navigate buttons to the expanded next-delivery card designs.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None at runtime. All four expanded Figma directions include outlined View shipment and green Navigate actions; collapsed destination/ETA bars omit both buttons.
+- **Internal Changes:** Align dashboard plan v2.124 and Figma component descriptions/handoff with the intended shipment-detail and delivery-destination navigation actions.
+- **Breaking Changes:** None.
+- **Verification:** Four expanded variants visually and structurally checked with two 178 × 44 buttons each; all four collapsed variants verified to omit the actions. Text, component instances and controls remain editable. No mobile code changed by this task.
+
+## 2026-10-10 | Version: dispatch-context-actions-v1
+
+- **Summary:** Message dispatch about the selected run or shipment directly from Actions.
+- **API Changes:** None; reuse existing typed run/shipment message references.
+- **Database Changes:** None.
+- **Behavior Changes:** Add Message dispatch before End Run in current-run Actions and before Cancel shipment in active booked shipment Actions. Open Messages after sheet dismissal with a removable reference, preserving text/files and requiring explicit Send. Reuse the inline shipment handler; support run handoffs with account ownership, closed-chat, duplicate, five-attachment and once-only guards. Focus the loaded composer and allow reference previews.
+- **Breaking Changes:** None.
+- **Verification:** Thirteen actual Messages screen regressions, full mobile TypeScript and focused lint pass; dashboard lint excludes existing set-state-in-effect violations. Dashboard plan 2.123 and Figma menus/handoff aligned. Native menu/navigation/keyboard checks and GitHub Desktop draft update are blocked by the locked Mac. No live messages sent.
+
+## 2026-10-10 | Version: next-delivery-overlay-collapse-design-v1
+
+- **Summary:** Add collapse and expand states to all four next-delivery overlay designs.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None at runtime. Figma Collapse details reduces each card to a 64-point bar retaining destination and illustrative ETA; the down chevron restores the same design.
+- **Internal Changes:** Document dashboard plan v2.122 and eight reusable Direction × State variants with reversible prototype links and 44-point controls.
+- **Breaking Changes:** None.
+- **Verification:** All four expanded/collapsed pairs structurally and visually checked in the comparison board. Editable SF Pro text, vector chevrons and component instances retained. No mobile implementation changed by this task.
+
+## 2026-10-10 | Version: delivery-status-keyboard-avoidance-v1
+
+- **Summary:** Keep delivery-status inputs and Save status reachable with the keyboard open.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace regular inputs with Gorhom BottomSheetTextInput for failure message, optional note and delivery odometer. Use fillParent keyboard avoidance with safe top clearance, Android adjustResize and blur restoration. Move Save status to the shared persistent footer and reserve footer space while fields scroll. Preserve validation, drafts, payload and busy/dismissal guards.
+- **Breaking Changes:** None.
+- **Verification:** Five actual-form mocked regressions, full mobile TypeScript, focused DeliveryStatusSheet lint and diff checks pass. Dashboard plan 2.121/Figma keyboard handoff aligned. Native iOS/Android keyboard, number-pad/multiline scrolling, footer reachability and blur restoration remain unverified because the Mac is locked; GitHub Desktop draft access is also blocked.
+
+## 2026-10-10 | Version: shipment-cancel-bottom-sheet-v1
+
+- **Summary:** Simplify shipment cancellation in a compact reusable bottom sheet.
+- **API Changes:** None; retain enabled cancellation reasons and reason_code/reason/note contract.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the embedded/page cancellation panel and reason chips with shared CancelShipmentSheet above receipt/page. Show enabled server reasons in a dropdown, Other last; only Other reveals required Custom reason. Preserve optional Note and use an explicit red Save cancellation button in a persistent bottom footer. Use sheet-aware inputs and fillParent keyboard avoidance. Start without a selected reason, trim text and exclude stale custom text when a preset is chosen. Load reasons on opening with loading/empty/retry states and unmount guards. Preserve save errors/drafts, busy dismissal locks, authorized response refresh and completed-run read-only guards.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused cancellation/shipment lint and five mocked cancellation-form regressions pass; delivery-status regressions still pass. Checks cover codes/order/disabled reasons, Other validation/reselection, no mutation on selection, loading/retry/empty, busy/error draft preservation and late responses and keyboard/footer configuration. Dashboard plan v2.119 and editable light/dark Figma references/handoff aligned. Native page/receipt stacking, dropdown/keyboard/large-text/theme scrolling, cancellation and live save/retry remain pending; locked Mac prevented simulator and GitHub Desktop draft access. No shipment cancelled during verification.
+
+## 2026-10-10 | Version: next-delivery-overlay-design-v1
+
+- **Summary:** Create four editable Figma options for a floating next-shipment and ETA card above the map.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None at runtime; awaiting user design selection. Shipment and ETA data in the mockups are illustrative.
+- **Internal Changes:** Record dashboard plan v2.120 and the Compact split, Arrival first, Destination first and Slim two-row Figma explorations.
+- **Breaking Changes:** None.
+- **Verification:** Four dashboard previews and reusable card variants structurally and visually checked. SF Pro text, vector map/context and component instances remain editable; no image-filled UI layers. Cards have 20-point side margins and rounded black surfaces. No mobile code or ETA provider changed by this task.
+
+## 2026-10-10 | Version: shipment-status-bottom-sheet-v1
+
+- **Summary:** Simplify shipment delivery-status editing in a reusable compact bottom sheet.
+- **API Changes:** None; retain status/note/delivery-odometer contract.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the embedded/full-page confirmation panel with shared DeliveryStatusSheet above receipt/page. Use labelled status/reason dropdowns, a required Message only for Other, optional notes for nonfailed statuses and a green Save status button. Offer six preset failure reasons followed by Other; save the preset label or trimmed custom message as note. Remove pickup odometer entry and collection payload; preserve the booking's saved reading. If absent, block dependent statuses with collection-flow guidance. Delivered requires a whole-number reading at least equal to collection only when no saved delivery reading exists. Retain busy/dismissal, failed-request draft/retry, authorized refresh and completed-run read-only guards.
+- **Breaking Changes:** None. Missing collection readings must be completed in the existing collection flow.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails/DeliveryStatusSheet lint, four mocked actual-form regressions, 15 existing backdrop/handoff regressions (19 total) and diff checks pass. Regressions cover preset/Other payloads, blank message, hidden message after reselection, no pickup payload, missing/invalid odometers, saved readings, status changes, busy/error recovery. Dashboard plan v2.118 and editable Figma light/dark states/handoff aligned. Native page/receipt stacking, dismissal, keyboard/large-text/theme scrolling and live save/retry remain pending; the locked Mac prevented simulator and GitHub Desktop draft access. No server mutations performed.
+
 ## 2026-10-09 | Version: message-draft-picture-preview-v1
 
 - **Summary:** Preview selected pictures in the Expo message composer as small thumbnails.

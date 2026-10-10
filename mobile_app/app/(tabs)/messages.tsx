@@ -47,17 +47,25 @@ function isDraftPicture(file: DocumentPicker.DocumentPickerAsset) {
 
 export default function MessagesScreen() {
     const { session } = useAuth();
-    const { conversation_id, draft_shipment_id, draft_shipment_label, draft_shipment_request, draft_owner } = useLocalSearchParams<{
+    const { conversation_id, draft_shipment_id, draft_shipment_label, draft_shipment_request,
+        draft_run_id, draft_run_label, draft_run_request, draft_owner } = useLocalSearchParams<{
         conversation_id?: string | string[]; draft_shipment_id?: string | string[];
-        draft_shipment_label?: string | string[]; draft_shipment_request?: string | string[]; draft_owner?: string | string[];
+        draft_shipment_label?: string | string[]; draft_shipment_request?: string | string[];
+        draft_run_id?: string | string[]; draft_run_label?: string | string[];
+        draft_run_request?: string | string[]; draft_owner?: string | string[];
     }>();
     const requestedConversation = typeof conversation_id === 'string' ? conversation_id : undefined;
-    const shipment = typeof draft_shipment_id === 'string' && typeof draft_shipment_request === 'string' && draft_owner === session?.user.user_id
-        ? { id: draft_shipment_id, type: 'shipment' as const, label: typeof draft_shipment_label === 'string' ? draft_shipment_label : draft_shipment_id, subtitle: '' } : undefined;
-    return <DriverChat key={`${session?.user.user_id ?? 'signed-out'}:${requestedConversation ?? 'default'}`} requestedConversation={requestedConversation} draftShipment={shipment} draftRequest={typeof draft_shipment_request === 'string' ? draft_shipment_request : undefined} />;
+    const owned = !!session && draft_owner === session.user.user_id;
+    const shipment = owned && typeof draft_shipment_id === 'string' && typeof draft_shipment_request === 'string';
+    const run = owned && typeof draft_run_id === 'string' && typeof draft_run_request === 'string';
+    const reference: ChatReference | undefined = shipment
+        ? { id: draft_shipment_id, type: 'shipment', label: typeof draft_shipment_label === 'string' ? draft_shipment_label : draft_shipment_id, subtitle: '' }
+        : run ? { id: draft_run_id, type: 'run', label: typeof draft_run_label === 'string' ? draft_run_label : 'Current run', subtitle: '' } : undefined;
+    const request = shipment ? draft_shipment_request : run ? draft_run_request : undefined;
+    return <DriverChat key={`${session?.user.user_id ?? 'signed-out'}:${requestedConversation ?? 'default'}`} requestedConversation={requestedConversation} draftReference={reference} draftRequest={request} />;
 }
 
-function DriverChat({ requestedConversation, draftShipment, draftRequest }: { requestedConversation?: string; draftShipment?: ChatReference; draftRequest?: string }) {
+function DriverChat({ requestedConversation, draftReference, draftRequest }: { requestedConversation?: string; draftReference?: ChatReference; draftRequest?: string }) {
     const { refresh: refreshUnread } = useUnreadMessages();
     const { session } = useAuth();
     const token = session?.token;
@@ -89,7 +97,7 @@ function DriverChat({ requestedConversation, draftShipment, draftRequest }: { re
     const referenceModal = useRef<BottomSheetModal>(null);
     const openReference = (reference: ChatReference) => {
         Keyboard.dismiss();
-        focusShipment.current = null;
+        focusReference.current = null;
         setDetailReference(reference);
     };
     const [picking, setPicking] = useState(false);
@@ -107,28 +115,28 @@ function DriverChat({ requestedConversation, draftShipment, draftRequest }: { re
     const atBottom = useRef(true);
     const [reload, setReload] = useState(0);
     const [failedSend, setFailedSend] = useState(false);
-    const consumedShipment = useRef<string | null>(null);
+    const consumedReference = useRef<string | null>(null);
     const composer = useRef<TextInput>(null);
-    const focusShipment = useRef<string | null>(null);
+    const focusReference = useRef<string | null>(null);
 
     useFocusEffect(useCallback(() => {
-        if (!draftShipment || !draftRequest || !conversation || sending || consumedShipment.current === draftRequest) return;
-        consumedShipment.current = draftRequest;
-        if (conversation.status !== 'active') setError('This conversation is closed. The shipment could not be attached.');
-        else if (!references.some(item => item.type === 'shipment' && item.id === draftShipment.id)) {
+        if (!draftReference || !draftRequest || !conversation || sending || consumedReference.current === draftRequest) return;
+        consumedReference.current = draftRequest;
+        if (conversation.status !== 'active') setError(`This conversation is closed. The ${draftReference.type} could not be attached.`);
+        else if (!references.some(item => item.type === draftReference.type && item.id === draftReference.id)) {
             if (files.length + references.length >= 5) setError('Choose up to five attachments. Remove one, then open Message dispatch again.');
-            else { focusShipment.current = draftShipment.id; setReferences(previous => [...previous, draftShipment]); retry.current = null; }
+            else { focusReference.current = `${draftReference.type}:${draftReference.id}`; setReferences(previous => [...previous, draftReference]); retry.current = null; }
         }
-        router.setParams({ draft_shipment_id: undefined, draft_shipment_label: undefined, draft_shipment_request: undefined, draft_owner: undefined });
-    }, [draftShipment, draftRequest, conversation, sending, references, files.length]));
+        router.setParams({ draft_shipment_id: undefined, draft_shipment_label: undefined, draft_shipment_request: undefined, draft_run_id: undefined, draft_run_label: undefined, draft_run_request: undefined, draft_owner: undefined });
+    }, [draftReference, draftRequest, conversation, sending, references, files.length]));
 
     useFocusEffect(useCallback(() => {
         if (!hasLoaded || sending || picking || conversation?.status !== 'active' ||
-            !references.some(item => item.type === 'shipment' && item.id === focusShipment.current)) return;
+            !references.some(item => `${item.type}:${item.id}` === focusReference.current)) return;
         const frame = requestAnimationFrame(() => {
-            if (!active.current || !focusShipment.current) return;
+            if (!active.current || !focusReference.current) return;
             composer.current?.focus();
-            focusShipment.current = null;
+            focusReference.current = null;
         });
         return () => cancelAnimationFrame(frame);
     }, [hasLoaded, sending, picking, conversation?.status, references]));
