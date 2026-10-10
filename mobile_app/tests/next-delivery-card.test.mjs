@@ -29,8 +29,11 @@ test('ETA requires matching shipment, real duration and recent calculation', () 
  assert.equal(exports.deliveryEta(route, 'next', now).minutes, 3);
  for (const patch of [{ shipment_id: 'old' }, { duration_seconds: -1 }, { duration_seconds: NaN }, { status: 'unavailable' }, { calculated_at: new Date(now - 91_000).toISOString() }]) assert.equal(exports.deliveryEta({ ...route, ...patch }, 'next', now), null);
 });
-test('collapse removes actions and expand restores shipment action', () => {
+test('starts collapsed and restores actions only after expanding', () => {
  slots = []; let tree = render();
+ assert.equal(nodes(tree).some(n => n.props.children === 'Navigate'), false);
+ assert.ok(nodes(tree).some(n => n.props.children === 'Destination'));
+ nodes(tree).find(n => n.props.accessibilityLabel === 'Expand next delivery').props.onPress(); tree = render();
  nodes(tree).find(n => n.type === 'Pressable' && nodes(n).some(t => t.props.children === 'View shipment')).props.onPress(); assert.equal(opened, 'next');
  nodes(tree).find(n => n.props.accessibilityLabel === 'Collapse next delivery').props.onPress(); tree = render();
  assert.equal(nodes(tree).some(n => n.props.children === 'Navigate'), false);

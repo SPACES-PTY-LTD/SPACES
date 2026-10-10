@@ -27,7 +27,7 @@ export function deliveryEta(route: RunDirections | null, shipmentId: string, now
 export function NextDeliveryCard({ shipment, runId, token, topInset, onOpenShipment, onHeightChange }: {
   shipment: DriverShipment; runId: string; token: string; topInset: number; onOpenShipment: (id: string) => void; onHeightChange?: (height: number) => void;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [result, setResult] = useState<{ key: string; route: RunDirections } | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
@@ -54,18 +54,26 @@ export function NextDeliveryCard({ shipment, runId, token, topInset, onOpenShipm
     return () => { cancelled = true; clearInterval(timer); listener.remove(); };
   }, [focused, key, token, runId]);
   const eta = deliveryEta(result?.key === key ? result.route : null, shipment.shipment_id, clock);
+  const originAt = result?.key === key ? Date.parse(result.route.origin_reported_at ?? '') : NaN;
+  const originLabel = Number.isFinite(originAt) ? `From last truck location · ${new Date(originAt).toLocaleString()}` : 'From last truck location';
   const destination = shipment.dropoff_location?.name || shipment.dropoff_location?.full_address || 'Delivery destination unavailable';
   const reference = shipment.merchant_order_ref || shipment.delivery_note_number || shipment.shipment_id;
   const url = deliveryNavigationUrl(shipment);
   return <View pointerEvents="box-none" style={[styles.overlay, { top: topInset + 12 }]}>
     <View style={styles.card} onLayout={event => onHeightChange?.(event.nativeEvent.layout.height + 12)}>
-      {collapsed ? <View style={styles.row}>
-        <View style={{ flex: 1 }}><Text style={styles.label}>NEXT DELIVERY</Text><Text style={styles.destination}>{destination}</Text></View>
-        <Text style={styles.eta}>{eta ? `${eta.minutes} min` : 'ETA unavailable'}</Text>
-        <Pressable onPress={() => setCollapsed(false)} accessibilityRole="button" accessibilityLabel="Expand next delivery" accessibilityState={{ expanded: false }} style={styles.toggle}><Feather name="chevron-down" size={20} color="#ffffff" /></Pressable>
-      </View> : <>
+      {collapsed ? <>
+        <View style={styles.row}>
+          <Text style={[styles.label, { flex: 1 }]}>NEXT DELIVERY</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Text style={styles.eta}>{eta ? `${eta.minutes} min` : 'ETA unavailable'}</Text>
+            <Pressable onPress={() => setCollapsed(false)} accessibilityRole="button" accessibilityLabel="Expand next delivery" accessibilityState={{ expanded: false }} style={styles.toggle}><Feather name="chevron-down" size={20} color="#ffffff" /></Pressable>
+          </View>
+        </View>
+        <Text style={styles.destination}>{destination}</Text>
+      </> : <>
         <View style={styles.row}><Text style={[styles.label, { flex: 1 }]}>NEXT · {reference}</Text><Text style={styles.pill}>{eta ? `${eta.minutes} min · ${eta.arrival}` : 'ETA unavailable'}</Text></View>
         <Text style={styles.destination}>{destination}</Text>
+        {eta && <Text style={styles.label}>{originLabel}</Text>}
         <View style={styles.row}>
           <Pressable accessibilityRole="button" onPress={() => onOpenShipment(shipment.shipment_id)} style={[styles.button, styles.outline]}><Text style={styles.buttonText}>View shipment</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityState={{ disabled: !url }} disabled={!url} onPress={() => { if (url) void Linking.openURL(url).catch(() => setError('Unable to open maps. Please try again.')); }} style={[styles.button, { backgroundColor: '#15803d', opacity: url ? 1 : 0.5 }]}><Text style={styles.buttonText}>Navigate</Text></Pressable>

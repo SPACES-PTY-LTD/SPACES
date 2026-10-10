@@ -239,7 +239,7 @@ class DriverShipmentApiTest extends TestCase
         $this->getJson('/api/v1/driver/runs/'.$run->uuid.'/directions', $this->driverAuthHeaders($user))->assertNotFound();
     }
 
-    public function test_next_delivery_route_uses_ordered_remaining_shipment_and_fresh_scoped_truck(): void
+    public function test_next_delivery_route_uses_ordered_remaining_shipment_and_last_stored_scoped_truck(): void
     {
         [$user, $merchant] = $this->createDriverContext();
         $vehicle = $this->createVehicle($merchant, $user->driver);
@@ -253,8 +253,15 @@ class DriverShipmentApiTest extends TestCase
         $headers = $this->driverAuthHeaders($user);
         $url = '/api/v1/driver/runs/'.$run->uuid.'/directions?next_delivery=1';
         $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.shipment_id', $shipment->uuid)->assertJsonPath('data.duration_seconds', 720);
-        $vehicle->update(['location_updated_at' => now()->subMinutes(16)]);
-        $service->shouldReceive('route')->once()->with(\Mockery::on(fn ($points) => $points[0] === null))->andReturn(['status' => 'missing_locations']);
+        $service->shouldReceive('route')->times(3)->with(\Mockery::on(fn ($points) => $points[0]->latitude === -26.1))
+            ->andReturn(['status' => 'ready', 'duration_seconds' => 720]);
+        foreach ([now()->subMinutes(16), now()->subDays(2), null] as $reportedAt) {
+            $vehicle->update(['location_updated_at' => $reportedAt]);
+            $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.status', 'ready')
+                ->assertJsonPath('data.origin_reported_at', $reportedAt?->toIso8601String());
+        }
+        $vehicle->update(['last_location_address' => []]);
+        $service->shouldReceive('route')->once()->with(\Mockery::on(fn ($points) => $points[0]->latitude === null))->andReturn(['status' => 'missing_locations']);
         $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.status', 'missing_locations');
         $shipment->update(['status' => 'delivered']);
         $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.status', 'not_needed')->assertJsonPath('data.shipment_id', null);

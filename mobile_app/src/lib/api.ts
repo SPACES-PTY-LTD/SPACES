@@ -966,6 +966,7 @@ export const documentImportApi = {
 export type RunDirections = {
   shipment_id?: string | null;
   calculated_at?: string;
+  origin_reported_at?: string | null;
   status: 'ready' | 'missing_locations' | 'not_configured' | 'not_needed' | 'too_many_stops' | 'unavailable';
   coordinates?: { latitude: number; longitude: number }[];
   distance_meters?: number;

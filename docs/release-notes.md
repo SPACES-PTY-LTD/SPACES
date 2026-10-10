@@ -1,5 +1,32 @@
 # Release Notes
 
+## 2026-10-10 | Version: next-delivery-last-stored-location-v1
+
+- **Summary:** Calculate next-delivery ETA from the truck's last location stored in the database.
+- **API Changes:** Optional next-delivery directions use valid stored coordinates without a location-age/run-start/timestamp gate and add nullable origin_reported_at. Keep run/vehicle/destination authorization and current in-progress run requirement.
+- **Database Changes:** None.
+- **Behavior Changes:** Old reports, pre-run reports and coordinates without a timestamp can produce an ETA. Expanded cards show From last truck location and the stored report time when available. Missing coordinates or routing still show ETA unavailable; estimates continue refreshing and rejecting stale calculations or mismatched shipments.
+- **Breaking Changes:** None.
+- **Verification:** 35 driver API tests (318 assertions), four mocked card/helper tests, full mobile TypeScript, focused card/API lint and diff checks pass. API regression verifies recent, 16-minute-old, two-day-old and untimestamped locations, missing coordinates, terminal shipments and driver scope. Dashboard plan v2.128 and selected Figma metadata/handoff aligned; native layout and live configured routing remain pending.
+
+## 2026-10-10 | Version: next-delivery-full-width-destination-v1
+
+- **Summary:** Give the collapsed next-delivery destination the full card width.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Move the ETA and expand chevron to the top-right header alongside NEXT DELIVERY. Render the destination on a separate full-width row, retaining wrapping and the 44-point expand target.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused card lint, four mocked card/helper tests and diff checks pass. Selected Figma collapsed state and dashboard plan v2.127 aligned. Native long-name/large-text layout verification remains pending.
+
+## 2026-10-10 | Version: next-delivery-default-collapsed-v1
+
+- **Summary:** Start the next-delivery card collapsed by default.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** New card mounts show destination, ETA and Expand. View shipment and Navigate appear only after expansion. Preserve the user's choice while the same run remains mounted.
+- **Breaking Changes:** None.
+- **Verification:** Four mocked card/helper checks, full mobile TypeScript, focused card lint and diff checks pass. Updated actual-card regression verifies the initial collapsed state and subsequent action restoration. Dashboard plan v2.126 and selected Figma default aligned; native layout verification remains pending.
+
 ## 2026-10-10 | Version: next-delivery-card-v1
 
 - **Summary:** Implement design 4 as a collapsible next-delivery card above the active-run map.

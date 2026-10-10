@@ -28,11 +28,10 @@ class DriverRunDirectionsController extends Controller
                 ->where(fn ($query) => $query->whereNull('last_driver_id')->orWhere('last_driver_id', $driver->id))->first();
             $at = $vehicle?->location_updated_at;
             $location = $vehicle?->last_location_address ?? [];
-            $fresh = $run->status === Run::STATUS_IN_PROGRESS && $at && $at->between(now()->subMinutes(15), now())
-                && (!$run->started_at || $at->gte($run->started_at));
-            $origin = $fresh ? (object) ['latitude' => $location['latitude'] ?? null, 'longitude' => $location['longitude'] ?? null] : null;
+            $origin = $run->status === Run::STATUS_IN_PROGRESS && $vehicle ? (object) ['latitude' => $location['latitude'] ?? null, 'longitude' => $location['longitude'] ?? null] : null;
             return ApiResponse::success(array_merge($directions->route([$origin, $next->dropoffLocation]), [
                 'shipment_id' => $next->uuid, 'calculated_at' => now()->toIso8601String(),
+                'origin_reported_at' => $at?->toIso8601String(),
             ]));
         }
         $locations = collect();
