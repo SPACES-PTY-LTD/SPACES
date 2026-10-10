@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AppState, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { Easing, LinearTransition, ReduceMotion } from 'react-native-reanimated';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { Feather } from '@expo/vector-icons';
@@ -13,13 +13,6 @@ export function nextDelivery(shipments: DriverShipment[]) {
   return shipments.find(s => !['delivered', 'failed', 'cancelled', 'returned'].includes(s.status));
 }
 
-export function deliveryNavigationUrl(shipment: DriverShipment) {
-  const coordinate = locationCoordinate(shipment.dropoff_location);
-  const address = shipment.dropoff_location?.full_address?.trim();
-  const destination = coordinate ? `${coordinate.latitude},${coordinate.longitude}` : address;
-  return destination ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving` : null;
-}
-
 export function deliveryEta(route: RunDirections | null, shipmentId: string, now = Date.now()) {
   const at = Date.parse(route?.calculated_at ?? '');
   if (route?.shipment_id !== shipmentId || route.status !== 'ready' || !Number.isFinite(route.duration_seconds)
@@ -27,13 +20,13 @@ export function deliveryEta(route: RunDirections | null, shipmentId: string, now
   return { minutes: Math.ceil(route.duration_seconds! / 60), arrival: new Date(at + route.duration_seconds! * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
 }
 
-export function NextDeliveryCard({ shipment, runId, token, topInset, onOpenShipment, onHeightChange }: {
+export function NextDeliveryCard({ shipment, runId, token, topInset, onOpenShipment, onHeightChange, onNavigate }: {
   shipment: DriverShipment; runId: string; token: string; topInset: number; onOpenShipment: (id: string) => void; onHeightChange?: (height: number) => void;
+  onNavigate: (id: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(true);
   const [result, setResult] = useState<{ key: string; route: RunDirections } | null>(null);
   const [clock, setClock] = useState(() => Date.now());
-  const [error, setError] = useState<string | null>(null);
   const focused = useIsFocused();
   const key = JSON.stringify([token, runId, shipment.shipment_id, shipment.dropoff_location]);
   useEffect(() => {
@@ -61,7 +54,7 @@ export function NextDeliveryCard({ shipment, runId, token, topInset, onOpenShipm
   const originLabel = Number.isFinite(originAt) ? `From last truck location · ${new Date(originAt).toLocaleString()}` : 'From last truck location';
   const destination = shipment.dropoff_location?.name || shipment.dropoff_location?.full_address || 'Delivery destination unavailable';
   const reference = shipment.merchant_order_ref || shipment.delivery_note_number || shipment.shipment_id;
-  const url = deliveryNavigationUrl(shipment);
+  const canNavigate = !!locationCoordinate(shipment.dropoff_location);
   const Card = collapsed ? Pressable : View;
   return <View pointerEvents="box-none" style={[styles.overlay, { top: topInset + 12 }]}>
     <Animated.View layout={cardTransition} style={styles.shadow} onLayout={event => onHeightChange?.(event.nativeEvent.layout.height + 12)}>
@@ -90,9 +83,11 @@ export function NextDeliveryCard({ shipment, runId, token, topInset, onOpenShipm
             </Pressable>
             <View style={styles.row}>
               <Pressable accessibilityRole="button" onPress={() => onOpenShipment(shipment.shipment_id)} style={[styles.button, styles.outline]}><Text style={styles.buttonText}>View shipment</Text></Pressable>
-              <Pressable accessibilityRole="button" accessibilityState={{ disabled: !url }} disabled={!url} onPress={() => { if (url) void Linking.openURL(url).catch(() => setError('Unable to open maps. Please try again.')); }} style={[styles.button, { backgroundColor: '#15803d', opacity: url ? 1 : 0.5 }]}><Text style={styles.buttonText}>Navigate</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="Navigate to delivery in app" accessibilityState={{ disabled: !canNavigate }} disabled={!canNavigate}
+                onPress={() => { onNavigate(shipment.shipment_id); setCollapsed(true); }}
+                style={[styles.button, { backgroundColor: '#15803d', opacity: canNavigate ? 1 : 0.5 }]}><Text style={styles.buttonText}>Navigate</Text></Pressable>
             </View>
-            {error && <Text accessibilityRole="alert" style={styles.label}>{error}</Text>}
+            {!canNavigate && <Text style={styles.label}>Destination map coordinates are unavailable.</Text>}
           </>}
         </Card>
         {!collapsed && <Pressable accessibilityRole="button" accessibilityLabel="Collapse next delivery" accessibilityState={{ expanded: true }} onPress={() => setCollapsed(true)} style={styles.collapseTab}><Feather name="chevron-up" size={20} color="#ffffff" /></Pressable>}

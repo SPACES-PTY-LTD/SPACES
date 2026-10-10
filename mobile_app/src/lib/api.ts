@@ -733,6 +733,9 @@ export const driverApi = {
   async runDirections(token: string, runId: string, nextDelivery = false) {
     return request<RunDirections>(`/driver/runs/${encodeURIComponent(runId)}/directions${nextDelivery ? "?next_delivery=1" : ""}`, { token });
   },
+  async runNavigation(token: string, runId: string, shipmentId: string) {
+    return request<RunDirections>(`/driver/runs/${encodeURIComponent(runId)}/directions?shipment_id=${encodeURIComponent(shipmentId)}`, { token });
+  },
   async dashboard(token: string, runId?: string) {
     const response = await request<DriverDashboard>(`/driver/dashboard${runId ? `?run_id=${encodeURIComponent(runId)}` : ''}`, { token });
     return {

@@ -1,5 +1,83 @@
 # Release Notes
 
+## 2026-10-10 | Version: driver-in-app-delivery-route-v1
+
+- **Summary:** Keep next-delivery Navigate inside the app and focus the map on the selected delivery route.
+- **API Changes:** Add optional shipment_id UUID to GET /driver/runs/{run_uuid}/directions. Scope to the authenticated driver's run and eligible nonremoved shipment; malformed IDs return 422, inaccessible targets 404 and terminal/nonactive targets 409. Return existing road geometry/distance/duration with target/calculation/origin timestamps. Existing queries remain supported.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace external Google Maps launch with an in-app selected-target route view, source/time, distance/estimated minutes, loading/error, retry and Stop. Hide unrelated pins and fit the truck/target/road under the measured panel. Restore overview on Stop. Refresh every minute while focused/foreground; ignore late/mismatched requests and clear selection on user/run or target eligibility changes. Destination coordinates are required; address-only destinations are disabled with an explanation.
+- **Breaking Changes:** Navigate no longer opens an external maps app. The view routes from the truck's last stored report; it does not implement voice maneuvers, phone-GPS following or arrival detection. Backend deployment is required for selected-target routing.
+- **Internal Changes:** Add navigation callback/state and regression coverage; align dashboard plan v2.147 and editable Figma route state.
+- **Verification:** 40 backend shipment/routing tests (347 assertions) pass. All 27 mobile route lifecycle, callback, dashboard selection/reset and existing map/provider tests pass; TypeScript and focused lint excluding three existing dashboard/map hook-rule violations pass. Figma route state visually reviewed. Native providers/viewport/themes/large text, real configured Google routes and deployed-backend checks remain pending.
+
+## 2026-10-10 | Version: dashboard-status-tiles-v1
+
+- **Summary:** Implement corrected Design 2 Status tiles selection for shipment totals.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace Count strip dividers with three neutral rounded tiles using 12-point gaps, padding and radius. Preserve bold tabular numbers, muted labels, green Delivered, existing count/status rules, zero totals, accessible groups and font scaling. Support light/dark surfaces; retain Ready to start and feedback.
+- **Internal Changes:** Align selected/canonical Figma summaries and dashboard plan v2.146. Designs 1/3 remain alternatives.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused dashboard lint excluding two pre-existing effect-rule violations pass; selected Figma layout visually reviewed. Native narrow-screen, large-number, dark-mode and large-text verification remains pending.
+
+## 2026-10-10 | Version: dashboard-count-strip-v1
+
+- **Summary:** Implement selected Design 1 Count strip for dashboard shipment totals.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace inline totals with three read-only number/label columns, subtle dividers and green Delivered. Preserve existing shipment/remaining/delivered calculations, zero totals, Ready to start and run feedback. Use theme colors, tabular numbers, natural wrapping/font scaling and accessible count/label groups.
+- **Internal Changes:** Align selected and canonical Figma summaries and dashboard plan v2.145; retain Designs 2/3 as alternatives.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused dashboard lint excluding two pre-existing effect-rule violations, and all 11 existing dashboard checks pass. Native narrow-screen, large-number, dark-mode and large-text verification remains pending.
+
+## 2026-10-10 | Version: dashboard-shipment-totals-design-v1
+
+- **Summary:** Remove the active Current run title and explore three shipment-total layouts in Figma.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hide the Current run heading on in-progress dashboard runs. Preserve Ready to start, inline count calculations, end-request feedback, timeline filters and header Actions. Count strip, Status tiles and Progress focus are Figma proposals only, awaiting selection.
+- **Internal Changes:** Add six editable Direction × Data component variants, three current-dashboard comparisons and zero-count examples with SF Pro and existing tokens. Align dashboard plan v2.144 and active Figma title references.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript and dashboard lint with two pre-existing effect-rule violations excluded pass. Figma variants, editable text hierarchy, counts/zero states and token bindings structurally checked; final comparison visually reviewed. Native title/spacing verification and selected count-layout implementation remain pending.
+
+## 2026-10-10 | Version: active-run-readable-duration-v1
+
+- **Summary:** Clarify the active-run label and display elapsed hours and minutes.
+- **API Changes:** None; continue deriving elapsed time from saved started_at.
+- **Database Changes:** None.
+- **Behavior Changes:** Show Run active for: above durations such as 10hrs 30mins, with singular 1hr / 1min where appropriate. Omit seconds and floor to completed minutes; retain zero units, hours beyond 24, future-start clamping, unavailable-time fallback and focus/background reconciliation.
+- **Breaking Changes:** None.
+- **Verification:** 11 timer/dashboard checks, full mobile TypeScript, focused ActiveRunDock lint and git diff --check pass. Selected Figma component visually checked and dashboard plan v2.143 aligned. Native narrow-screen, dark and large-text verification remains pending.
+
+## 2026-10-10 | Version: active-run-timeline-info-v1
+
+- **Summary:** Add a run-timeline info button left of Actions in the active sheet header.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** A themed 44 × 44-point info-icon button labelled Show run timeline expands the sheet to 50%; preserve 92% when already open further. Continue supporting drag resizing and independent run Actions.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused lint with pre-existing dashboard effect errors excluded, 11 timer/info/drag/visibility/refresh checks and git diff --check pass. Selected Figma header and dashboard plan v2.142 aligned; Figma rejected the info navigation reaction, so its control remains a static design handoff. iOS simulator confirms info opens the timeline at 50%, preserves 92% and shows the counting timer. Physical drag, Android, dark and large-text checks remain pending.
+
+## 2026-10-10 | Version: driver-phone-location-rate-limit-v1
+
+- **Summary:** Isolate phone-location rate limits and coordinate foreground/background retries.
+- **API Changes:** Keep 10 report attempts per 60 seconds, now using a dedicated named limiter keyed by authenticated driver user ID. Resolve API bearer authentication before global/route throttles. Preserve 60 aggregate API attempts/minute per user; unauthenticated/public requests retain IP fallback. Standard 429 Retry-After headers remain available.
+- **Database Changes:** None.
+- **Behavior Changes:** Foreground/background senders share a persisted per-driver 30-second attempt gate and prevent concurrent sends within the JS runtime. Honor Retry-After cooldown across task restarts; use a 60-second fallback when missing/invalid. Skip background opt-in checks during cooldown and suppress immediate settings refresh on report 429. Keep consent/session/off guards and log expected location throttling as warnings.
+- **Breaking Changes:** None in request/response payloads. Authenticated API limits now follow the user rather than shared IPs; devices/tokens for the same user share the allowance.
+- **Verification:** 60 phone-location/shipment/conversation API tests (753 assertions), the authentication test (11 assertions), 22 mobile provider/task/cooldown checks, full mobile TypeScript, focused API/location lint, PHP syntax and git diff --check pass. Verify per-driver/IP isolation, numeric-bucket independence, 10-report cutoff/reset, 60 aggregate cutoff, Retry-After persistence/expiry, concurrent-send suppression and cancellation after storage reads. Dashboard plan v2.141 and Figma handoff aligned. Backend deployment and installed-client physical-device foreground/background/relaunch verification remain pending.
+
+
+## 2026-10-10 | Version: active-run-sheet-header-v1
+
+- **Summary:** Make selected 01 Compact white the top of the active dashboard bottom sheet.
+- **API Changes:** No further changes; pending additive dashboard started_at supplies the timer.
+- **Database Changes:** None.
+- **Behavior Changes:** Start active runs with the measured timer/route/Actions summary below the handle. Drag upward to reveal the timeline at 50% / 92%; drag downward to restore summary. Keep the header above scrolling content, existing authorized Actions, normal timeline padding and default no-run snaps. Capture vertical header drags while preserving ordinary Actions taps.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint with existing dashboard effect errors excluded, 11 timer/visibility/refresh/drag-handler checks and 36 driver API tests (323 assertions) pass. Figma compact/expanded states and dashboard plan v2.140 aligned. iOS light summary and expanded timeline reviewed; physical header drag, populated timer (backend deployment), dark/large-text/Android and final-entry scrolling remain native checks.
+
+
 ## 2026-10-10 | Version: active-run-compact-white-v1
 
 - **Summary:** Implement the user-edited 01 Compact white dashboard run strip above navigation.

@@ -10,7 +10,7 @@ import { driverApi, type RunPosition, type RunDirections, type DriverShipment } 
 import { useRecordedRunTrack } from './useRecordedRunTrack';
 import { NativeMap } from './NativeMap';
 import { truckPositionDescription } from './truck-position-label';
-import { groupRunMapStops, runMapStops } from './run-map-data';
+import { groupRunMapStops, locationCoordinate, runMapStops } from './run-map-data';
 
 // Temporarily hide mode selection; keep Recorded available for re-enabling later.
 const SHOW_MAP_MODE_SWITCH = false;
@@ -22,17 +22,21 @@ export type RunMapProps = {
   token?: string;
   topInset: number;
   onOpenShipment: (id: string) => void;
+  navigationShipment?: DriverShipment;
+  onStopNavigation?: () => void;
 };
 
 /** Road geometry is fetched separately so routing never blocks the dashboard. */
-export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShipment }: RunMapProps) {
+export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShipment, navigationShipment, onStopNavigation }: RunMapProps) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
   const surface = dark ? '#18181b' : '#ffffff';
   const ink = dark ? '#fafafa' : '#111111';
   const muted = dark ? '#a1a1aa' : '#71717a';
   const accent = dark ? '#86efac' : '#15803d';
-  const endpointPins = useMemo(() => (endpoints || []).filter(p => p.latitude != null && p.longitude != null).map(p => ({ ...p, coordinate: { latitude: p.latitude!, longitude: p.longitude! } })), [endpoints]);
+  const navigationId = navigationShipment?.shipment_id;
+  const [navigationPanelHeight, setNavigationPanelHeight] = useState(160);
+  const endpointPins = useMemo(() => (navigationId ? [] : endpoints || []).filter(p => p.latitude != null && p.longitude != null).map(p => ({ ...p, coordinate: { latitude: p.latitude!, longitude: p.longitude! } })), [endpoints, navigationId]);
   const ref = useRef<MapView>(null);
   const actions = useRef<ActionSheetRef>(null);
   const [routeRetry, setRouteRetry] = useState(0);
@@ -82,27 +86,29 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
     const subscription = AppState.addEventListener('change', state => { if (state === 'active') void refresh(); });
     return () => { cancelled = true; clearInterval(timer); subscription.remove(); };
   }, [focused, runId, token, positionKey]);
-  const stops = useMemo(() => runMapStops(shipments), [shipments]);
+  const stops = useMemo(() => runMapStops(shipments).filter(stop => !navigationId || stop.shipment.shipment_id === navigationId), [shipments, navigationId]);
   const groups = useMemo(() => groupRunMapStops(stops), [stops]);
-  const routeKey = JSON.stringify([runId, endpointPins, stops.map(stop => [stop.shipment.shipment_id, stop.coordinate])]);
+  const routeKey = JSON.stringify([token, runId, navigationId, endpointPins, stops.map(stop => [stop.shipment.shipment_id, stop.coordinate])]);
   const [result, setResult] = useState<{ key: string; route: RunDirections } | null>(null);
   const route = result?.key === routeKey ? result.route : null;
   useEffect(() => {
-    let cancelled = false;
-    if (mode !== 'planned' || !runId || !token || (!stops.length && !endpointPins.length)) return;
-    driverApi.runDirections(token, runId).then(route => {
-      if (!cancelled) {
-        setResult({ key: routeKey, route });
-        if (__DEV__) console.info('[RunMap] directions response', { status: route.status, coordinateCount: route.coordinates?.length ?? 0 });
-      }
-    }).catch((error) => {
-      if (!cancelled) {
-        setResult({ key: routeKey, route: { status: 'unavailable' } });
-        if (__DEV__) console.error('[RunMap] directions request failed', { message: error instanceof Error ? error.message : 'Unknown error' });
-      }
-    });
-    return () => { cancelled = true; };
-  }, [runId, token, routeKey, stops.length, endpointPins.length, routeRetry, mode]);
+    let cancelled = false, pending = false;
+    if (!focused || mode !== 'planned' || !runId || !token || (!stops.length && !endpointPins.length && !navigationId)) return;
+    const refresh = async () => {
+      if (pending || cancelled || AppState.currentState !== 'active') return;
+      pending = true;
+      try {
+        const value = navigationId ? await driverApi.runNavigation(token, runId, navigationId) : await driverApi.runDirections(token, runId);
+        if (!cancelled) setResult({ key: routeKey, route: navigationId && value.shipment_id !== navigationId ? { status: 'unavailable' } : value });
+      } catch {
+        if (!cancelled) setResult({ key: routeKey, route: { status: 'unavailable' } });
+      } finally { pending = false; }
+    };
+    void refresh();
+    const timer = navigationId ? setInterval(() => void refresh(), 60_000) : undefined;
+    const listener = AppState.addEventListener('change', state => { if (state === 'active') void refresh(); });
+    return () => { cancelled = true; if (timer) clearInterval(timer); listener.remove(); };
+  }, [runId, token, routeKey, stops.length, endpointPins.length, routeRetry, mode, navigationId, focused]);
   const road = route?.status === 'ready' ? route.coordinates : undefined;
   const fit = useCallback(() => {
     const coordinates = mode === 'recorded' ? [...recordedPoints, ...(truck ? [truck] : [])] : [...(road ?? []), ...stops.map(stop => stop.coordinate), ...endpointPins.map(p => p.coordinate), ...(truck ? [truck] : [])];
@@ -111,12 +117,12 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       ref.current?.animateToRegion({ ...coordinates[0], latitudeDelta: 0.025, longitudeDelta: 0.025 }, 250);
     } else {
       ref.current?.fitToCoordinates(coordinates, {
-        edgePadding: { top: topInset + (mode === 'recorded' ? 180 : 65), right: 40, bottom: 105, left: 40 }, animated: false,
+        edgePadding: { top: topInset + (navigationId ? navigationPanelHeight + 24 : mode === 'recorded' ? 180 : 65), right: 40, bottom: 105, left: 40 }, animated: false,
       });
     }
-  }, [ready, stops, topInset, road, truck, endpointPins, mode, recordedPoints]);
+  }, [ready, stops, topInset, road, truck, endpointPins, mode, recordedPoints, navigationId, navigationPanelHeight]);
   useEffect(fit, [fit]);
-  const missing = shipments.length - stops.length;
+  const missing = navigationId ? (locationCoordinate(navigationShipment?.dropoff_location) ? 0 : 1) : shipments.length - stops.length;
   return <View style={[styles.container, { backgroundColor: dark ? '#18181b' : '#eeeee8' }]}>
     <NativeMap dark={dark} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => {
       mapLifecycle.current.ready = true;
@@ -134,7 +140,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
     }}
       initialRegion={{ latitude: 0, longitude: 0, latitudeDelta: 100, longitudeDelta: 100 }}
       showsPointsOfInterests={false} showsCompass={false} rotateEnabled={false} pitchEnabled={false}
-      accessibilityLabel={runId ? 'Current run shipment locations' : 'Current truck location'}>
+      accessibilityLabel={navigationId ? 'Route to selected delivery' : runId ? 'Current run shipment locations' : 'Current truck location'}>
       {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor={accent} strokeWidth={4} /> : null}
       {mode === 'planned' && endpointPins.map(p => <Marker key={p.role} coordinate={p.coordinate} title={`${p.role} · ${p.name}`} description={p.address} pinColor={p.role === 'Run starting point' ? '#2563eb' : '#71717a'} />)}
       {truck ? <Marker coordinate={truck} zIndex={100} title={position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}
@@ -190,19 +196,34 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
         {recorded.before && <Pressable accessibilityRole="button" onPress={() => recorded.setBefore(undefined)} style={{ padding: 8 }}><Text style={[styles.captionText, { color: muted }]}>Latest route</Text></Pressable>}
       </View>
     </View> : null}
-    {mode === 'planned' && !truck ? <View pointerEvents="none" style={[styles.truckStatus, { top: topInset + (runId && SHOW_MAP_MODE_SWITCH ? 60 : 12), backgroundColor: surface }]}>
+    {mode === 'planned' && !truck && !navigationId ? <View pointerEvents="none" style={[styles.truckStatus, { top: topInset + (runId && SHOW_MAP_MODE_SWITCH ? 60 : 12), backgroundColor: surface }]}>
       <Feather name="truck" size={18} color="#2563eb" />
       <Text style={[styles.truckStatusText, { color: muted }]}>{positionFailed ? 'Truck location unavailable' : position ? (position.vehicle_id ? 'Truck location not reported yet' : 'No truck assigned') : 'Locating truck…'}</Text>
     </View> : null}
     <ActionSheet ref={actions} />
-    {mode === 'planned' && runId && !stops.length && !truck && !endpointPins.length ? <View pointerEvents="none" style={[styles.empty, { backgroundColor: surface }]}>
+    {navigationShipment && <View style={[styles.navigationPanel, { top: topInset + 12, backgroundColor: surface }]}
+      onLayout={event => setNavigationPanelHeight(event.nativeEvent.layout.height)}>
+      <Text style={{ color: accent, fontSize: 11, fontWeight: '600' }}>ROUTE TO DELIVERY</Text>
+      <Text style={{ color: ink, fontSize: 18, fontWeight: '600' }}>{navigationShipment.dropoff_location?.name || navigationShipment.dropoff_location?.full_address || 'Delivery destination'}</Text>
+      <Text accessibilityLiveRegion="polite" style={{ color: muted, fontSize: 13 }}>{!route ? 'Finding road directions…' : road
+        ? `${(route.distance_meters! / 1000).toFixed(1)} km · ~${Math.ceil(route.duration_seconds! / 60)} min`
+        : route.status === 'not_needed' ? 'Truck and destination share the same reported position.'
+        : route.status === 'missing_locations' ? 'Truck or destination coordinates are unavailable.' : 'Road directions unavailable.'}</Text>
+      <Text style={{ color: muted, fontSize: 11 }}>From last reported truck location{route?.origin_reported_at ? ` · ${new Date(route.origin_reported_at).toLocaleString()}` : ''}</Text>
+      <View style={{ flexDirection: 'row', gap: 16 }}>
+        {route && route.status !== 'ready' && route.status !== 'not_needed' && <Pressable accessibilityRole="button" onPress={() => { setResult(null); setRouteRetry(v => v + 1); }} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: accent }}>Retry route</Text></Pressable>}
+        <Pressable accessibilityRole="button" accessibilityLabel="Stop navigation" onPress={onStopNavigation} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: ink }}>Stop navigation</Text></Pressable>
+      </View>
+    </View>}
+
+    {mode === 'planned' && !navigationId && runId && !stops.length && !truck && !endpointPins.length ? <View pointerEvents="none" style={[styles.empty, { backgroundColor: surface }]}>
       <Text style={[styles.emptyTitle, { color: ink }]}>{shipments.length ? 'Run locations not mapped yet' : 'Your run map'}</Text>
       <Text style={[styles.emptyText, { color: muted }]}>{shipments.length ? 'Shipment locations will appear when their map coordinates are available.' : 'Assigned shipment locations will appear here.'}</Text>
-    </View> : mode === 'planned' && runId && showRouteInfo ? <View style={[styles.caption, { backgroundColor: surface }]}>
+    </View> : mode === 'planned' && !navigationId && runId && showRouteInfo ? <View style={[styles.caption, { backgroundColor: surface }]}>
       <Text style={[styles.captionText, { color: muted }]}>{!stops.length && truck ? 'Last reported truck position' : missing ? `${stops.length} of ${shipments.length} shipment locations mapped` : road ? `Google route · ${(route!.distance_meters! / 1000).toFixed(1)} km · ~${Math.ceil(route!.duration_seconds! / 60)} min` : groups.length === 1 ? 'Shipment stop' : !route ? 'Finding road directions…' : 'Road directions unavailable'}</Text>
       {route?.status === 'unavailable' && <Pressable accessibilityRole="button" onPress={() => { setResult(null); setRouteRetry(v => v + 1); }} style={{ padding: 8 }}><Text style={[styles.captionText, { color: muted }]}>Retry directions</Text></Pressable>}
     </View> : null}
-    {mode === 'planned' && runId && (stops.length || truck || endpointPins.length) ? <Pressable style={[styles.infoButton, { backgroundColor: surface }]} onPress={() => setShowRouteInfo(value => !value)}
+    {mode === 'planned' && !navigationId && runId && (stops.length || truck || endpointPins.length) ? <Pressable style={[styles.infoButton, { backgroundColor: surface }]} onPress={() => setShowRouteInfo(value => !value)}
       accessibilityRole="button" accessibilityLabel={showRouteInfo ? 'Hide route information' : 'Show route information'}
       accessibilityState={{ expanded: showRouteInfo }}>
       <Feather name="info" size={20} color={showRouteInfo ? accent : muted} />
@@ -211,6 +232,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
 }
 
 const styles = StyleSheet.create({
+  navigationPanel: { position: 'absolute', left: 20, right: 20, borderRadius: 16, padding: 16, gap: 8 },
   modeToggle: { position: 'absolute', alignSelf: 'center', flexDirection: 'row', padding: 4, borderRadius: 24, backgroundColor: '#ffffff' },
   modeButton: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20 },
   recordedStatus: { position: 'absolute', alignSelf: 'center', maxWidth: '90%', backgroundColor: '#ffffff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },

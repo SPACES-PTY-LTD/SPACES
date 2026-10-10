@@ -9,6 +9,7 @@ function harness({ enabled = false, granted = true, background = true } = {}) {
   let cursor = 0, context, appListener, timerId = 0;
   let server = { enabled, last_reported_at: null, dispatch_alerted_at: null };
   let backgroundStarted = 0, backgroundStopped = 0, backgroundRequested = 0;
+  let failReport = null, settingsRequests = 0;
   let permission = granted, reportCount = 0, requestCount = 0, saveCount = 0, failSave = false, position = null, permissionResult = null;
   const appState = { currentState: 'active', addEventListener: (_, callback) => { appListener = callback; return { remove() {} }; } };
   const location = {
@@ -21,7 +22,6 @@ function harness({ enabled = false, granted = true, background = true } = {}) {
   };
   let authSession = { token: 'test-token', user: { user_id: 'driver', role: 'driver' } };
   const modules = {
-    '@/src/lib/phone-location-report': { withPhoneLocationReport: async (_, report) => report() },
     '@/src/lib/phone-location-task': { backgroundLocationAvailable: async () => true, startPhoneLocation: async () => { backgroundStarted++; }, stopPhoneLocation: async () => { backgroundStopped++; } },
     react: {
       createContext: () => ({ Provider: 'provider' }), useContext: () => context,
@@ -34,11 +34,16 @@ function harness({ enabled = false, granted = true, background = true } = {}) {
     'react-native': { AppState: appState }, './auth-provider': { useAuth: () => ({ session: authSession, isHydrating: false }) },
     'expo-location': location,
     '@/src/lib/api': { driverApi: {
-      locationSharing: async () => ({ ...server }),
+      locationSharing: async () => { settingsRequests++; return { ...server }; },
       setLocationSharing: async (_, value) => { saveCount++; if (failSave) throw new Error('Network unavailable'); server = { ...server, enabled: value }; return { ...server }; },
-      reportPhoneLocation: async () => { reportCount++; return { ...server, last_reported_at: new Date().toISOString() }; },
+      reportPhoneLocation: async () => { reportCount++; if (failReport) throw failReport; return { ...server, last_reported_at: new Date().toISOString() }; },
     } },
   };
+  let gateRead = null;
+  const store = new Map(), gate = {};
+  const storage = { getItem: async k => gateRead ? await gateRead : store.get(k) ?? null, setItem: async (k, v) => store.set(k, v) };
+  vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/phone-location-report.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: gate, require: () => ({ __esModule: true, default: storage }), Date, Number, Set });
+  modules['@/src/lib/phone-location-report'] = gate;
   const exports = {};
   const source = ts.transpileModule(readFileSync(new URL('../src/providers/phone-location-provider.tsx', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   vm.runInNewContext(source, { exports, require: name => { assert.ok(name in modules, name); return modules[name]; }, Date, Error, setInterval: callback => { timers.set(++timerId, callback); return timerId; }, clearInterval: id => timers.delete(id) });
@@ -48,6 +53,9 @@ function harness({ enabled = false, granted = true, background = true } = {}) {
     get value() { return context; }, get reportCount() { return reportCount; }, get requestCount() { return requestCount; },
     get backgroundStarted() { return backgroundStarted; }, get backgroundStopped() { return backgroundStopped; }, get backgroundRequested() { return backgroundRequested; },
     logout() { authSession = null; render(); },
+    get settingsRequests() { return settingsRequests; }, failReport: error => { failReport = error; },
+    deferGateRead: value => { gateRead = value; },
+    tick() { for (const callback of timers.values()) callback(); },
     get saveCount() { return saveCount; }, deferPermission: value => { permissionResult = value; },
     setPermission: value => { permission = value; }, failSave: () => { failSave = true; }, deferPosition: value => { position = value; },
     background() { appState.currentState = 'background'; appListener('background'); render(); },
@@ -114,4 +122,22 @@ test('logout during permission request cannot save opt-in for an old session', a
   const enabling = app.value.setEnabled(true); await app.flush(); app.logout();
   resolve({ granted: true }); await enabling;
   assert.equal(app.saveCount, 0); app.unmount();
+});
+
+test('foreground 429 persists cooldown and does not trigger a settings refresh', async () => {
+  const app = harness({ enabled: true });
+  app.failReport({ status: 429, retryAfterMs: 90_000 });
+  app.render(); await app.flush();
+  assert.equal(app.reportCount, 1); assert.equal(app.settingsRequests, 1);
+  app.tick(); await app.flush();
+  assert.equal(app.reportCount, 1); assert.equal(app.settingsRequests, 1);
+  app.unmount();
+});
+
+test('background transition while reading persisted cooldown cannot transmit a foreground report', async () => {
+  const app = harness({ enabled: true }); let resolve;
+  app.deferGateRead(new Promise(done => { resolve = done; }));
+  app.render(); await app.flush(); app.background();
+  resolve(null); await app.flush();
+  assert.equal(app.reportCount, 0); app.unmount();
 });

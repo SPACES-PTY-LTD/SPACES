@@ -60,7 +60,7 @@ function harness(screen) {
   vm.runInNewContext(source, { exports, require: name => { assert.ok(name in modules, name); return modules[name]; }, Date, Map, Error });
   function nodes(type) {
     const result = [];
-    function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); if (node.type === type) result.push(node); visit(node.props?.children); visit(node.props?.header); }
+    function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); if (node.type === type) result.push(node); visit(node.props?.children); visit(typeof node.props?.header === 'function' ? node.props.header(() => {}) : node.props?.header); }
     visit(tree); return result;
   }
   function render() {
@@ -136,4 +136,25 @@ test('dashboard run header appears only for in-progress work and starts compact'
     assert.equal(app.nodes('PersistentBottomSheet')[0].props.collapsedHeight, undefined);
     assert.equal(app.nodes('ScrollView')[0].props.contentContainerStyle.paddingBottom, 24);
   }
+});
+
+test('Navigate selects the displayed delivery, Stop restores overview, and completed or changed runs clear navigation', async () => {
+  const app = harness('index'); app.render();
+  const shipment = { shipment_id: 'selected', status: 'booked', dropoff_location: { latitude: 0, longitude: 0 } };
+  app.resolve(undefined, { run_shipments: [shipment] }); await app.flush();
+  app.nodes('NextDeliveryCard')[0].props.onNavigate('selected'); app.render();
+  assert.equal(app.nodes('RunMap')[0].props.navigationShipment.shipment_id, 'selected');
+  assert.equal(app.nodes('NextDeliveryCard').length, 0);
+  app.nodes('RunMap')[0].props.onStopNavigation(); app.render();
+  assert.equal(app.nodes('RunMap')[0].props.navigationShipment, undefined);
+  assert.equal(app.nodes('NextDeliveryCard').length, 1);
+  app.nodes('NextDeliveryCard')[0].props.onNavigate('selected'); app.render();
+  app.foreground(); app.resolve(undefined, { run_shipments: [{ ...shipment, status: 'delivered' }] }); await app.flush();
+  assert.equal(app.nodes('RunMap')[0].props.navigationShipment, undefined);
+  app.foreground(); app.resolve(undefined, { run_shipments: [shipment] }); await app.flush();
+  app.nodes('NextDeliveryCard')[0].props.onNavigate('selected'); app.render();
+  app.foreground(); app.resolve(undefined, { current_run: { run_id: 'other', status: 'in_progress' }, run_shipments: [shipment] }); await app.flush();
+  assert.equal(app.nodes('RunMap')[0].props.navigationShipment, undefined);
+  app.foreground(); app.resolve(undefined, { run_shipments: [shipment] }); await app.flush();
+  assert.equal(app.nodes('RunMap')[0].props.navigationShipment, undefined);
 });

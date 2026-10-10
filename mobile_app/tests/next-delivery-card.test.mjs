@@ -16,15 +16,23 @@ const code = ts.transpileModule(fs.readFileSync(new URL('../src/components/dashb
 vm.runInNewContext(code, { exports, require: n => modules[n], Date, JSON, setInterval, clearInterval });
 const shipment = { shipment_id: 'next', status: 'booked', merchant_order_ref: 'REF', dropoff_location: { name: 'Destination', latitude: 0, longitude: 0 } };
 function nodes(tree) { return !tree || typeof tree !== 'object' ? [] : [tree, ...React.Children.toArray(tree.props.children).flatMap(nodes)]; }
-function render() { index = 0; return exports.NextDeliveryCard({ shipment, runId: 'run', token: 'token', topInset: 44, onOpenShipment: id => opened = id }); }
-let opened;
+function render() { index = 0; return exports.NextDeliveryCard({ shipment, runId: 'run', token: 'token', topInset: 44, onOpenShipment: id => opened = id, onNavigate: id => navigated = id }); }
+let opened, navigated;
 test('next delivery follows supplied sequence and omits terminal work', () => {
  assert.equal(exports.nextDelivery([{ ...shipment, status: 'delivered' }, shipment, { ...shipment, shipment_id: 'later' }]).shipment_id, 'next');
  for (const status of ['delivered', 'failed', 'returned', 'cancelled']) assert.equal(exports.nextDelivery([{ ...shipment, status }]), undefined);
 });
-test('navigation preserves zero coordinates and rejects absent destinations', () => {
- assert.match(exports.deliveryNavigationUrl(shipment), /destination=0%2C0/);
- assert.equal(exports.deliveryNavigationUrl({ ...shipment, dropoff_location: null }), null);
+test('Navigate uses the in-app callback for the displayed shipment, including zero coordinates', () => {
+ slots = []; let tree = render();
+ nodes(tree).find(n => n.props.accessibilityLabel === 'Expand next delivery').props.onPress(); tree = render();
+ const button = nodes(tree).find(n => n.props.accessibilityLabel === 'Navigate to delivery in app');
+ assert.equal(button.props.disabled, false);
+ button.props.onPress(); assert.equal(navigated, 'next');
+ assert.ok(nodes(render()).some(n => n.props.accessibilityLabel === 'Expand next delivery'));
+ const saved = shipment.dropoff_location; shipment.dropoff_location = null;
+ nodes(render()).find(n => n.props.accessibilityLabel === 'Expand next delivery').props.onPress();
+ assert.equal(nodes(render()).find(n => n.props.accessibilityLabel === 'Navigate to delivery in app').props.disabled, true);
+ shipment.dropoff_location = saved;
 });
 test('ETA requires matching shipment, real duration and recent calculation', () => {
  const now = Date.now(), route = { status: 'ready', shipment_id: 'next', duration_seconds: 121, calculated_at: new Date(now).toISOString() };

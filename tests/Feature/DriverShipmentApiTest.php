@@ -255,6 +255,40 @@ class DriverShipmentApiTest extends TestCase
         $this->getJson('/api/v1/driver/runs/'.$run->uuid.'/directions', $this->driverAuthHeaders($user))->assertNotFound();
     }
 
+    public function test_navigation_routes_to_selected_scoped_shipment_and_rejects_ineligible_targets(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $first = $this->createShipment($merchant, 'NAV-FIRST', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $first, Run::STATUS_IN_PROGRESS);
+        $run = RunShipment::where('shipment_id', $first->id)->firstOrFail()->run;
+        $selected = $this->createShipment($merchant, 'NAV-SELECTED', 'booked');
+        RunShipment::create(['run_id' => $run->id, 'shipment_id' => $selected->id, 'status' => 'planned', 'sequence' => 2]);
+        $vehicle->update(['last_location_address' => ['latitude' => 0, 'longitude' => 0], 'location_updated_at' => now()->subHour()]);
+        $this->mock(\App\Services\RunDirectionsService::class)->shouldReceive('route')->once()
+            ->with(\Mockery::on(fn ($points) => $points[0]->latitude === 0 && $points[1]->id === $selected->dropoff_location_id))
+            ->andReturn(['status' => 'ready', 'duration_seconds' => 720]);
+        $url = '/api/v1/driver/runs/'.$run->uuid.'/directions?shipment_id=';
+        $headers = $this->driverAuthHeaders($user);
+        $this->getJson($url.$selected->uuid, $headers)->assertOk()->assertJsonPath('data.shipment_id', $selected->uuid)
+            ->assertJsonPath('data.origin_reported_at', $vehicle->location_updated_at->toIso8601String());
+        $this->getJson($url.'invalid', $headers)->assertUnprocessable();
+        $outside = $this->createShipment($merchant, 'OUTSIDE-RUN', 'booked');
+        $this->getJson($url.$outside->uuid, $headers)->assertNotFound();
+        [$other] = $this->createDriverContext($merchant);
+        $this->getJson($url.$selected->uuid, $this->driverAuthHeaders($other))->assertNotFound();
+        foreach (['delivered', 'failed', 'cancelled'] as $status) {
+            $selected->update(['status' => $status]);
+            $this->getJson($url.$selected->uuid, $headers)->assertStatus(409);
+        }
+        $selected->update(['status' => 'booked']);
+        $run->update(['status' => Run::STATUS_DISPATCHED]);
+        $this->getJson($url.$selected->uuid, $headers)->assertStatus(409);
+        $run->update(['status' => Run::STATUS_IN_PROGRESS]);
+        RunShipment::where('run_id', $run->id)->where('shipment_id', $selected->id)->update(['status' => RunShipment::STATUS_REMOVED]);
+        $this->getJson($url.$selected->uuid, $headers)->assertNotFound();
+    }
+
     public function test_next_delivery_route_uses_ordered_remaining_shipment_and_last_stored_scoped_truck(): void
     {
         [$user, $merchant] = $this->createDriverContext();

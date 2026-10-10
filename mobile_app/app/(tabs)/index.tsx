@@ -138,10 +138,16 @@ export default function HomeScreen() {
 
   const shipments = dashboard?.run_shipments ?? [];
   const next = nextDelivery(shipments);
+  const [navigationSelection, setNavigationSelection] = useState<{ owner: string; runId: string; shipmentId: string } | null>(null);
+  useEffect(() => { setNavigationSelection(null); }, [session?.token, dashboard?.current_run?.run_id]);
+  const navigationShipment = navigationSelection && navigationSelection.owner === session?.token && navigationSelection.runId === dashboard?.current_run?.run_id
+    && dashboard?.current_run?.status === 'in_progress' && !requiredNoteRunId
+    ? shipments.find(s => s.shipment_id === navigationSelection.shipmentId && !['delivered', 'failed', 'cancelled', 'returned'].includes(s.status)) : undefined;
+  useEffect(() => { if (navigationSelection && !navigationShipment) setNavigationSelection(null); }, [navigationSelection, navigationShipment]);
   const [nextCardHeight, setNextCardHeight] = useState(0);
   const [runDockHeight, setRunDockHeight] = useState(98);
   const showRunDock = !!session && dashboard?.current_run?.status === 'in_progress';
-  const showNext = !requiredNoteRunId && dashboard?.current_run?.status === "in_progress" && !!next;
+  const showNext = !navigationShipment && !requiredNoteRunId && dashboard?.current_run?.status === "in_progress" && !!next;
   const needsDestination = !!dashboard?.current_run && !dashboard.current_run.destination_location_id && !dashboard.trip_endpoints?.some(endpoint => endpoint.role === 'Planned end location');
   const showDestinationEntry = needsDestination && runFilter === 'all';
   const visibleStops = filterRunStops([...(dashboard?.recorded_stops ?? []), ...(dashboard?.planned_delivery_stops ?? [])], runFilter);
@@ -168,8 +174,10 @@ export default function HomeScreen() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: surface }}>
       <View style={{ flex: 1, overflow: 'hidden' }} onLayout={event => setContainerHeight(event.nativeEvent.layout.height)}>
       <Animated.View style={mapStyle}>
-        <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset + (showNext ? nextCardHeight : 0)} onOpenShipment={openShipment} />
-      {showNext && next && session && dashboard?.current_run && <NextDeliveryCard key={dashboard.current_run.run_id} shipment={next} runId={dashboard.current_run.run_id} token={session.token} topInset={mapTopInset} onHeightChange={setNextCardHeight} onOpenShipment={openShipment} />}
+        <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset + (showNext ? nextCardHeight : 0)} onOpenShipment={openShipment}
+          navigationShipment={navigationShipment} onStopNavigation={() => setNavigationSelection(null)} />
+      {showNext && next && session && dashboard?.current_run && <NextDeliveryCard key={dashboard.current_run.run_id} shipment={next} runId={dashboard.current_run.run_id} token={session.token} topInset={mapTopInset} onHeightChange={setNextCardHeight} onOpenShipment={openShipment}
+        onNavigate={shipmentId => setNavigationSelection({ owner: session.token, runId: dashboard.current_run!.run_id, shipmentId })} />}
       {requiredNoteRunId ? <View pointerEvents="box-none" style={[styles.documentNoticeOverlay, { paddingTop: insets.top }]}>
           <Pressable style={[styles.documentNotice, { backgroundColor: surface }]} onPress={() => router.push({ pathname: '/shipments/load', params: { run_id: requiredNoteRunId } })} accessibilityRole="button" accessibilityLabel="Important: upload a delivery note" accessibilityHint="Opens delivery-note upload for this run">
             <Feather name="alert-triangle" size={24} color={dark ? '#fde68a' : '#92400e'} />
@@ -184,9 +192,9 @@ export default function HomeScreen() {
       <PersistentBottomSheet key={showRunDock ? `active:${dashboard?.current_run?.run_id}` : 'dashboard'}
         topInset={mapTopInset} containerHeight={containerHeight} animatedPosition={sheetPosition}
         initialSnapIndex={showRunDock ? 0 : 1} collapsedHeight={showRunDock ? runDockHeight + 28 : undefined}
-        header={showRunDock && dashboard?.current_run ? <ActiveRunDock key={dashboard.current_run.run_id}
-          startedAt={dashboard.current_run.started_at} endpoints={dashboard.trip_endpoints}
-          onActions={openRunActions} onHeightChange={setRunDockHeight} /> : undefined}>
+        header={showRunDock && dashboard?.current_run ? expand => <ActiveRunDock key={dashboard.current_run?.run_id}
+          startedAt={dashboard.current_run?.started_at} endpoints={dashboard.trip_endpoints}
+          onShowTimeline={expand} onActions={openRunActions} onHeightChange={setRunDockHeight} /> : undefined}>
       <ScrollView
         style={{ flex: 1 }}
         contentInsetAdjustmentBehavior="never"
@@ -203,12 +211,20 @@ export default function HomeScreen() {
 
         {loading && !dashboard ? <ActivityIndicator style={{ paddingVertical: 70 }} size="large" color="#15803d" /> : dashboard?.current_run ? (
           <View style={[styles.deliveryCard, { backgroundColor: dark ? '#18181b' : '#ffffff' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <Text style={[styles.runTitle, { color: ink, flexShrink: 1 }]}>{dashboard.current_run.status === 'in_progress' ? 'Current run' : 'Ready to start'}</Text>
-            </View>
+            {dashboard.current_run.status !== 'in_progress' && <Text style={[styles.runTitle, { color: ink }]}>Ready to start</Text>}
             {dashboard.current_run.end_request?.status === 'pending' && <Text style={{ color: warning, marginTop: 8 }}>End run requested — awaiting dispatch approval</Text>}
             {dashboard.current_run.end_request?.status === 'rejected' && <Text style={{ color: warning, marginTop: 8 }}>End run request rejected: {dashboard.current_run.end_request.review_reason}</Text>}
-            <Text style={{ color: muted, marginTop: 8 }}>{shipments.length} shipments · {shipments.filter(s => !['delivered', 'failed', 'cancelled'].includes(s.status)).length} remaining · {shipments.filter(s => s.status === 'delivered').length} delivered</Text>
+            <View style={styles.shipmentTotals}>
+              {[
+                { label: 'Shipments', count: shipments.length },
+                { label: 'Remaining', count: shipments.filter(s => !['delivered', 'failed', 'cancelled'].includes(s.status)).length },
+                { label: 'Delivered', count: shipments.filter(s => s.status === 'delivered').length },
+              ].map(total => <View key={total.label} style={[styles.shipmentTotal, { backgroundColor: dark ? '#27272a' : '#f5f5f8' }]}
+                accessible accessibilityLabel={`${total.count} ${total.label.toLowerCase()}`}>
+                <Text style={[styles.shipmentTotalNumber, { color: total.label === 'Delivered' ? accent : ink }]}>{total.count}</Text>
+                <Text style={[styles.shipmentTotalLabel, { color: muted }]}>{total.label}</Text>
+              </View>)}
+            </View>
             {shipments.length > 0 && shipments.every(s => s.status === 'delivered') && <Text style={{ color: accent, marginTop: 12 }}>Deliveries completed — awaiting dispatch closure.</Text>}
             {['draft', 'dispatched'].includes(dashboard.current_run.status) && <Pressable style={[styles.primary, { marginTop: 16 }]} disabled={starting} onPress={async () => {
               if (!session || !dashboard.current_run) return;
@@ -290,6 +306,10 @@ const styles = StyleSheet.create({
   name: { fontSize: 17, fontWeight: '700' },
   date: { fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', textAlign: 'center', marginBottom: 14 },
   deliveryCard: { borderRadius: 16 },
+  shipmentTotals: { flexDirection: 'row', gap: 12, marginTop: 8, marginBottom: 8 },
+  shipmentTotal: { flex: 1, minWidth: 0, gap: 4, padding: 12, borderRadius: 12 },
+  shipmentTotalNumber: { fontSize: 24, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  shipmentTotalLabel: { fontSize: 12, lineHeight: 18 },
   runTitle: { fontSize: 23, lineHeight: 31, fontWeight: '700', letterSpacing: -0.4 },
   runSummary: { fontSize: 13, lineHeight: 19, marginTop: 6, marginBottom: 20 },
   timelineRow: { flexDirection: 'row', gap: 12 },

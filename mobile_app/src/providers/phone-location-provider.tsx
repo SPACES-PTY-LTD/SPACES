@@ -146,10 +146,14 @@ export function PhoneLocationProvider({ children }: { children: ReactNode }) {
         }
         const point = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         if (cancelled || mutating.current || AppState.currentState !== 'active') return;
-        const next = await withPhoneLocationReport(userId!, () => driverApi.reportPhoneLocation(token!, {
-          latitude: point.coords.latitude, longitude: point.coords.longitude,
-          accuracy: point.coords.accuracy, observed_at: new Date(point.timestamp).toISOString(),
-        }));
+        const next = await withPhoneLocationReport(userId!, async () => {
+          // The persisted cooldown check yields; recheck cancellation before sending.
+          if (cancelled || mutating.current || AppState.currentState !== 'active') return null;
+          return driverApi.reportPhoneLocation(token!, {
+            latitude: point.coords.latitude, longitude: point.coords.longitude,
+            accuracy: point.coords.accuracy, observed_at: new Date(point.timestamp).toISOString(),
+          });
+        });
         if (!cancelled && next) { setSettings(next); setPermissionRequired(false); setError(null); }
       } catch (e) {
         if (!cancelled) {

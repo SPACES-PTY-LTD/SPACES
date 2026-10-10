@@ -1,3 +1,4 @@
+import { Feather } from '@expo/vector-icons';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { AppState, Pressable, StyleSheet, View } from 'react-native';
@@ -8,9 +9,10 @@ import type { DriverDashboard } from '@/src/lib/api';
 export function elapsedRunTime(startedAt: string | null | undefined, now: number) {
   const start = Date.parse(startedAt ?? '');
   if (!Number.isFinite(start)) return 'Time unavailable';
-  const seconds = Math.floor(Math.max(0, now - start) / 1000);
-  return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
-    .map(value => String(value).padStart(2, '0')).join(':');
+  const minutes = Math.floor(Math.max(0, now - start) / 60_000);
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}${hours === 1 ? 'hr' : 'hrs'} ${remainingMinutes}${remainingMinutes === 1 ? 'min' : 'mins'}`;
 }
 
 export function activeRunRoute(endpoints: DriverDashboard['trip_endpoints']) {
@@ -19,9 +21,10 @@ export function activeRunRoute(endpoints: DriverDashboard['trip_endpoints']) {
   return `From ${start || 'Start unavailable'} → ${end || 'End not set'}`;
 }
 
-export function ActiveRunDock({ startedAt, endpoints, onActions, onHeightChange }: {
+export function ActiveRunDock({ startedAt, endpoints, onShowTimeline, onActions, onHeightChange }: {
   startedAt?: string | null;
   endpoints: DriverDashboard['trip_endpoints'];
+  onShowTimeline: () => void;
   onActions: () => void;
   onHeightChange: (height: number) => void;
 }) {
@@ -50,9 +53,14 @@ export function ActiveRunDock({ startedAt, endpoints, onActions, onHeightChange 
     onLayout={event => onHeightChange(event.nativeEvent.layout.height)}>
     <View style={styles.row}>
       <View style={styles.summary}>
-        <Text style={[styles.label, { color: dark ? '#86efac' : '#15803d' }]}>RUN ACTIVE</Text>
+        <Text style={[styles.label, { color: dark ? '#86efac' : '#15803d' }]}>Run active for:</Text>
         <Text accessibilityLiveRegion="none" style={[styles.elapsed, { color: ink }]}>{elapsedRunTime(startedAt, now)}</Text>
       </View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Show run timeline"
+        accessibilityHint="Expands the dashboard bottom sheet to show run details"
+        onPress={onShowTimeline} style={[styles.info, { borderColor: dark ? line : '#dbdbe0' }]}>
+        <Feather name="info" size={20} color={ink} />
+      </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="Run actions" onPress={onActions}
         style={[styles.actions, { borderColor: dark ? line : '#dbdbe0' }]}>
         <Text style={[styles.actionText, { color: ink }]}>Actions</Text>
@@ -68,6 +76,7 @@ const styles = StyleSheet.create({
   summary: { flex: 1, minWidth: 0, gap: 4 },
   label: { fontSize: 11, lineHeight: 13.2, fontWeight: '600' },
   elapsed: { fontSize: 24, lineHeight: 28.8, fontWeight: '700', fontVariant: ['tabular-nums'], flexShrink: 1 },
+  info: { width: 44, height: 44, borderWidth: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   actions: { width: 100, minHeight: 44, borderWidth: 1, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
   actionText: { fontSize: 16, fontWeight: '600' },
   route: { fontSize: 12, lineHeight: 16 },

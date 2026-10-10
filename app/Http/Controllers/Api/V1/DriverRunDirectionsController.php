@@ -20,8 +20,15 @@ class DriverRunDirectionsController extends Controller
         $shipments = $run->runShipments()->where('status', '!=', RunShipment::STATUS_REMOVED)
             ->whereHas('shipment', fn ($query) => $query->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id))
             ->with(['shipment.dropoffLocation' => fn ($query) => $query->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)])->orderBy('sequence')->orderBy('id')->get()->pluck('shipment')->unique('id');
-        if ($request->boolean('next_delivery')) {
-            $next = $shipments->first(fn ($shipment) => !in_array($shipment->status, ['delivered', 'failed', 'cancelled', 'returned']));
+        if ($request->boolean('next_delivery') || $request->filled('shipment_id')) {
+            $request->validate(['shipment_id' => ['nullable', 'uuid']]);
+            $next = $request->filled('shipment_id')
+                ? $shipments->firstWhere('uuid', $request->string('shipment_id')->toString())
+                : $shipments->first(fn ($shipment) => !in_array($shipment->status, ['delivered', 'failed', 'cancelled', 'returned']));
+            if ($request->filled('shipment_id') && !$next) abort(404);
+            if ($request->filled('shipment_id') && ($run->status !== Run::STATUS_IN_PROGRESS || in_array($next->status, ['delivered', 'failed', 'cancelled', 'returned']))) {
+                return ApiResponse::error('NOT_NAVIGABLE', 'This delivery is no longer available for navigation.', [], 409);
+            }
             if (!$next) return ApiResponse::success(['status' => 'not_needed', 'shipment_id' => null]);
             $vehicle = $run->vehicle()->where('account_id', $driver->account_id)
                 ->where(fn ($query) => $query->whereNull('merchant_id')->orWhere('merchant_id', $driver->merchant_id))
