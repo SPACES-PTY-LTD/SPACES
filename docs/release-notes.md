@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-10 | Version: ios-navigation-location-start-order-v1
+
+- **Summary:** Fix navigation startup ordering that causes iOS LOCATION_DISABLED after a successful route preview.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** After native initialization succeeds, enable iOS background updates and start the SDK location provider before setting the destination. Start guidance only after routing succeeds. Preserve provider cleanup on routing failure, cancellation, arrival and Exit, with retryable preview errors.
+- **Breaking Changes:** None; this is a JavaScript startup correction using the existing native SDK methods.
+- **Verification:** Eight actual-adapter/session regressions, full mobile TypeScript, focused GuidanceProvider lint and git diff --check pass. Dashboard plan v2.154 updated; existing Figma preview/guidance UI remains consistent. Physical iPhone routing, cancellation and background/Exit cleanup require verification on a client loading the updated JavaScript.
+
+## 2026-10-10 | Version: android-navigation-build-compatibility-v1
+
+- **Summary:** Fix Android Navigation build failures caused by missing core-library desugaring and absent Maps classes on react-native-maps compile classpaths.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Expo prebuild now enables core-library desugaring in the app module and includes desugar_jdk_libs_nio:2.0.4 as required by the pinned Navigation wrapper. Replace the global Maps exclusion with Navigation 7.6.1 dependency substitution so every Maps consumer can compile without duplicate packaged Maps classes. Preserve existing Java compatibility and iOS configuration.
+- **Breaking Changes:** None.
+- **Verification:** Failed EAS build 8b558bc4 inspected in logged-in Chrome; Gradle explicitly requires core-library desugaring for navigation:7.6.1. First replacement e395a1d3 passes the original AAR check but reveals missing Maps symbols in react-native-maps compilation. Dependency-substitution prebuild and next cloud build verification pending; physical Android navigation remains unverified.
+
 ## 2026-10-10 | Version: driver-native-delivery-guidance-v1
 
 - **Summary:** Add Start inside the delivery route card and implement in-app Google Navigation SDK guidance in source.

@@ -21,7 +21,7 @@ export function GuidanceProvider({ children }: { children: ReactNode }) {
     taskRemovedBehavior={sdk.TaskRemovedBehavior.QUIT_SERVICE}><NativeGuidance>{children}</NativeGuidance></sdk.NavigationProvider>;
 }
 
-function nativeAdapter(controller: ReturnType<NonNullable<typeof navigationSdk>['useNavigation']>['navigationController'], sdk: NonNullable<typeof navigationSdk>): import('./guidance-session').GuidanceAdapter {
+export function nativeAdapter(controller: ReturnType<NonNullable<typeof navigationSdk>['useNavigation']>['navigationController'], sdk: NonNullable<typeof navigationSdk>): import('./guidance-session').GuidanceAdapter {
   let nativeInitialized = false;
   return {
     prepare: async isCurrent => {
@@ -37,13 +37,18 @@ function nativeAdapter(controller: ReturnType<NonNullable<typeof navigationSdk>[
       if (!alerts.granted) throw new Error('Allow notifications for navigation guidance while Spaces is in the background.');
       return true;
     },
-    initialize: async () => { nativeInitialized = true; return controller.init(); },
-    destination: target => controller.setDestination({ title: target.title, position: { lat: target.latitude, lng: target.longitude } }, { routingOptions: { travelMode: sdk.TravelMode.DRIVING } }),
-    start: async () => {
-      if (Platform.OS === 'ios') controller.setBackgroundLocationUpdatesEnabled(true);
-      await controller.startUpdatingLocation();
-      await controller.startGuidance();
+    initialize: async () => {
+      nativeInitialized = true;
+      const status = await controller.init();
+      if (status === 'ok') {
+        // iOS routing requires the SDK's own location provider, not just an Expo fix.
+        if (Platform.OS === 'ios') controller.setBackgroundLocationUpdatesEnabled(true);
+        await controller.startUpdatingLocation();
+      }
+      return status;
     },
+    destination: target => controller.setDestination({ title: target.title, position: { lat: target.latitude, lng: target.longitude } }, { routingOptions: { travelMode: sdk.TravelMode.DRIVING } }),
+    start: async () => { await controller.startGuidance(); },
     stop: async () => {
       if (!nativeInitialized) return;
       await controller.stopGuidance();
