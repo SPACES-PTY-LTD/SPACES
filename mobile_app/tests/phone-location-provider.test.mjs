@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-function harness({ enabled = false, granted = true, background = true } = {}) {
+function harness({ enabled = false, granted = true, background = true, available = true } = {}) {
   const slots = [], effects = [], timers = new Map();
   let cursor = 0, context, appListener, timerId = 0;
   let server = { enabled, last_reported_at: null, dispatch_alerted_at: null };
@@ -22,7 +22,7 @@ function harness({ enabled = false, granted = true, background = true } = {}) {
   };
   let authSession = { token: 'test-token', user: { user_id: 'driver', role: 'driver' } };
   const modules = {
-    '@/src/lib/phone-location-task': { backgroundLocationAvailable: async () => true, startPhoneLocation: async () => { backgroundStarted++; }, stopPhoneLocation: async () => { backgroundStopped++; } },
+    '@/src/lib/phone-location-task': { backgroundLocationAvailable: async () => available, startPhoneLocation: async () => { backgroundStarted++; }, stopPhoneLocation: async () => { backgroundStopped++; } },
     react: {
       createContext: () => ({ Provider: 'provider' }), useContext: () => context,
       useState: initial => { const i = cursor++; slots[i] ??= { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, value => { slots[i].value = typeof value === 'function' ? value(slots[i].value) : value; }]; },
@@ -140,4 +140,12 @@ test('background transition while reading persisted cooldown cannot transmit a f
   app.render(); await app.flush(); app.background();
   resolve(null); await app.flush();
   assert.equal(app.reportCount, 0); app.unmount();
+});
+
+test('missing background runtime still requests foreground access before explaining rebuild', async () => {
+  const app = harness({ available: false }); app.render(); await app.flush();
+  await assert.rejects(app.value.setEnabled(true), /Install the updated app/); await app.flush();
+  assert.equal(app.requestCount, 1); assert.equal(app.backgroundRequested, 0);
+  assert.equal(app.saveCount, 0); assert.equal(app.reportCount, 0);
+  assert.equal(app.value.settings.enabled, false); app.unmount();
 });

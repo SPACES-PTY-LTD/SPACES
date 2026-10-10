@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { ActivityIndicator, Linking, Pressable, Switch, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, Switch, View } from 'react-native';
 import { Text } from '@/component/ui/Text';
 import { MessageSheet, type MessageSheetRef } from '@/component/ui/MessageSheet';
 import { AlertSheet, type AlertSheetRef } from '@/component/ui/AlertSheet';
@@ -8,7 +8,7 @@ import { usePhoneLocation } from '@/src/providers/phone-location-provider';
 
 export default function LocationScreen() {
   const colors = useAccountColors();
-  const { settings, loading, saving, error, permissionRequired, backgroundGranted, refresh, setEnabled } = usePhoneLocation();
+  const { settings, loading, saving, error, backgroundGranted, refresh, setEnabled } = usePhoneLocation();
   const message = useRef<MessageSheetRef>(null);
   const alert = useRef<AlertSheetRef>(null);
   const change = async (enabled: boolean) => {
@@ -18,7 +18,7 @@ export default function LocationScreen() {
   function toggle(enabled: boolean) {
     if (!settings || loading || saving) return;
     if (enabled) {
-      alert.current?.present('Share location in the background', 'Allow location access Always on iOS or Allow all the time on Android so dispatch can coordinate your deliveries even when the app is in the background.', () => change(true));
+      alert.current?.present('Share location in the background', 'Allow location access so dispatch can coordinate deliveries in the background. On iPhone, choose Allow While Using App first, then allow Always access. On Android, choose Allow all the time.', () => change(true));
       return;
     }
     if (!settings.enabled) return;
@@ -37,6 +37,7 @@ export default function LocationScreen() {
     {!!settings?.enabled && !backgroundGranted && !loading && !saving && <Pressable accessibilityRole="button" onPress={() => toggle(true)} style={{ minHeight: 52, marginTop: 12, justifyContent: 'center' }}><Text style={[styles.label, { color: colors.accent }]}>Allow background location</Text></Pressable>}
     {!!settings?.last_reported_at && settings.enabled && <Text style={[styles.caption, { color: colors.muted, marginTop: 12 }]}>Last shared: {new Date(settings.last_reported_at).toLocaleString()}</Text>}
     {!!error && <View style={[styles.card, { backgroundColor: colors.card }]}><Text accessibilityRole="alert" style={[styles.body, { color: colors.ink }]}>{error}</Text><Pressable accessibilityRole="button" onPress={() => { void refresh(); }} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: colors.accent, fontWeight: '600' }}>Retry</Text></Pressable></View>}
-    {permissionRequired && <Pressable accessibilityRole="button" onPress={() => { void Linking.openSettings().catch(() => message.current?.present('Unable to open settings', 'Open your device settings and allow location access for Spaces Digital.')); }} style={{ minHeight: 52, marginTop: 12, justifyContent: 'center' }}><Text style={[styles.label, { color: colors.accent }]}>Open device settings</Text></Pressable>}
+    <Text style={[styles.caption, { color: colors.muted, marginTop: 24 }]}>{Platform.OS === 'ios' ? 'To enable Always: turn on Share location here and choose Allow While Using App, then allow Always access. You can also open device settings → Location → Always. If Location is missing, request access here first. If Always is still unavailable, install the latest version of Spaces Digital.' : 'Turn on Share location here, then allow background access. You can also open device settings and choose Location → Allow all the time.'}</Text>
+    <Pressable accessibilityRole="button" onPress={() => { void Linking.openSettings().catch(() => message.current?.present('Unable to open settings', 'Open your device settings and allow location access for Spaces Digital.')); }} style={{ minHeight: 52, marginTop: 12, justifyContent: 'center' }}><Text style={[styles.label, { color: colors.accent }]}>Open device settings</Text></Pressable>
   </AccountPage><AlertSheet ref={alert} /><MessageSheet ref={message} /></>;
 }

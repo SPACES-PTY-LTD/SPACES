@@ -1,5 +1,50 @@
 # Release Notes
 
+## 2026-10-10 | Version: shipment-marker-popup-pointer-v1
+
+- **Summary:** Identify the selected stop and visually connect its popup to the map marker.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show Stop 2 (actual marker number) above the delivery location; co-located markers show all stop numbers. Add a theme-matched triangle pointing to the projected marker, slanting at horizontal map edges and pointing upward for below-marker popups. The pointer ignores touches; Shipment info and grouped shipment selection remain usable.
+- **Breaking Changes:** None.
+- **Verification:** Eight map/popup/navigation regressions, full mobile TypeScript, focused RunMap lint with existing effect/ref/purity exclusions and git diff --check pass. Dashboard plan v2.151 and editable Figma popup aligned. Physical Apple/Google map projection, pointer rendering, dark/large-text and sheet clearance remain pending.
+
+## 2026-10-10 | Version: dashboard-shipment-summary-lists-v1
+
+- **Summary:** Open actual current-run shipment lists from the Shipments, Remaining and Delivered tiles.
+- **API Changes:** None; reuse authorized dashboard run_shipments.
+- **Database Changes:** None.
+- **Behavior Changes:** Make tiles accessible buttons and share their count/list status predicates. Preserve server order and existing Remaining semantics (exclude delivered, failed and cancelled). Present themed scrollable lists with reference, destination and status, including zero-result messages. Select a row to dismiss the list before opening the existing receipt sheet. Guard duplicate selection, cancel pending handoffs on unmount, and clear lists on run/session changes.
+- **Breaking Changes:** None.
+- **Verification:** 12 targeted dashboard/filter/list/handoff regressions, full mobile TypeScript, focused lint excluding existing dashboard effect-rule violations and git diff --check pass. Dashboard plan v2.150 and Figma handoff updated. Physical-device long lists, zero states, themes/large text, dismissal and receipt interaction remain pending.
+
+## 2026-10-10 | Version: shipment-marker-popup-v1
+
+- **Summary:** Open a location popup before shipment details when tapping a numbered delivery marker.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show a themed, map-anchored location name and 44-point Shipment info button. Open the existing receipt bottom sheet from that action; exact-coordinate groups retain the shipment chooser. Use an interactive overlay so native callout snapshots do not consume button touches. Bound popup placement, dismiss on map tap/drag/focus/context changes, reject late projections and hide changed groups. Preserve truck/endpoint callouts and navigation.
+- **Breaking Changes:** Shipment marker taps now open the popup; the explicit Shipment info action opens details.
+- **Verification:** 11 marker/group/cancellation/map routing regressions, full mobile TypeScript and focused map lint with existing effect/ref/purity rule exclusions pass. Dashboard plan v2.149 and editable Figma handoff aligned. Physical iOS/Android provider projection, map edges, themes, large text and sheet/touch interaction remain pending.
+
+## 2026-10-10 | Version: location-always-permission-flow-v1
+
+- **Summary:** Make the phone-location permission setup discoverable and request foreground access before checking background runtime support.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Account → Location always offers Open device settings and explains iPhone While Using App → Always setup, Android background access, missing Location entries and the native rebuild requirement. Enabling sharing requests foreground consent before the background-runtime gate; unavailable runtime or denied Always access cannot enable server sharing or transmit coordinates. Existing Always permission and iOS background-mode build configuration is preserved and verified.
+- **Breaking Changes:** None.
+- **Verification:** Expo native introspection confirms NSLocationWhenInUseUsageDescription, NSLocationAlwaysAndWhenInUseUsageDescription and UIBackgroundModes=location. Provider regression covers missing runtime requesting foreground permission without enabling sharing. All 22 targeted provider/navigation tests, full mobile TypeScript, focused Location screen/provider lint and git diff --check pass. Physical iPhone Settings/permission dialogs and installation of an updated native build remain pending.
+
+## 2026-10-10 | Version: driver-phone-origin-navigation-v1
+
+- **Summary:** Route in-app navigation from the user's current phone GPS instead of the truck.
+- **API Changes:** Selected-shipment directions require origin_latitude, origin_longitude and origin_reported_at. Validate coordinates/date and return origin_source=phone and origin_coordinate. Existing whole-run and next-delivery ETA queries retain their truck/run sources.
+- **Database Changes:** None; navigation does not persist a phone-location report.
+- **Behavior Changes:** Obtain/request foreground permission and a high-accuracy current phone fix with a 20-second timeout. Reject stale/invalid/future fixes; show errors with Retry/Stop and never fall back to the truck. Refresh from a new fix every minute while focused/foreground, avoid repeating permission prompts on polling, show a phone marker/source timestamp, and verify the response matches the phone origin. Preserve cancellation/selection guards and run overview restoration. Background location reporting settings/cooldown remain independent.
+- **Breaking Changes:** Deploy backend and mobile together for the required selected-route origin fields. Older truck-origin responses are rejected by the new mobile route view.
+- **Verification:** 40 backend shipment/routing tests (352 assertions), 21 mobile phone-fix/routing/card/dashboard checks, full mobile TypeScript, focused lint excluding the existing map hook-rule violations and PHP/diff checks pass. Figma phone marker/source visually reviewed. Native GPS permission/service behavior, provider fitting, themes/large text and deployed routes remain pending.
+
 ## 2026-10-10 | Version: driver-in-app-delivery-route-v1
 
 - **Summary:** Keep next-delivery Navigate inside the app and focus the map on the selected delivery route.

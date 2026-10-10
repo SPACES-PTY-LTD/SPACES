@@ -30,6 +30,19 @@ class DriverRunDirectionsController extends Controller
                 return ApiResponse::error('NOT_NAVIGABLE', 'This delivery is no longer available for navigation.', [], 409);
             }
             if (!$next) return ApiResponse::success(['status' => 'not_needed', 'shipment_id' => null]);
+            if ($request->filled('shipment_id')) {
+                $input = $request->validate([
+                    'origin_latitude' => ['required', 'numeric', 'between:-90,90'],
+                    'origin_longitude' => ['required', 'numeric', 'between:-180,180'],
+                    'origin_reported_at' => ['required', 'date'],
+                ]);
+                $origin = (object) ['latitude' => (float) $input['origin_latitude'], 'longitude' => (float) $input['origin_longitude']];
+                return ApiResponse::success(array_merge($directions->route([$origin, $next->dropoffLocation]), [
+                    'shipment_id' => $next->uuid, 'calculated_at' => now()->toIso8601String(), 'origin_source' => 'phone',
+                    'origin_reported_at' => $input['origin_reported_at'],
+                    'origin_coordinate' => ['latitude' => $origin->latitude, 'longitude' => $origin->longitude],
+                ]));
+            }
             $vehicle = $run->vehicle()->where('account_id', $driver->account_id)
                 ->where(fn ($query) => $query->whereNull('merchant_id')->orWhere('merchant_id', $driver->merchant_id))
                 ->where(fn ($query) => $query->whereNull('last_driver_id')->orWhere('last_driver_id', $driver->id))->first();

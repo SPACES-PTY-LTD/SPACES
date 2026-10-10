@@ -264,14 +264,19 @@ class DriverShipmentApiTest extends TestCase
         $run = RunShipment::where('shipment_id', $first->id)->firstOrFail()->run;
         $selected = $this->createShipment($merchant, 'NAV-SELECTED', 'booked');
         RunShipment::create(['run_id' => $run->id, 'shipment_id' => $selected->id, 'status' => 'planned', 'sequence' => 2]);
-        $vehicle->update(['last_location_address' => ['latitude' => 0, 'longitude' => 0], 'location_updated_at' => now()->subHour()]);
+        $vehicle->update(['last_location_address' => ['latitude' => -26, 'longitude' => 28], 'location_updated_at' => now()->subHour()]);
         $this->mock(\App\Services\RunDirectionsService::class)->shouldReceive('route')->once()
-            ->with(\Mockery::on(fn ($points) => $points[0]->latitude === 0 && $points[1]->id === $selected->dropoff_location_id))
+            ->with(\Mockery::on(fn ($points) => $points[0]->latitude === 0.0 && $points[0]->longitude === 0.0 && $points[1]->id === $selected->dropoff_location_id))
             ->andReturn(['status' => 'ready', 'duration_seconds' => 720]);
-        $url = '/api/v1/driver/runs/'.$run->uuid.'/directions?shipment_id=';
+        $base = '/api/v1/driver/runs/'.$run->uuid.'/directions';
+        $reportedAt = now()->toIso8601String();
+        $url = $base.'?origin_latitude=0&origin_longitude=0&origin_reported_at='.urlencode($reportedAt).'&shipment_id=';
         $headers = $this->driverAuthHeaders($user);
         $this->getJson($url.$selected->uuid, $headers)->assertOk()->assertJsonPath('data.shipment_id', $selected->uuid)
-            ->assertJsonPath('data.origin_reported_at', $vehicle->location_updated_at->toIso8601String());
+            ->assertJsonPath('data.origin_reported_at', $reportedAt)->assertJsonPath('data.origin_source', 'phone')
+            ->assertJsonPath('data.origin_coordinate.latitude', 0)->assertJsonPath('data.origin_coordinate.longitude', 0);
+        $this->getJson($base.'?shipment_id='.$selected->uuid, $headers)->assertUnprocessable();
+        $this->getJson(str_replace('origin_latitude=0', 'origin_latitude=91', $url).$selected->uuid, $headers)->assertUnprocessable();
         $this->getJson($url.'invalid', $headers)->assertUnprocessable();
         $outside = $this->createShipment($merchant, 'OUTSIDE-RUN', 'booked');
         $this->getJson($url.$outside->uuid, $headers)->assertNotFound();

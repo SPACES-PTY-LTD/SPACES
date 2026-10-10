@@ -72,14 +72,15 @@ export function PhoneLocationProvider({ children }: { children: ReactNode }) {
       if (enabled) {
         const Location = await import('expo-location');
         if (!mounted.current || version !== revision.current) return;
-        if (!await backgroundLocationAvailable()) throw new Error('Install the updated app to share location in the background.');
-        if (!mounted.current || version !== revision.current) return;
         const permission = await Location.requestForegroundPermissionsAsync();
         if (!mounted.current || version !== revision.current) return;
         if (!permission.granted) {
           setPermissionRequired(true);
           throw new Error('Allow location access in your device settings before enabling phone location sharing.');
         }
+        const available = await backgroundLocationAvailable();
+        if (!mounted.current || version !== revision.current) return;
+        if (!available) throw new Error('Install the updated app to enable Always location access and background sharing.');
         const background = await Location.requestBackgroundPermissionsAsync();
         if (!mounted.current || version !== revision.current) return;
         setBackgroundGranted(background.granted);

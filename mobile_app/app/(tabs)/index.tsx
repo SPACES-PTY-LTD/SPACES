@@ -1,5 +1,7 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { ShipmentDetailsSheet } from "@/src/components/shipments/ShipmentDetails";
+import { ShipmentSummarySheet } from '@/src/components/dashboard/ShipmentSummarySheet';
+import { shipmentSummaryFilters, summaryShipments, type ShipmentSummaryFilter } from '@/src/components/dashboard/shipment-summary';
 import { StopDetailsSheet } from '@/src/components/dashboard/StopDetailsSheet';
 import { RunTimeline, type RunStop } from '@/src/components/dashboard/RunTimeline';
 import { DeliveryOrderSheet } from '@/src/components/dashboard/DeliveryOrderSheet';
@@ -35,6 +37,7 @@ export default function HomeScreen() {
   const [selectedStop, setSelectedStop] = useState<RunStop | null>(null);
   const messageSheet = useRef<MessageSheetRef>(null);
   const shipmentSheet = useRef<BottomSheetModal>(null);
+  const [shipmentList, setShipmentList] = useState<{ key: string; filter: ShipmentSummaryFilter } | null>(null);
   const [selectedShipment, setSelectedShipment] = useState<string | null>(null);
   const openShipment = (id: string) => setSelectedShipment(id);
   const runActionsSheet = useRef<ActionSheetRef>(null);
@@ -62,6 +65,8 @@ export default function HomeScreen() {
   const [containerHeight, setContainerHeight] = useState(height - tabBarHeight);
   const sheetPosition = useSharedValue((height - tabBarHeight + insets.top) * 0.5);
   const [dashboard, setDashboard] = useState<DriverDashboard | null>(null);
+  const shipmentListKey = JSON.stringify([session?.token, dashboard?.current_run?.run_id]);
+  useEffect(() => { setShipmentList(null); }, [shipmentListKey]);
   const requiredNoteRunId = dashboard?.delivery_note_required_run_id;
   const mapTopInset = insets.top;
   const mapStyle = useAnimatedStyle(() => ({
@@ -215,15 +220,15 @@ export default function HomeScreen() {
             {dashboard.current_run.end_request?.status === 'pending' && <Text style={{ color: warning, marginTop: 8 }}>End run requested — awaiting dispatch approval</Text>}
             {dashboard.current_run.end_request?.status === 'rejected' && <Text style={{ color: warning, marginTop: 8 }}>End run request rejected: {dashboard.current_run.end_request.review_reason}</Text>}
             <View style={styles.shipmentTotals}>
-              {[
-                { label: 'Shipments', count: shipments.length },
-                { label: 'Remaining', count: shipments.filter(s => !['delivered', 'failed', 'cancelled'].includes(s.status)).length },
-                { label: 'Delivered', count: shipments.filter(s => s.status === 'delivered').length },
-              ].map(total => <View key={total.label} style={[styles.shipmentTotal, { backgroundColor: dark ? '#27272a' : '#f5f5f8' }]}
-                accessible accessibilityLabel={`${total.count} ${total.label.toLowerCase()}`}>
-                <Text style={[styles.shipmentTotalNumber, { color: total.label === 'Delivered' ? accent : ink }]}>{total.count}</Text>
-                <Text style={[styles.shipmentTotalLabel, { color: muted }]}>{total.label}</Text>
-              </View>)}
+              {shipmentSummaryFilters.map(filter => {
+                const count = summaryShipments(shipments, filter).length;
+                return <Pressable key={filter} style={[styles.shipmentTotal, { backgroundColor: dark ? '#27272a' : '#f5f5f8' }]}
+                  accessibilityRole="button" accessibilityLabel={`${count} ${filter.toLowerCase()}. Show shipments`}
+                  onPress={() => setShipmentList({ key: shipmentListKey, filter })}>
+                  <Text style={[styles.shipmentTotalNumber, { color: filter === 'Delivered' ? accent : ink }]}>{count}</Text>
+                  <Text style={[styles.shipmentTotalLabel, { color: muted }]}>{filter}</Text>
+                </Pressable>;
+              })}
             </View>
             {shipments.length > 0 && shipments.every(s => s.status === 'delivered') && <Text style={{ color: accent, marginTop: 12 }}>Deliveries completed — awaiting dispatch closure.</Text>}
             {['draft', 'dispatched'].includes(dashboard.current_run.status) && <Pressable style={[styles.primary, { marginTop: 16 }]} disabled={starting} onPress={async () => {
@@ -284,6 +289,9 @@ export default function HomeScreen() {
       </PersistentBottomSheet>
       </View>
       <MessageSheet ref={messageSheet} />
+      {shipmentList?.key === shipmentListKey && session && dashboard?.current_run && <ShipmentSummarySheet
+        key={`${shipmentListKey}:${shipmentList.filter}`} shipments={shipments} filter={shipmentList.filter}
+        onDismiss={() => setShipmentList(null)} onOpenShipment={openShipment} />}
       {selectedShipment && session && <ShipmentDetailsSheet
         key={`${session.token}:${selectedShipment}`}
         modalRef={shipmentSheet} shipmentId={selectedShipment} autoPresent

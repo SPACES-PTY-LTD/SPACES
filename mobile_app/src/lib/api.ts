@@ -733,8 +733,8 @@ export const driverApi = {
   async runDirections(token: string, runId: string, nextDelivery = false) {
     return request<RunDirections>(`/driver/runs/${encodeURIComponent(runId)}/directions${nextDelivery ? "?next_delivery=1" : ""}`, { token });
   },
-  async runNavigation(token: string, runId: string, shipmentId: string) {
-    return request<RunDirections>(`/driver/runs/${encodeURIComponent(runId)}/directions?shipment_id=${encodeURIComponent(shipmentId)}`, { token });
+  async runNavigation(token: string, runId: string, shipmentId: string, origin: { latitude: number; longitude: number; reportedAt: string }) {
+    return request<RunDirections>(`/driver/runs/${encodeURIComponent(runId)}/directions?shipment_id=${encodeURIComponent(shipmentId)}&origin_latitude=${encodeURIComponent(origin.latitude)}&origin_longitude=${encodeURIComponent(origin.longitude)}&origin_reported_at=${encodeURIComponent(origin.reportedAt)}`, { token });
   },
   async dashboard(token: string, runId?: string) {
     const response = await request<DriverDashboard>(`/driver/dashboard${runId ? `?run_id=${encodeURIComponent(runId)}` : ''}`, { token });
@@ -967,6 +967,8 @@ export const documentImportApi = {
 };
 
 export type RunDirections = {
+  origin_coordinate?: { latitude: number; longitude: number };
+  origin_source?: 'phone' | 'truck';
   shipment_id?: string | null;
   calculated_at?: string;
   origin_reported_at?: string | null;

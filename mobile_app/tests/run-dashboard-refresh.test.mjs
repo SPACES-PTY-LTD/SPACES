@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { shipmentSummaryFilters, summaryShipments } from '../src/components/dashboard/shipment-summary.ts';
 
 function harness(screen) {
   const slots = [], effects = [], requests = [];
@@ -46,6 +47,8 @@ function harness(screen) {
     '@gorhom/bottom-sheet': {},
     'expo-crypto': { randomUUID: () => 'request' },
     '@/src/components/dashboard/NextDeliveryCard': { NextDeliveryCard: 'NextDeliveryCard', nextDelivery: shipments => shipments.find(s => !['delivered', 'failed', 'cancelled', 'returned'].includes(s.status)) },
+    '@/src/components/dashboard/shipment-summary': { shipmentSummaryFilters, summaryShipments },
+    '@/src/components/dashboard/ShipmentSummarySheet': { ShipmentSummarySheet: 'ShipmentSummarySheet' },
     '@/src/components/dashboard/ActiveRunDock': { ActiveRunDock: 'ActiveRunDock' },
   };
   for (const name of ['ShipmentDetails', 'StopDetailsSheet', 'RunTimeline', 'DeliveryOrderSheet', 'RunActionForm', 'FinalDestinationSheet', 'RunMap']) {
@@ -157,4 +160,18 @@ test('Navigate selects the displayed delivery, Stop restores overview, and compl
   assert.equal(app.nodes('RunMap')[0].props.navigationShipment, undefined);
   app.foreground(); app.resolve(undefined, { run_shipments: [shipment] }); await app.flush();
   assert.equal(app.nodes('RunMap')[0].props.navigationShipment, undefined);
+});
+
+test('dashboard status buttons open matching actual shipment lists and hand off to details', async () => {
+  const h = harness('index'); h.render();
+  const shipments = [{ shipment_id: 'a', status: 'booked' }, { shipment_id: 'b', status: 'delivered' }, { shipment_id: 'c', status: 'failed' }];
+  h.resolve(0, { run_shipments: shipments }); await h.flush();
+  for (const [filter, count] of [['Shipments', 3], ['Remaining', 1], ['Delivered', 1]]) {
+    h.nodes('Pressable').find(n => n.props.accessibilityLabel === `${count} ${filter.toLowerCase()}. Show shipments`).props.onPress(); h.render();
+    const sheet = h.nodes('ShipmentSummarySheet')[0];
+    assert.equal(sheet.props.filter, filter); assert.deepEqual(sheet.props.shipments, shipments);
+    sheet.props.onDismiss(); sheet.props.onOpenShipment(filter === 'Delivered' ? 'b' : 'a'); h.render();
+    assert.equal(h.nodes('ShipmentSummarySheet').length, 0);
+    assert.equal(h.nodes('ShipmentDetails').at(-1).props.shipmentId, filter === 'Delivered' ? 'b' : 'a');
+  }
 });
