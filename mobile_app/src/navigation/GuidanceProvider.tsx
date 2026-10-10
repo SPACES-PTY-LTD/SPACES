@@ -8,6 +8,7 @@ import { driverApi } from '@/src/lib/api';
 import { currentNavigationLocation } from '@/src/components/dashboard/navigation-location';
 import { createGuidanceSession, type GuidanceState, type GuidanceTarget } from './guidance-session';
 import { navigationSdk } from './navigation-sdk';
+import { waitForSdkLocation } from './sdk-location';
 
 type GuidanceContextValue = { state: GuidanceState; available: boolean; start: (target: GuidanceTarget) => Promise<void>; exit: () => Promise<void>; mute: () => Promise<void> };
 const idle: GuidanceState = { phase: 'idle', muted: false };
@@ -21,10 +22,12 @@ export function GuidanceProvider({ children }: { children: ReactNode }) {
     taskRemovedBehavior={sdk.TaskRemovedBehavior.QUIT_SERVICE}><NativeGuidance>{children}</NativeGuidance></sdk.NavigationProvider>;
 }
 
-export function nativeAdapter(controller: ReturnType<NonNullable<typeof navigationSdk>['useNavigation']>['navigationController'], sdk: NonNullable<typeof navigationSdk>): import('./guidance-session').GuidanceAdapter {
+export function nativeAdapter(controller: ReturnType<NonNullable<typeof navigationSdk>['useNavigation']>['navigationController'], sdk: NonNullable<typeof navigationSdk>, listen: ReturnType<NonNullable<typeof navigationSdk>['useNavigation']>['setOnLocationChanged']): import('./guidance-session').GuidanceAdapter {
   let nativeInitialized = false;
+  let current = () => true;
   return {
     prepare: async isCurrent => {
+      current = isCurrent;
       await currentNavigationLocation(isCurrent);
       if (!isCurrent()) return false;
       if (!await controller.areTermsAccepted() && !await controller.showTermsAndConditionsDialog()) return false;
@@ -43,7 +46,8 @@ export function nativeAdapter(controller: ReturnType<NonNullable<typeof navigati
       if (status === 'ok') {
         // iOS routing requires the SDK's own location provider, not just an Expo fix.
         if (Platform.OS === 'ios') controller.setBackgroundLocationUpdatesEnabled(true);
-        await controller.startUpdatingLocation();
+        if (Platform.OS === 'ios') await waitForSdkLocation(listen, () => controller.startUpdatingLocation(), current);
+        else controller.startUpdatingLocation();
       }
       return status;
     },
@@ -64,12 +68,12 @@ export function nativeAdapter(controller: ReturnType<NonNullable<typeof navigati
 
 function NativeGuidance({ children }: { children: ReactNode }) {
   const sdk = navigationSdk!;
-  const { navigationController: controller, setOnArrival, setOnRemainingTimeOrDistanceChanged, setOnReroutingRequestedByOffRoute, setOnRouteChanged } = sdk.useNavigation();
+  const { navigationController: controller, setOnArrival, setOnLocationChanged, setOnRemainingTimeOrDistanceChanged, setOnReroutingRequestedByOffRoute, setOnRouteChanged } = sdk.useNavigation();
   const { session } = useAuth();
   const owner = session?.token;
   const currentOwner = useRef(owner);
   useEffect(() => { currentOwner.current = owner; }, [owner]);
-  const engine = useMemo(() => createGuidanceSession(nativeAdapter(controller, sdk)), [controller, sdk]);
+  const engine = useMemo(() => createGuidanceSession(nativeAdapter(controller, sdk, setOnLocationChanged)), [controller, sdk, setOnLocationChanged]);
   const state = useSyncExternalStore(engine.subscribe, engine.snapshot, engine.snapshot);
   useEffect(() => {
     setOnArrival(() => { void engine.arrived(); });

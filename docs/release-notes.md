@@ -1,5 +1,113 @@
 # Release Notes
 
+## 2026-10-10 | Version: run-summary-tap-to-expand-v1
+
+- **Summary:** Open the run timeline by tapping the timer or route summary.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Run active for/elapsed time and route text use the same expansion callback as info, opening at 50% and retaining 92% when already expanded. Preserve header dragging and independent Actions without changing summary layout.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, four active-run clock/action/drag checks (including timer and route tap callbacks), focused dock lint and git diff --check pass; native tap/drag checks pending. Figma interaction handoff aligned.
+
+## 2026-10-10 | Version: dashboard-additional-costs-v1
+
+- **Summary:** Show saved run costs after the dashboard timeline when they exist.
+- **API Changes:** Driver dashboard adds additional_costs for the authorized current run, using the existing cost resource; no-current-run returns an empty array.
+- **Database Changes:** None.
+- **Behavior Changes:** Conditional Additional costs section lists description, exact amount/currency and optional location after timeline/final-destination entries. Hide the entire section for missing/empty data. Retain filters and existing Add cost/refresh; no edit/delete actions.
+- **Breaking Changes:** None; API deployment is required for stored costs to appear.
+- **Verification:** Mobile TypeScript and focused costs/dashboard lint pass (existing dashboard effect rule excluded). 41 driver shipment/dashboard API tests (362 assertions) and absent/empty/populated cost render checks pass. Native scrolling/theme/post-save checks pending.
+
+## 2026-10-10 | Version: automatic-status-delivery-odometer-v1
+
+- **Summary:** Use the current truck odometer when marking a shipment delivered.
+- **API Changes:** Driver shipment status PATCH accepts omitted delivery odometer and reads the assigned run vehicle in the transaction when no delivery reading is saved. Explicit legacy odometer payloads remain supported.
+- **Database Changes:** None; existing booking odometer and distance fields are populated.
+- **Behavior Changes:** Remove manual delivery-odometer input from the mobile status sheet. Preserve saved readings and pickup requirements; unavailable truck readings and readings below collection return actionable validation errors.
+- **Breaking Changes:** None; deploy backend support before distributing the updated mobile form.
+- **Verification:** 40 driver shipment API tests (351 assertions), five mobile form tests, mobile TypeScript, focused status/receipt lint and git diff --check pass. Covers current-truck capture, zero, saved-reading preservation, missing/low readings and payload omission. Figma status handoff aligned; native form/live-save verification pending.
+
+## 2026-10-10 | Version: navigation-native-view-readiness-v1
+
+- **Summary:** Fix the iOS controller-not-found error at navigation startup.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use automatic SDK navigation UI instead of invoking setNavigationUIEnabled before native view registration. Wait for both map readiness and the JavaScript controller before following-camera commands; disable recenter until ready and avoid error feedback after unmount.
+- **Breaking Changes:** None; updated JavaScript works in the existing development client.
+- **Verification:** 27 targeted view/map/session/adapter/location tests, mobile TypeScript, focused guidance lint and diff checks pass. Fresh iOS simulator Navigate displays maneuvers/map without NO_VIEW_CONTROLLER; recenter works. Physical-device and Android verification remain pending.
+
+## 2026-10-10 | Version: black-guidance-footer-v1
+
+- **Summary:** Use a black navigation progress card with white details and lighter green ETA.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Keep the guidance footer black in both themes, destination/distance white, ETA light green and errors amber. Keep mute/recenter controls white with black icons and Exit red with white text/spinner. Preserve sizing, map padding, sheet clearance and actions.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused GuidanceMap lint and git diff --check; Figma guidance reference and dashboard plan v2.162 aligned. Native light/dark and large-text visual checks remain pending.
+
+## 2026-10-10 | Version: shipment-receipt-dashboard-navigation-v1
+
+- **Summary:** Start dashboard guidance from shipment receipt Navigate.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Dismiss the receipt and start guidance for its selected delivery using saved coordinates. Share the next-delivery startup handler; receipts elsewhere send a unique user-scoped Dashboard request consumed once. Preserve active-run, terminal-status and required-note guards. Address-only receipts show coordinates unavailable; completed-run receipts remain read-only.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, 25 targeted guidance/map/receipt tests, focused lint (existing dashboard set-state-in-effect rule excluded) and git diff --check pass. Native receipt handoff remains unverified.
+
+## 2026-10-10 | Version: expanded-run-info-visibility-v1
+
+- **Summary:** Hide the run header info button when run details are already displayed.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show the timeline info button only in the collapsed run summary. Remove it from the layout and accessibility tree at both expanded sheet sizes and restore it on collapse. Retain Actions and header resizing.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and focused sheet/header/dashboard lint pass (existing dashboard set-state-in-effect/refs rules excluded). Dashboard plan v2.160 and Figma expanded header/handoff aligned. Native visual verification and GitHub Desktop draft update unavailable because the Mac is locked.
+
+## 2026-10-10 | Version: direct-delivery-navigation-v1
+
+- **Summary:** Start turn-by-turn guidance immediately from Navigate.
+- **API Changes:** None; dashboard startup skips Laravel phone-route preview requests.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove the dashboard route-preview/second Start step. Show cancellable startup, preserve native permissions and eligibility guards, show errors on overview for retry, and return to overview on Exit. Unsupported builds show the updated-app explanation. Align Figma startup/handoff and dashboard plan.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript and 24 targeted map/session/adapter/location tests pass. Focused dashboard/map lint passes with existing set-state-in-effect and recorded-map purity rules excluded. Native direct-tap verification pending.
+
+## 2026-10-10 | Version: navigation-duration-format-v1
+
+- **Summary:** Make long navigation durations readable in hours and minutes.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show 955 minutes as 15 hr 55 min; durations under an hour retain minutes, exact hours omit zero minutes, and durations beyond a day retain total hours. Preserve rounded-up minutes and the arrival clock.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused guidance lint, eight duration boundary checks (including hour rounding, 955 minutes and beyond 24 hours), and git diff --check pass.
+
+## 2026-10-10 | Version: navigation-footer-sheet-spacing-v1
+
+- **Summary:** Keep the guidance card and recenter button clear of the dashboard run sheet.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Compensate for the map's 28-point overlap beneath the sheet, keeping a visible 12-point gap below the guidance card. Include the complete footer offset in native map padding so the following position and attribution retain clearance. Navigation actions and sheet dragging are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused guidance lint and git diff --check pass. Installed iOS simulator shows the full guidance card/recenter button above the collapsed run sheet with a visible gap; Exit restores preview. Physical-device and Android layout verification remain pending. Existing first-mounted native-controller warning remains open.
+
+## 2026-10-10 | Version: ios-navigation-sdk-first-fix-v1
+
+- **Summary:** Resolve Google’s project authorization block and the remaining iOS location-start race.
+- **API Changes:** No Laravel changes. Enable navigationsdk.googleapis.com in XSA PTY LTD with explicit user approval; this enables billed Google navigation requests.
+- **Database Changes:** None.
+- **Behavior Changes:** Wait for the first valid Google SDK location event before iOS destination routing. Bound the wait to 20 seconds and release its listener on success, timeout, failure or cancellation. Preserve retry and serialized cleanup.
+- **Breaking Changes:** None; existing development clients can load the updated JavaScript.
+- **Verification:** Twelve adapter/session/location regressions, full mobile TypeScript and focused navigation lint pass. Cloud enabled state verified. iOS development simulator shows Google route/maneuvers/live ETA/distance; mute toggles and Exit restores preview. Dashboard plan v2.156 and Figma handoff aligned. A first-mounted camera-controller warning and a separate reload-during-tracking native-event crash remain open; physical driving/background acceptance remains pending.
+
+## 2026-10-10 | Version: ios-navigation-overview-map-v1
+
+- **Summary:** Restore dashboard and stop-preview maps in iOS Navigation development builds.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Exclude the blank Fabric Google placeholder in the current MapKit-only iOS overview configuration. Render Apple Maps while preserving routes, markers and the Google Navigation guidance implementation; Android retains Google.
+- **Breaking Changes:** None; JavaScript reload is sufficient for the installed simulator client.
+- **Verification:** Ten provider regressions, full mobile TypeScript and focused provider lint pass. Installed iOS 26.1 development simulator shows Apple map tiles after reload. Dashboard plan v2.155 and Figma provider handoff aligned. After simulator location/terms consent, native logs confirm Google Navigation blocks the app. Cloud inspection matches the compiled key to API key 2 in XSA PTY LTD and confirms Navigation SDK is disabled despite the key allowlist. Navigation SDK subsequently enabled with explicit user approval; simulator guidance verified after the first-fix correction. Clean relaunch after a separate active-tracking reload crash succeeds; physical guidance remains unverified.
+
 ## 2026-10-10 | Version: ios-navigation-location-start-order-v1
 
 - **Summary:** Fix navigation startup ordering that causes iOS LOCATION_DISABLED after a successful route preview.
@@ -16,7 +124,7 @@
 - **Database Changes:** None.
 - **Behavior Changes:** Expo prebuild now enables core-library desugaring in the app module and includes desugar_jdk_libs_nio:2.0.4 as required by the pinned Navigation wrapper. Replace the global Maps exclusion with Navigation 7.6.1 dependency substitution so every Maps consumer can compile without duplicate packaged Maps classes. Preserve existing Java compatibility and iOS configuration.
 - **Breaking Changes:** None.
-- **Verification:** Failed EAS build 8b558bc4 inspected in logged-in Chrome; Gradle explicitly requires core-library desugaring for navigation:7.6.1. First replacement e395a1d3 passes the original AAR check but reveals missing Maps symbols in react-native-maps compilation. Dependency-substitution prebuild and next cloud build verification pending; physical Android navigation remains unverified.
+- **Verification:** Failed EAS build 8b558bc4 inspected in logged-in Chrome; Gradle explicitly requires core-library desugaring for navigation:7.6.1. First replacement e395a1d3 passes the original AAR check but reveals missing Maps symbols in react-native-maps compilation. Repeated Android prebuild, generated desugaring/substitution checks, plugin syntax and diff checks pass. EAS rebuild 49a54481 completes successfully and produces the development APK, including the AAR metadata check, react-native-maps Java compilation and all native architectures. Physical Android navigation remains unverified.
 
 ## 2026-10-10 | Version: driver-native-delivery-guidance-v1
 

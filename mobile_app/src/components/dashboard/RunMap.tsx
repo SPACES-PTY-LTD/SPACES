@@ -150,7 +150,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   const mapOrigin = navigationId ? phone : truck;
   useEffect(() => {
     let cancelled = false, pending = false, requestPermission = true;
-    if (guiding || !focused || mode !== 'planned' || !runId || !token || (!stops.length && !endpointPins.length && !navigationId)) return;
+    if (guiding || starting || !focused || mode !== 'planned' || !runId || !token || (!stops.length && !endpointPins.length && !navigationId)) return;
     const refresh = async () => {
       if (pending || cancelled || AppState.currentState !== 'active') return;
       pending = true;
@@ -174,7 +174,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
     const timer = navigationId ? setInterval(() => void refresh(), 60_000) : undefined;
     const listener = AppState.addEventListener('change', state => { if (state === 'active') void refresh(); });
     return () => { cancelled = true; if (timer) clearInterval(timer); listener.remove(); };
-  }, [runId, token, routeKey, stops.length, endpointPins.length, routeRetry, mode, navigationId, focused, guiding]);
+  }, [runId, token, routeKey, stops.length, endpointPins.length, routeRetry, mode, navigationId, focused, guiding, starting]);
   const road = route?.status === 'ready' ? route.coordinates : undefined;
   const fit = useCallback(() => {
     const coordinates = mode === 'recorded' ? [...recordedPoints, ...(mapOrigin ? [mapOrigin] : [])] : [...(road ?? []), ...stops.map(stop => stop.coordinate), ...endpointPins.map(p => p.coordinate), ...(mapOrigin ? [mapOrigin] : [])];
@@ -283,7 +283,14 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       <Text style={[styles.truckStatusText, { color: muted }]}>{positionFailed ? 'Truck location unavailable' : position ? (position.vehicle_id ? 'Truck location not reported yet' : 'No truck assigned') : 'Locating truck…'}</Text>
     </View> : null}
     <ActionSheet ref={actions} />
-    {navigationShipment && <View style={[styles.navigationPanel, { top: topInset + 12, backgroundColor: surface }]}
+    {starting && <View style={[styles.navigationPanel, { top: topInset + 12, backgroundColor: surface }]}>
+      <Text accessibilityLiveRegion="polite" style={{ color: ink, fontSize: 18, fontWeight: '600' }}>Starting navigation…</Text>
+      <Text style={{ color: muted, fontSize: 13 }}>{navigationShipment?.dropoff_location?.name || 'Delivery destination'}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Cancel navigation startup" onPress={() => void guidance.exit()} style={{ minHeight: 44, justifyContent: 'center' }}>
+        <Text style={{ color: accent }}>Cancel</Text>
+      </Pressable>
+    </View>}
+    {navigationShipment && !starting && <View style={[styles.navigationPanel, { top: topInset + 12, backgroundColor: surface }]}
       onLayout={event => setNavigationPanelHeight(event.nativeEvent.layout.height)}>
       <Text style={{ color: accent, fontSize: 11, fontWeight: '600' }}>ROUTE TO DELIVERY</Text>
       <Text style={{ color: ink, fontSize: 18, fontWeight: '600' }}>{navigationShipment.dropoff_location?.name || navigationShipment.dropoff_location?.full_address || 'Delivery destination'}</Text>

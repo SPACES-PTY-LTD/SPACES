@@ -274,6 +274,7 @@ export type DriverRunDetail = DriverRunSummary & {
 };
 
 export type DriverDashboard = {
+  additional_costs?: { cost_id: string; title: string; amount: string; currency: string; location_name?: string | null }[];
   trip_endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
   current_run: { run_id: string; status: string; started_at?: string | null; has_delivery_note?: boolean; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
   run_shipments: DriverShipment[];

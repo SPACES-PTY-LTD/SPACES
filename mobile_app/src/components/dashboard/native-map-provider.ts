@@ -1,14 +1,14 @@
 export type NativeMapProvider = 'google' | 'apple' | 'unavailable';
 export type NativeMapCapabilities = { google: boolean; apple: boolean };
 
-/** Expo Go on iOS cannot use the app's native Google configuration, even if a view is registered. */
-export function nativeMapCapabilities(platform: string, hasView: (name: string) => boolean, runtime: { isExpoGo: boolean }): NativeMapCapabilities {
+/** Fabric registers Google placeholders even without Google pods; respect the build configuration. */
+export function nativeMapCapabilities(platform: string, hasView: (name: string) => boolean, runtime: { isExpoGo: boolean; iosGoogleMapsEnabled?: boolean }): NativeMapCapabilities {
   const available = (name: string) => {
     try { return hasView(name); } catch { return false; }
   };
   const standard = available('RNMapsMapView') || available('AIRMap');
   return {
-    google: platform === 'android' ? standard : platform === 'ios' && !runtime.isExpoGo && (available('RNMapsGoogleMapView') || available('AIRGoogleMap')),
+    google: platform === 'android' ? standard : platform === 'ios' && !runtime.isExpoGo && runtime.iosGoogleMapsEnabled !== false && (available('RNMapsGoogleMapView') || available('AIRGoogleMap')),
     apple: platform === 'ios' && standard,
   };
 }

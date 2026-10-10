@@ -52,3 +52,10 @@ test('failed Google probe still permits registered Apple map', () => {
   }, { isExpoGo: false });
   assert.equal(selectNativeMapProvider(capabilities, new Set()), 'apple');
 });
+
+test('iOS MapKit build ignores Fabric Google placeholders even outside Expo Go', () => {
+  const capabilities = nativeMapCapabilities('ios', name => ['RNMapsMapView', 'RNMapsGoogleMapView'].includes(name), { isExpoGo: false, iosGoogleMapsEnabled: false });
+  assert.deepEqual(capabilities, { google: false, apple: true });
+  assert.equal(selectNativeMapProvider(capabilities, new Set()), 'apple');
+  assert.equal(selectNativeMapProvider(capabilities, new Set(['apple'])), 'unavailable');
+});

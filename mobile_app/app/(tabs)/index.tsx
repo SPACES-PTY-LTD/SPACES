@@ -4,6 +4,7 @@ import { ShipmentSummarySheet } from '@/src/components/dashboard/ShipmentSummary
 import { shipmentSummaryFilters, summaryShipments, type ShipmentSummaryFilter } from '@/src/components/dashboard/shipment-summary';
 import { StopDetailsSheet } from '@/src/components/dashboard/StopDetailsSheet';
 import { RunTimeline, type RunStop } from '@/src/components/dashboard/RunTimeline';
+import { RunAdditionalCosts } from '@/src/components/dashboard/RunAdditionalCosts';
 import { DeliveryOrderSheet } from '@/src/components/dashboard/DeliveryOrderSheet';
 import { RunActionForm, type RunAction } from '@/src/components/dashboard/RunActionForm';
 import { MessageSheet, type MessageSheetRef } from '@/component/ui/MessageSheet';
@@ -18,11 +19,12 @@ import { PersistentBottomSheet } from '@/component/ui/PersistentBottomSheet';
 import { ActiveRunDock } from '@/src/components/dashboard/ActiveRunDock';
 import { NextDeliveryCard, nextDelivery } from '@/src/components/dashboard/NextDeliveryCard';
 import { RunMap } from '@/src/components/dashboard/RunMap';
+import { locationCoordinate } from '@/src/components/dashboard/run-map-data';
 import { Feather } from '@expo/vector-icons';
 import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import * as Crypto from 'expo-crypto';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, AppState, Pressable, RefreshControl, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/component/ui/Text';
@@ -32,7 +34,7 @@ import { useAuth } from '@/src/providers/auth-provider';
 import { useRequiredDocuments } from '@/src/providers/required-documents-provider';
 
 export default function HomeScreen() {
-  const { run_id } = useLocalSearchParams<{ run_id?: string }>();
+  const { run_id, navigation_shipment_id, navigation_request, navigation_owner } = useLocalSearchParams<{ run_id?: string; navigation_shipment_id?: string; navigation_request?: string; navigation_owner?: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [selectedStop, setSelectedStop] = useState<RunStop | null>(null);
@@ -142,17 +144,33 @@ export default function HomeScreen() {
     ] });
   };
 
-  const shipments = dashboard?.run_shipments ?? [];
+  const shipments = useMemo(() => dashboard?.run_shipments ?? [], [dashboard?.run_shipments]);
   const next = nextDelivery(shipments);
   const guidance = useGuidance();
-  const [navigationSelection, setNavigationSelection] = useState<{ owner: string; runId: string; shipmentId: string } | null>(null);
-  useEffect(() => { setNavigationSelection(null); }, [session?.token, dashboard?.current_run?.run_id]);
-  const selectedNavigation = guidance.state.target && guidance.state.target.owner === session?.token ? guidance.state.target : navigationSelection;
+  const selectedNavigation = guidance.state.target?.owner === session?.token ? guidance.state.target : undefined;
+  useEffect(() => { if (guidance.state.phase === 'idle' && guidance.state.error) Alert.alert('Navigation unavailable', guidance.state.error); }, [guidance.state.phase, guidance.state.error]);
   const navigationShipment = selectedNavigation && selectedNavigation.owner === session?.token && selectedNavigation.runId === dashboard?.current_run?.run_id
     && dashboard?.current_run?.status === 'in_progress' && !requiredNoteRunId
     ? shipments.find(s => s.shipment_id === selectedNavigation.shipmentId && !['delivered', 'failed', 'cancelled', 'returned'].includes(s.status)) : undefined;
   useEffect(() => { if (guidance.state.phase !== 'stopping' && guidance.state.target && dashboard && !navigationShipment) void guidance.exit(); }, [guidance, dashboard, navigationShipment]);
-  useEffect(() => { if (navigationSelection && !navigationShipment) setNavigationSelection(null); }, [navigationSelection, navigationShipment]);
+  const startNavigation = useCallback((shipmentId: string) => {
+    if (!session || !dashboard) return;
+    if (!guidance.available) { Alert.alert('Navigation unavailable', 'Turn-by-turn navigation requires the updated native app.'); return; }
+    const shipment = shipments.find(s => s.shipment_id === shipmentId && !['delivered', 'failed', 'cancelled', 'returned'].includes(s.status));
+    const destination = locationCoordinate(shipment?.dropoff_location);
+    if (!shipment || !destination || dashboard.current_run?.status !== 'in_progress' || requiredNoteRunId) {
+      Alert.alert('Navigation unavailable', 'Choose an eligible delivery on your active run and complete any required delivery-note upload.'); return;
+    }
+    void guidance.start({ owner: session.token, runId: dashboard.current_run.run_id, shipmentId,
+      title: shipment.dropoff_location?.name || shipment.dropoff_location?.full_address || 'Delivery destination', ...destination });
+  }, [guidance, shipments, dashboard, session, requiredNoteRunId]);
+  const consumedNavigationRequest = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!navigation_request || !navigation_shipment_id || !session || !dashboard || consumedNavigationRequest.current === navigation_request) return;
+    consumedNavigationRequest.current = navigation_request;
+    router.setParams({ navigation_request: '', navigation_shipment_id: '', navigation_owner: '' });
+    if (navigation_owner === session.user.user_id) startNavigation(navigation_shipment_id);
+  }, [navigation_request, navigation_shipment_id, navigation_owner, session, dashboard, startNavigation, router]);
   const [nextCardHeight, setNextCardHeight] = useState(0);
   const [runDockHeight, setRunDockHeight] = useState(98);
   const showRunDock = !!session && dashboard?.current_run?.status === 'in_progress';
@@ -184,9 +202,9 @@ export default function HomeScreen() {
       <View style={{ flex: 1, overflow: 'hidden' }} onLayout={event => setContainerHeight(event.nativeEvent.layout.height)}>
       <Animated.View style={mapStyle}>
         <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset + (showNext ? nextCardHeight : 0)} onOpenShipment={openShipment}
-          navigationShipment={navigationShipment} onStopNavigation={() => setNavigationSelection(null)} />
+          navigationShipment={navigationShipment} onStopNavigation={() => void guidance.exit()} />
       {showNext && next && session && dashboard?.current_run && <NextDeliveryCard key={dashboard.current_run.run_id} shipment={next} runId={dashboard.current_run.run_id} token={session.token} topInset={mapTopInset} onHeightChange={setNextCardHeight} onOpenShipment={openShipment}
-        onNavigate={shipmentId => setNavigationSelection({ owner: session.token, runId: dashboard.current_run!.run_id, shipmentId })} />}
+        onNavigate={startNavigation} />}
       {requiredNoteRunId ? <View pointerEvents="box-none" style={[styles.documentNoticeOverlay, { paddingTop: insets.top }]}>
           <Pressable style={[styles.documentNotice, { backgroundColor: surface }]} onPress={() => router.push({ pathname: '/shipments/load', params: { run_id: requiredNoteRunId } })} accessibilityRole="button" accessibilityLabel="Important: upload a delivery note" accessibilityHint="Opens delivery-note upload for this run">
             <Feather name="alert-triangle" size={24} color={dark ? '#fde68a' : '#92400e'} />
@@ -201,9 +219,9 @@ export default function HomeScreen() {
       <PersistentBottomSheet key={showRunDock ? `active:${dashboard?.current_run?.run_id}` : 'dashboard'}
         topInset={mapTopInset} containerHeight={containerHeight} animatedPosition={sheetPosition}
         initialSnapIndex={showRunDock ? 0 : 1} collapsedHeight={showRunDock ? runDockHeight + 28 : undefined}
-        header={showRunDock && dashboard?.current_run ? expand => <ActiveRunDock key={dashboard.current_run?.run_id}
+        header={showRunDock && dashboard?.current_run ? (expand, isExpanded) => <ActiveRunDock key={dashboard.current_run?.run_id}
           startedAt={dashboard.current_run?.started_at} endpoints={dashboard.trip_endpoints}
-          onShowTimeline={expand} onActions={openRunActions} onHeightChange={setRunDockHeight} /> : undefined}>
+          showInfo={!isExpanded} onShowTimeline={expand} onActions={openRunActions} onHeightChange={setRunDockHeight} /> : undefined}>
       <ScrollView
         style={{ flex: 1 }}
         contentInsetAdjustmentBehavior="never"
@@ -266,6 +284,7 @@ export default function HomeScreen() {
                   <Pressable accessibilityRole="button" onPress={() => setChoosingDestination(true)} style={styles.primary}><Text style={styles.primaryText}>Choose final destination</Text></Pressable>
                 </View>
               </View>}
+              <RunAdditionalCosts costs={dashboard.additional_costs} ink={ink} muted={muted} line={line} />
             </View>
           </View>
         ) : null}
@@ -298,7 +317,7 @@ export default function HomeScreen() {
         onDismiss={() => setShipmentList(null)} onOpenShipment={openShipment} />}
       {selectedShipment && session && <ShipmentDetailsSheet
         key={`${session.token}:${selectedShipment}`}
-        modalRef={shipmentSheet} shipmentId={selectedShipment} autoPresent
+        modalRef={shipmentSheet} shipmentId={selectedShipment} onNavigate={startNavigation} autoPresent
         onDismiss={() => { setSelectedShipment(null); void load(); }}
       />}
       <StopDetailsSheet shipments={shipments} endpoints={dashboard?.trip_endpoints} stop={selectedStop} onDismiss={() => setSelectedStop(null)}

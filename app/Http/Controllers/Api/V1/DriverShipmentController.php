@@ -160,7 +160,13 @@ class DriverShipmentController extends Controller
             }
 
             if ($requiresDeliveryOdometer && $booking->odometer_at_delivery === null && $deliveryOdometer === null) {
-                return ApiResponse::error('ODOMETER_REQUIRED', 'Delivery odometer is required to complete delivery.', [], Response::HTTP_UNPROCESSABLE_ENTITY);
+                // Read the assigned run truck at save time, not a stale mobile snapshot.
+                $vehicleId = $shipment->currentRunShipment?->run?->vehicle_id;
+                $vehicle = $vehicleId ? \App\Models\Vehicle::whereKey($vehicleId)->lockForUpdate()->first() : null;
+                $deliveryOdometer = $vehicle?->odometer;
+                if ($deliveryOdometer === null || $deliveryOdometer < 0) {
+                    return ApiResponse::error('ODOMETER_REQUIRED', 'The current truck odometer reading is unavailable. Update the truck reading and retry.', [], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
             }
 
             if ($requiresCollectionOdometer && !$booking->collected_at) {

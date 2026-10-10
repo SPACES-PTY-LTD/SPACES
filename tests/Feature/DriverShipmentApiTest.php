@@ -26,6 +26,25 @@ class DriverShipmentApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_dashboard_includes_only_current_run_non_deleted_additional_costs(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))->assertOk()->assertJsonCount(0, 'data.additional_costs');
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $shipment = $this->createShipment($merchant, 'COST-VIEW', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+        $run = RunShipment::where('shipment_id', $shipment->id)->firstOrFail()->run;
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))->assertOk()->assertJsonCount(0, 'data.additional_costs');
+        $cost = $run->additionalCosts()->create(['title' => 'Parking', 'amount' => '25.50', 'currency' => 'ZAR', 'source' => 'manual']);
+        $removed = $run->additionalCosts()->create(['title' => 'Removed', 'amount' => '1.00', 'currency' => 'ZAR', 'source' => 'manual']);
+        $removed->delete();
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))->assertOk()
+            ->assertJsonCount(1, 'data.additional_costs')->assertJsonPath('data.additional_costs.0.cost_id', $cost->uuid)
+            ->assertJsonPath('data.additional_costs.0.title', 'Parking')->assertJsonPath('data.additional_costs.0.amount', '25.50');
+        [$other] = $this->createDriverContext();
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($other))->assertOk()->assertJsonCount(0, 'data.additional_costs');
+    }
+
     public function test_dashboard_exposes_the_current_runs_recorded_start_time(): void
     {
         [$user, $merchant] = $this->createDriverContext();
@@ -543,6 +562,47 @@ class DriverShipmentApiTest extends TestCase
         ])
             ->assertStatus(422)
             ->assertJsonPath('error.code', 'ODOMETER_REQUIRED');
+    }
+
+    public function test_delivered_status_uses_current_truck_odometer_without_manual_input(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver, 1245);
+        $shipment = $this->createShipment($merchant, 'AUTO-DELIVERY-ODO', 'in_transit');
+        $booking = $this->createBooking($merchant, $shipment, 'internal', 'in_transit');
+        $booking->update(['odometer_at_collection' => 1200]);
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+        $this->withHeaders($this->driverAuthHeaders($user))->patchJson("/api/v1/driver/shipments/{$shipment->uuid}/status", ['status' => 'delivered'])
+            ->assertOk()->assertJsonPath('data.booking.odometer_at_delivery', 1245);
+        $this->assertSame('45.00', $booking->fresh()->total_km_from_collection);
+        $this->assertSame(1245, $vehicle->fresh()->odometer);
+    }
+
+    public function test_automatic_delivery_odometer_rejects_truck_reading_below_collection(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver, 1199);
+        $shipment = $this->createShipment($merchant, 'AUTO-LOW-ODO', 'in_transit');
+        $booking = $this->createBooking($merchant, $shipment, 'internal', 'in_transit');
+        $booking->update(['odometer_at_collection' => 1200]);
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+        $this->withHeaders($this->driverAuthHeaders($user))->patchJson("/api/v1/driver/shipments/{$shipment->uuid}/status", ['status' => 'delivered'])
+            ->assertStatus(422)->assertJsonPath('error.code', 'INVALID_ODOMETER');
+        $this->assertSame('in_transit', $booking->fresh()->status);
+    }
+
+    public function test_automatic_delivery_reading_supports_zero_and_preserves_saved_readings(): void
+    {
+        foreach ([['truck' => 0, 'saved' => null, 'expected' => 0], ['truck' => 1245, 'saved' => 1230, 'expected' => 1230]] as $index => $case) {
+            [$user, $merchant] = $this->createDriverContext();
+            $vehicle = $this->createVehicle($merchant, $user->driver, $case['truck']);
+            $shipment = $this->createShipment($merchant, 'AUTO-PRESERVE-'.$index, 'in_transit');
+            $booking = $this->createBooking($merchant, $shipment, 'internal', 'in_transit');
+            $booking->update(['odometer_at_collection' => 0, 'odometer_at_delivery' => $case['saved']]);
+            $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+            $this->withHeaders($this->driverAuthHeaders($user))->patchJson("/api/v1/driver/shipments/{$shipment->uuid}/status", ['status' => 'delivered'])
+                ->assertOk()->assertJsonPath('data.booking.odometer_at_delivery', $case['expected']);
+        }
     }
 
     public function test_update_status_does_not_decrease_vehicle_odometer(): void

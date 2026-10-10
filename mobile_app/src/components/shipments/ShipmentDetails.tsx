@@ -63,6 +63,8 @@ export type ShipmentDetailsProps = {
     /** Passing an owned completed run grants scoped, read-only access. */
     runId?: string;
     onClose?: () => void;
+    /** Dashboard host starts native guidance after the receipt closes. */
+    onNavigate?: (shipmentId: string) => void;
     /** Sheet mode uses bounded native scrolling and leaves safe-area ownership to its host. */
     presentation?: "page" | "sheet";
     /** Keep state outside the sheet portal while native selection is open. */
@@ -239,6 +241,7 @@ function ShipmentDetailsContent({
     shipmentId: shipment_id,
     runId: run_id,
     onClose,
+    onNavigate,
     presentation = "page",
     refreshKey,
     renderSurface = (content) => content,
@@ -909,18 +912,22 @@ function ShipmentDetailsContent({
                                         gap: 10,
                                     }}
                                 >
-                                    {!!shipment.dropoff_location
-                                        ?.full_address && (
+                                    {!!locationCoordinate(shipment.dropoff_location) && (
                                         <LocationButton
                                             icon="navigate"
                                             label="Navigate"
-                                            onPress={() =>
-                                                openLocation(
-                                                    `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(shipment.dropoff_location!.full_address!)}&travelmode=driving`,
-                                                )
-                                            }
+                                            onPress={() => {
+                                                onClose?.();
+                                                if (onNavigate) onNavigate(shipment_id);
+                                                else router.push({ pathname: '/(tabs)', params: {
+                                                    navigation_shipment_id: shipment_id,
+                                                    navigation_request: Crypto.randomUUID(),
+                                                    navigation_owner: session?.user.user_id ?? '',
+                                                } });
+                                            }}
                                         />
                                     )}
+                                    {!locationCoordinate(shipment.dropoff_location) && <Text style={{ color: muted, fontSize: 12 }}>Destination map coordinates are unavailable.</Text>}
                                     {!!shipment.dropoff_location?.phone && (
                                         <LocationButton
                                             icon="phone"
@@ -1395,7 +1402,6 @@ function ShipmentDetailsContent({
                     status={statusValue}
                     onStatusChange={setStatusValue}
                     collectionOdometer={shipment.booking.odometer_at_collection}
-                    deliveryOdometer={shipment.booking.odometer_at_delivery}
                     busy={isMutating}
                     error={errorMessage}
                     onDismiss={() => { if (!isMutating) setActiveAction(null); }}

@@ -21,12 +21,12 @@ const STATUSES = [
   { value: 'in_transit', label: 'In transit' },
   { value: 'failed', label: 'Failed Delivery' },
 ];
-export type DeliveryStatusUpdate = { status: string; note?: string; odometer_at_delivery?: number };
+export type DeliveryStatusUpdate = { status: string; note?: string };
 
 /** Driver status form; collection odometer belongs to the collection flow. */
-export function DeliveryStatusSheet({ status, onStatusChange, collectionOdometer, deliveryOdometer, busy, error, onSave, onDismiss }: {
+export function DeliveryStatusSheet({ status, onStatusChange, collectionOdometer, busy, error, onSave, onDismiss }: {
   status: string; onStatusChange: (status: string) => void;
-  collectionOdometer?: number | null; deliveryOdometer?: number | null;
+  collectionOdometer?: number | null;
   busy: boolean; error?: string | null;
   onSave: (payload: DeliveryStatusUpdate) => void; onDismiss: () => void;
 }) {
@@ -41,18 +41,14 @@ export function DeliveryStatusSheet({ status, onStatusChange, collectionOdometer
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const [note, setNote] = useState('');
-  const [kilometres, setKilometres] = useState(deliveryOdometer == null ? '' : String(deliveryOdometer));
   useEffect(() => {
     const frame = requestAnimationFrame(() => modal.current?.present());
     return () => cancelAnimationFrame(frame);
   }, []);
   const failed = status === 'failed';
   const missingCollection = status !== 'booked' && collectionOdometer == null;
-  const parsedDelivery = /^\d+$/.test(kilometres.trim()) ? Number(kilometres.trim()) : null;
-  const invalidDelivery = status === 'delivered' && deliveryOdometer == null &&
-    (parsedDelivery == null || !Number.isSafeInteger(parsedDelivery) || parsedDelivery < (collectionOdometer ?? 0));
   const failureNote = reason === 'Other' ? message.trim() : reason;
-  const disabled = busy || missingCollection || invalidDelivery || (failed && !failureNote);
+  const disabled = busy || missingCollection || (failed && !failureNote);
   const inputStyle = { color: ink, backgroundColor: field, borderColor: border, borderWidth: 1, borderRadius: 12, padding: 14, minHeight: 52, fontSize: 16 };
   function dropdown(label: string, value: string, placeholder: string, kind: 'status' | 'reason', options: { value: string; label: string }[], select: (value: string) => void) {
     return <View style={{ gap: 8 }}>
@@ -72,7 +68,7 @@ export function DeliveryStatusSheet({ status, onStatusChange, collectionOdometer
   const saveAction = (
     <Pressable accessibilityRole="button" accessibilityLabel="Save status" accessibilityState={{ disabled, busy }} disabled={disabled} onPress={() => {
       if (disabled) return;
-      onSave({ status, note: (failed ? failureNote : note.trim()) || undefined, ...(status === 'delivered' && deliveryOdometer == null && parsedDelivery != null ? { odometer_at_delivery: parsedDelivery } : {}) });
+      onSave({ status, note: (failed ? failureNote : note.trim()) || undefined });
     }} style={{ minHeight: 52, borderRadius: 12, padding: 14, backgroundColor: '#15803d', opacity: disabled ? 0.5 : 1, alignItems: 'center', justifyContent: 'center', marginTop: 4 }}>
       {busy ? <ActivityIndicator color="#fff" accessibilityLabel="Saving status" /> : <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Save status</Text>}
     </Pressable>
@@ -89,11 +85,6 @@ export function DeliveryStatusSheet({ status, onStatusChange, collectionOdometer
     </> : <View style={{ gap: 8 }}>
       <Text style={{ color: ink, fontSize: 14, fontWeight: '600' }}>Note · Optional</Text>
       <BottomSheetTextInput accessibilityLabel="Status note" value={note} onChangeText={setNote} editable={!busy} placeholder="Add a note" placeholderTextColor={muted} multiline maxLength={1000} style={{ ...inputStyle, minHeight: 88, textAlignVertical: 'top' }} />
-    </View>}
-    {status === 'delivered' && deliveryOdometer == null && <View style={{ gap: 8 }}>
-      <Text style={{ color: ink, fontSize: 14, fontWeight: '600' }}>Delivery odometer · Required</Text>
-      <BottomSheetTextInput accessibilityLabel="Delivery odometer" value={kilometres} onChangeText={setKilometres} editable={!busy} placeholder="Current kilometres" placeholderTextColor={muted} keyboardType="number-pad" style={inputStyle} />
-      <Text style={{ color: muted, fontSize: 13, lineHeight: 19 }}>Must be at least the recorded collection reading{collectionOdometer == null ? '.' : ` (${collectionOdometer.toLocaleString()} km).`}</Text>
     </View>}
     {missingCollection && <Text accessibilityRole="alert" style={{ color: dark ? '#fde68a' : '#92400e', fontSize: 14, lineHeight: 21 }}>Complete the pickup odometer in the collection flow before updating this status.</Text>}
     {!!error && <Text accessibilityRole="alert" style={{ color: dark ? '#fde68a' : '#92400e', fontSize: 14, lineHeight: 21 }}>{error}</Text>}

@@ -3,16 +3,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import { waitForSdkLocation } from '../src/navigation/sdk-location.ts';
 import { createGuidanceSession } from '../src/navigation/guidance-session.ts';
 
 const target = { owner: 'owner', runId: 'run', shipmentId: 'shipment', title: 'Delivery', latitude: 0, longitude: 0 };
 function harness(platform = 'ios', overrides = {}) {
   const calls = [];
+  let locationListener;
   const controller = {
     areTermsAccepted: async () => true,
     init: async () => { calls.push('init'); return 'ok'; },
     setBackgroundLocationUpdatesEnabled: enabled => calls.push(`background:${enabled}`),
-    startUpdatingLocation: () => { calls.push('location:start'); },
+    startUpdatingLocation: () => { calls.push('location:start'); locationListener?.({ lat: 0, lng: 0 }); },
     setDestination: async () => { calls.push('destination'); return calls.includes('location:start') ? 'OK' : 'LOCATION_DISABLED'; },
     setAudioGuidanceType: () => { calls.push('audio'); },
     startGuidance: async () => { calls.push('guidance:start'); },
@@ -29,14 +31,14 @@ function harness(platform = 'ios', overrides = {}) {
     'expo-notifications': { requestPermissionsAsync: async () => ({ granted: true }) },
     'expo-keep-awake': {}, '@/src/providers/auth-provider': {}, '@/src/lib/api': {},
     '@/src/components/dashboard/navigation-location': { currentNavigationLocation: async () => ({ latitude: 0, longitude: 0 }) },
-    './guidance-session': { createGuidanceSession }, './navigation-sdk': {},
+    './sdk-location': { waitForSdkLocation }, './guidance-session': { createGuidanceSession }, './navigation-sdk': {},
   };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/navigation/GuidanceProvider.tsx', import.meta.url), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
   }).outputText, { exports, require: name => modules[name] || {} });
-  const adapter = exports.nativeAdapter(controller, { TravelMode: { DRIVING: 0 }, AudioGuidance: { SILENT: 0, VOICE_ALERTS_AND_GUIDANCE: 1, BLUETOOTH_AUDIO: 2 } });
-  return { calls, session: createGuidanceSession(adapter) };
+  const adapter = exports.nativeAdapter(controller, { TravelMode: { DRIVING: 0 }, AudioGuidance: { SILENT: 0, VOICE_ALERTS_AND_GUIDANCE: 1, BLUETOOTH_AUDIO: 2 } }, callback => { locationListener = callback; });
+  return { calls, emitLocation: location => locationListener?.(location), session: createGuidanceSession(adapter) };
 }
 
 test('iOS starts SDK location before setting a destination and stops it on Exit', async () => {
@@ -66,4 +68,14 @@ test('failed initialization never enables SDK location', async () => {
   assert.equal(h.session.snapshot().phase, 'idle');
   assert.equal(h.calls.includes('location:start'), false);
   assert.equal(h.calls.includes('background:true'), false);
+});
+
+test('iOS does not submit a destination until the asynchronous SDK fix arrives', async () => {
+  const h = harness('ios', { startUpdatingLocation: () => {} });
+  const pending = h.session.start(target);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.calls.includes('destination'), false);
+  h.emitLocation({ lat: 0, lng: 0 });
+  await pending;
+  assert.equal(h.calls.includes('destination'), true);
 });

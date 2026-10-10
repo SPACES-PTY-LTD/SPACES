@@ -7,7 +7,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 const SNAP_POINTS = [0.25, 0.5, 0.92];
 
 /** Persistent dashboard panel with native layout and a draggable resize handle. */
-export function PersistentBottomSheet({ children, header, collapsedHeight, initialSnapIndex = 1, topInset = 0, containerHeight, animatedPosition }: PropsWithChildren<{ header?: ReactNode | ((expand: () => void) => ReactNode); collapsedHeight?: number; initialSnapIndex?: number; topInset?: number; containerHeight: number; animatedPosition?: SharedValue<number> }>) {
+export function PersistentBottomSheet({ children, header, collapsedHeight, initialSnapIndex = 1, topInset = 0, containerHeight, animatedPosition }: PropsWithChildren<{ header?: ReactNode | ((expand: () => void, isExpanded: boolean) => ReactNode); collapsedHeight?: number; initialSnapIndex?: number; topInset?: number; containerHeight: number; animatedPosition?: SharedValue<number> }>) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
   const [snapIndex, setSnapIndex] = useState(initialSnapIndex);
@@ -49,7 +49,7 @@ export function PersistentBottomSheet({ children, header, collapsedHeight, initi
         style={{ height: 28, alignItems: 'center', paddingTop: 10 }}>
         <View style={{ width: sheetTheme.handleWidth, height: sheetTheme.handleHeight, borderRadius: 2, backgroundColor: dark ? '#71717a' : sheetTheme.handleColor }} />
       </Pressable>
-      {typeof header === 'function' ? header(() => { setDragHeight(null); setSnapIndex(index => Math.max(index, 1)); }) : header}
+      {typeof header === 'function' ? header(() => { setDragHeight(null); setSnapIndex(index => Math.max(index, 1)); }, snapIndex > 0) : header}
     </View>
     {children}
   </View>;

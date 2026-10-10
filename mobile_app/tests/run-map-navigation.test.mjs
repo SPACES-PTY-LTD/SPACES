@@ -195,3 +195,47 @@ test('older builds retain the route preview and disable Start', async () => {
   assert.equal(h.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Start navigation').props.disabled, true);
   assert.ok(h.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Cancel route preview'));
 });
+
+test('direct navigation startup has Cancel, skips preview routing and switches to guidance', async () => {
+  const h = harness();
+  h.guidance.state = { phase: 'starting', target: { owner: 'token', runId: 'run', shipmentId: 'selected' }, muted: false };
+  h.render(); await h.flush();
+  assert.equal(h.requests.length, 0);
+  assert.equal(h.nodes('Pressable').some(n => n.props.accessibilityLabel === 'Start navigation'), false);
+  assert.equal(h.nodes('Text').some(n => n.props.children === 'ROUTE TO DELIVERY'), false);
+  let cancelled = false; h.guidance.exit = async () => { cancelled = true; };
+  h.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Cancel navigation startup').props.onPress();
+  assert.equal(cancelled, true);
+  h.guidance.state = { ...h.guidance.state, phase: 'guiding' }; h.render();
+  assert.equal(h.nodes('GuidanceMap').length, 1);
+  h.tick(); await h.flush(); assert.equal(h.requests.length, 0);
+});
+
+test('dashboard Navigate starts the selected eligible delivery directly and guards unsupported builds', () => {
+  const source = readFileSync(new URL('../app/(tabs)/index.tsx', import.meta.url), 'utf8');
+  const body = source.match(/const startNavigation = useCallback\(\(shipmentId: string\) => \{([\s\S]*?)\n  \},/)[1];
+  const starts = [], alerts = [];
+  const guidance = { available: true, start: target => starts.push(target) };
+  const shipments = [{ shipment_id: 'selected', status: 'booked', dropoff_location: { name: 'Delivery', latitude: 0, longitude: 0 } }];
+  const invoke = new Function('shipmentId', 'guidance', 'shipments', 'dashboard', 'session', 'requiredNoteRunId', 'locationCoordinate', 'Alert', body);
+  const press = (status = 'in_progress', blocked = null) => invoke('selected', guidance, shipments, { current_run: { status, run_id: 'run' } }, { token: 'token' }, blocked, locationCoordinate, { alert: (...args) => alerts.push(args) });
+  press(); assert.equal(starts.length, 1); assert.equal(starts[0].latitude, 0); assert.equal(starts[0].shipmentId, 'selected');
+  press('completed'); press('in_progress', 'run'); assert.equal(starts.length, 1);
+  guidance.available = false; press(); assert.equal(starts.length, 1); assert.equal(alerts.length, 3);
+});
+
+
+test('receipt Navigate closes the receipt and uses dashboard guidance or a scoped dashboard request', () => {
+  const source = readFileSync(new URL('../src/components/shipments/ShipmentDetails.tsx', import.meta.url), 'utf8');
+  const body = source.match(/label="Navigate"[\s\S]*?onPress=\{\(\) => \{([\s\S]*?)\n                                            \}\}/)[1];
+  const calls = [];
+  const press = new Function('onClose', 'onNavigate', 'shipment_id', 'router', 'Crypto', 'session', body);
+  const router = { push: value => calls.push(value) };
+  press(() => calls.push('close'), id => calls.push(id), 'selected', router, { randomUUID: () => 'request' }, { user: { user_id: 'owner' } });
+  assert.deepEqual(calls, ['close', 'selected']);
+  calls.length = 0;
+  press(() => calls.push('close'), undefined, 'selected', router, { randomUUID: () => 'request' }, { user: { user_id: 'owner' } });
+  assert.equal(calls[0], 'close');
+  assert.equal(calls[1].pathname, '/(tabs)');
+  assert.deepEqual(calls[1].params, { navigation_shipment_id: 'selected', navigation_request: 'request', navigation_owner: 'owner' });
+});

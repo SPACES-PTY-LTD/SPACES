@@ -6,7 +6,9 @@ import { Text } from '@/component/ui/Text';
 import { nativeMapCapabilities, selectNativeMapProvider, type NativeMapProvider } from './native-map-provider';
 import { runMapStyle, runMapDarkStyle } from './run-map-style';
 
-const capabilities = nativeMapCapabilities(Platform.OS, name => UIManager.hasViewManagerConfig(name), { isExpoGo: isRunningInExpoGo() });
+// app.config.js omits react-native-maps Google pods on iOS: Navigation owns that framework.
+// RNMapsGoogleMapView still registers a blank Fabric placeholder in these builds.
+const capabilities = nativeMapCapabilities(Platform.OS, name => UIManager.hasViewManagerConfig(name), { isExpoGo: isRunningInExpoGo(), iosGoogleMapsEnabled: false });
 const failed = new Set<NativeMapProvider>();
 const listeners = new Set<() => void>();
 const snapshot = () => selectNativeMapProvider(capabilities, failed);

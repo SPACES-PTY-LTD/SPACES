@@ -21,9 +21,10 @@ export function activeRunRoute(endpoints: DriverDashboard['trip_endpoints']) {
   return `From ${start || 'Start unavailable'} → ${end || 'End not set'}`;
 }
 
-export function ActiveRunDock({ startedAt, endpoints, onShowTimeline, onActions, onHeightChange }: {
+export function ActiveRunDock({ startedAt, endpoints, showInfo, onShowTimeline, onActions, onHeightChange }: {
   startedAt?: string | null;
   endpoints: DriverDashboard['trip_endpoints'];
+  showInfo: boolean;
   onShowTimeline: () => void;
   onActions: () => void;
   onHeightChange: (height: number) => void;
@@ -52,21 +53,25 @@ export function ActiveRunDock({ startedAt, endpoints, onShowTimeline, onActions,
   return <View style={[styles.dock, { backgroundColor: dark ? '#18181b' : '#ffffff', borderColor: line }]}
     onLayout={event => onHeightChange(event.nativeEvent.layout.height)}>
     <View style={styles.row}>
-      <View style={styles.summary}>
+      <Pressable style={styles.summary} onPress={onShowTimeline} accessibilityRole="button"
+        accessibilityLabel="Show run timeline from elapsed time" accessibilityHint="Expands the dashboard bottom sheet to show run details">
         <Text style={[styles.label, { color: dark ? '#86efac' : '#15803d' }]}>Run active for:</Text>
         <Text accessibilityLiveRegion="none" style={[styles.elapsed, { color: ink }]}>{elapsedRunTime(startedAt, now)}</Text>
-      </View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Show run timeline"
+      </Pressable>
+      {showInfo && <Pressable accessibilityRole="button" accessibilityLabel="Show run timeline"
         accessibilityHint="Expands the dashboard bottom sheet to show run details"
         onPress={onShowTimeline} style={[styles.info, { borderColor: dark ? line : '#dbdbe0' }]}>
         <Feather name="info" size={20} color={ink} />
-      </Pressable>
+      </Pressable>}
       <Pressable accessibilityRole="button" accessibilityLabel="Run actions" onPress={onActions}
         style={[styles.actions, { borderColor: dark ? line : '#dbdbe0' }]}>
         <Text style={[styles.actionText, { color: ink }]}>Actions</Text>
       </Pressable>
     </View>
-    <Text numberOfLines={2} style={[styles.route, { color: dark ? '#a1a1aa' : '#71717a' }]}>{activeRunRoute(endpoints)}</Text>
+    <Pressable onPress={onShowTimeline} accessibilityRole="button" accessibilityLabel="Show run timeline from route"
+      accessibilityHint="Expands the dashboard bottom sheet to show run details" hitSlop={{ top: 6, bottom: 6 }}>
+      <Text numberOfLines={2} style={[styles.route, { color: dark ? '#a1a1aa' : '#71717a' }]}>{activeRunRoute(endpoints)}</Text>
+    </Pressable>
   </View>;
 }
 

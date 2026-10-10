@@ -36,13 +36,13 @@ test('Other requires a trimmed message and switching away removes custom message
   app.press('Reason · Required'); app.press('Delivery refused'); assert.equal(app.nodes('TextInput').length, 0);
   app.press('Save status'); assert.equal(app.saves[1].note, 'Delivery refused');
 });
-test('missing collection and invalid delivery readings block save; recorded readings are never overwritten', () => {
+test('missing collection blocks save; delivered submits no manual odometer', () => {
   const missing = harness({ collectionOdometer: null }); missing.press('Reason · Required'); missing.press('Recipient unavailable');
   assert.equal(missing.saveButton().props.disabled, true); missing.press('Save status'); assert.equal(missing.saves.length, 0);
-  const app = harness({ status: 'delivered' }); app.input('Delivery odometer', '395433'); assert.equal(app.saveButton().props.disabled, true);
-  app.input('Delivery odometer', '395434junk'); assert.equal(app.saveButton().props.disabled, true);
-  app.input('Delivery odometer', '395440'); app.press('Save status'); assert.equal(app.saves[0].odometer_at_delivery, 395440);
-  app.render({ deliveryOdometer: 395450 }); app.press('Save status'); assert.equal('odometer_at_delivery' in app.saves[1], false);
+  const app = harness({ status: 'delivered' });
+  assert.equal(app.nodes('TextInput').some(n => n.props.accessibilityLabel === 'Delivery odometer'), false);
+  assert.equal(app.saveButton().props.disabled, false);
+  app.press('Save status'); assert.equal('odometer_at_delivery' in app.saves[0], false);
 });
 test('switching status excludes failure draft; busy and errors preserve recovery controls', () => {
   const app = harness(); app.press('Reason · Required'); app.press('Other'); app.input('Failure message', 'Custom reason');

@@ -22,7 +22,7 @@ function harness() {
     exports, require: name => modules[name], Date: Clock,
     setInterval: (fn, ms) => { assert.equal(ms, 1000); tick = fn; return 1; }, clearInterval: () => { tick = undefined; },
   });
-  const render = () => exports.ActiveRunDock({ startedAt: '2026-10-10T08:00:00Z', endpoints: [], onShowTimeline: () => revealed++, onActions: () => opened++, onHeightChange() {} });
+  const render = () => exports.ActiveRunDock({ startedAt: '2026-10-10T08:00:00Z', endpoints: [], showInfo: true, onShowTimeline: () => revealed++, onActions: () => opened++, onHeightChange() {} });
   return { exports, render, focus: () => { cleanup = focus(); }, blur: () => cleanup(), advance: ms => { now += ms; tick?.(); }, state: state => { native.AppState.currentState = state; listener(state); }, ticking: () => !!tick, opened: () => opened, revealed: () => revealed };
 }
 function nodes(tree) { if (!tree || typeof tree !== 'object') return []; return [tree, ...[tree.props?.children].flat().flatMap(nodes)]; }
@@ -54,7 +54,9 @@ test('clock reconciles background and focus gaps while Actions remains independe
   assert.ok(nodes(h.render()).some(n => n.props.children === '2hrs 1min'));
   nodes(h.render()).find(n => n.props.accessibilityLabel === 'Run actions').props.onPress(); assert.equal(h.opened(), 1);
   nodes(h.render()).find(n => n.props.accessibilityLabel === 'Show run timeline').props.onPress();
-  assert.equal(h.revealed(), 1); assert.equal(h.opened(), 1);
+  assert.equal(h.revealed(), 1);
+  for (const label of ['Show run timeline from elapsed time', 'Show run timeline from route']) nodes(h.render()).find(n => n.props?.accessibilityLabel === label).props.onPress();
+  assert.equal(h.revealed(), 3); assert.equal(h.opened(), 1);
   h.blur(); assert.equal(h.ticking(), false); h.advance(120_000); h.render(); h.focus();
   assert.ok(nodes(h.render()).some(n => n.props.children === '2hrs 3mins'));
   h.blur();
