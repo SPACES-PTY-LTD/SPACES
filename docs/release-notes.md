@@ -1,5 +1,41 @@
 # Release Notes
 
+## 2026-10-09 | Version: message-draft-picture-preview-v1
+
+- **Summary:** Preview selected pictures in the Expo message composer as small thumbnails.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace picture filename rows with 64-point local image previews and separate remove controls. Image MIME types take precedence; missing/generic MIME falls back to common image extensions. Documents retain filenames. Keep accessible picture/removal labels, draft text/references, upload limits and explicit Send behavior.
+- **Breaking Changes:** None.
+- **Verification:** Eleven mocked actual-Messages screen regressions, full mobile TypeScript and focused Messages lint pass. iOS simulator verifies HEIC photo selection, thumbnail without filename, removal and empty-draft send gating; no message sent. Dashboard plan v2.117 and editable Figma composer/handoff aligned. Android, dark mode, camera and document-picker image rendering remain pending.
+
+## 2026-10-09 | Version: shipment-remove-history-menu-v1
+
+- **Summary:** Remove the redundant Shipment history action from Shipment options.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Keep history inline below Shipment info and remove its duplicate panel/state. Editable booked shipments retain Update delivery status and Cancel shipment. Hide Actions in completed-run read-only views and when no booking has available actions, preventing an empty menu.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails lint and diff checks pass. Mocked actual-component checks confirm the two-action menu, retained inline history/files, absent read-only/unbooked menu and preserved four-status selection/validation/save flow. Dashboard plan v2.116 and Figma shared menu/read-only header handoff aligned. Native status/cancellation and read-only layout checks remain pending.
+
+## 2026-10-09 | Version: truck-popup-motion-v1
+
+- **Summary:** Show whether the truck is moving or stationary and its reported speed in the Expo map popup.
+- **API Changes:** Driver current/run-position responses add nullable `speed_kph` and `motion_status` (`moving`/`stationary`). Only expose finite nonnegative tracker speed matching the displayed position timestamp and coordinates; existing scope and response fields retained. Mobile fields are optional for older API compatibility.
+- **Database Changes:** None.
+- **Behavior Changes:** Stationary uses the existing configured speed threshold (default ≤3 km/h). Show status and km/h above Last reported. Reports older than 15 minutes explicitly show Last reported and Outdated; missing/invalid/future/unmatched reports show Movement unknown. Preserve address/geofence labels, accessible descriptions and existing polling.
+- **Breaking Changes:** None. Deploy the backend addition for populated motion fields; older backends show Movement unknown.
+- **Verification:** 34 driver API tests pass (297 assertions), including both endpoints, threshold/zero/nested provider readings, mismatched observations, malformed data and driver scope. Four mobile address/motion tests, full TypeScript, focused label/API ESLint, PHP syntax and diff checks pass. Simulator truck accessibility exposes Movement unknown for the current report; known-motion native callout, dark/large-text/Android and live tracker transitions remain unverified. Dashboard plan v2.115 and editable Figma motion references/scenario handoff aligned and visually reviewed.
+
+## 2026-10-09 | Version: shipment-history-order-v1
+
+- **Summary:** Show shipment history details below Shipment info.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reorder the shared inline/nested card to Shipment info, history events and lifecycle dates/odometers, then Proof of delivery. Preserve field filtering, event order and empty-section handling. Apply separators only when preceding content exists.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused ShipmentDetails lint and diff checks pass. Mocked card rendering confirms info/history/proof order, omitted empty cards and no leading separators when preceding sections are absent. Selected Figma cards and handoff align with dashboard plan v2.114. Native theme/large-text layout remains pending.
+
 ## 2026-10-09 | Version: shipment-remove-files-menu-v1
 
 - **Summary:** Remove the redundant Delivery note & files action from Shipment options.

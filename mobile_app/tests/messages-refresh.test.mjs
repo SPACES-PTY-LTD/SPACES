@@ -8,6 +8,7 @@ const message = id => ({ message_id: id, created_at: `2026-10-09T10:00:0${id}Z`,
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 function harness(initialParams = {}) {
   let params = { ...initialParams };
+  let pickedAssets = [], actions;
   const slots = [], effects = [], timers = new Map(), frames = new Map();
   let focusCount = 0;
   let cursor = 0, tree, focused = true, listener, next = deferred(), opens = 0;
@@ -43,18 +44,19 @@ function harness(initialParams = {}) {
     '@/src/components/runs/RunDetailsSheet': { RunDetailsSheet: 'RunDetailsSheet' },
     '@gorhom/bottom-sheet': {},
     'expo-image': { Image: 'Image' }, '@expo/vector-icons': { Feather: 'Feather' },
-    'expo-document-picker': {}, 'expo-image-picker': {}, 'expo-crypto': {}, '@/src/components/ChatReferenceSheet': {},
+    'expo-document-picker': { getDocumentAsync: async () => ({ canceled: false, assets: pickedAssets }) }, 'expo-image-picker': {}, 'expo-crypto': {}, '@/src/components/ChatReferenceSheet': {},
   };
   const exports = {};
   const source = ts.transpileModule(readFileSync(new URL('../app/(tabs)/messages.tsx', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   vm.runInNewContext(source, { exports, require: name => { if (name.endsWith('.svg')) return name; assert.ok(name in modules, name); return modules[name]; }, Error, Map, Date, requestAnimationFrame: callback => { frames.set(callback, callback); return callback; }, cancelAnimationFrame: id => frames.delete(id), setTimeout() {}, setInterval: callback => { timers.set(callback, callback); return callback; }, clearInterval: id => timers.delete(id) });
-  function render() { cursor = 0; const child = exports.default(); tree = child.type(child.props); nodes('TextInput').forEach(node => { if (node.props.ref) node.props.ref.current = { focus() { focusCount++; } }; }); while (effects.length) effects.shift()(); }
+  function render() { cursor = 0; const child = exports.default(); tree = child.type(child.props); nodes('ActionSheet').forEach(node => { node.props.ref.current = { present(value) { actions = value.actions; } }; }); nodes('TextInput').forEach(node => { if (node.props.ref) node.props.ref.current = { focus() { focusCount++; } }; }); while (effects.length) effects.shift()(); }
   function nodes(type) {
     const result = [];
     function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); if (node.type === type) result.push(node); visit(node.props?.children); }
     visit(tree); return result;
   }
   return {
+    async pickFiles(assets) { pickedAssets = assets; nodes('Pressable').find(n => n.props.accessibilityLabel === 'Add attachment').props.onPress(); await actions.find(a => a.id === 'file').onPress(); render(); },
     requestShipment(id, request = id) { params = { draft_shipment_id: id, draft_shipment_label: `Shipment ${id}`, draft_shipment_request: request, draft_owner: 'driver' }; render(); },
     closed() { chat.status = 'closed'; },
     owner(value) { params.draft_owner = value; },
@@ -155,4 +157,27 @@ test('sent run and completed shipment references open sheets without navigation'
   assert.equal(app.nodes('RunDetailsSheet')[0].props.runId, 'run-1'); app.nodes('RunDetailsSheet')[0].props.onDismiss(); app.render();
   buttons(row).find(n => n.props.accessibilityLabel === 'Open Shipment 123').props.onPress(); app.render();
   assert.equal(app.nodes('ShipmentDetailsSheet')[0].props.runId, 'completed-run'); app.unmount();
+});
+
+
+test('draft pictures preview local images without filenames; documents retain names and removal preserves text', async () => {
+  const app = harness(); app.render(); app.resolve([]); await app.flush();
+  app.nodes('TextInput')[0].props.onChangeText('Keep this draft'); app.render();
+  await app.pickFiles([
+    { uri: 'file:///photo', name: 'generated-photo.jpg', mimeType: 'image/jpeg' },
+    { uri: 'file:///heic', name: 'camera.HEIC' },
+    { uri: 'file:///png', name: 'scan.png', mimeType: 'application/octet-stream' },
+    { uri: 'file:///pdf', name: 'delivery.pdf', mimeType: 'application/pdf' },
+    { uri: 'file:///text', name: 'misleading.jpg', mimeType: 'text/plain' },
+  ]);
+  const previews = app.nodes('Image').filter(n => n.props.source?.uri);
+  assert.deepEqual(previews.map(n => n.props.source.uri), ['file:///photo', 'file:///heic', 'file:///png']);
+  const visibleText = app.nodes('Text').map(n => n.props.children);
+  assert.ok(!visibleText.includes('generated-photo.jpg')); assert.ok(!visibleText.includes('camera.HEIC'));
+  assert.ok(visibleText.includes('delivery.pdf')); assert.ok(visibleText.includes('misleading.jpg'));
+  app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Remove generated-photo.jpg').props.onPress(); app.render();
+  assert.equal(app.nodes('Image').filter(n => n.props.source?.uri).length, 2);
+  assert.equal(app.nodes('TextInput')[0].props.value, 'Keep this draft');
+  assert.equal(app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Send message').props.disabled, false);
+  app.unmount();
 });

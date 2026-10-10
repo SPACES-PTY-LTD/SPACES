@@ -259,9 +259,6 @@ function ShipmentDetailsContent({
     const [actionMessage, setActionMessage] = useState<string | null>(null);
     const shipmentActions = useRef<ActionSheetRef>(null);
     const deliveryStatuses = useRef<ActionSheetRef>(null);
-    const [detailPanel, setDetailPanel] = useState<"history" | null>(
-        null,
-    );
     const [activeAction, setActiveAction] = useState<
         "cancel" | "pod" | "status" | null
     >(null);
@@ -692,10 +689,6 @@ function ShipmentDetailsContent({
         shipment?.total_parcel_count ?? shipment?.parcels?.length ?? 0;
     const currentStatus = shipment?.booking?.status || shipment?.status || "";
     const close = onClose ?? (() => router.back());
-    const openPanel = (panel: "history") => {
-        setActiveAction(null);
-        setDetailPanel(panel);
-    };
     const filesSection = (
         <ShipmentFilesSection
             files={shipmentFiles}
@@ -708,7 +701,6 @@ function ShipmentDetailsContent({
             onUpload={() => {
                 resetShipmentFileForm();
                 setActiveAction(null);
-                setDetailPanel(null);
                 setFileModalVisible(true);
             }}
         />
@@ -731,7 +723,7 @@ function ShipmentDetailsContent({
         });
     };
     const openShipmentActions = () => {
-        if (!shipment || isMutating) return;
+        if (!shipment?.booking || readOnly || isMutating) return;
         shipmentActions.current?.present({
             title: "Shipment options",
             showCloseButton: true,
@@ -748,11 +740,6 @@ function ShipmentDetailsContent({
                           },
                       ]
                     : []),
-                {
-                    id: "history",
-                    label: "Shipment history",
-                    onPress: () => openPanel("history"),
-                },
                 ...(!readOnly && shipment.booking
                     ? [
                           {
@@ -799,7 +786,7 @@ function ShipmentDetailsContent({
                         <ShipmentIcon name="back" />
                     </Pressable>
                 }
-                action={
+                action={!readOnly && shipment?.booking ? (
                     <Pressable
                         accessibilityRole="button"
                         accessibilityLabel="Shipment actions"
@@ -824,7 +811,7 @@ function ShipmentDetailsContent({
                         <Text style={{ color: ink, fontSize: 14, lineHeight: 20, fontWeight: "600" }}>Actions</Text>
                         <View style={{ transform: [{ rotate: "90deg" }] }}><ShipmentIcon name="chevron" /></View>
                     </Pressable>
-                }
+                ) : undefined}
             />
             <BodyScroll
                 style={{ flex: 1 }}
@@ -1298,12 +1285,10 @@ function ShipmentDetailsContent({
                 presentation={presentation}
                 visible={
                     !!shipment &&
-                    (detailPanel !== null ||
-                        (!readOnly && activeAction !== null))
+                    !readOnly && activeAction !== null
                 }
                 onRequestClose={() => {
                     if (!isMutating) {
-                        setDetailPanel(null);
                         setActiveAction(null);
                         setFileModalVisible(false);
                     }
@@ -1325,9 +1310,7 @@ function ShipmentDetailsContent({
                                   ? "Delivery proof"
                                   : activeAction === "cancel"
                                     ? "Cancel shipment"
-                                    : detailPanel === "history"
-                                        ? "Shipment history"
-                                        : "More actions"
+                                    : "More actions"
                         }
                         action={
                             <Pressable
@@ -1335,7 +1318,6 @@ function ShipmentDetailsContent({
                                 accessibilityLabel="Close shipment panel"
                                 disabled={isMutating}
                                 onPress={() => {
-                                    setDetailPanel(null);
                                     setActiveAction(null);
                                     setFileModalVisible(false);
                                     setFileTypeDropdownOpen(false);
@@ -1605,11 +1587,6 @@ function ShipmentDetailsContent({
                                             </ActionCard>
                                         ) : null}
                                     </>
-                                ) : null}
-                                {detailPanel === "history" && !activeAction ? (
-                                    <ShipmentHistorySection
-                                        shipment={shipment}
-                                    />
                                 ) : null}
                             </>
                         )}

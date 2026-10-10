@@ -984,6 +984,8 @@ async function positionWithAddress(token: string, position: RunPosition): Promis
 }
 
 export type RunPosition = {
+  speed_kph?: number | null;
+  motion_status?: 'moving' | 'stationary' | null;
   address?: string | null;
   geofence_location?: { location_id: string; name: string; address: string | null } | null;
   vehicle_id: string | null;

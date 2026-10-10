@@ -101,6 +101,34 @@ class DriverShipmentApiTest extends TestCase
         $this->getJson('/api/v1/driver/position', $this->driverAuthHeaders($user))->assertOk()->assertJsonPath('data.coordinate.latitude', 0);
     }
 
+    public function test_driver_position_motion_matches_the_displayed_tracking_observation(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $at = now()->startOfSecond();
+        $position = ['timestamp' => $at->toIso8601String(), 'latitude' => -26.15, 'longitude' => 28.04, 'speed_kilometres_per_hour' => 0];
+        config()->set('vehicle_history.stationary_speed_kph', 3);
+        $vehicle->update(['last_location_address' => ['latitude' => -26.15, 'longitude' => 28.04], 'location_updated_at' => $at]);
+        $headers = $this->driverAuthHeaders($user);
+        foreach ([0 => 'stationary', 3 => 'stationary', 4 => 'moving', 80 => 'moving'] as $speed => $status) {
+            $vehicle->update(['metadata' => ['tracking_position' => array_replace($position, ['speed_kilometres_per_hour' => $speed])]]);
+            $this->getJson('/api/v1/driver/position', $headers)->assertOk()->assertJsonPath('data.speed_kph', $speed)->assertJsonPath('data.motion_status', $status);
+        }
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'driver_id' => $user->driver->id, 'vehicle_id' => $vehicle->id, 'status' => Run::STATUS_IN_PROGRESS]);
+        $vehicle->update(['metadata' => ['tracking_position' => ['position' => ['timestamp' => $at->toIso8601String(), 'lat' => -26.15, 'lon' => 28.04, 'speed' => '25.5']]]]);
+        $this->getJson('/api/v1/driver/runs/'.$run->uuid.'/position', $headers)->assertOk()
+            ->assertJsonPath('data.speed_kph', 25.5)->assertJsonPath('data.motion_status', 'moving');
+        foreach ([['speed_kilometres_per_hour' => -1], ['speed_kilometres_per_hour' => 'bad'], ['timestamp' => $at->copy()->subMinute()->toIso8601String()], ['timestamp' => 'bad'], ['latitude' => -25]] as $patch) {
+            $vehicle->update(['metadata' => ['tracking_position' => array_replace($position, $patch)]]);
+            $this->getJson('/api/v1/driver/position', $headers)->assertOk()->assertJsonPath('data.speed_kph', null)->assertJsonPath('data.motion_status', null);
+        }
+        $vehicle->update(['metadata' => []]);
+        $this->getJson('/api/v1/driver/position', $headers)->assertOk()->assertJsonPath('data.motion_status', null);
+        [$other] = $this->createDriverContext($merchant);
+        $this->getJson('/api/v1/driver/position', $this->driverAuthHeaders($other))->assertOk()->assertJsonPath('data.speed_kph', null);
+    }
+
     public function test_truck_popup_reports_address_and_only_a_containing_authorized_polygon(): void
     {
         [$user, $merchant] = $this->createDriverContext();

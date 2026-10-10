@@ -9,6 +9,8 @@ use App\Models\Vehicle;
 use App\Support\ApiResponse;
 use App\Support\GeofencePolygon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Carbon\Carbon;
 
 class DriverRunPositionController extends Controller
 {
@@ -49,11 +51,14 @@ class DriverRunPositionController extends Controller
         $longitude = $location['longitude'] ?? null;
         $valid = is_numeric($latitude) && is_numeric($longitude) && is_finite((float) $latitude) && is_finite((float) $longitude) && abs((float) $latitude) <= 90 && abs((float) $longitude) <= 180;
         $geofence = $valid && $vehicle ? $this->geofence($vehicle, $merchantId, (float) $latitude, (float) $longitude) : null;
+        $speed = $valid ? $this->reportedSpeed($vehicle) : null;
         return ApiResponse::success([
             'vehicle_id' => $vehicle?->uuid,
             'plate_number' => $vehicle?->plate_number,
             'coordinate' => $valid ? ['latitude' => (float) $latitude, 'longitude' => (float) $longitude] : null,
             'updated_at' => $vehicle?->location_updated_at?->toIso8601String(),
+            'speed_kph' => $speed,
+            'motion_status' => $speed === null ? null : ($speed <= config('vehicle_history.stationary_speed_kph', 3) ? 'stationary' : 'moving'),
             'address' => $this->address($location),
             'geofence_location' => $geofence ? [
                 'location_id' => $geofence->uuid,
@@ -61,6 +66,28 @@ class DriverRunPositionController extends Controller
                 'address' => $this->address($geofence->toAddressArray()),
             ] : null,
         ]);
+    }
+
+    /** Only use speed from the same tracker observation as the displayed position. */
+    private function reportedSpeed(?Vehicle $vehicle): ?float
+    {
+        $position = $vehicle?->metadata['tracking_position'] ?? null;
+        if (! is_array($position) || ! $vehicle?->location_updated_at) return null;
+        $at = $position['timestamp'] ?? $position['recorded_at'] ?? $position['recordedAt'] ?? Arr::get($position, 'position.timestamp');
+        if (! is_string($at) || trim($at) === '') return null;
+        try {
+            if (! Carbon::parse($at)->equalTo($vehicle->location_updated_at)) return null;
+        } catch (\Throwable) {
+            return null;
+        }
+        $latitude = $position['latitude'] ?? $position['lat'] ?? Arr::get($position, 'position.latitude') ?? Arr::get($position, 'position.lat');
+        $longitude = $position['longitude'] ?? $position['lng'] ?? $position['lon'] ?? Arr::get($position, 'position.longitude') ?? Arr::get($position, 'position.lng') ?? Arr::get($position, 'position.lon');
+        if (! is_numeric($latitude) || ! is_numeric($longitude)
+            || (float) $latitude !== (float) ($vehicle->last_location_address['latitude'] ?? null)
+            || (float) $longitude !== (float) ($vehicle->last_location_address['longitude'] ?? null)) return null;
+        $speed = $position['speed_kilometres_per_hour'] ?? $position['speed'] ?? $position['SpeedKilometresPerHour']
+            ?? Arr::get($position, 'position.speed_kilometres_per_hour') ?? Arr::get($position, 'position.speed');
+        return is_numeric($speed) && is_finite((float) $speed) && (float) $speed >= 0 ? (float) $speed : null;
     }
 
     private function address(array $location): ?string

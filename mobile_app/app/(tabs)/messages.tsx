@@ -38,6 +38,13 @@ import { useAuth } from '@/src/providers/auth-provider';
 import { useUnreadMessages } from '@/src/providers/unread-messages-provider';
 import { setVisibleDriverChat } from '@/src/providers/message-notifications';
 
+function isDraftPicture(file: DocumentPicker.DocumentPickerAsset) {
+    const mime = file.mimeType?.toLowerCase();
+    if (mime?.startsWith('image/')) return true;
+    if (mime && mime !== 'application/octet-stream') return false;
+    return /\.(jpe?g|png|gif|webp|heic|heif|avif|bmp|tiff?)$/i.test(file.name);
+}
+
 export default function MessagesScreen() {
     const { session } = useAuth();
     const { conversation_id, draft_shipment_id, draft_shipment_label, draft_shipment_request, draft_owner } = useLocalSearchParams<{
@@ -504,9 +511,16 @@ function DriverChat({ requestedConversation, draftShipment, draftRequest }: { re
                     }} style={styles.removeFile}><Feather name="x" size={18} color={colors.muted} /></Pressable>
                 </View>)}
                 {files.map((f, index) => (
-                    <View key={`${f.uri}-${index}`} style={[styles.draftFile, { backgroundColor: colors.background, borderColor: colors.line }]}>
-                        <Feather name="file-text" size={18} color={colors.muted} />
-                        <Text numberOfLines={1} style={{ flex: 1, color: colors.ink }}>{f.name}</Text>
+                    <View key={`${f.uri}-${index}`} style={[styles.draftFile, isDraftPicture(f) && styles.draftPicture, { backgroundColor: colors.background, borderColor: colors.line }]}>
+                        {isDraftPicture(f) ? (
+                            <View style={[styles.picturePreview, { backgroundColor: colors.soft }]}>
+                                <Feather name="image" size={24} color={colors.muted} />
+                                <Image source={{ uri: f.uri }} contentFit="cover" accessible accessibilityLabel={`Selected picture: ${f.name}`} style={StyleSheet.absoluteFill} />
+                            </View>
+                        ) : <>
+                            <Feather name="file-text" size={18} color={colors.muted} />
+                            <Text numberOfLines={1} style={{ flex: 1, color: colors.ink }}>{f.name}</Text>
+                        </>}
                         <Pressable disabled={sending} accessibilityRole="button" accessibilityLabel={`Remove ${f.name}`} onPress={() => {
                             setFiles((prev) => prev.filter((_, i) => i !== index));
                             retry.current = null;
@@ -575,5 +589,7 @@ const styles = StyleSheet.create({
     input: { flex: 1, fontSize: 16, lineHeight: 23, minHeight: 44, maxHeight: 120, paddingVertical: 6, paddingHorizontal: 0, textAlignVertical: 'center' },
     composerHint: { fontSize: 12, lineHeight: 17, textAlign: 'center' },
     draftFile: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, paddingLeft: 12 },
+    draftPicture: { alignSelf: 'flex-start', paddingLeft: 6, paddingVertical: 6 },
+    picturePreview: { width: 64, height: 64, borderRadius: 8, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
     removeFile: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 });
