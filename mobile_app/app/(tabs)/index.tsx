@@ -12,6 +12,7 @@ import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanima
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useBottomTabBarHeight } from 'expo-router/js-tabs';
 import { PersistentBottomSheet } from '@/component/ui/PersistentBottomSheet';
+import { ActiveRunDock } from '@/src/components/dashboard/ActiveRunDock';
 import { NextDeliveryCard, nextDelivery } from '@/src/components/dashboard/NextDeliveryCard';
 import { RunMap } from '@/src/components/dashboard/RunMap';
 import { Feather } from '@expo/vector-icons';
@@ -138,6 +139,8 @@ export default function HomeScreen() {
   const shipments = dashboard?.run_shipments ?? [];
   const next = nextDelivery(shipments);
   const [nextCardHeight, setNextCardHeight] = useState(0);
+  const [runDockHeight, setRunDockHeight] = useState(98);
+  const showRunDock = !!session && dashboard?.current_run?.status === 'in_progress';
   const showNext = !requiredNoteRunId && dashboard?.current_run?.status === "in_progress" && !!next;
   const needsDestination = !!dashboard?.current_run && !dashboard.current_run.destination_location_id && !dashboard.trip_endpoints?.some(endpoint => endpoint.role === 'Planned end location');
   const showDestinationEntry = needsDestination && runFilter === 'all';
@@ -178,7 +181,12 @@ export default function HomeScreen() {
           </Pressable>
       </View> : null}
       </Animated.View>
-      <PersistentBottomSheet topInset={mapTopInset} containerHeight={containerHeight} animatedPosition={sheetPosition}>
+      <PersistentBottomSheet key={showRunDock ? `active:${dashboard?.current_run?.run_id}` : 'dashboard'}
+        topInset={mapTopInset} containerHeight={containerHeight} animatedPosition={sheetPosition}
+        initialSnapIndex={showRunDock ? 0 : 1} collapsedHeight={showRunDock ? runDockHeight + 28 : undefined}
+        header={showRunDock && dashboard?.current_run ? <ActiveRunDock key={dashboard.current_run.run_id}
+          startedAt={dashboard.current_run.started_at} endpoints={dashboard.trip_endpoints}
+          onActions={openRunActions} onHeightChange={setRunDockHeight} /> : undefined}>
       <ScrollView
         style={{ flex: 1 }}
         contentInsetAdjustmentBehavior="never"
@@ -197,15 +205,6 @@ export default function HomeScreen() {
           <View style={[styles.deliveryCard, { backgroundColor: dark ? '#18181b' : '#ffffff' }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
               <Text style={[styles.runTitle, { color: ink, flexShrink: 1 }]}>{dashboard.current_run.status === 'in_progress' ? 'Current run' : 'Ready to start'}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              {dashboard.current_run.status === 'in_progress' && <Pressable
-                accessibilityRole="button" accessibilityLabel="Run actions"
-                onPress={openRunActions}
-                style={{ minHeight: 24, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 10, borderColor: line }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: muted }}>Actions</Text>
-                </Pressable>}
-              </View>
             </View>
             {dashboard.current_run.end_request?.status === 'pending' && <Text style={{ color: warning, marginTop: 8 }}>End run requested — awaiting dispatch approval</Text>}
             {dashboard.current_run.end_request?.status === 'rejected' && <Text style={{ color: warning, marginTop: 8 }}>End run request rejected: {dashboard.current_run.end_request.review_reason}</Text>}

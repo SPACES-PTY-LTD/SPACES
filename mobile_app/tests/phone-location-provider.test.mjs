@@ -21,6 +21,7 @@ function harness({ enabled = false, granted = true, background = true } = {}) {
   };
   let authSession = { token: 'test-token', user: { user_id: 'driver', role: 'driver' } };
   const modules = {
+    '@/src/lib/phone-location-report': { withPhoneLocationReport: async (_, report) => report() },
     '@/src/lib/phone-location-task': { backgroundLocationAvailable: async () => true, startPhoneLocation: async () => { backgroundStarted++; }, stopPhoneLocation: async () => { backgroundStopped++; } },
     react: {
       createContext: () => ({ Provider: 'provider' }), useContext: () => context,

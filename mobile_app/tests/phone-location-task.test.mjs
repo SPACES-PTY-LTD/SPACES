@@ -20,6 +20,9 @@ function harness() {
     './auth-storage': { readSession: async () => session },
     './api': { driverApi: { locationSharing: async () => settings, reportPhoneLocation: async () => { if (failReport) throw failReport; reports++; } } },
   };
+  const gate = {};
+  vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/phone-location-report.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: gate, require: name => modules[name], Date, Number, Set });
+  modules['./phone-location-report'] = gate;
   const exports = {};
   vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/phone-location-task.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports, require: name => { assert.ok(name in modules, name); return modules[name]; }, Date, Promise, Error });
   return { ...exports, get started() { return started; }, get reports() { return reports; },

@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import { driverApi, type PhoneLocationSettings } from '@/src/lib/api';
 import { backgroundLocationAvailable, startPhoneLocation, stopPhoneLocation } from '@/src/lib/phone-location-task';
 import { useAuth } from './auth-provider';
+import { withPhoneLocationReport } from '@/src/lib/phone-location-report';
 
 type LocationContextValue = {
   settings: PhoneLocationSettings | null;
@@ -19,6 +20,7 @@ const Context = createContext<LocationContextValue | null>(null);
 export function PhoneLocationProvider({ children }: { children: ReactNode }) {
   const { session, isHydrating } = useAuth();
   const token = session?.token;
+  const userId = session?.user.user_id;
   const [savedSettings, setSettings] = useState<PhoneLocationSettings | null>(null);
   const [settingsToken, setSettingsToken] = useState<string>();
   const settings = settingsToken === token ? savedSettings : null;
@@ -144,23 +146,23 @@ export function PhoneLocationProvider({ children }: { children: ReactNode }) {
         }
         const point = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         if (cancelled || mutating.current || AppState.currentState !== 'active') return;
-        const next = await driverApi.reportPhoneLocation(token!, {
+        const next = await withPhoneLocationReport(userId!, () => driverApi.reportPhoneLocation(token!, {
           latitude: point.coords.latitude, longitude: point.coords.longitude,
           accuracy: point.coords.accuracy, observed_at: new Date(point.timestamp).toISOString(),
-        });
-        if (!cancelled) { setSettings(next); setPermissionRequired(false); setError(null); }
+        }));
+        if (!cancelled && next) { setSettings(next); setPermissionRequired(false); setError(null); }
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Unable to share your phone location.');
           // Reconcile another device disabling sharing; the server rejects reports while off.
-          void refresh();
+          if ((e as { status?: number }).status !== 429) void refresh();
         }
       } finally { reporting = false; }
     }
     void report();
     const timer = setInterval(() => { void report(); }, 30000);
     return () => { cancelled = true; clearInterval(timer); };
-  }, [token, settings?.enabled, saving, active, refresh, setEnabled]);
+  }, [token, userId, settings?.enabled, saving, active, refresh, setEnabled]);
 
   return <Context.Provider value={{ settings, loading, saving, error, permissionRequired, backgroundGranted, refresh, setEnabled }}>{children}</Context.Provider>;
 }

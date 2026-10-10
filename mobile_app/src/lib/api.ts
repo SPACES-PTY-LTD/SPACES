@@ -275,7 +275,7 @@ export type DriverRunDetail = DriverRunSummary & {
 
 export type DriverDashboard = {
   trip_endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
-  current_run: { run_id: string; status: string; has_delivery_note?: boolean; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
+  current_run: { run_id: string; status: string; started_at?: string | null; has_delivery_note?: boolean; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
   run_shipments: DriverShipment[];
   recorded_stops?: { location_id?: string | null; latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
   planned_delivery_stops?: { location_id?: string | null; latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
@@ -497,7 +497,7 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
   } else payload = (await response.json()) as ApiEnvelope<T>;
 
   if (!response.ok || !payload.success) {
-    const logFailure = response.status === 429 && path === '/driver/devices/register' ? console.warn : console.error;
+    const logFailure = response.status === 429 && ['/driver/devices/register', '/driver/phone-location', '/driver/location-sharing'].includes(path) ? console.warn : console.error;
     logFailure(`[api] request failed: ${method} ${url}`, {
       status: response.status,
       error: payload.error,

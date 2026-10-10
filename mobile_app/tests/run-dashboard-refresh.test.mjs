@@ -44,6 +44,9 @@ function harness(screen) {
     '@/src/components/dashboard/run-stop-filter': { filterRunStops: stops => stops },
     '@expo/vector-icons': { Feather: 'Feather' },
     '@gorhom/bottom-sheet': {},
+    'expo-crypto': { randomUUID: () => 'request' },
+    '@/src/components/dashboard/NextDeliveryCard': { NextDeliveryCard: 'NextDeliveryCard', nextDelivery: shipments => shipments.find(s => !['delivered', 'failed', 'cancelled', 'returned'].includes(s.status)) },
+    '@/src/components/dashboard/ActiveRunDock': { ActiveRunDock: 'ActiveRunDock' },
   };
   for (const name of ['ShipmentDetails', 'StopDetailsSheet', 'RunTimeline', 'DeliveryOrderSheet', 'RunActionForm', 'FinalDestinationSheet', 'RunMap']) {
     const prefix = name === 'ShipmentDetails' ? '@/src/components/shipments/' : '@/src/components/dashboard/';
@@ -57,7 +60,7 @@ function harness(screen) {
   vm.runInNewContext(source, { exports, require: name => { assert.ok(name in modules, name); return modules[name]; }, Date, Map, Error });
   function nodes(type) {
     const result = [];
-    function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); if (node.type === type) result.push(node); visit(node.props?.children); }
+    function visit(node) { if (!node || typeof node !== 'object') return; if (Array.isArray(node)) return node.forEach(visit); if (node.type === type) result.push(node); visit(node.props?.children); visit(node.props?.header); }
     visit(tree); return result;
   }
   function render() {
@@ -71,10 +74,10 @@ function harness(screen) {
   return {
     requests, render, nodes,
     control() { return screen === 'runs' ? nodes('FlatList')[0].props : nodes('ScrollView')[0].props.refreshControl.props; },
-    resolve(index = requests.length - 1) {
+    resolve(index = requests.length - 1, patch = {}) {
       const data = screen === 'runs' ? { data: [{ run_id: 'run', reference: 'Run 1', status: 'in_progress' }], meta: { current_page: 1, last_page: 1 } }
         : { current_run: { run_id: 'run', status: 'in_progress' }, documents: { missing_required_count: 0, expired_count: 0 }, recorded_stops: [], run_shipments: [] };
-      requests[index].resolve(data);
+      requests[index].resolve({ ...data, ...patch });
     },
     async flush() { for (let i = 0; i < 20; i++) await Promise.resolve(); render(); },
     foreground() { foreground('active'); render(); },
@@ -115,3 +118,22 @@ for (const screen of ['runs', 'index']) {
     app.resolve(); await app.flush(); assert.equal(app.control().refreshing, false);
   });
 }
+
+
+test('dashboard run header appears only for in-progress work and starts compact', async () => {
+  const app = harness('index'); app.render();
+  assert.equal(app.nodes('ActiveRunDock').length, 0);
+  app.resolve(); await app.flush();
+  assert.equal(app.nodes('ActiveRunDock').length, 1);
+  assert.equal(app.nodes('PersistentBottomSheet')[0].props.initialSnapIndex, 0);
+  assert.equal(app.nodes('PersistentBottomSheet')[0].props.collapsedHeight, 126);
+  assert.equal(app.nodes('ScrollView')[0].props.contentContainerStyle.paddingBottom, 24);
+  for (const status of ['draft', 'dispatched', 'completed', null]) {
+    app.foreground();
+    app.resolve(undefined, { current_run: status ? { run_id: 'run', status } : null }); await app.flush();
+    assert.equal(app.nodes('ActiveRunDock').length, 0);
+    assert.equal(app.nodes('PersistentBottomSheet')[0].props.initialSnapIndex, 1);
+    assert.equal(app.nodes('PersistentBottomSheet')[0].props.collapsedHeight, undefined);
+    assert.equal(app.nodes('ScrollView')[0].props.contentContainerStyle.paddingBottom, 24);
+  }
+});

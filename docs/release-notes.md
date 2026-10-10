@@ -1,5 +1,106 @@
 # Release Notes
 
+## 2026-10-10 | Version: active-run-compact-white-v1
+
+- **Summary:** Implement the user-edited 01 Compact white dashboard run strip above navigation.
+- **API Changes:** Authorized driver dashboard current_run adds nullable ISO-8601 started_at from the recorded run start. Deploy backend support for the populated timer.
+- **Database Changes:** None.
+- **Behavior Changes:** Show a full-width themed strip only for in-progress dashboard runs: RUN ACTIVE, elapsed HH:MM:SS counting each second, planned endpoint names and existing run Actions. Recompute elapsed time on focus/foreground, retain hours beyond 24, clamp future starts to zero and show Time unavailable for missing/invalid starts or older APIs. Match selected square corners, top/bottom borders and padding. Remove duplicate header Actions and reserve measured strip height in timeline scroll padding. Preserve all menu permissions, conditional upload and pending End Run guard.
+- **Breaking Changes:** None; started_at is additive and older APIs retain the safe fallback.
+- **Verification:** Full mobile TypeScript, focused lint with two existing dashboard effect-rule errors excluded, ten mobile timer/visibility/refresh checks, 36 driver API tests (323 assertions), PHP syntax and diff checks pass. iOS simulator verifies light layout against Figma, missing-start fallback, Actions opening/dismissal and strip persistence at 25/50/92% sheet positions. Dashboard plan v2.139 and selected Figma handoff aligned. Populated native timer requires backend deployment; dark/large-text/Android and final-entry native scrolling remain pending. PHP formatter reports pre-existing style violations in the touched legacy files; no broad formatting applied.
+
+## 2026-10-10 | Version: next-delivery-continuous-tab-join-v1
+
+- **Summary:** Close the gap between the rounded card body and collapse tab.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Add a touch-transparent black connector behind the card body at the bottom-right corner. Fill the rounded-corner cutout without painting above Navigate. Preserve the 44 × 44-point tab, 20-point bottom radii and existing interactions.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused card lint, four existing card checks and git diff --check pass. Figma connector geometry and paint order verified, screenshot visually checked; dashboard plan v2.138 aligned. Native visual/touch verification remains pending.
+
+## 2026-10-10 | Version: next-delivery-full-bottom-rounding-v1
+
+- **Summary:** Restore full bottom-corner rounding on the expanded next-delivery card.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Restore the body bottom-right corner to its shared 20-point radius and increase both collapse-tab bottom radii to 20 points. Preserve the compact 44 × 44-point tab and normal-flow clearance below Navigate.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused card lint, four existing card checks and git diff --check pass. Selected Figma body/tab corner radii structurally verified and screenshot visually checked; dashboard plan v2.137 aligned. Native visual verification remains pending.
+
+## 2026-10-10 | Version: next-delivery-collapse-tab-overlap-fix-v1
+
+- **Summary:** Shrink the expanded collapse tab and prevent it covering Navigate.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reduce the tab to 44 × 44 points with 14-point lower corner radii. Remove its negative top margin and overlap padding; place the tab directly below the card body in normal flow. Retain accessible collapse, action clearance and animation.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused card lint, four existing card checks and git diff --check pass. Selected Figma geometry verifies the tab starts at the body bottom; screenshot visually checked. Dashboard plan v2.136 aligned. Native device visual/touch verification remains pending.
+
+## 2026-10-10 | Version: active-run-bottom-dock-design-v1
+
+- **Summary:** Create five Figma proposals for a floating active-run dashboard section above navigation.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None at runtime; design only, awaiting selection. Proposals show elapsed run time, planned start/end names and a right-side Actions button.
+- **Internal Changes:** Dashboard plan v2.135 defines server-start-based one-second counting, foreground reconciliation, active/dashboard-only visibility, missing-data fallback, scroll clearance and reuse of authorized run actions.
+- **Breaking Changes:** None.
+- **Verification:** Five reusable components in editable full dashboard comparisons, SF Pro font family, token bindings, 12-point navigation clearance and 44-point action targets structurally checked; final comparison visually reviewed. Each Actions control opens a dismissible menu preview. No runtime code changed in this design task; timer, theme, large-text and native behaviour await implementation.
+
+## 2026-10-10 | Version: next-delivery-collapse-tab-v1
+
+- **Summary:** Match the annotated expanded-card shape with an icon-only collapse tab at the bottom right.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove visible Collapse details text and the full-width footer background. End the rounded card body below the action buttons, with only a 64-point-wide rounded black tab extending down on the right. Retain at least 44 points of exposed collapse touch height, the accessible label, upper-details collapse and existing animation.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused card lint and four existing card checks pass. Selected Figma component structurally and visually verified against the annotated shape; dashboard plan v2.134 aligned. Native device shape/shadow/touch verification remains pending.
+
+## 2026-10-10 | Version: next-delivery-expanded-bottom-spacing-v1
+
+- **Summary:** Reduce the blank space below Collapse details in the expanded next-delivery card.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reduce expanded bottom padding from 10 to 2 points, shortening the card by 8 points. Retain the 44-point collapse tap target, collapsed spacing and existing animated interactions.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused card lint, four existing card checks and diff checks pass. Dashboard plan v2.133 and selected Figma bottom padding aligned; native visual verification pending.
+
+## 2026-10-10 | Version: next-delivery-expanded-details-collapse-v1
+
+- **Summary:** Collapse the expanded next-delivery card by tapping its upper details area.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reference/ETA, destination, last-truck-location source and surrounding top/side padding form an accessible collapse button. Preserve independent View shipment, Navigate and bottom Collapse details actions, existing spacing and the 200 ms animation with Reduce Motion support.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused card lint, four existing card checks and diff checks pass. Dashboard plan v2.132 and selected Figma hotspot aligned; native touch/accessibility verification pending.
+
+## 2026-10-10 | Version: next-delivery-card-animation-v1
+
+- **Summary:** Animate next-delivery card expansion and collapse.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use stable animated surfaces for a 200 ms ease-out size transition in both directions, respecting system Reduce Motion. Retain rounded clipping, shadow, natural content height, map-fit reporting, tap-anywhere expansion and independent expanded actions.
+- **Internal Changes:** Adapt the existing card test harness to mock Reanimated.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused card lint, four existing card checks and diff checks pass. Dashboard plan v2.131 and selected Figma transitions aligned; native motion, Reduce Motion and rapid-toggle verification pending.
+
+## 2026-10-10 | Version: next-delivery-card-tap-expand-v1
+
+- **Summary:** Expand the collapsed next-delivery card when tapped anywhere.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Make the whole collapsed card, including destination, ETA, padding and chevron, one accessible expand button. Expanded shipment/navigation actions and Collapse details remain independent. Preserve compact spacing.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused card lint and four existing card checks pass. Dashboard plan v2.130 and selected Figma prototype aligned; native touch/accessibility verification pending.
+
+## 2026-10-10 | Version: next-delivery-compact-spacing-v1
+
+- **Summary:** Reduce highlighted whitespace in the collapsed next-delivery card.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reduce collapsed top padding from 10 to 6 points and header/destination gap from 12 to 4, making the card 12 points shorter. Preserve destination wrapping, 44-point expand target and expanded layout.
+- **Breaking Changes:** None.
+- **Verification:** Full mobile TypeScript, focused card lint and four existing card regressions pass. Figma compact variant aligned; native visual check pending.
+
 ## 2026-10-10 | Version: next-delivery-last-stored-location-v1
 
 - **Summary:** Calculate next-delivery ETA from the truck's last location stored in the database.

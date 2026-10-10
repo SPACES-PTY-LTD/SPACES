@@ -26,6 +26,22 @@ class DriverShipmentApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_dashboard_exposes_the_current_runs_recorded_start_time(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $shipment = $this->createShipment($merchant, 'ELAPSED-TEST', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+        $run = RunShipment::where('shipment_id', $shipment->id)->firstOrFail()->run;
+        $run->update(['started_at' => now()->subHours(27)->startOfSecond()]);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))->assertOk()
+            ->assertJsonPath('data.current_run.run_id', $run->uuid)
+            ->assertJsonPath('data.current_run.started_at', $run->started_at->toIso8601String());
+        $run->update(['started_at' => null]);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($user))->assertOk()
+            ->assertJsonPath('data.current_run.started_at', null);
+    }
+
     public function test_dashboard_includes_current_run_visits_and_collection_stops(): void
     {
         [$user, $merchant] = $this->createDriverContext();

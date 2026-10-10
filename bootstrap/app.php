@@ -21,6 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->prepend(CorrelationId::class);
+        // Resolve bearer-token users before either API or route-specific limits.
+        $middleware->prependToPriorityList(
+            \Illuminate\Routing\Middleware\ThrottleRequests::class,
+            ApiAuthMiddleware::class,
+        );
 
         $middleware->api([
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,

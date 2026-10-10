@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { AppState, Linking, Pressable, StyleSheet, View } from 'react-native';
+import Animated, { Easing, LinearTransition, ReduceMotion } from 'react-native-reanimated';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { Feather } from '@expo/vector-icons';
 import { Text } from '@/component/ui/Text';
 import { driverApi, type DriverShipment, type RunDirections } from '@/src/lib/api';
 import { locationCoordinate } from './run-map-data';
+
+const cardTransition = LinearTransition.duration(200).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
 
 export function nextDelivery(shipments: DriverShipment[]) {
   return shipments.find(s => !['delivered', 'failed', 'cancelled', 'returned'].includes(s.status));
@@ -59,35 +62,55 @@ export function NextDeliveryCard({ shipment, runId, token, topInset, onOpenShipm
   const destination = shipment.dropoff_location?.name || shipment.dropoff_location?.full_address || 'Delivery destination unavailable';
   const reference = shipment.merchant_order_ref || shipment.delivery_note_number || shipment.shipment_id;
   const url = deliveryNavigationUrl(shipment);
+  const Card = collapsed ? Pressable : View;
   return <View pointerEvents="box-none" style={[styles.overlay, { top: topInset + 12 }]}>
-    <View style={styles.card} onLayout={event => onHeightChange?.(event.nativeEvent.layout.height + 12)}>
-      {collapsed ? <>
-        <View style={styles.row}>
-          <Text style={[styles.label, { flex: 1 }]}>NEXT DELIVERY</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={styles.eta}>{eta ? `${eta.minutes} min` : 'ETA unavailable'}</Text>
-            <Pressable onPress={() => setCollapsed(false)} accessibilityRole="button" accessibilityLabel="Expand next delivery" accessibilityState={{ expanded: false }} style={styles.toggle}><Feather name="chevron-down" size={20} color="#ffffff" /></Pressable>
-          </View>
-        </View>
-        <Text style={styles.destination}>{destination}</Text>
-      </> : <>
-        <View style={styles.row}><Text style={[styles.label, { flex: 1 }]}>NEXT · {reference}</Text><Text style={styles.pill}>{eta ? `${eta.minutes} min · ${eta.arrival}` : 'ETA unavailable'}</Text></View>
-        <Text style={styles.destination}>{destination}</Text>
-        {eta && <Text style={styles.label}>{originLabel}</Text>}
-        <View style={styles.row}>
-          <Pressable accessibilityRole="button" onPress={() => onOpenShipment(shipment.shipment_id)} style={[styles.button, styles.outline]}><Text style={styles.buttonText}>View shipment</Text></Pressable>
-          <Pressable accessibilityRole="button" accessibilityState={{ disabled: !url }} disabled={!url} onPress={() => { if (url) void Linking.openURL(url).catch(() => setError('Unable to open maps. Please try again.')); }} style={[styles.button, { backgroundColor: '#15803d', opacity: url ? 1 : 0.5 }]}><Text style={styles.buttonText}>Navigate</Text></Pressable>
-        </View>
-        {error && <Text accessibilityRole="alert" style={styles.label}>{error}</Text>}
-        <Pressable accessibilityRole="button" accessibilityLabel="Collapse next delivery" accessibilityState={{ expanded: true }} onPress={() => setCollapsed(true)} style={[styles.row, { minHeight: 44 }]}><Text style={[styles.label, { flex: 1 }]}>Collapse details</Text><Feather name="chevron-up" size={20} color="#ffffff" /></Pressable>
-      </>}
-    </View>
+    <Animated.View layout={cardTransition} style={styles.shadow} onLayout={event => onHeightChange?.(event.nativeEvent.layout.height + 12)}>
+      <Animated.View layout={cardTransition} style={styles.card}>
+        {!collapsed && <View pointerEvents="none" style={styles.collapseJoin} />}
+        <Card {...(collapsed ? {
+          onPress: () => setCollapsed(false),
+          accessibilityRole: 'button' as const,
+          accessibilityLabel: 'Expand next delivery',
+          accessibilityState: { expanded: false },
+        } : {})} style={[styles.content, collapsed ? styles.compactCard : styles.expandedContent]}>
+          {collapsed ? <>
+            <View style={styles.row}>
+              <Text style={[styles.label, { flex: 1 }]}>NEXT DELIVERY</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={styles.eta}>{eta ? `${eta.minutes} min` : 'ETA unavailable'}</Text>
+                <View style={styles.toggle}><Feather name="chevron-down" size={20} color="#ffffff" /></View>
+              </View>
+            </View>
+            <Text style={styles.destination}>{destination}</Text>
+          </> : <>
+            <Pressable accessibilityRole="button" accessibilityLabel="Collapse next delivery details" accessibilityState={{ expanded: true }} onPress={() => setCollapsed(true)} style={styles.expandedDetails}>
+              <View style={styles.row}><Text style={[styles.label, { flex: 1 }]}>NEXT · {reference}</Text><Text style={styles.pill}>{eta ? `${eta.minutes} min · ${eta.arrival}` : 'ETA unavailable'}</Text></View>
+              <Text style={styles.destination}>{destination}</Text>
+              {eta && <Text style={styles.label}>{originLabel}</Text>}
+            </Pressable>
+            <View style={styles.row}>
+              <Pressable accessibilityRole="button" onPress={() => onOpenShipment(shipment.shipment_id)} style={[styles.button, styles.outline]}><Text style={styles.buttonText}>View shipment</Text></Pressable>
+              <Pressable accessibilityRole="button" accessibilityState={{ disabled: !url }} disabled={!url} onPress={() => { if (url) void Linking.openURL(url).catch(() => setError('Unable to open maps. Please try again.')); }} style={[styles.button, { backgroundColor: '#15803d', opacity: url ? 1 : 0.5 }]}><Text style={styles.buttonText}>Navigate</Text></Pressable>
+            </View>
+            {error && <Text accessibilityRole="alert" style={styles.label}>{error}</Text>}
+          </>}
+        </Card>
+        {!collapsed && <Pressable accessibilityRole="button" accessibilityLabel="Collapse next delivery" accessibilityState={{ expanded: true }} onPress={() => setCollapsed(true)} style={styles.collapseTab}><Feather name="chevron-up" size={20} color="#ffffff" /></Pressable>}
+      </Animated.View>
+    </Animated.View>
   </View>;
 }
 
 const styles = StyleSheet.create({
   overlay: { position: 'absolute', left: 20, right: 20 },
-  card: { backgroundColor: '#111111', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, gap: 12, shadowColor: '#000000', shadowOpacity: 0.22, shadowRadius: 16, shadowOffset: { width: 0, height: 5 }, elevation: 6 },
+  shadow: { borderRadius: 20, shadowColor: '#000000', shadowOpacity: 0.22, shadowRadius: 16, shadowOffset: { width: 0, height: 5 }, elevation: 6 },
+  card: { borderRadius: 20, overflow: 'hidden' },
+  content: { backgroundColor: '#111111', borderRadius: 20, overflow: 'hidden', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
+  expandedContent: { paddingBottom: 16 },
+  collapseJoin: { position: 'absolute', right: 0, bottom: 44, width: 44, height: 20, backgroundColor: '#111111' },
+  collapseTab: { alignSelf: 'flex-end', width: 44, height: 44, backgroundColor: '#111111', borderBottomLeftRadius: 20, borderBottomRightRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  expandedDetails: { gap: 12, marginHorizontal: -16, marginTop: -10, paddingHorizontal: 16, paddingTop: 10 },
+  compactCard: { paddingTop: 6, gap: 4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
   label: { color: '#bdbdbd', fontSize: 11, lineHeight: 16 },
   destination: { color: '#ffffff', fontSize: 20, lineHeight: 26, fontWeight: '600' },

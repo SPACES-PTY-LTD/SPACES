@@ -105,4 +105,47 @@ class DriverPhoneLocationTest extends TestCase
         $this->assertTrue($driver->fresh()->metadata['phone_location']['enabled']);
         $this->assertDatabaseCount('messages', 0);
     }
+    public function test_reports_have_a_dedicated_driver_limit_and_retry_headers(): void
+    {
+        [, , $first] = $this->context();
+        $this->patchJson('/api/v1/driver/location-sharing', ['enabled' => true])->assertOk();
+        // These numeric-throttled requests used to consume the location-report bucket.
+        for ($i = 0; $i < 10; $i++) {
+            $this->getJson('/api/v1/driver/position')->assertOk();
+        }
+        $body = ['latitude' => 0, 'longitude' => 0, 'observed_at' => now()->toIso8601String()];
+        for ($i = 0; $i < 10; $i++) {
+            $this->postJson('/api/v1/driver/phone-location', $body)->assertOk();
+        }
+        $blocked = $this->postJson('/api/v1/driver/phone-location', $body)->assertStatus(429)
+            ->assertHeader('X-RateLimit-Limit', '10')->assertHeader('Retry-After');
+        $this->assertGreaterThan(0, (int) $blocked->headers->get('Retry-After'));
+        // A second driver on the same IP has an independent report allowance.
+        $this->context();
+        $this->patchJson('/api/v1/driver/location-sharing', ['enabled' => true])->assertOk();
+        $this->postJson('/api/v1/driver/phone-location', $body)->assertOk();
+        $this->withHeader('Authorization', 'Bearer '.$first->createToken('another-device')->plainTextToken);
+        $this->postJson('/api/v1/driver/phone-location', $body)->assertStatus(429);
+        $this->travel(61)->seconds();
+        $body['observed_at'] = now()->toIso8601String();
+        $this->postJson('/api/v1/driver/phone-location', $body)->assertOk();
+    }
+
+    public function test_global_api_limit_remains_sixty_per_authenticated_user(): void
+    {
+        $this->context();
+        for ($i = 0; $i < 60; $i++) {
+            $this->getJson('/api/v1/me')->assertOk();
+        }
+        $this->getJson('/api/v1/me')->assertStatus(429)->assertHeader('X-RateLimit-Limit', '60');
+        $this->context();
+        $this->getJson('/api/v1/me')->assertOk();
+    }
+
+    public function test_unauthenticated_reports_are_rejected_before_driver_throttling(): void
+    {
+        $this->withHeader('Authorization', 'Bearer invalid');
+        $this->postJson('/api/v1/driver/phone-location')->assertUnauthorized();
+    }
+
 }
