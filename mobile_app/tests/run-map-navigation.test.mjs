@@ -8,7 +8,8 @@ import { groupRunMapStops, locationCoordinate, runMapStops } from '../src/compon
 function harness() {
   const slots = [], effects = [], requests = [], timers = new Map(), listeners = new Set();
   let cursor = 0, tree, focused = true, stopped = 0;
-  const opened = [], choices = [];
+  const opened = [], choices = [], starts = [];
+  const guidance = { state: { phase: "idle", muted: false }, available: true, start: async target => starts.push(target), exit: async () => {} };
   const same = (a, b) => a && b.length === a.length && b.every((v, i) => Object.is(v, a[i]));
   const react = {
     useState(initial) { const i = cursor++; slots[i] ??= { value: typeof initial === 'function' ? initial() : initial }; return [slots[i].value, v => { slots[i].value = typeof v === 'function' ? v(slots[i].value) : v; }]; },
@@ -22,6 +23,8 @@ function harness() {
   const native = { View: 'View', Pressable: 'Pressable', StyleSheet: { create: x => x }, AppState: { currentState: 'active', addEventListener: (_, fn) => { listeners.add(fn); return { remove: () => listeners.delete(fn) }; } } };
   const locator = { currentNavigationLocation: async isCurrent => { if (!isCurrent()) throw new Error('Navigation cancelled.'); return { latitude: 0, longitude: 0, reportedAt: new Date().toISOString() }; } };
   const modules = {
+    '@/src/navigation/GuidanceProvider': { useGuidance: () => guidance },
+    '@/src/navigation/GuidanceMap': { GuidanceMap: 'GuidanceMap' },
     react, 'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) }, 'react-native': native,
     'expo-router/react-navigation': { useIsFocused: () => focused }, '@expo/vector-icons': { Feather: 'Feather' },
     'react-native-maps': { default: 'MapView', Marker: 'Marker', Callout: 'Callout', Polyline: 'Polyline' },
@@ -46,7 +49,7 @@ function harness() {
   props.navigationShipment = props.shipments[1];
   function render() { cursor = 0; tree = exports.RunMap(props); while (effects.length) effects.shift()(); return tree; }
   function nodes(type) { const result = []; const visit = n => { if (!n || typeof n !== 'object') return; if (Array.isArray(n)) return n.forEach(visit); if (n.type === type) result.push(n); visit(n.props?.children); }; visit(tree); return result; }
-  return { props, requests, render, nodes, locator, opened, choices, stopped: () => stopped, async flush() { for (let i = 0; i < 15; i++) await Promise.resolve(); render(); }, tick() { for (const t of timers.values()) if (t.ms === 60000) t.fn(); }, state(value) { native.AppState.currentState = value; for (const fn of listeners) fn(value); }, focus(value) { focused = value; render(); } };
+  return { props, requests, render, nodes, locator, opened, choices, guidance, starts, stopped: () => stopped, async flush() { for (let i = 0; i < 15; i++) await Promise.resolve(); render(); }, tick() { for (const t of timers.values()) if (t.ms === 60000) t.fn(); }, state(value) { native.AppState.currentState = value; for (const fn of listeners) fn(value); }, focus(value) { focused = value; render(); } };
 }
 const route = { status: 'ready', shipment_id: 'selected', origin_source: 'phone', origin_coordinate: { latitude: 0, longitude: 0 }, coordinates: [{ latitude: -26, longitude: 28 }, { latitude: -26.1, longitude: 28.1 }], distance_meters: 1000, duration_seconds: 120 };
 
@@ -63,7 +66,7 @@ test('selected route hides unrelated pins, refreshes only while active, and Stop
   h.requests[1].reject(new Error('Offline')); await h.flush();
   assert.equal(h.nodes('Polyline').length, 0);
   assert.ok(h.nodes('Text').some(n => typeof n.props.children === 'string' && /unavailable|Offline/.test(n.props.children)));
-  h.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Stop navigation').props.onPress(); assert.equal(h.stopped(), 1);
+  h.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Cancel route preview').props.onPress(); assert.equal(h.stopped(), 1);
   h.nodes('Pressable').find(n => n.props.children?.props?.children === 'Retry route').props.onPress(); h.render(); await h.flush();
   assert.equal(h.requests.length, 3);
   h.focus(false); h.tick(); assert.equal(h.requests.length, 3);
@@ -165,4 +168,30 @@ test('popup pointer stays on the projected marker when the card is shifted at ma
     assert.equal(tipY, point.y - (downward ? 30 : 0));
     assert.equal(pointer.borderTopColor, '#ffffff');
   }
+});
+
+
+test('Start uses the selected delivery and native guidance replaces the preview without polling', async () => {
+  const h = harness(); h.render(); await h.flush();
+  assert.equal(h.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Start navigation').props.disabled, true);
+  h.requests[0].resolve(route); await h.flush();
+  const start = h.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Start navigation');
+  assert.equal(start.props.disabled, false); start.props.onPress();
+  assert.equal(h.starts.length, 1);
+  assert.equal(h.starts[0].shipmentId, 'selected');
+  assert.equal(h.starts[0].latitude, -26.1);
+  h.guidance.state = { phase: 'guiding', target: h.starts[0], muted: false }; h.render();
+  assert.equal(h.nodes('GuidanceMap').length, 1);
+  h.tick(); await h.flush(); assert.equal(h.requests.length, 1);
+  h.guidance.state = { phase: 'idle', muted: false }; h.render(); await h.flush();
+  assert.equal(h.nodes('GuidanceMap').length, 0);
+  assert.equal(h.requests.length, 2);
+});
+
+test('older builds retain the route preview and disable Start', async () => {
+  const h = harness(); h.guidance.available = false; h.render(); await h.flush();
+  h.requests[0].resolve(route); await h.flush();
+  assert.equal(h.nodes('Polyline').length, 1);
+  assert.equal(h.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Start navigation').props.disabled, true);
+  assert.ok(h.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Cancel route preview'));
 });

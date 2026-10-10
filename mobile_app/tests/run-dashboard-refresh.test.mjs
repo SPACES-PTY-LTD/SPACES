@@ -27,6 +27,8 @@ function harness(screen) {
   const native = Object.fromEntries(['View', 'Pressable', 'FlatList', 'ScrollView', 'RefreshControl', 'ActivityIndicator'].map(name => [name, name]));
   Object.assign(native, { StyleSheet: { create: styles => styles }, useWindowDimensions: () => ({ height: 900 }), AppState: { addEventListener: (_, fn) => { foreground = fn; return { remove() {} }; } } });
   const modules = {
+    '@/src/navigation/GuidanceProvider': { useGuidance: () => ({ state: { phase: 'idle', muted: false }, available: true, start: async () => {}, exit: async () => {} }) },
+    '@/src/navigation/GuidanceMap': { GuidanceMap: 'GuidanceMap' },
     react,
     'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     'react-native': native,

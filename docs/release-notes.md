@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-10 | Version: driver-native-delivery-guidance-v1
+
+- **Summary:** Add Start inside the delivery route card and implement in-app Google Navigation SDK guidance in source.
+- **API Changes:** None; keep the existing phone-origin preview endpoint, with SDK routing used after Start.
+- **Database Changes:** None.
+- **Behavior Changes:** Start requests navigation terms, fresh phone GPS, background location and notification consent. Add native maneuvers, voice/mute, following/recenter, rerouting, live ETA/distance, Exit and arrival; retain run Actions, timeline dragging and tabs. Serialize cancellation/cleanup, stop on observed account/run/target changes, keep dispatch sharing independent, and retain preview on unsupported/older builds. Exit returns to preview; arrival never delivers a shipment. Native build scripts now compile development apps. iOS preview uses MapKit to avoid Google pod conflicts; Android uses Navigation-supplied Maps classes. Update Figma and canonical plan to 2.152.
+- **Breaking Changes:** Updated native binaries and enabled/restricted Google Navigation SDK keys with billing are required for guidance. Expo Go/web/older builds retain preview with Start disabled.
+- **Verification:** Full mobile TypeScript, new navigation lint, 28 targeted regression tests and Expo prebuild pass. CocoaPods/native iOS build blocked by disk full; Android Gradle blocked by missing configured Java runtime. Physical routing, voice, rerouting, arrival, background/lock-screen behavior and native layout remain unverified; see mobile_app/docs/navigation.md.
+
 ## 2026-10-10 | Version: shipment-marker-popup-pointer-v1
 
 - **Summary:** Identify the selected stop and visually connect its popup to the map marker.

@@ -11,6 +11,7 @@ import { colorScheme as appColorScheme, useColorScheme } from '@/hooks/use-color
 import { BrandLoadingScreen } from '@/src/components/BrandLoadingScreen';
 import { MessageNotifications } from '@/src/providers/message-notifications';
 import { AuthProvider, useAuth } from '@/src/providers/auth-provider';
+import { GuidanceProvider } from '@/src/navigation/GuidanceProvider';
 import { PhoneLocationProvider } from '@/src/providers/phone-location-provider';
 import { restoreThemePreference } from '@/src/lib/theme-preference';
 
@@ -30,7 +31,7 @@ export default function RootLayout() {
       <AuthProvider>
         <BottomSheetModalProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <LocationSession><RootNavigator /></LocationSession>
+            <GuidanceProvider><LocationSession><RootNavigator /></LocationSession></GuidanceProvider>
             <MessageNotifications />
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
           </ThemeProvider>

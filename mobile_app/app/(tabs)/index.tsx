@@ -13,6 +13,7 @@ import { ActionSheet, type ActionSheetRef } from '@/component/ui/ActionSheet';
 import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useBottomTabBarHeight } from 'expo-router/js-tabs';
+import { useGuidance } from '@/src/navigation/GuidanceProvider';
 import { PersistentBottomSheet } from '@/component/ui/PersistentBottomSheet';
 import { ActiveRunDock } from '@/src/components/dashboard/ActiveRunDock';
 import { NextDeliveryCard, nextDelivery } from '@/src/components/dashboard/NextDeliveryCard';
@@ -143,11 +144,14 @@ export default function HomeScreen() {
 
   const shipments = dashboard?.run_shipments ?? [];
   const next = nextDelivery(shipments);
+  const guidance = useGuidance();
   const [navigationSelection, setNavigationSelection] = useState<{ owner: string; runId: string; shipmentId: string } | null>(null);
   useEffect(() => { setNavigationSelection(null); }, [session?.token, dashboard?.current_run?.run_id]);
-  const navigationShipment = navigationSelection && navigationSelection.owner === session?.token && navigationSelection.runId === dashboard?.current_run?.run_id
+  const selectedNavigation = guidance.state.target && guidance.state.target.owner === session?.token ? guidance.state.target : navigationSelection;
+  const navigationShipment = selectedNavigation && selectedNavigation.owner === session?.token && selectedNavigation.runId === dashboard?.current_run?.run_id
     && dashboard?.current_run?.status === 'in_progress' && !requiredNoteRunId
-    ? shipments.find(s => s.shipment_id === navigationSelection.shipmentId && !['delivered', 'failed', 'cancelled', 'returned'].includes(s.status)) : undefined;
+    ? shipments.find(s => s.shipment_id === selectedNavigation.shipmentId && !['delivered', 'failed', 'cancelled', 'returned'].includes(s.status)) : undefined;
+  useEffect(() => { if (guidance.state.phase !== 'stopping' && guidance.state.target && dashboard && !navigationShipment) void guidance.exit(); }, [guidance, dashboard, navigationShipment]);
   useEffect(() => { if (navigationSelection && !navigationShipment) setNavigationSelection(null); }, [navigationSelection, navigationShipment]);
   const [nextCardHeight, setNextCardHeight] = useState(0);
   const [runDockHeight, setRunDockHeight] = useState(98);

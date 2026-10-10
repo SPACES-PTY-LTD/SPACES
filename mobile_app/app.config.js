@@ -1,3 +1,4 @@
+const navigationEnabled = process.env.SPACES_NAVIGATION_ENABLED !== "false";
 // Native Google Maps keys are supplied by the build environment, never committed.
 if (process.env.EAS_BUILD === 'true') {
   const mapsKeyName = process.env.EAS_BUILD_PLATFORM === 'ios'
@@ -17,9 +18,11 @@ module.exports = ({ config }) => ({
     ["expo-image-picker", { photosPermission: "Allow Spaces Digital to choose delivery note photos.", cameraPermission: "Allow Spaces Digital to photograph delivery notes.", microphonePermission: false }],
     ["react-native-maps", {
       ...(process.env.GOOGLE_MAPS_ANDROID_API_KEY ? { androidGoogleMapsApiKey: process.env.GOOGLE_MAPS_ANDROID_API_KEY } : {}),
-      ...(process.env.GOOGLE_MAPS_IOS_API_KEY ? { iosGoogleMapsApiKey: process.env.GOOGLE_MAPS_IOS_API_KEY } : {}),
+      // iOS overview uses MapKit; GoogleNavigation owns the Google Maps framework.
     }],
+    ['./plugins/with-navigation', { iosApiKey: process.env.GOOGLE_MAPS_IOS_API_KEY }],
   ],
+  extra: { ...config.extra, navigationEnabled },
   ios: {
     ...config.ios,
     config: {

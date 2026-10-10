@@ -10,6 +10,8 @@ import { driverApi, type RunPosition, type RunDirections, type DriverShipment } 
 import { useRecordedRunTrack } from './useRecordedRunTrack';
 import { NativeMap } from './NativeMap';
 import { truckPositionDescription } from './truck-position-label';
+import { useGuidance } from '@/src/navigation/GuidanceProvider';
+import { GuidanceMap } from '@/src/navigation/GuidanceMap';
 import { currentNavigationLocation } from './navigation-location';
 import { groupRunMapStops, locationCoordinate, runMapStops } from './run-map-data';
 
@@ -29,6 +31,10 @@ export type RunMapProps = {
 
 /** Road geometry is fetched separately so routing never blocks the dashboard. */
 export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShipment, navigationShipment, onStopNavigation }: RunMapProps) {
+  const guidance = useGuidance();
+  const guidanceHere = guidance.state.target?.owner === token && guidance.state.target?.runId === runId && guidance.state.target?.shipmentId === navigationShipment?.shipment_id;
+  const guiding = guidanceHere && ['guiding', 'arrived', 'stopping'].includes(guidance.state.phase);
+  const starting = guidanceHere && guidance.state.phase === 'starting';
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
   const surface = dark ? '#18181b' : '#ffffff';
@@ -144,7 +150,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   const mapOrigin = navigationId ? phone : truck;
   useEffect(() => {
     let cancelled = false, pending = false, requestPermission = true;
-    if (!focused || mode !== 'planned' || !runId || !token || (!stops.length && !endpointPins.length && !navigationId)) return;
+    if (guiding || !focused || mode !== 'planned' || !runId || !token || (!stops.length && !endpointPins.length && !navigationId)) return;
     const refresh = async () => {
       if (pending || cancelled || AppState.currentState !== 'active') return;
       pending = true;
@@ -168,7 +174,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
     const timer = navigationId ? setInterval(() => void refresh(), 60_000) : undefined;
     const listener = AppState.addEventListener('change', state => { if (state === 'active') void refresh(); });
     return () => { cancelled = true; if (timer) clearInterval(timer); listener.remove(); };
-  }, [runId, token, routeKey, stops.length, endpointPins.length, routeRetry, mode, navigationId, focused]);
+  }, [runId, token, routeKey, stops.length, endpointPins.length, routeRetry, mode, navigationId, focused, guiding]);
   const road = route?.status === 'ready' ? route.coordinates : undefined;
   const fit = useCallback(() => {
     const coordinates = mode === 'recorded' ? [...recordedPoints, ...(mapOrigin ? [mapOrigin] : [])] : [...(road ?? []), ...stops.map(stop => stop.coordinate), ...endpointPins.map(p => p.coordinate), ...(mapOrigin ? [mapOrigin] : [])];
@@ -183,6 +189,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   }, [ready, stops, topInset, road, mapOrigin, endpointPins, mode, recordedPoints, navigationId, navigationPanelHeight]);
   useEffect(fit, [fit]);
   const missing = navigationId ? (locationCoordinate(navigationShipment?.dropoff_location) ? 0 : 1) : shipments.length - stops.length;
+  if (guiding) return <View style={styles.container}><GuidanceMap topInset={topInset} /></View>;
   return <View style={[styles.container, { backgroundColor: dark ? '#18181b' : '#eeeee8' }]}>
     <NativeMap dark={dark} mapPadding={{ top: 0, right: 0, bottom: 45, left: 0 }} ref={ref} style={StyleSheet.absoluteFill} onMapReady={() => {
       mapLifecycle.current.ready = true;
@@ -285,9 +292,20 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
         : route.status === 'not_needed' ? 'Phone and destination share the same position.'
         : route.status === 'missing_locations' ? 'Phone or destination coordinates are unavailable.' : navigationError?.key === routeKey ? navigationError.message : 'Road directions unavailable.'}</Text>
       <Text style={{ color: muted, fontSize: 11 }}>From your phone location{route?.origin_reported_at ? ` · ${new Date(route.origin_reported_at).toLocaleString()}` : ''}</Text>
-      <View style={{ flexDirection: 'row', gap: 16 }}>
+      {guidance.state.error && !guiding && <Text accessibilityLiveRegion="polite" style={{ color: dark ? '#fde68a' : '#92400e', fontSize: 13 }}>{guidance.state.error}</Text>}
+      {!guidance.available && <Text style={{ color: muted, fontSize: 12 }}>Turn-by-turn navigation requires the updated native app.</Text>}
+      <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Start navigation" accessibilityState={{ disabled: !guidance.available || route?.status !== 'ready' || !locationCoordinate(navigationShipment.dropoff_location) || starting, busy: starting }}
+          disabled={!guidance.available || route?.status !== 'ready' || !locationCoordinate(navigationShipment.dropoff_location) || starting}
+          onPress={() => {
+            const destination = locationCoordinate(navigationShipment.dropoff_location);
+            if (destination && runId && token) void guidance.start({ owner: token, runId, shipmentId: navigationShipment.shipment_id,
+              title: navigationShipment.dropoff_location?.name || navigationShipment.dropoff_location?.full_address || 'Delivery destination', ...destination });
+          }} style={{ minHeight: 44, paddingHorizontal: 20, justifyContent: 'center', borderRadius: 12, backgroundColor: accent, opacity: !guidance.available || route?.status !== 'ready' || starting ? 0.5 : 1 }}>
+          <Text style={{ color: '#ffffff', fontWeight: '600' }}>{starting ? 'Starting…' : 'Start'}</Text>
+        </Pressable>
         {route && route.status !== 'ready' && route.status !== 'not_needed' && <Pressable accessibilityRole="button" onPress={() => { setResult(null); setRouteRetry(v => v + 1); }} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: accent }}>Retry route</Text></Pressable>}
-        <Pressable accessibilityRole="button" accessibilityLabel="Stop navigation" onPress={onStopNavigation} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: ink }}>Stop navigation</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Cancel route preview" onPress={() => { if (starting) void guidance.exit(); onStopNavigation?.(); }} style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: ink }}>Cancel</Text></Pressable>
       </View>
     </View>}
 
