@@ -40,6 +40,7 @@ export type ChatResult<T> = {
     data: T;
     meta: {
         next_before?: string | null;
+        deleted_message_ids?: string[];
         current_page?: number;
         last_page?: number;
         total?: number;

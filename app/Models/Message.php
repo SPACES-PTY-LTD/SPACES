@@ -14,6 +14,12 @@ class Message extends Model
 
     protected $casts = ['read_at' => 'datetime'];
 
+    public function canBeDeletedBy(User $user): bool
+    {
+        return (int) $this->user_id === (int) $user->id && $this->temporary_id
+            && !preg_match('/^(run-end-request:|run-end-review:)/', $this->temporary_id);
+    }
+
     public function conversation()
     {
         return $this->belongsTo(Conversation::class);

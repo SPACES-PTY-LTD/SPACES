@@ -49,6 +49,46 @@ class ConversationApiTest extends TestCase
             ->assertJsonPath('data.driver.profile_photo_url', null);
     }
 
+    public function test_own_message_deletion_is_scoped_retry_safe_and_revokes_attachment_access(): void
+    {
+        config(['filesystems.default' => 'private-chat']);
+        Storage::fake('private-chat');
+        [$owner, , $driver] = $this->context();
+        $chat = $this->chat($driver);
+        $headers = $this->headers($driver);
+        $payload = ['body' => 'Delete me', 'temporary_id' => 'delete-test', 'attachments' => [UploadedFile::fake()->image('photo.jpg')]];
+        $response = $this->post('/api/v1/conversations/'.$chat.'/messages', $payload, $headers)->assertCreated();
+        $id = $response->json('data.message_id');
+        $attachment = $response->json('data.attachments.0.attachment_id');
+        $url = "/api/v1/conversations/$chat/messages/$id";
+        $this->deleteJson($url, [], $this->headers($owner))->assertForbidden();
+        [, , $foreign] = $this->context();
+        $this->deleteJson($url, [], $this->headers($foreign))->assertForbidden();
+        $response->assertJsonPath('data.can_delete', true);
+        $this->deleteJson($url, [], $headers)->assertOk();
+        $this->deleteJson($url, [], $headers)->assertOk();
+        $message = Message::withTrashed()->where('uuid', $id)->sole();
+        $this->assertTrue($message->trashed());
+        $this->assertSame(0, $message->attachments()->count());
+        $this->getJson("/api/v1/conversations/$chat/messages", $headers)->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.deleted_message_ids.0', $id);
+        $this->getJson("/api/v1/conversations/$chat/attachments/$attachment/download", $headers)->assertNotFound();
+        $this->post('/api/v1/conversations/'.$chat.'/messages', $payload, $headers)->assertConflict();
+    }
+
+    public function test_operational_messages_cannot_be_deleted_and_deleted_cursor_still_paginates(): void
+    {
+        [, $merchant, $driver] = $this->context();
+        $id = $this->chat($driver);
+        $chat = Conversation::where('uuid', $id)->sole();
+        foreach ([null, 'run-end-request:request', 'run-end-review:request'] as $key) {
+            $message = $chat->messages()->create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'user_id' => $driver->id, 'temporary_id' => $key, 'type' => 'text', 'body' => 'Operational notice']);
+            $this->deleteJson("/api/v1/conversations/$id/messages/{$message->uuid}", [], $this->headers($driver))->assertForbidden();
+        }
+        $cursor = $chat->messages()->create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'user_id' => $driver->id, 'temporary_id' => 'cursor', 'type' => 'text', 'body' => 'Newest']);
+        $this->deleteJson("/api/v1/conversations/$id/messages/{$cursor->uuid}", [], $this->headers($driver))->assertOk();
+        $this->getJson("/api/v1/conversations/$id/messages?before={$cursor->uuid}", $this->headers($driver))->assertOk()->assertJsonCount(3, 'data')->assertJsonPath('data.0.can_delete', false);
+    }
+
     private function context(): array
     {
         $owner = User::factory()->create(['role' => 'user']);

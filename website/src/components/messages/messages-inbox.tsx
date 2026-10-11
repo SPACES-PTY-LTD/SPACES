@@ -325,7 +325,7 @@ export function MessagesInbox({
                                 m,
                             ]),
                         ).values(),
-                    ].sort((a, b) => a.created_at.localeCompare(b.created_at)),
+                    ].filter(message => !result.meta.deleted_message_ids?.includes(message.message_id)).sort((a, b) => a.created_at.localeCompare(b.created_at)),
                 );
                 if (!cursorLoaded.current) {
                     setBefore(result.meta.next_before ?? null);
@@ -500,7 +500,7 @@ export function MessagesInbox({
                     ...new Map(
                         [...result.data, ...prev].map((m) => [m.message_id, m]),
                     ).values(),
-                ]);
+                ].filter(message => !result.meta.deleted_message_ids?.includes(message.message_id)));
                 setBefore(result.meta.next_before ?? null);
             }
         } catch (e) {

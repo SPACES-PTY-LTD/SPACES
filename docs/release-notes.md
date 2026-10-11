@@ -1,5 +1,41 @@
 # Release Notes
 
+## 2026-10-11 | Version: mobile-message-delete-v1
+
+- **Summary:** Long-press a driver’s sent message to open a destructive Delete message action sheet.
+- **API Changes:** Add `DELETE /conversations/{conversation_uuid}/messages/{message_uuid}` with author-only, conversation-scoped authorization and retry-safe `{deleted: true}` response. Message data adds `can_delete`; message-page metadata adds bounded `deleted_message_ids` so loaded pages reconcile removed messages. Deleted pagination cursors remain valid; send retries cannot resurrect deleted messages.
+- **Database Changes:** None; use existing message and attachment soft-delete columns.
+- **Behavior Changes:** Delete removes the message for conversation participants and revokes future attachment downloads; stored files remain retained. Mobile removes successful deletions immediately and guards refresh races. Admin/mobile page refreshes reconcile deletion IDs. Only authored user messages are deletable; automated location notices and run-end request/review notices remain protected. Closed conversations permit deletion of eligible authored messages. Include long-press on attachments and an accessibility action. Failed deletes show the shared action-sheet error; failed requests preserve the message.
+- **Breaking Changes:** None. Newly added actions require the updated API.
+- **Verification:** 33 conversation/run-action API tests pass (513 assertions), covering owner and cross-account permissions, repeat deletion, attachment access revocation, operational notice protection, deleted cursors and send retry conflicts. Mobile/website TypeScript and focused lint pass; diff checks pass. Native long-press/action-sheet behavior and production deployment remain pending.
+
+## 2026-10-11 | Version: mobile-dashboard-run-safety-v1
+
+- **Summary:** Add Safety and speeding below Additional costs in Expo dashboard run info.
+- **API Changes:** Driver dashboard adds nullable `safety` with speeding count, maximum recorded activity speed, worst speeding exceedance and chronological event timestamp/speed/limit/coordinates, scoped to the selected authorized run/account/merchant. No-current-run returns null.
+- **Database Changes:** None.
+- **Behavior Changes:** Show three wrapping summary tiles and mobile event details in the existing scrolling sheet; use merchant-local time and km/h. Preserve zero values, show explicit missing-data and no-recorded-events states, and keep safety independent of timeline filters. Older API responses show unavailable feedback.
+- **Breaking Changes:** None. Deploy API support for populated mobile safety data.
+- **Verification:** 42 DriverShipmentApiTest tests pass (381 assertions), including full-run maximum, null/zero values and isolation. Mobile TypeScript and focused ESLint pass with existing dashboard set-state-in-effect violations excluded. Dashboard plan and Figma handoff updated. Native narrow-screen/theme/large-text/long-list verification pending.
+
+## 2026-10-11 | Version: run-end-review-driver-message-v1
+
+- **Summary:** Notify the driver in their conversation when dispatch approves or rejects an end-run request.
+- **API Changes:** Existing review endpoint creates one reviewer-authored unread conversation message with a typed Run attachment. Approval confirms closure; rejection includes the review reason and active-run status. Response shape unchanged.
+- **Database Changes:** None.
+- **Behavior Changes:** Review, run closure, message and audit save atomically. Same-decision retries return the existing result without duplicate messages or pushes; conflicting reviews remain rejected. Closed conversations receive operational replies without reopening. Missing/deleted conversation delivery rolls back the review. Queue existing Expo driver-message push after commit; queue errors leave the saved conversation message intact and are reported.
+- **Breaking Changes:** None; conversation availability is required to commit a new review decision.
+- **Verification:** 31 run-action/conversation API tests pass (487 assertions), covering approval/rejection text, reviewer/account/merchant scope, Run attachment, driver unread count, push scheduling, retries, conflicting reviews, closed chats, resubmission and rollback. Diff checks pass. Dashboard plan/Figma handoff updated. Production deployment and live driver delivery/push verification pending.
+
+## 2026-10-11 | Version: admin-end-run-warning-card-v1
+
+- **Summary:** Improve the admin end-run review card with a distinct pending warning background and clearer content hierarchy.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Pending requests use an amber surface/border, warning icon and Awaiting approval badge in light/dark themes. Separate driver reason, unfinished deliveries and review controls; format request date/time without seconds. Stack actions on mobile with clearer Approve closure / Reject request labels. Preserve permissions, confirmation, rejection reason and submission guards. Reviewed requests use a neutral surface.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused component lint pass; diff checks pass. Authenticated desktop/mobile visual review remains pending. Dashboard plan updated; mobile Figma flow unaffected.
+
 ## 2026-10-11 | Version: admin-dashboard-kpi-row-v1
 
 - **Summary:** Fit all eight admin dashboard KPI cards in one row on large screens.

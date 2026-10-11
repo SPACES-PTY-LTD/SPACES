@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Run;
 use App\Services\ActivityLogService;
+use App\Services\ConversationService;
 use App\Services\RunService;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
@@ -36,6 +37,7 @@ class RunEndRequestController extends Controller
             if ($data['decision'] === 'approved') {
                 $run->update(['status' => Run::STATUS_COMPLETED, 'completed_at' => now()]);
             }
+            app(ConversationService::class)->runEndReviewed($request->user(), $run, $entry);
             app(ActivityLogService::class)->log(action: 'run_end_'.$data['decision'], entityType: 'run', entity: $run, actor: $request->user(), changes: ['after' => $entry->toSummary()], title: 'Run end request '.$data['decision']);
 
             return ApiResponse::success($entry->toSummary());

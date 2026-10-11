@@ -4,6 +4,7 @@ import { ShipmentSummarySheet } from '@/src/components/dashboard/ShipmentSummary
 import { shipmentSummaryFilters, summaryShipments, type ShipmentSummaryFilter } from '@/src/components/dashboard/shipment-summary';
 import { StopDetailsSheet } from '@/src/components/dashboard/StopDetailsSheet';
 import { RunTimeline, type RunStop } from '@/src/components/dashboard/RunTimeline';
+import { RunSafetySection } from '@/src/components/dashboard/RunSafetySection';
 import { RunAdditionalCosts } from '@/src/components/dashboard/RunAdditionalCosts';
 import { RunActions } from '@/src/components/runs/RunActions';
 import { MessageSheet, type MessageSheetRef } from '@/component/ui/MessageSheet';
@@ -266,6 +267,7 @@ export default function HomeScreen() {
                 </View>
               </View>}
               <RunAdditionalCosts costs={dashboard.additional_costs} ink={ink} muted={muted} line={line} />
+              <RunSafetySection safety={dashboard.safety} timezone={dashboard.timezone} ink={ink} muted={muted} line={line} />
             </View>
           </View>
         ) : null}

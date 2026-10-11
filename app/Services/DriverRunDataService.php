@@ -31,6 +31,34 @@ class DriverRunDataService
         })->unique('id')->values();
     }
 
+    public function safety(?Run $run, Driver $driver): ?array
+    {
+        if (! $run) {
+            return null;
+        }
+
+        $activities = $run->vehicleActivities()
+            ->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id);
+        $maximumSpeed = (clone $activities)->max('speed_kph');
+        $events = (clone $activities)->where('event_type', 'speeding')
+            ->orderBy('occurred_at')->orderBy('id')->get();
+        $exceedance = $events->filter(fn ($event) => $event->speed_kph !== null && $event->speed_limit_kph !== null)
+            ->map(fn ($event) => max(0, (float) $event->speed_kph - (float) $event->speed_limit_kph))->max();
+
+        return [
+            'speeding_event_count' => $events->count(),
+            'maximum_speed_kph' => $maximumSpeed !== null ? round((float) $maximumSpeed, 2) : null,
+            'worst_speed_exceedance_kph' => $exceedance !== null ? round($exceedance, 2) : null,
+            'speeding_events' => $events->map(fn ($event) => [
+                'activity_id' => $event->uuid,
+                'occurred_at' => $event->occurred_at?->toIso8601String(),
+                'speed_kph' => $event->speed_kph !== null ? (float) $event->speed_kph : null,
+                'speed_limit_kph' => $event->speed_limit_kph !== null ? (float) $event->speed_limit_kph : null,
+                ...$this->coordinate($event),
+            ])->values(),
+        ];
+    }
+
     private function coordinate($source): array
     {
         $lat = $source?->latitude;

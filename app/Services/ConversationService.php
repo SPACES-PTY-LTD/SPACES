@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\SendDriverMessagePush;
 use App\Models\Conversation;
 use App\Models\ConversationMember;
 use App\Models\Driver;
@@ -119,6 +120,46 @@ class ConversationService
             ]],
         ]);
         $conversation->touch();
+    }
+
+    /** Record dispatch's decision in the requesting driver's conversation. */
+    public function runEndReviewed(User $reviewer, Run $run, RunEndRequest $request): void
+    {
+        $requester = $request->requester;
+        abort_unless($requester && $requester->role === 'driver', 409, 'The requesting driver is unavailable.');
+        $conversation = $this->driverChat($requester, $run->merchant, null);
+        $conversation = Conversation::whereKey($conversation->id)->lockForUpdate()->firstOrFail();
+        $approved = $request->status === 'approved';
+        $body = $approved
+            ? "End run request approved\nRun {$run->id} has been closed by dispatch."
+            : "End run request rejected\nRun {$run->id} remains active.\nReason: {$request->review_reason}";
+        if ($approved && $request->review_reason) {
+            $body .= "\nReason: {$request->review_reason}";
+        }
+        $message = $conversation->messages()->create([
+            'account_id' => $run->account_id, 'merchant_id' => $run->merchant_id,
+            'user_id' => $reviewer->id, 'type' => 'file',
+            'temporary_id' => 'run-end-review:'.$request->uuid,
+            'body' => $body,
+        ]);
+        $message->attachments()->create([
+            'account_id' => $run->account_id, 'merchant_id' => $run->merchant_id,
+            'type' => 'run', 'path' => 'reference/run/'.$run->uuid, 'filename' => 'Run '.$run->id,
+            'meta' => ['run_end_request_id' => $request->uuid, 'reference' => [
+                'id' => $run->uuid, 'type' => 'run', 'label' => 'Run '.$run->id,
+                'subtitle' => str_replace('_', ' ', $run->status),
+            ]],
+        ]);
+        $conversation->touch();
+        DB::afterCommit(function () use ($message) {
+            try {
+                SendDriverMessagePush::dispatch($message->id)
+                    ->onConnection(config('queue.default') === 'sync' ? 'database' : config('queue.default'));
+            } catch (\Throwable $error) {
+                // The conversation message remains available if the push queue is down.
+                report($error);
+            }
+        });
     }
 
     public function memberUser(Merchant $merchant, string $uuid): User

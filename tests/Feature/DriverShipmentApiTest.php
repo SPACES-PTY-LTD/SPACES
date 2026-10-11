@@ -26,6 +26,35 @@ class DriverShipmentApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_dashboard_safety_uses_scoped_full_run_telemetry(): void
+    {
+        [$user, $merchant] = $this->createDriverContext();
+        $headers = $this->driverAuthHeaders($user);
+        $this->getJson('/api/v1/driver/dashboard', $headers)->assertOk()->assertJsonPath('data.safety', null);
+        $vehicle = $this->createVehicle($merchant, $user->driver);
+        $shipment = $this->createShipment($merchant, 'SAFETY-VIEW', 'booked');
+        $this->attachShipmentToRun($merchant, $user->driver, $vehicle, $shipment, Run::STATUS_IN_PROGRESS);
+        $run = RunShipment::where('shipment_id', $shipment->id)->firstOrFail()->run;
+        $this->getJson('/api/v1/driver/dashboard', $headers)->assertOk()
+            ->assertJsonPath('data.safety.speeding_event_count', 0)->assertJsonPath('data.safety.maximum_speed_kph', null)
+            ->assertJsonPath('data.safety.worst_speed_exceedance_kph', null)->assertJsonCount(0, 'data.safety.speeding_events');
+        $base = ['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'vehicle_id' => $vehicle->id,
+            'run_id' => $run->id, 'event_type' => 'speeding', 'occurred_at' => now()];
+        $event = \App\Models\VehicleActivity::create([...$base, 'speed_kph' => 57.1, 'speed_limit_kph' => 50, 'latitude' => 0, 'longitude' => 0]);
+        \App\Models\VehicleActivity::create([...$base, 'event_type' => 'moving', 'speed_kph' => 80]);
+        \App\Models\VehicleActivity::create([...$base, 'speed_kph' => null, 'speed_limit_kph' => null, 'occurred_at' => now()->addMinute()]);
+        \App\Models\VehicleActivity::create([...$base, 'run_id' => null, 'speed_kph' => 200, 'speed_limit_kph' => 10]);
+        [$other, $otherMerchant] = $this->createDriverContext();
+        \App\Models\VehicleActivity::create([...$base, 'account_id' => $otherMerchant->account_id, 'merchant_id' => $otherMerchant->id, 'speed_kph' => 200, 'speed_limit_kph' => 10]);
+        $this->getJson('/api/v1/driver/dashboard', $headers)->assertOk()
+            ->assertJsonPath('data.safety.speeding_event_count', 2)->assertJsonPath('data.safety.maximum_speed_kph', 80)
+            ->assertJsonPath('data.safety.worst_speed_exceedance_kph', 7.1)->assertJsonCount(2, 'data.safety.speeding_events')
+            ->assertJsonPath('data.safety.speeding_events.0.activity_id', $event->uuid)
+            ->assertJsonPath('data.safety.speeding_events.0.latitude', 0)->assertJsonPath('data.safety.speeding_events.0.longitude', 0)
+            ->assertJsonPath('data.safety.speeding_events.1.speed_kph', null)->assertJsonPath('data.safety.speeding_events.1.latitude', null);
+        $this->getJson('/api/v1/driver/dashboard', $this->driverAuthHeaders($other))->assertOk()->assertJsonPath('data.safety', null);
+    }
+
     public function test_dashboard_includes_only_current_run_non_deleted_additional_costs(): void
     {
         [$user, $merchant] = $this->createDriverContext();

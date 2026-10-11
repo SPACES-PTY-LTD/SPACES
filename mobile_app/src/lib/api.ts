@@ -274,7 +274,18 @@ export type DriverRunDetail = DriverRunSummary & {
   recorded_stops: NonNullable<DriverDashboard['recorded_stops']>;
 };
 
+export type RunSafety = {
+  speeding_event_count: number;
+  maximum_speed_kph: number | null;
+  worst_speed_exceedance_kph: number | null;
+  speeding_events: {
+    activity_id: string; occurred_at: string | null; speed_kph: number | null;
+    speed_limit_kph: number | null; latitude: number | null; longitude: number | null;
+  }[];
+};
+
 export type DriverDashboard = {
+  safety?: RunSafety | null;
   additional_costs?: { cost_id: string; title: string; amount: string; currency: string; location_name?: string | null }[];
   trip_endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
   current_run: { run_id: string; status: string; started_at?: string | null; has_delivery_note?: boolean; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
@@ -1022,14 +1033,15 @@ export type RecordedRunTrack = {
 
 export type ChatReference = { id: string; type: 'run' | 'shipment'; label: string; subtitle: string; run_id?: string | null };
 export type ChatAttachment = { attachment_id: string; type: string; filename: string | null; mime_type: string | null; size: number | null; reference?: ChatReference | null };
-export type ChatMessage = { message_id: string; user_id: string | null; sender_name: string; type: string; temporary_id: string | null; body: string | null; created_at: string; attachments: ChatAttachment[] };
+export type ChatMessage = { can_delete?: boolean; message_id: string; user_id: string | null; sender_name: string; type: string; temporary_id: string | null; body: string | null; created_at: string; attachments: ChatAttachment[] };
 export type ChatConversation = { conversation_id: string; title: string | null; status: 'active' | 'closed'; type: 'driver' | 'normal'; merchant_id: string };
 export const chatApi = {
   references: (token: string, id: string, type: ChatReference['type'], search: string, page = 1) => requestWithMeta<ChatReference[]>(`/conversations/${id}/references?type=${type}&search=${encodeURIComponent(search)}&page=${page}`, { token }) as Promise<{ data: ChatReference[]; meta: { current_page: number; last_page: number } }>,
   unread: (token: string) => request<{ unread_count: number }>('/conversations/driver/unread', { token }),
   openDriver: (token: string) => request<ChatConversation>('/conversations/driver', { token, method: 'POST' }),
-  messages: (token: string, id: string, before?: string) => requestWithMeta<ChatMessage[]>(`/conversations/${id}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`, { token }) as Promise<{ data: ChatMessage[]; meta: { next_before: string | null } }>,
+  messages: (token: string, id: string, before?: string) => requestWithMeta<ChatMessage[]>(`/conversations/${id}/messages${before ? `?before=${encodeURIComponent(before)}` : ''}`, { token }) as Promise<{ data: ChatMessage[]; meta: { next_before: string | null; deleted_message_ids?: string[] } }>,
   show: (token: string, id: string) => request<ChatConversation>(`/conversations/${id}`, { token }),
+  deleteMessage: (token: string, id: string, messageId: string) => request<{ deleted: boolean }>(`/conversations/${id}/messages/${messageId}`, { token, method: 'DELETE' }),
   send: (token: string, id: string, body: FormData) => request<ChatMessage>(`/conversations/${id}/messages`, { token, method: 'POST', body }),
   read: (token: string, id: string, messageId: string) => request(`/conversations/${id}/read`, { token, method: 'POST', body: { message_id: messageId } }),
   download: (token: string, id: string, attachmentId: string) => request<{ url: string }>(`/conversations/${id}/attachments/${attachmentId}/download`, { token }),

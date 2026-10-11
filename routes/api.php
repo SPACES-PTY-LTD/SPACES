@@ -78,6 +78,7 @@ Route::prefix('v1')->group(function () {
         Route::delete('/{conversation_uuid}/members/{user_uuid}', [$controller, 'removeMember']);
         Route::get('/{conversation_uuid}/references', [$controller, 'references']);
         Route::get('/{conversation_uuid}/messages', [$controller, 'messages']);
+        Route::delete('/{conversation_uuid}/messages/{message_uuid}', [$controller, 'deleteMessage']);
         Route::post('/{conversation_uuid}/messages', [$controller, 'send'])->middleware('throttle:30,1');
         Route::post('/{conversation_uuid}/read', [$controller, 'read']);
         Route::get('/{conversation_uuid}/attachments/{attachment_uuid}/download', [$controller, 'download']);

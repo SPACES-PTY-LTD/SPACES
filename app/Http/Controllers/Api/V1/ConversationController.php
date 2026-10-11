@@ -59,6 +59,7 @@ class ConversationController extends Controller
         $message->loadMissing(['user', 'attachments']);
 
         return [
+            'can_delete' => $message->canBeDeletedBy(request()->user()),
             'message_id' => $message->uuid, 'user_id' => $message->user?->uuid,
             'sender_name' => $message->user?->name ?? 'Deleted user', 'type' => $message->type,
             'temporary_id' => $message->temporary_id, 'body' => $message->body,
@@ -289,17 +290,18 @@ class ConversationController extends Controller
     {
         $data = $request->validate(['before' => 'nullable|uuid', 'per_page' => 'nullable|integer|min:1|max:100']);
         $conversation = $this->service->resolve($request->user(), $conversation_uuid);
-        $query = $conversation->messages()->with(['user', 'attachments'])->orderByDesc('id');
+        $query = $conversation->messages()->withTrashed()->with(['user', 'attachments'])->orderByDesc('id');
         if (! empty($data['before'])) {
-            $query->where('id', '<', $conversation->messages()->where('uuid', $data['before'])->firstOrFail()->id);
+            $query->where('id', '<', $conversation->messages()->withTrashed()->where('uuid', $data['before'])->firstOrFail()->id);
         }
         $limit = $data['per_page'] ?? 50;
         $rows = $query->limit($limit + 1)->get();
         $more = $rows->count() > $limit;
         $rows = $rows->take($limit);
 
-        return ApiResponse::success($rows->reverse()->values()->map(fn ($m) => $this->messageData($m)), [
+        return ApiResponse::success($rows->reject(fn ($m) => $m->trashed())->reverse()->values()->map(fn ($m) => $this->messageData($m)), [
             'next_before' => $more ? $rows->last()->uuid : null,
+            'deleted_message_ids' => $rows->filter(fn ($m) => $m->trashed())->pluck('uuid')->values(),
         ]);
     }
 
@@ -329,6 +331,23 @@ class ConversationController extends Controller
             'subtitle' => str_replace('_', ' ', $record->status),
             'run_id' => $type === 'shipment' && $record->runShipments->first()?->run?->status === Run::STATUS_COMPLETED
                 ? $record->runShipments->first()->run->uuid : null];
+    }
+
+    public function deleteMessage(Request $request, string $conversation_uuid, string $message_uuid)
+    {
+        $conversation = $this->service->resolve($request->user(), $conversation_uuid);
+        return DB::transaction(function () use ($request, $conversation, $message_uuid) {
+            $conversation = Conversation::whereKey($conversation->id)->lockForUpdate()->firstOrFail();
+            $message = $conversation->messages()->withTrashed()->where('uuid', $message_uuid)->lockForUpdate()->firstOrFail();
+            abort_unless((int) $message->user_id === (int) $request->user()->id, 403, 'You can only delete your own messages.');
+            abort_unless($message->canBeDeletedBy($request->user()), 403, 'Operational notifications cannot be deleted.');
+            if (! $message->trashed()) {
+                $message->attachments()->delete();
+                $message->delete();
+                $conversation->touch();
+            }
+            return ApiResponse::success(['deleted' => true]);
+        });
     }
 
     public function references(Request $request, string $conversation_uuid)
@@ -380,8 +399,9 @@ class ConversationController extends Controller
             [$message, $created] = DB::transaction(function () use ($request, $conversation, $user, $data, $body, $files, &$stored) {
                 $locked = Conversation::with(['merchant', 'driver'])->whereKey($conversation->id)->lockForUpdate()->firstOrFail();
                 abort_unless($this->service->canAccess($user, $locked), 403);
-                $existing = $locked->messages()->where('user_id', $user->id)->where('temporary_id', $data['temporary_id'])->first();
+                $existing = $locked->messages()->withTrashed()->where('user_id', $user->id)->where('temporary_id', $data['temporary_id'])->first();
                 if ($existing) {
+                    abort_if($existing->trashed(), 409, 'This message was deleted.');
                     return [$existing, false];
                 }
                 abort_unless($locked->status === 'active', 409, 'This conversation is closed.');

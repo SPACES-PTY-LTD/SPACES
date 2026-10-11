@@ -103,6 +103,9 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
     const [files, setFiles] = useState<DocumentPicker.DocumentPickerAsset[]>(
         [],
     );
+    const messageActions = useRef<ActionSheetRef>(null);
+    const deleting = useRef(false);
+    const deletedIds = useRef(new Set<string>());
     const attachmentActions = useRef<ActionSheetRef>(null);
     const [referenceType, setReferenceType] = useState<ChatReference['type'] | null>(null);
     const [references, setReferences] = useState<ChatReference[]>([]);
@@ -189,6 +192,7 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                         chat.conversation_id,
                     );
                     if (!valid()) return;
+                    result.meta.deleted_message_ids?.forEach(id => deletedIds.current.add(id));
                     setMessages((previous) =>
                         [
                             ...new Map(
@@ -197,7 +201,7 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                                     m,
                                 ]),
                             ).values(),
-                        ].sort((a, b) =>
+                        ].filter(m => !deletedIds.current.has(m.message_id)).sort((a, b) =>
                             a.created_at.localeCompare(b.created_at),
                         ),
                     );
@@ -268,11 +272,12 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                 before,
             );
             if (current !== generation.current) return;
+            result.meta.deleted_message_ids?.forEach(id => deletedIds.current.add(id));
             setMessages((previous) => [
                 ...new Map(
                     [...result.data, ...previous].map((m) => [m.message_id, m]),
                 ).values(),
-            ]);
+            ].filter(m => !deletedIds.current.has(m.message_id)));
             setBefore(result.meta.next_before);
         } catch (e) {
             if (current === generation.current)
@@ -393,6 +398,26 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
             setSending(false);
         }
     }
+    function messageMenu(message: ChatMessage) {
+        if (!message.can_delete || deleting.current) return;
+        Keyboard.dismiss();
+        messageActions.current?.present({
+            title: 'Message actions',
+            actions: [{ id: 'delete', label: 'Delete message', variant: 'destructive', onPress: async () => {
+                if (!token || !conversation || deleting.current || !active.current) return;
+                const current = generation.current;
+                deleting.current = true;
+                try {
+                    await chatApi.deleteMessage(token, conversation.conversation_id, message.message_id);
+                    if (current !== generation.current) return;
+                    deletedIds.current.add(message.message_id);
+                    setMessages(previous => previous.filter(item => item.message_id !== message.message_id));
+                    setPhotoGallery(null);
+                    void refreshUnread();
+                } finally { deleting.current = false; }
+            }}],
+        });
+    }
     async function download(id: string) {
         if (!session || !conversation) return;
         try {
@@ -485,7 +510,12 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                         return (
                             <View>
                                 {dayLabel && <Text style={[styles.daySeparator, { color: colors.muted }]}>{dayLabel}</Text>}
-                                <View
+                                <Pressable
+                                    onLongPress={() => messageMenu(item)}
+                                    delayLongPress={400}
+                                    accessibilityHint={item.can_delete ? 'Long press for message actions' : undefined}
+                                    accessibilityActions={item.can_delete ? [{ name: 'delete', label: 'Delete message' }] : undefined}
+                                    onAccessibilityAction={event => { if (event.nativeEvent.actionName === 'delete') messageMenu(item); }}
                                     style={[styles.bubble, { alignSelf: item.user_id === session?.user.user_id ? 'flex-end' : 'flex-start', backgroundColor: item.user_id === session?.user.user_id ? colors.selectedSurface : colors.soft }]}
                                 >
                                     <Text
@@ -502,7 +532,7 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                                         </Text>
                                     )}
                                     {token && conversation && item.attachments.some(isChatImage) && <View style={styles.photoGrid}>
-                                        {item.attachments.filter(isChatImage).map(photo => <Pressable key={photo.attachment_id} accessibilityRole="button" accessibilityLabel={`View photo ${photo.filename || ''}`} onPress={() => {
+                                        {item.attachments.filter(isChatImage).map(photo => <Pressable onLongPress={() => messageMenu(item)} key={photo.attachment_id} accessibilityRole="button" accessibilityLabel={`View photo ${photo.filename || ''}`} onPress={() => {
                                                 Keyboard.dismiss();
                                                 setPhotoGallery({ images: chatImages(messages), initialId: photo.attachment_id });
                                             }}>
@@ -512,6 +542,7 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                                     {item.attachments.filter(a => !isChatImage(a)).map((a) => (
                                         <Pressable
                                             key={a.attachment_id}
+                                            onLongPress={() => messageMenu(item)}
                                             onPress={() => {
                                                 if (a.reference) {
                                                     openReference(a.reference);
@@ -528,7 +559,7 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                                             <Feather name={a.reference ? "chevron-right" : "download"} size={16} color="#15803d" />
                                         </Pressable>
                                     ))}
-                                </View>
+                                </Pressable>
                             </View>
                         );
                     }}
@@ -591,6 +622,7 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                 )}
             </View>
             <ActionSheet ref={attachmentActions} />
+            <ActionSheet ref={messageActions} />
             {detailReference?.type === 'shipment' && <ShipmentDetailsSheet key={`${detailReference.id}:${detailReference.run_id ?? ''}`} modalRef={referenceModal} shipmentId={detailReference.id} runId={detailReference.run_id ?? undefined} autoPresent onDismiss={() => setDetailReference(null)} />}
             {detailReference?.type === 'run' && token && <RunDetailsSheet key={detailReference.id} token={token} runId={detailReference.id} onDismiss={() => setDetailReference(null)} />}
             {referenceType && session && conversation && <ChatReferenceSheet token={session.token} conversationId={conversation.conversation_id} type={referenceType} onDismiss={() => setReferenceType(null)} onSelect={record => {

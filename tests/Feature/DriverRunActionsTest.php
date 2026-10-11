@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\SendDriverMessagePush;
 use App\Models\Account;
 use App\Models\ActivityLog;
 use App\Models\Conversation;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Services\ConversationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -167,7 +169,7 @@ class DriverRunActionsTest extends TestCase
         $this->assertSame('closed', $chat->fresh()->status);
         $this->postJson("/api/v1/runs/{$run->uuid}/end-requests/$id/review", ['decision' => 'rejected', 'reason' => 'Try again'], $this->auth($owner))->assertOk();
         $this->postJson($url, ['reason' => 'Still broken'], $this->auth($driver))->assertCreated();
-        $this->assertSame(2, $chat->messages()->count());
+        $this->assertSame(3, $chat->messages()->count());
         $this->assertStringContainsString('Still broken', $chat->latestMessage->body);
     }
 
@@ -181,6 +183,53 @@ class DriverRunActionsTest extends TestCase
         $this->assertDatabaseCount('messages', 0);
         $this->assertSame(0, ActivityLog::where('action', 'run_end_requested')->count());
         $this->assertSame('in_progress', $run->fresh()->status);
+    }
+
+    public function test_review_decisions_send_one_unread_driver_message_with_run_reference(): void
+    {
+        Queue::fake();
+        foreach (['approved', 'rejected'] as $decision) {
+            [$driver, $owner, $merchant, $run] = $this->context();
+            $driverHeaders = $this->auth($driver);
+            $id = $this->postJson("/api/v1/driver/runs/{$run->uuid}/end-requests", ['reason' => 'Breakdown'], $driverHeaders)
+                ->assertCreated()->json('data.request_id');
+            $chat = Conversation::where('merchant_id', $merchant->id)->sole();
+            $chat->update(['status' => 'closed']);
+            $review = "/api/v1/runs/{$run->uuid}/end-requests/$id/review";
+            $data = ['decision' => $decision, 'reason' => ' Contact dispatch ', 'confirm_early_closure' => true];
+            $this->postJson($review, $data, $this->auth($owner))->assertOk();
+            $this->postJson($review, $data, $this->auth($owner))->assertOk();
+            $this->assertSame(2, $chat->messages()->count());
+            $message = $chat->messages()->where('temporary_id', 'run-end-review:'.$id)->sole();
+            $this->assertSame($owner->id, $message->user_id);
+            $this->assertSame($merchant->account_id, $message->account_id);
+            $this->assertSame($merchant->id, $message->merchant_id);
+            $this->assertNull($message->read_at);
+            $this->assertStringContainsString('End run request '.$decision, $message->body);
+            $this->assertStringContainsString('Reason: Contact dispatch', $message->body);
+            $this->assertStringContainsString($decision === 'approved' ? 'has been closed' : 'remains active', $message->body);
+            $this->assertSame($run->uuid, $message->attachments()->sole()->meta['reference']['id']);
+            $this->assertSame('closed', $chat->fresh()->status);
+            $this->getJson('/api/v1/conversations/driver/unread', $driverHeaders)->assertOk()->assertJsonPath('data.unread_count', 1);
+            $this->getJson("/api/v1/conversations/{$chat->uuid}/messages", $driverHeaders)->assertOk()->assertJsonCount(2, 'data');
+            $this->postJson($review, ['decision' => $decision === 'approved' ? 'rejected' : 'approved', 'reason' => 'Conflict', 'confirm_early_closure' => true], $this->auth($owner))->assertConflict();
+            $this->assertSame(2, $chat->messages()->count());
+            Queue::assertPushed(SendDriverMessagePush::class, fn ($job) => $job->messageId === $message->id);
+        }
+        Queue::assertPushed(SendDriverMessagePush::class, 2);
+    }
+
+    public function test_review_rolls_back_when_driver_message_cannot_be_delivered(): void
+    {
+        [$driver, $owner, , $run] = $this->context();
+        $id = $this->postJson("/api/v1/driver/runs/{$run->uuid}/end-requests", ['reason' => 'Breakdown'], $this->auth($driver))
+            ->assertCreated()->json('data.request_id');
+        Conversation::sole()->delete();
+        $this->postJson("/api/v1/runs/{$run->uuid}/end-requests/$id/review", ['decision' => 'approved', 'confirm_early_closure' => true], $this->auth($owner))->assertStatus(410);
+        $this->assertSame('in_progress', $run->fresh()->status);
+        $this->assertSame('pending', $run->latestEndRequest->status);
+        $this->assertDatabaseCount('messages', 1);
+        $this->assertSame(0, ActivityLog::where('action', 'run_end_approved')->count());
     }
 
     public function test_manual_costs_are_zar_exact_deduplicated_and_scoped(): void
