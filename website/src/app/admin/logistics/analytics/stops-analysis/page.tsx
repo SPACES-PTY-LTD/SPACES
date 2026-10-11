@@ -1,3 +1,5 @@
+import { format, isValid, parseISO } from "date-fns"
+import { StopsAnalysisDateFilter } from "@/components/reports/stops-analysis-date-filter"
 import { PageHeader } from "@/components/layout/page-header"
 import { DataTable } from "@/components/common/data-table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +32,12 @@ type SortBy =
 
 function getSingleValue(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : (value ?? "")
+}
+
+function normalizeDateFilter(value: string): string | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined
+  const parsed = parseISO(value)
+  return isValid(parsed) && format(parsed, "yyyy-MM-dd") === value ? value : undefined
 }
 
 function normalizeSortBy(value: string): SortBy {
@@ -90,7 +98,7 @@ function locationLabel(activity: VehicleActivity): string {
   )
 }
 
-async function fetchEnteredLocationActivities(token: string, merchantId?: string): Promise<VehicleActivity[]> {
+async function fetchEnteredLocationActivities(token: string, merchantId?: string, from?: string, to?: string): Promise<VehicleActivity[]> {
   const rows: VehicleActivity[] = []
   const maxPages = 10
 
@@ -100,6 +108,8 @@ async function fetchEnteredLocationActivities(token: string, merchantId?: string
       per_page: 100,
       merchant_id: merchantId,
       event_type: "entered_location",
+      from,
+      to,
     })
 
     if (isApiErrorResponse(response)) {
@@ -240,9 +250,12 @@ export default async function StopsAnalysisPage({
   const params = (await searchParams) ?? {}
   const sortBy = normalizeSortBy(getSingleValue(params.sort_by))
   const sortDir = normalizeSortDir(getSingleValue(params.sort_dir))
+  let from = normalizeDateFilter(getSingleValue(params.from))
+  let to = normalizeDateFilter(getSingleValue(params.to))
+  if (from && to && from > to) [from, to] = [to, from]
   const session = await requireAuth()
   const merchantId = session.selected_merchant?.merchant_id ?? undefined
-  const activities = await fetchEnteredLocationActivities(session.accessToken, merchantId)
+  const activities = await fetchEnteredLocationActivities(session.accessToken, merchantId, from, to)
   const rows = sortStopAnalysisRows(buildStopAnalysisRows(activities), sortBy, sortDir)
   const tableRows = rows.map((row) => ({
     ...row,
@@ -264,6 +277,7 @@ export default async function StopsAnalysisPage({
       <PageHeader
         title="Stops Analysis"
         description="Visit and dwell-time analysis for geofenced stops."
+        actions={<StopsAnalysisDateFilter from={from} to={to} />}
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -315,13 +329,34 @@ export default async function StopsAnalysisPage({
               latestVisitDisplay: "latest_visit",
             }}
             columns={[
-              { key: "locationName", label: "Stop", link: "stopHref" },
-              { key: "visitCount", label: "Visits" },
-              { key: "uniqueVehicleCount", label: "Unique vehicles" },
-              { key: "averageDwellDisplay", label: "Avg dwell" },
-              { key: "maxDwellDisplay", label: "Max dwell" },
-              { key: "openVisits", label: "Open visits" },
-              { key: "latestVisitDisplay", label: "Latest visit" },
+              {
+                key: "locationName", label: "Stop", link: "stopHref",
+                description: "The geofenced location where visits were recorded. Select its name to view the saved location details.",
+              },
+              {
+                key: "visitCount", label: "Visits",
+                description: "The number of recorded location-entry events at this stop in the loaded report data, within the selected date range when applied.",
+              },
+              {
+                key: "uniqueVehicleCount", label: "Unique vehicles",
+                description: "The number of distinct vehicles with a recorded visit at this stop. Visits without a vehicle ID are excluded from this count.",
+              },
+              {
+                key: "averageDwellDisplay", label: "Avg dwell",
+                description: "The average time in minutes between entry and exit for visits with valid timestamps. Visits without a valid duration are excluded; a dash means none are available.",
+              },
+              {
+                key: "maxDwellDisplay", label: "Max dwell",
+                description: "The longest time in minutes between entry and exit for a visit with valid timestamps. A dash means no valid durations are available.",
+              },
+              {
+                key: "openVisits", label: "Open visits",
+                description: "Visits without a valid entry-to-exit duration, including visits with no recorded exit, missing or invalid timestamps, or an exit before entry.",
+              },
+              {
+                key: "latestVisitDisplay", label: "Latest visit",
+                description: "The most recent visit timestamp at this stop, using the exit time when present, otherwise the entry time, then the activity occurrence time.",
+              },
             ]}
           />
         </CardContent>

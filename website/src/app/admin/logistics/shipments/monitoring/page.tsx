@@ -37,6 +37,8 @@ import {
 } from "./simulation";
 import type { FilterableLocationMeshType, LocationNode, TruckEvent, TruckRender } from "./types";
 
+import { formatWaitingMinutes, getTruckWaitingState } from "./waiting-time";
+
 const ROAD_ARRIVE_TRAVEL_MIN_MS = 10600;
 const ROAD_ARRIVE_TRAVEL_MAX_MS = 90000;
 const ROAD_DEPART_TRAVEL_MS = 10600;
@@ -512,7 +514,7 @@ export default function VirtualWarehousePage() {
       const locationSlots = new Map<string, number>();
       const locationDetailsById = new Map<
         string,
-        Pick<LocationNode, "label" | "company" | "fullAddress" | "city" | "province" | "country" | "meshType">
+        Pick<LocationNode, "label" | "company" | "fullAddress" | "city" | "province" | "country" | "meshType" | "maxWaitingMs">
       >();
 
       for (const activity of allVehiclesResponse.data ?? []) {
@@ -537,7 +539,11 @@ export default function VirtualWarehousePage() {
         const truck = {
           ...buildTruckFromActivity(displayActivity, now),
           monitoringLocationId,
-          monitoringLocationLabel
+          monitoringLocationLabel,
+          waitingSinceMs: monitoring?.since_at ? new Date(monitoring.since_at).getTime() : null,
+          maxWaitingMs: typeof monitoring?.location?.expected_waiting_time === "number" &&
+            Number.isFinite(monitoring.location.expected_waiting_time) && monitoring.location.expected_waiting_time >= 0
+            ? monitoring.location.expected_waiting_time * 60_000 : undefined
         };
 
         if (monitoring?.status === "in_transit") {
@@ -581,7 +587,7 @@ export default function VirtualWarehousePage() {
           locationId: resolvedLocationId,
           slot: nextSlot
         };
-        locationDetailsById.set(resolvedLocationId, buildLocationDetails(displayActivity));
+        locationDetailsById.set(resolvedLocationId, { ...buildLocationDetails(displayActivity), maxWaitingMs: truck.maxWaitingMs });
       }
 
       const nextParkingTrucks = Array.from(parkingByVehicleKey.values()).map((truck, index) => ({
@@ -663,28 +669,17 @@ export default function VirtualWarehousePage() {
   );
 
   const locationWaitStateById = useMemo(() => {
-    const waitByLocationId = new Map<string, { isOverdue: boolean; overdueByMs: number; maxWaitingMs: number }>();
-    const trucksAtLocation = new Map<string, TruckRender[]>();
-    const defaultMaxWaitingMs = 30 * 60_000;
-
-    for (const truck of Object.values(trucks)) {
-      if (truck.status === "departing") continue;
-      const existing = trucksAtLocation.get(truck.locationId) ?? [];
-      existing.push(truck);
-      trucksAtLocation.set(truck.locationId, existing);
-    }
-
+    const waitByLocationId = new Map<string, { isOverdue: boolean; overdueByMs: number; maxWaitingMs?: number }>();
     for (const location of locations) {
       if (location.meshType === "placeholder") continue;
-      const maxWaitingMs = location.maxWaitingMs ?? defaultMaxWaitingMs;
-      const trucksHere = trucksAtLocation.get(location.locationId) ?? [];
-      const longestWaitMs =
-        trucksHere.length > 0 ? Math.max(...trucksHere.map((truck) => Math.max(0, timeTick - truck.changedAt))) : 0;
-      const overdueByMs = Math.max(0, longestWaitMs - maxWaitingMs);
+      const trucksHere = Object.values(trucks).filter((truck) => truck.locationId === location.locationId);
+      const overdueByMs = Math.max(0, ...trucksHere.map((truck) =>
+        getTruckWaitingState({ ...truck, maxWaitingMs: truck.maxWaitingMs ?? location.maxWaitingMs }, timeTick).overdueByMs
+      ));
       waitByLocationId.set(location.locationId, {
         isOverdue: overdueByMs > 0,
         overdueByMs,
-        maxWaitingMs
+        maxWaitingMs: location.maxWaitingMs
       });
     }
 
@@ -725,8 +720,8 @@ export default function VirtualWarehousePage() {
     [parkingTrucks]
   );
   const standbyTruckList = useMemo(
-    () => standbyTrucks.map((truck) => ({ ...truck, isSpeeding: false, isWaitingOverdue: false })),
-    [standbyTrucks]
+    () => standbyTrucks.map((truck) => ({ ...truck, isSpeeding: false, ...getTruckWaitingState(truck, timeTick) })),
+    [standbyTrucks, timeTick]
   );
 
   const filteredTrucks = useMemo(
@@ -736,21 +731,12 @@ export default function VirtualWarehousePage() {
   const decoratedFilteredTrucks = useMemo(
     () =>
       filteredTrucks.map((truck) => {
-        const locationWaitState = locationWaitStateById.get(truck.locationId);
-        const waitingDurationMs = Math.max(0, timeTick - truck.changedAt);
-        const maxWaitingMs = locationWaitState?.maxWaitingMs ?? truck.maxWaitingMs ?? 30 * 60_000;
-        const isWaitingOverdue =
-          truck.status !== "departing" &&
-          truck.status !== "arriving" &&
-          truck.locationId !== "ON_ROAD" &&
-          waitingDurationMs > maxWaitingMs;
-
+        const maxWaitingMs = truck.maxWaitingMs ?? locationWaitStateById.get(truck.locationId)?.maxWaitingMs;
         return {
           ...truck,
           isSpeeding: isTruckSpeeding(truck),
-          isWaitingOverdue,
           maxWaitingMs,
-          waitingDurationMs
+          ...getTruckWaitingState({ ...truck, maxWaitingMs }, timeTick)
         };
       }),
     [filteredTrucks, locationWaitStateById, timeTick]
@@ -1162,6 +1148,15 @@ export default function VirtualWarehousePage() {
                     Speeding: {selectedTruck.speedKph} / {selectedTruck.speedLimitKph} kph
                   </div>
                 ) : null}
+                {selectedTruck.isWaitingOverdue && selectedTruck.waitingDurationMs !== undefined && selectedTruck.maxWaitingMs !== undefined ? (
+                  <div role="status" style={{ color: "#b91c1c", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: 10, marginTop: 4 }}>
+                    <strong>Allowed waiting time exceeded</strong>
+                    <div style={{ marginTop: 4 }}>
+                      This vehicle has been at {selectedTruck.monitoringLocationLabel ?? selectedTruck.locationLabel ?? "this location"} for {formatWaitingMinutes(selectedTruck.waitingDurationMs)},
+                      {" "}which is {formatWaitingMinutes(selectedTruck.waitingDurationMs - selectedTruck.maxWaitingMs)} longer than the {formatWaitingMinutes(selectedTruck.maxWaitingMs)} allowed for this location.
+                    </div>
+                  </div>
+                ) : null}
                 <div style={{ height: 1, background: "rgba(15,23,42,0.12)", margin: "4px 0" }} />
                 <div style={{ fontWeight: 700 }}>Vehicle location</div>
                 {Number.isFinite(selectedTruck.latitude) && Number.isFinite(selectedTruck.longitude) ? (
@@ -1312,7 +1307,7 @@ export default function VirtualWarehousePage() {
                 {selectedLocation.company ? <div style={{ color: "#64748b" }}>Company: {selectedLocation.company}</div> : null}
                 <div style={{ color: "#64748b" }}>Type: {selectedLocation.meshType}</div>
                 <div style={{ color: "#64748b" }}>Status: {selectedLocation.status}</div>
-                {selectedLocation.maxWaitingMs ? (
+                {selectedLocation.maxWaitingMs !== undefined ? (
                   <div style={{ color: selectedLocation.isOverdue ? "#b91c1c" : "#64748b" }}>
                     Max waiting: {formatDurationMs(selectedLocation.maxWaitingMs)}
                   </div>

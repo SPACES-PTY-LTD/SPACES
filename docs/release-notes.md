@@ -1,5 +1,68 @@
 # Release Notes
 
+## 2026-10-11 | Version: admin-run-stop-duration-v1
+
+- **Summary:** Show total time at location and overdue warnings beside recorded run stops.
+- **API Changes:** Vehicle activity location summaries add nullable `expected_waiting_time` in minutes, including run detail stops.
+- **Database Changes:** None; reuse recorded entry/exit timestamps and saved location allowances.
+- **Behavior Changes:** Every recorded-stop row displays the recorded visit duration, including seconds and multi-day stays. Missing/invalid/reversed intervals show Not available. A red warning triangle appears strictly above the location allowance, with a hover/keyboard-focus tooltip explaining total, expected and excess time. Zero-minute allowances remain valid; absent/invalid allowances do not warn. Incomplete historical visits do not acquire assumed durations.
+- **Breaking Changes:** None. Deploy the API addition for allowance-based warnings.
+- **Verification:** Five stop-timing regressions and nine existing map-marker tests pass. Targeted vehicle-activity/run API tests pass (25 tests, 589 assertions). Website TypeScript, focused run-component ESLint and git diff checks pass. Authenticated live run tooltip and responsive verification remain pending. Dashboard plan updated; mobile Figma unaffected.
+
+## 2026-10-11 | Version: stops-analysis-column-info-v1
+
+- **Summary:** Add explanatory info tooltips to every Stops Analysis table column.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Shared DataTable columns accept an optional `description`. Described headers show an info button with a tooltip on hover or keyboard focus, separate from the sorting link. All seven Stops Analysis columns explain their recorded values, including valid dwell durations, open-visit counting and latest-visit timestamp fallback.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused DataTable/Stops Analysis ESLint pass; git diff checks pass. Authenticated browser hover, focus and sorting verification remains pending.
+
+## 2026-10-11 | Version: monitoring-overdue-stops-v1
+
+- **Summary:** Colour overdue vehicles red in shipment monitoring and explain the excess wait in Truck details.
+- **API Changes:** Add nullable `monitoring.location.expected_waiting_time` (minutes) to `GET /api/v1/vehicles/latest-activity-check`.
+- **Database Changes:** None; reuse saved location waiting allowances and recorded transition timestamps.
+- **Behavior Changes:** Calculate each parked vehicle's wait from `monitoring.since_at`, preserving it across refreshes. Alert strictly above the saved allowance, including zero-minute limits; missing/invalid allowances or arrivals do not alert. Show the location, total elapsed minutes, excess minutes and allowed minutes in a red notice, with explicit sub-minute text. Open visits grouped as standby after 48 hours remain eligible. Departure removes the overdue alert; existing speeding colour remains supported. Location overdue summaries use the same recorded waits.
+- **Breaking Changes:** None. Deploy the API addition for saved waiting allowances to appear in monitoring.
+- **Verification:** Five frontend waiting-time regressions pass, covering refresh persistence, independent truck waits, strict/zero thresholds, missing/invalid values, departure/standby and message formatting. Four vehicle latest-activity API tests pass (46 assertions), including configured/zero allowances and arrival provenance. Website TypeScript and focused ESLint pass; git diff checks pass. Authenticated live 3D colour, card and departure refresh verification remains pending. Dashboard plan updated; mobile Figma unaffected.
+
+## 2026-10-11 | Version: stops-analysis-date-filter-v1
+
+- **Summary:** Add a date-range filter to the top right of Stops Analysis.
+- **API Changes:** None; pass existing `from` and `to` parameters to every vehicle-activity page request.
+- **Database Changes:** None.
+- **Behavior Changes:** Apply a custom range to visit counts, dwell statistics and stop rows using inclusive activity occurrence dates. Clear removes both bounds. Keep the range in the URL and preserve sorting and other query parameters; reset pagination. Ignore invalid date bounds and normalize reversed ranges. With no range, retain existing report behavior.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint and diff checks pass. Authenticated browser interaction remains pending. The existing report limit of 1,000 activity records remains unchanged.
+
+## 2026-10-11 | Version: admin-run-location-details-v1
+
+- **Summary:** Show run location types and open saved locations in a details drawer.
+- **API Changes:** None; reuse the merchant-scoped location details endpoint and existing run location types.
+- **Database Changes:** None.
+- **Behavior Changes:** Recorded stops and shipment pickup/drop-off locations show type badges. Click saved location names to open a right-side drawer with current address, contact, coordinates, waiting time, tags and geofence, plus a full-page link. Show loading, error and retry states; ignore responses after closing. Stops without saved location IDs remain plain text; unavailable types show Type not set.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint and diff checks pass. Authenticated browser drawer, keyboard and live geofence verification remains pending. Dashboard plan updated; mobile Figma unaffected.
+
+## 2026-10-11 | Version: locations-enter-search-v1
+
+- **Summary:** Submit the Locations search only when Enter is pressed.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Keep typed search text local until Enter applies the filter and resets pagination. Clearing the input also requires Enter. Follow applied search values on navigation and ignore Enter during text composition. Other text filters retain their existing behavior.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint and diff checks pass. Component handler checks cover typing without submission, Enter, text composition, clearing, navigation sync and default live filtering. Authenticated browser interaction remains pending.
+
+## 2026-10-11 | Version: feedback-page-navigation-v1
+
+- **Summary:** Make feedback submission page paths clickable.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Clicking the page path in My feedback navigates to the referenced page and closes the feedback dialog. The admin feedback review panel links its Page field to the same recorded path. Use keyboard-accessible, underlined Next.js links.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused feedback ESLint and diff checks pass. Authenticated browser interaction remains pending.
+
 ## 2026-10-11 | Version: mobile-run-safety-hide-empty-v1
 
 - **Summary:** Hide Safety and speeding when there is no recorded information to display.

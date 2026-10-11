@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.195
+Version: 2.198
 Last updated: 2026-10-11
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -554,6 +554,34 @@ Actions button styling (1.55, implemented locally): use 10-point rounded corners
 - CRM contract: `POST /runs/{run_uuid}/end-requests/{request_uuid}/review` with `decision=approved|rejected`, rejection `reason`, and `confirm_early_closure=true` for approval. Review requires existing run-update permission. Lock run/request, reject conflicting decisions and audit changes. Dashboard/run resources expose `end_request`; CRM summaries eager-load the latest request without embedding activity history.
 
 Implementation status: mobile/API/CRM flows are implemented locally, migrations applied to the local development database. Targeted API regressions and Actions TypeScript checks pass. Full mobile and website TypeScript now pass after messaging dependencies and generated routes are available. iOS menu/form handoff, endpoint selection, reason gating, cost validation and cancellation are verified; Android native interaction, CRM authenticated visual review and production deployment remain acceptance gates. [Figma flow handoff](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=131-1445) uses existing component instances and SF Pro; the active-run header and scenario guide are aligned.
+
+### Admin recorded-stop duration (2.198 — implemented locally)
+
+On the website run-detail page, each Recorded stops entry shows **Total time at location** from its recorded `entered_at` and `exited_at`, including seconds and multi-day durations. Missing, invalid or reversed intervals show **Not available**; do not infer a departure or ongoing visit from incomplete historical evidence. Preserve zero-duration visits. Keep every existing event row and location drawer/type badge.
+
+Show a red warning triangle immediately beside the total only when the exact duration is strictly greater than that location's saved `expected_waiting_time` in minutes. Zero is a valid allowance; missing/invalid allowances do not alert. Hover or keyboard focus opens a tooltip explaining the total, expected allowance and excess duration. Vehicle activity location summaries expose the nullable saved allowance; no migration. This admin-only addition does not affect the mobile Figma designs.
+
+- [x] Recorded duration and explicit unavailable state on every recorded-stop row.
+- [x] Strict per-location warning with total/expected/excess tooltip, zero-limit support and keyboard access.
+- [ ] Verify authenticated live run rows, hover/focus and narrow-screen wrapping.
+
+### Admin shipment monitoring overdue stops (2.197 — implemented locally)
+
+On `/admin/logistics/shipments/monitoring`, colour each parked vehicle red once its open visit exceeds the saved location's `expected_waiting_time` in minutes. Calculate elapsed time from `monitoring.since_at`, retaining arrival time across polling and using the existing one-second wall-clock refresh. Compare each vehicle independently; exact equality is not overdue. Zero minutes is a valid limit; missing/invalid limits or arrival times do not alert. Departing, on-road and unknown-location vehicles do not show stop-overdue alerts. Open visits grouped as standby after 48 hours remain eligible without changing their grouping. Existing speeding alerts remain supported.
+
+Show a red notice in Truck details: **Allowed waiting time exceeded**, followed by the location name, total elapsed minutes, excess minutes and allowed minutes. Sub-minute elapsed/excess values read **less than 1 minute**. Clear the notice and overdue colour after departure or when the refreshed allowance no longer makes the visit overdue. The monitoring API adds nullable `monitoring.location.expected_waiting_time`; no database migration. Admin-only change; existing mobile Figma designs are unaffected.
+
+- [x] Expose the saved allowance and use recorded arrival time rather than polling/render timestamps.
+- [x] Per-vehicle red state and truck-details notice, including zero/missing limits and open standby visits.
+- [ ] Verify authenticated live 3D colour, details notice and departure refresh.
+
+### Admin run location details (2.196 — implemented locally)
+
+The website run page shows location-type badges for recorded stops and shipment pickup/drop-off locations, with **Type not set** for unavailable types. Saved location names open a right-side drawer without leaving the run. Fetch current merchant-scoped location details on opening; show loading, error and retry states, address, contact information, coordinates, expected waiting time, tags, the existing geofence view and a link to the full location page. Stops without a saved location ID remain plain text. Closing the drawer cancels stale fetch updates. This admin-only addition does not affect the mobile dashboard Figma designs.
+
+- [x] Show recorded-stop and shipment location types and accessible drawer triggers for saved locations.
+- [x] Load current location details with merchant scope, loading/error/retry states and stale-response cleanup.
+- [ ] Verify authenticated browser drawer, geofence and keyboard interaction with live run data.
 
 ### Admin run shipments (1.90)
 
@@ -1312,6 +1340,9 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-11 | 2.198 | Show recorded arrival/departure duration on admin run stops, with a red warning and explanatory tooltip above the saved location allowance. Missing intervals remain unavailable; automated verification recorded in release notes, live browser verification pending. Mobile Figma unaffected. |
+| 2026-10-11 | 2.197 | Use recorded arrivals and saved location allowances for per-vehicle monitoring overdue colour and elapsed/excess/allowed-time notices. Open standby visits remain eligible. Automated verification recorded in release notes; live browser verification pending. Mobile Figma unaffected. |
+| 2026-10-11 | 2.196 | Show admin recorded-stop and shipment location types; open merchant-scoped location details in a drawer. Browser verification pending; mobile Figma unaffected. |
 | 2026-10-11 | 2.195 | Hide the complete Safety and speeding section for missing or empty telemetry; retain recorded zero speeds and populated events. Mobile TypeScript/focused lint pass; Figma handoff aligned, native verification pending. |
 | 2026-10-11 | 2.194 | Use generated black circle/white dot start and black square/white square stop map images with 16/20/24/28-point zoom sizes, 1×/2×/3× variants, centered anchors and size-aware popup tips. TypeScript, focused lint and 18 map tests pass; Figma aligned, native visuals pending. |
 | 2026-10-11 | 2.193 | Add dashboard Safety and speeding after Additional costs with full-run scoped telemetry summary and mobile event details; preserve empty/unavailable states and filter independence. 42 driver API tests (381 assertions), TypeScript and focused lint pass; Figma handoff aligned, native visual verification pending. |

@@ -12,6 +12,23 @@ use Tests\TestCase;
 
 class VehicleActivityResourceTest extends TestCase
 {
+    public function test_location_waiting_allowance_preserves_configured_zero_and_missing_values(): void
+    {
+        foreach ([30, 0, null] as $expected) {
+            $location = new Location(['uuid' => 'location-uuid', 'expected_waiting_time' => $expected]);
+            $location->setRelation('locationType', null);
+            $activity = new VehicleActivity(['uuid' => 'activity-uuid']);
+            foreach (['merchant', 'vehicle', 'run', 'shipment'] as $relation) {
+                $activity->setRelation($relation, null);
+            }
+            $activity->setRelation('location', $location);
+
+            $payload = (new VehicleActivityResource($activity))->toArray(Request::create('/'));
+
+            $this->assertSame($expected, $payload['location']['expected_waiting_time']);
+        }
+    }
+
     public function test_shipment_summary_includes_pickup_and_dropoff_locations(): void
     {
         $pickup = new Location([

@@ -324,6 +324,7 @@ export interface ShipmentStop {
   } | null
   location?: {
     location_id?: UUID | null
+    expected_waiting_time?: number | null
     name?: string | null
     company?: string | null
     code?: string | null
@@ -1222,6 +1223,7 @@ export interface VehicleActivity {
       name?: string | null
       company?: string | null
       code?: string | null
+      expected_waiting_time?: number | null
       type?: {
         icon?: string | null
         slug?: string | null

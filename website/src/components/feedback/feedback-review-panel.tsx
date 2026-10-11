@@ -191,7 +191,7 @@ export function FeedbackReviewPanel({
             <CardContent className="space-y-3 text-sm">
               <div><p className="text-xs text-muted-foreground">Sent by</p><p className="font-medium">{feedback.submitter?.name ?? "Deleted user"}</p><p>{feedback.submitter?.email}</p></div>
               <div><p className="text-xs text-muted-foreground">Merchant</p><p>{feedback.merchant?.name ?? "Platform feedback"}</p></div>
-              <div><p className="text-xs text-muted-foreground">Page</p><p className="break-all font-mono text-xs">{feedback.page_path}</p></div>
+              <div><p className="text-xs text-muted-foreground">Page</p><Link href={feedback.page_path} className="break-all font-mono text-xs text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:outline-2 focus-visible:outline-offset-4">{feedback.page_path}</Link></div>
               <div><p className="text-xs text-muted-foreground">Submitted</p><p>{formatDate(feedback.created_at)}</p></div>
               <div><p className="text-xs text-muted-foreground">Last updated</p><p>{formatDate(feedback.updated_at)}</p></div>
             </CardContent>

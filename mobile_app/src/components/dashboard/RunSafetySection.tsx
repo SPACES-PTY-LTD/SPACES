@@ -16,9 +16,11 @@ function eventTime(value: string | null, timezone: string) {
 export function RunSafetySection({ safety, timezone, ink, muted, line }: {
   safety?: RunSafety | null; timezone: string; ink: string; muted: string; line: string;
 }) {
+  if (!safety || (safety.speeding_event_count === 0 && safety.speeding_events.length === 0
+    && !Number.isFinite(safety.maximum_speed_kph) && !Number.isFinite(safety.worst_speed_exceedance_kph))) return null;
+
   return <View style={{ marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderColor: line, gap: 16 }}>
     <Text accessibilityRole="header" style={{ color: ink, fontSize: 18, fontWeight: '700' }}>Safety and speeding</Text>
-    {!safety ? <Text style={{ color: muted, fontSize: 13 }}>Safety data is not available for this run.</Text> : <>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {[
           ['Speeding events', String(safety.speeding_event_count)],
@@ -37,6 +39,5 @@ export function RunSafetySection({ safety, timezone, ink, muted, line }: {
         </View>
         <Text style={{ color: muted, fontSize: 13 }}>Location: {event.latitude !== null && event.longitude !== null ? `${event.latitude}, ${event.longitude}` : 'Not available'}</Text>
       </View>) : <Text style={{ color: muted, fontSize: 13, lineHeight: 20 }}>No speeding events have been recorded for this run.</Text>}
-    </>}
   </View>;
 }

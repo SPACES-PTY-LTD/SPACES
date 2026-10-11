@@ -75,6 +75,7 @@ class VehicleLatestActivityCheckResource extends JsonResource
                     'name' => $monitoringActivity->location->name,
                     'company' => $monitoringActivity->location->company,
                     'code' => $monitoringActivity->location->code,
+                    'expected_waiting_time' => $monitoringActivity->location->expected_waiting_time,
                     'type' => $monitoringActivity->location->locationType ? [
                         'title' => $monitoringActivity->location->locationType->title,
                         'slug' => $monitoringActivity->location->locationType->slug,

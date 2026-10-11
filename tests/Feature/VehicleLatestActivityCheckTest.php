@@ -276,6 +276,7 @@ class VehicleLatestActivityCheckTest extends TestCase
             'merchant_id' => $merchant->id,
             'name' => 'Depot A',
             'code' => 'DEPOT-A',
+            'expected_waiting_time' => 45,
             'address_line_1' => '1 Depot Road',
             'city' => 'Cape Town',
             'province' => 'Western Cape',
@@ -286,6 +287,7 @@ class VehicleLatestActivityCheckTest extends TestCase
             'merchant_id' => $merchant->id,
             'name' => 'Depot B',
             'code' => 'DEPOT-B',
+            'expected_waiting_time' => 0,
             'address_line_1' => '2 Depot Road',
             'city' => 'Cape Town',
             'province' => 'Western Cape',
@@ -386,6 +388,9 @@ class VehicleLatestActivityCheckTest extends TestCase
             ->mapWithKeys(fn (array $item) => [$item['vehicle']['plate_number'] => $item]);
 
         $this->assertSame('at_location', $byPlate['RECENT-ENTRY']['monitoring']['status']);
+        $this->assertSame(45, $byPlate['RECENT-ENTRY']['monitoring']['location']['expected_waiting_time']);
+        $this->assertSame(0, $byPlate['REENTERED']['monitoring']['location']['expected_waiting_time']);
+        $this->assertSame($latestEntry->entered_at->toIso8601String(), $byPlate['REENTERED']['monitoring']['since_at']);
         $this->assertSame('standby', $byPlate['BOUNDARY-ENTRY']['monitoring']['status']);
         $this->assertSame('standby', $byPlate['OLD-ACTIVE-RUN']['monitoring']['status']);
         $this->assertSame('active', $byPlate['OLD-ACTIVE-RUN']['vehicle']['fleet_status']);

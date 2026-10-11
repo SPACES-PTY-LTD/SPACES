@@ -11,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { DataTableTextFilter } from "@/components/common/data-table-text-filter"
 import { DatePicker } from "@/components/common/date-picker"
 import { DateRangePicker } from "@/components/common/date-range-picker"
 import {
@@ -51,6 +53,7 @@ import {
   ChevronsRight,
   Filter,
   ImageIcon,
+  Info,
   MoreHorizontal,
   Pencil,
   Search,
@@ -60,6 +63,8 @@ import { Button } from "../ui/button"
 export type Column<T> = {
   key: keyof T | string
   label: string
+  /** Optional explanation shown beside the column title on hover or focus. */
+  description?: string
   className?: string
   type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time" | "shipment_attention" | "run_distance"
   size?: "sm" | "md" | "lg"
@@ -89,6 +94,7 @@ export type Filter<T> = FilterBase<T> & (
     }
   | {
       type?: "select" | "date" | "text"
+      submitOnEnter?: boolean
       resource?: never
       options?: { label: string; value: string }[]
     }
@@ -1164,11 +1170,11 @@ export function DataTable<T extends Record<string, unknown>>({
 
                 if (filter.type === "text") {
                   return (
-                    <Input
+                    <DataTableTextFilter
                       key={String(filter.key)}
                       value={getFilterValue(filter)}
-                      onChange={(event) => updateFilterParam(filter, event.target.value)}
-                      className="h-9 w-[220px] text-sm"
+                      onValueChange={(value) => updateFilterParam(filter, value)}
+                      submitOnEnter={filter.submitOnEnter}
                       placeholder={filter.placeholder ?? filter.label}
                     />
                   )
@@ -1320,33 +1326,53 @@ export function DataTable<T extends Record<string, unknown>>({
                         column.className
                       )}
                     >
-                      {enableSorting &&
-                        (!sortableColumnSet || sortableColumnSet.has(String(column.key))) ? (
-                        (() => {
-                          const columnKey = String(column.key)
-                          const sortKey = sortKeyMap?.[columnKey] ?? columnKey
-                          const isActive = currentSortBy === sortKey
-                          return (
-                            <Link
-                              href={buildSortHref(column)}
-                              className="inline-flex items-center gap-1 text-foreground hover:text-primary"
-                            >
-                              <span>{column.label}</span>
-                              {isActive ? (
-                                currentSortDir === "desc" ? (
-                                  <ArrowDown className="h-3.5 w-3.5" />
+                      <div className="inline-flex items-center gap-1.5">
+                        {enableSorting &&
+                          (!sortableColumnSet || sortableColumnSet.has(String(column.key))) ? (
+                          (() => {
+                            const columnKey = String(column.key)
+                            const sortKey = sortKeyMap?.[columnKey] ?? columnKey
+                            const isActive = currentSortBy === sortKey
+                            return (
+                              <Link
+                                href={buildSortHref(column)}
+                                className="inline-flex items-center gap-1 text-foreground hover:text-primary"
+                              >
+                                <span>{column.label}</span>
+                                {isActive ? (
+                                  currentSortDir === "desc" ? (
+                                    <ArrowDown className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <ArrowUp className="h-3.5 w-3.5" />
+                                  )
                                 ) : (
-                                  <ArrowUp className="h-3.5 w-3.5" />
-                                )
-                              ) : (
-                                <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                              )}
-                            </Link>
-                          )
-                        })()
-                      ) : (
-                        column.label
-                      )}
+                                  <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                )}
+                              </Link>
+                            )
+                          })()
+                        ) : (
+                          column.label
+                        )}
+                        {column.description ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  aria-label={`About ${column.label}`}
+                                  className="inline-flex shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                  <Info className="h-3.5 w-3.5" aria-hidden="true" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs whitespace-normal" sideOffset={6}>
+                                {column.description}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : null}
+                      </div>
                     </TableHead>
                   ))}
                   {rowActions?.length ? (

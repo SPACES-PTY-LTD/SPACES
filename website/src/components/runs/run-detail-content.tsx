@@ -14,6 +14,9 @@ import { getRun } from "@/lib/api/runs"
 import { requireAuth } from "@/lib/auth"
 import { formatAddress } from "@/lib/address"
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
+import { LocationDetailsDrawer } from "@/components/locations/location-details-drawer"
+import { Badge } from "@/components/ui/badge"
+import { RunStopDuration } from "@/components/runs/run-stop-duration"
 import type { Location, ShipmentStop } from "@/lib/types"
 
 function runLocationLabel(location: Location | null | undefined, fallback: string) {
@@ -22,12 +25,13 @@ function runLocationLabel(location: Location | null | undefined, fallback: strin
   return [name, formatAddress(location)].filter(Boolean).join(" · ") || fallback
 }
 
-function ShipmentLocation({ location }: { location?: Location | null }) {
+function ShipmentLocation({ location, accessToken, merchantId }: { location?: Location | null; accessToken: string; merchantId?: string | null }) {
   if (!location) return <>-</>
   const name = location.name?.trim() || location.company?.trim()
   const address = formatAddress(location)
   return <div className="space-y-1">
-    {name && <div className="font-medium">{name}</div>}
+    <LocationDetailsDrawer locationId={location.location_id} label={name || address || "Location"} accessToken={accessToken} merchantId={merchantId} />
+    <Badge variant="outline">{location.type?.title || "Type not set"}</Badge>
     {address && <div className={name ? "text-muted-foreground" : undefined}>{address}</div>}
     {!name && !address && "-"}
   </div>
@@ -146,8 +150,8 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
                   <TableCell><Link className="font-medium underline-offset-4 hover:underline" href={AdminRoute.shipmentDetails(shipment.shipment_id)}>{shipment.merchant_order_ref ?? shipment.shipment_id}</Link></TableCell>
                   <TableCell className="whitespace-nowrap">{dateTime(shipment.created_at)}</TableCell>
                   <TableCell>{shipment.sequence ?? "-"}</TableCell>
-                  <TableCell><ShipmentLocation location={shipment.pickup_location} /></TableCell>
-                  <TableCell><ShipmentLocation location={shipment.dropoff_location} /></TableCell>
+                  <TableCell><ShipmentLocation location={shipment.pickup_location} accessToken={session.accessToken} merchantId={run.merchant_id} /></TableCell>
+                  <TableCell><ShipmentLocation location={shipment.dropoff_location} accessToken={session.accessToken} merchantId={run.merchant_id} /></TableCell>
                   <TableCell>{shipment.total_parcel_count ?? "-"}</TableCell>
                   <TableCell><StatusBadge status={shipment.shipment_status ?? "unknown"} /></TableCell>
                   <TableCell><StatusBadge status={shipment.run_status ?? "unknown"} /></TableCell>
@@ -189,8 +193,12 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
           <CardContent className="space-y-3">
             {(run.actual_stops ?? []).length ? (run.actual_stops ?? []).map((stop, index) => (
               <div key={stop.activity_id ?? index} className="border-l-2 pl-3 text-sm">
-                <div className="font-medium">{index + 1}. {stopName(stop)}</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{index + 1}. {stop.location?.location_id ? <LocationDetailsDrawer locationId={stop.location.location_id} label={stopName(stop)} accessToken={session.accessToken} merchantId={run.merchant_id} /> : stopName(stop)}</span>
+                  <Badge variant="outline">{stop.location?.type?.title || "Type not set"}</Badge>
+                </div>
                 <div className="capitalize text-xs text-muted-foreground">{(stop.event_type ?? "stop").replaceAll("_", " ")} · {dateTime(stop.occurred_at)}</div>
+                <RunStopDuration stop={stop} />
               </div>
             )) : <div className="text-sm text-muted-foreground">No stop events were recorded for this run.</div>}
           </CardContent>

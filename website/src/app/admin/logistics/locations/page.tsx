@@ -142,6 +142,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
             key: "search",
             label: "Search",
             type: "text",
+            submitOnEnter: true,
             value: search ?? "",
             url_param_name: "search",
             placeholder: "Search name, code, company, city...",

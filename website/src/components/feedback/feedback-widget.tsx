@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { format, parseISO } from "date-fns"
 import { ArrowLeft, Eye, Link2, Loader2, MessageSquareText, MoreHorizontal, Pencil, Send, Trash2 } from "lucide-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -304,7 +305,13 @@ export function FeedbackWidget({
                     <Badge variant="secondary">{CATEGORY_LABELS[selectedThread.category]}</Badge>
                     <StatusBadge status={selectedThread.status} />
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">{selectedThread.page_path}</p>
+                  <Link
+                    href={selectedThread.page_path}
+                    onClick={() => { setOpen(false); setSelectedThread(null) }}
+                    className="mt-2 inline-block break-all text-xs text-primary underline underline-offset-4 hover:text-primary/80 focus-visible:outline-2 focus-visible:outline-offset-4"
+                  >
+                    {selectedThread.page_path}
+                  </Link>
                 </div>
                 <Button
                   type="button"

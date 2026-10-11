@@ -46,6 +46,7 @@ class VehicleActivityResource extends JsonResource
                 'name' => $this->location->name,
                 'company' => $this->location->company,
                 'code' => $this->location->code,
+                'expected_waiting_time' => $this->location->expected_waiting_time,
                 'type' => $this->location->locationType ? [
                     'title' => $this->location->locationType->title,
                     'slug' => $this->location->locationType->slug,

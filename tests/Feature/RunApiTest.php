@@ -747,7 +747,7 @@ class RunApiTest extends TestCase
             'title' => 'Customer site',
             'delivery_point' => true,
         ]);
-        $shipment->pickupLocation->update(['location_type_id' => $locationType->id]);
+        $shipment->pickupLocation->update(['location_type_id' => $locationType->id, 'expected_waiting_time' => 30]);
         $run = Run::create([
             'account_id' => $merchant->account_id,
             'merchant_id' => $merchant->id,
@@ -837,6 +837,7 @@ class RunApiTest extends TestCase
             ->assertJsonCount(3, 'data.track_points')
             ->assertJsonCount(1, 'data.actual_stops')
             ->assertJsonPath('data.actual_stops.0.location.type.title', 'Customer site')
+            ->assertJsonPath('data.actual_stops.0.location.expected_waiting_time', 30)
             ->assertJsonPath('data.origin.name', 'Pickup ORDER-RUN-DETAIL')
             ->assertJsonPath('data.destination.name', 'Dropoff ORDER-RUN-DETAIL')
             ->assertJsonPath('data.shipments.0.odometer_at_collection', 2000)

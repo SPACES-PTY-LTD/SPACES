@@ -87,6 +87,7 @@ export type TruckRender = {
   isWaitingOverdue?: boolean;
   maxWaitingMs?: number;
   waitingDurationMs?: number;
+  waitingSinceMs?: number | null;
   shipmentRecord?: {
     shipmentId?: string;
     merchantOrderRef?: string | null;
