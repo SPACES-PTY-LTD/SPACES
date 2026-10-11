@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-11 | Version: storage-region-resolution-v1
+
+- **Summary:** Resolve missing S3-compatible storage regions for Cloudflare R2 and standard AWS environment settings.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Prefer non-empty `AWS_DEFAULT_REGION`, then `AWS_REGION`. Use `auto` only for recognized Cloudflare R2 endpoints when both are absent. Other providers still require an explicit region. Document the environment settings; production cached configuration must be rebuilt after deployment.
+- **Breaking Changes:** None.
+- **Verification:** Region resolution and profile/account tests pass (17 tests, 46 assertions). Covers explicit region priority, empty defaults, R2 jurisdiction endpoints and unrelated domains. Production log confirms missing region; local endpoint is R2. Production settings and retry remain unverified; changes are not deployed.
+
 ## 2026-10-11 | Version: profile-photo-upload-errors-v1
 
 - **Summary:** Handle profile-photo storage failures safely and keep handled mobile upload errors out of the red development overlay.

@@ -51,7 +51,7 @@ return [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
-            'region' => env('AWS_DEFAULT_REGION'),
+            'region' => \App\Support\StorageRegion::resolve(env('AWS_DEFAULT_REGION'), env('AWS_REGION'), env('AWS_ENDPOINT')),
             'bucket' => env('AWS_BUCKET'),
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
