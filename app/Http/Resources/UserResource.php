@@ -20,7 +20,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'telephone' => $this->telephone,
             'role' => $this->role,
-            'profile_photo_url' => $this->profile_photo_path ? Storage::disk('s3')->url($this->profile_photo_path) : null,
+            'profile_photo_url' => $this->profile_photo_path ? Storage::disk()->url($this->profile_photo_path) : null,
             'driver_merchant' => $merchant ? ['merchant_id' => $merchant->uuid, 'name' => $merchant->name] : null,
             'is_account_holder' => $this->whenLoaded(
                 'account',

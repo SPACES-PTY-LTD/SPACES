@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-11 | Version: profile-photo-configured-disk-v1
+
+- **Summary:** Use Laravel Cloud's configured filesystem for profile photos instead of the unconfigured standalone S3 disk.
+- **API Changes:** No response shape changes; profile photo URLs now use the configured default disk.
+- **Database Changes:** None.
+- **Behavior Changes:** Profile uploads, cleanup, user profile URLs and driver conversation avatars all use `FILESYSTEM_DISK`. Laravel Cloud settings show injected `FILESYSTEM_DISK` and `LARAVEL_CLOUD_DISK_CONFIG`, without standalone AWS variables. This fixes the hardcoded `s3` mismatch without overriding Cloud-managed credentials. Existing photo paths require their objects to remain available on the configured disk if operators change disks.
+- **Breaking Changes:** None for deployments where the default disk is the existing photo bucket; deployments using another default must migrate existing profile objects or set the intended default.
+- **Verification:** Profile/account and conversation API tests pass (32 tests, 375 assertions), including a managed default disk with the standalone S3 region unset, replacement cleanup, URL consistency and driver avatars. Diff checks pass. Production deployment and real-device upload retry remain pending.
+
 ## 2026-10-11 | Version: storage-region-resolution-v1
 
 - **Summary:** Resolve missing S3-compatible storage regions for Cloudflare R2 and standard AWS environment settings.

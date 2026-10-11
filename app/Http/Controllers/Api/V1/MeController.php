@@ -216,7 +216,7 @@ class MeController extends Controller
 
     private function storeProfilePhoto(string $userUuid, UploadedFile $photo): string
     {
-        $disk = Storage::disk('s3');
+        $disk = Storage::disk();
         $extension = $photo->getClientOriginalExtension();
         $filename = (string) Str::uuid().($extension ? '.'.$extension : '');
         $path = sprintf('profile-photos/%s/%s', $userUuid, $filename);
@@ -231,7 +231,7 @@ class MeController extends Controller
     private function deleteProfilePhoto(string $path): void
     {
         try {
-            if (!Storage::disk('s3')->delete($path)) {
+            if (!Storage::disk()->delete($path)) {
                 throw new \RuntimeException('Profile photo cleanup failed.');
             }
         } catch (Throwable $e) {
