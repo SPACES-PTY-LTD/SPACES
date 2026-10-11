@@ -88,6 +88,15 @@ test('run sheet drags reveal timeline and restore measured summary; default snap
   responder.onPanResponderRelease(null, { dy: -336 }); assert.equal(height(), 736);
   reveal(); assert.equal(height(), 736);
   responder.onPanResponderRelease(null, { dy: 610 }); assert.equal(height(), 126);
+  // Successful navigation collapses even an expanded/actively dragged sheet once.
+  reveal(); assert.equal(height(), 400);
+  responder.onPanResponderMove(null, { dy: -100 }); assert.equal(height(), 500);
+  props.collapseOn = true; render(); assert.equal(height(), 126);
+  reveal(); assert.equal(height(), 400);
+  render(); assert.equal(height(), 400); // refreshes during guidance preserve manual expansion
+  props.collapseOn = false; render(); assert.equal(height(), 400); // Exit leaves current position
+  props.collapseOn = true; render(); assert.equal(height(), 126); // new navigation session
+  props.collapseOn = false; render();
   props.collapsedHeight = 158; assert.equal(height(), 158);
   state.length = 0; props.initialSnapIndex = 1; delete props.collapsedHeight;
   assert.equal(height(), 400);

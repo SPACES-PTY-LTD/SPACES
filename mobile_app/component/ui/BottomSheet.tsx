@@ -30,7 +30,7 @@ export type BottomSheetProps = PropsWithChildren<{
   /** Gap after the header; defaults to the shared 16-point content gap. */
   headerBottomSpacing?: number;
   maxDynamicContentSize?: number;
-  /** Keep an underlying modal visible with push; default switch preserves existing callers. */
+  /** Keep underlying sheets open by default so dismissal never restores a stale dynamic snap index. */
   stackBehavior?: 'push' | 'switch' | 'replace';
   keyboardBehavior?: 'interactive' | 'extend' | 'fillParent';
 }>;
@@ -48,7 +48,7 @@ function ModalContainer({ children }: PropsWithChildren) {
 /** Shared floating sheet appearance, safe-area spacing, keyboard and dismissal behavior. */
 export function BottomSheet({ modalRef, title, children, footer, onDismiss, accessibilityLabel,
   onBack, onScroll, showsVerticalScrollIndicator = true, plainScroll = false, contentPanning = true, scrollable = false, dismissible = true, showCloseButton = true, showHandle = true,
-  maxDynamicContentSize, headerBottomSpacing = 16, keyboardBehavior = 'interactive', stackBehavior = 'switch' }: BottomSheetProps) {
+  maxDynamicContentSize, headerBottomSpacing = 16, keyboardBehavior = 'interactive', stackBehavior = 'push' }: BottomSheetProps) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
   const { height } = useWindowDimensions();

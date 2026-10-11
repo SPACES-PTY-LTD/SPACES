@@ -41,7 +41,7 @@ function harness() {
   };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/components/dashboard/RunMap.tsx', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, {
-    exports, require: name => modules[name], __DEV__: false, Date, JSON,
+    exports, require: name => name.endsWith('.png') ? name : modules[name], __DEV__: false, Date, JSON,
     setInterval: (fn, ms) => { const key = {}; timers.set(key, { fn, ms }); return key; }, clearInterval: key => timers.delete(key),
   });
   const shipment = id => ({ shipment_id: id, status: 'booked', dropoff_location: { name: id, latitude: -26.1, longitude: 28.1 } });
@@ -52,6 +52,24 @@ function harness() {
   return { props, requests, render, nodes, locator, opened, choices, guidance, starts, stopped: () => stopped, async flush() { for (let i = 0; i < 15; i++) await Promise.resolve(); render(); }, tick() { for (const t of timers.values()) if (t.ms === 60000) t.fn(); }, state(value) { native.AppState.currentState = value; for (const fn of listeners) fn(value); }, focus(value) { focused = value; render(); } };
 }
 const route = { status: 'ready', shipment_id: 'selected', origin_source: 'phone', origin_coordinate: { latitude: 0, longitude: 0 }, coordinates: [{ latitude: -26, longitude: 28 }, { latitude: -26.1, longitude: 28.1 }], distance_meters: 1000, duration_seconds: 120 };
+
+test('overview truck image scales down with zoom without changing its coordinate or popup', async () => {
+  const app = harness();
+  app.props.navigationShipment = undefined;
+  app.render();
+  await app.flush();
+  for (const [span, image] of [[10, 'truck-location-24.png'], [0.3, 'truck-location-32.png'], [0.05, 'truck-location-40.png'], [0.005, 'truck-location.png'], [2, 'truck-location-24.png']]) {
+    app.nodes('NativeMap')[0].props.onRegionChangeComplete({ latitudeDelta: span });
+    app.render();
+    const marker = app.nodes('Marker').find(n => n.props.title === 'Your truck');
+    assert.ok(marker.props.image.endsWith(image));
+    assert.equal(marker.props.coordinate.latitude, -26);
+    assert.equal(marker.props.coordinate.longitude, 28);
+    assert.equal(marker.props.description, 'Last report');
+    assert.equal(marker.props.anchor.x, 0.5);
+    assert.equal(marker.props.anchor.y, 0.5);
+  }
+});
 
 test('selected route hides unrelated pins, refreshes only while active, and Stop remains usable on failure', async () => {
   const h = harness(); h.render(); await h.flush();

@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from '@/component/ui/LoadingSkeleton';
 import { Image } from "expo-image";
 import {
     BottomSheetModal,
@@ -150,6 +151,7 @@ export function ShipmentDetailsSheet({
                 <BottomSheetModal
                     ref={modalRef}
                     accessible={false}
+                    stackBehavior="push"
                     snapPoints={["90%"]}
                     enableDynamicSizing={false}
                     // Receipt controls/native scrolling own content touches; drag via the handle.
@@ -783,11 +785,8 @@ function ShipmentDetailsContent({
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
             >
-                {isLoading ? (
-                    <ActivityIndicator
-                        color="#15803d"
-                        accessibilityLabel="Loading shipment"
-                    />
+                {isLoading && !shipment ? (
+                    <LoadingSkeleton kind="shipment-detail" label="Loading shipment details" />
                 ) : null}
                 {errorMessage ? (
                     <View

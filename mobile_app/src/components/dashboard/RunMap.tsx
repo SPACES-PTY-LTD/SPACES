@@ -17,6 +17,12 @@ import { groupRunMapStops, locationCoordinate, runMapStops } from './run-map-dat
 
 // Temporarily hide mode selection; keep Recorded available for re-enabling later.
 const SHOW_MAP_MODE_SWITCH = false;
+const truckMarkerImages = {
+  24: require('../../../assets/images/maps/truck-location-24.png'),
+  32: require('../../../assets/images/maps/truck-location-32.png'),
+  40: require('../../../assets/images/maps/truck-location-40.png'),
+  48: require('../../../assets/images/maps/truck-location.png'),
+};
 
 export type RunMapProps = {
   shipments: DriverShipment[];
@@ -49,6 +55,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   const [routeRetry, setRouteRetry] = useState(0);
   const [showRouteInfo, setShowRouteInfo] = useState(false);
   const [ready, setReady] = useState(false);
+  const [truckMarkerSize, setTruckMarkerSize] = useState<24 | 32 | 40 | 48>(24);
   const focused = useIsFocused();
   const mapLifecycle = useRef({ ready: false, loaded: false, width: 0, height: 0 });
   const [selectedMode, setMode] = useState<'planned' | 'recorded'>('planned');
@@ -208,7 +215,11 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
     }}
       onPress={event => { if (event.nativeEvent.action !== 'marker-press') dismissPopup(); }}
       onPanDrag={dismissPopup}
-      onRegionChangeComplete={() => { if (popupGroup) void showPopup(popupGroup); }}
+      onRegionChangeComplete={region => {
+        const span = region.latitudeDelta;
+        if (Number.isFinite(span) && span > 0) setTruckMarkerSize(span >= 1 ? 24 : span >= 0.1 ? 32 : span >= 0.02 ? 40 : 48);
+        if (popupGroup) void showPopup(popupGroup);
+      }}
       initialRegion={{ latitude: 0, longitude: 0, latitudeDelta: 100, longitudeDelta: 100 }}
       showsPointsOfInterests={false} showsCompass={false} rotateEnabled={false} pitchEnabled={false}
       accessibilityLabel={navigationId ? 'Route to selected delivery' : runId ? 'Current run shipment locations' : 'Current truck location'}>
@@ -216,8 +227,8 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       {mode === 'planned' && endpointPins.map(p => <Marker key={p.role} coordinate={p.coordinate} onPress={dismissPopup} title={`${p.role} · ${p.name}`} description={p.address} pinColor={p.role === 'Run starting point' ? '#2563eb' : '#71717a'} />)}
       {phone && <Marker coordinate={phone} onPress={dismissPopup} title="Your phone location" pinColor="#2563eb" />}
       {!navigationId && truck ? <Marker coordinate={truck} onPress={dismissPopup} zIndex={100} title={position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}
+        image={truckMarkerImages[truckMarkerSize]} anchor={{ x: 0.5, y: 0.5 }}
         description={truckPositionDescription(position)}>
-        <View style={styles.truckMarker}><Feather name="truck" size={21} color="#ffffff" /></View>
         <Callout tooltip><View style={[styles.truckCallout, { backgroundColor: surface }]}>
           <Text style={[styles.truckCalloutTitle, { color: ink }]}>{position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}</Text>
           {truckPositionDescription(position).split('\n').map((line, index, lines) => <Text key={index} style={[index === lines.length - 1 ? styles.truckCalloutTime : styles.truckCalloutLocation, { color: index === lines.length - 1 ? muted : ink }]}>{line}</Text>)}
@@ -351,7 +362,6 @@ const styles = StyleSheet.create({
   modeButton: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20 },
   recordedStatus: { position: 'absolute', alignSelf: 'center', maxWidth: '90%', backgroundColor: '#ffffff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   container: { flex: 1, backgroundColor: '#eeeee8' },
-  truckMarker: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#2563eb', borderWidth: 3, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
   truckCallout: { width: 260, padding: 12, gap: 4, borderRadius: 12 },
   truckCalloutTitle: { color: '#111111', fontSize: 14, fontWeight: '600' },
   truckCalloutLocation: { color: '#111111', fontSize: 13, lineHeight: 18 },

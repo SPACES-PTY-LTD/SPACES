@@ -8,7 +8,7 @@ import * as jsx from 'react/jsx-runtime';
 let slots = [], index = 0;
 const hooks = { useState(initial) { const i = index++; if (!(i in slots)) slots[i] = typeof initial === 'function' ? initial() : initial; return [slots[i], value => slots[i] = value]; }, useEffect() {} };
 const exports = {};
-const native = { View: 'View', Pressable: 'Pressable', StyleSheet: { create: x => x }, AppState: { currentState: 'active' }, Linking: { openURL: async () => {} } };
+const native = { Platform: { OS: 'android' }, View: 'View', Pressable: 'Pressable', StyleSheet: { create: x => x }, AppState: { currentState: 'active' }, Linking: { openURL: async () => {} } };
 const transition = { duration() { return this; }, easing() { return this; }, reduceMotion() { return this; } };
 const reanimated = { default: { View: 'AnimatedView' }, LinearTransition: transition, Easing: { out: x => x, cubic: x => x }, ReduceMotion: { System: 'system' } };
 const modules = { react: hooks, 'react-native-reanimated': reanimated, 'react/jsx-runtime': jsx, 'react-native': native, 'expo-router/react-navigation': { useIsFocused: () => true }, '@expo/vector-icons': { Feather: 'Feather' }, '@/component/ui/Text': { Text: 'Text' }, '@/src/lib/api': { driverApi: {} }, './run-map-data': { locationCoordinate: l => l && l.latitude != null && l.longitude != null ? { latitude: l.latitude, longitude: l.longitude } : null } };

@@ -1,3 +1,5 @@
+import { LoadingSkeleton } from '@/component/ui/LoadingSkeleton';
+import { Feather } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
@@ -153,6 +155,7 @@ function RunList({ token, tab }: { token: string; tab: RunTab }) {
 
     return (
         <FlatList
+            style={{ flex: 1 }}
             data={runs}
             contentInsetAdjustmentBehavior="never"
             automaticallyAdjustContentInsets={false}
@@ -161,6 +164,9 @@ function RunList({ token, tab }: { token: string; tab: RunTab }) {
                 paddingHorizontal: 18,
                 paddingBottom: 24,
                 gap: 16,
+                ...(!runs.length && !loading && !error
+                    ? { flexGrow: 1, justifyContent: "center" as const, paddingTop: 24 }
+                    : {}),
             }}
             refreshing={refreshing}
             onRefresh={() => void load(1, true)}
@@ -196,16 +202,20 @@ function RunList({ token, tab }: { token: string; tab: RunTab }) {
             }
             ListEmptyComponent={
                 loading ? (
-                    <ActivityIndicator
-                        color="#15803d"
-                        style={{ padding: 48 }}
-                    />
+                    <LoadingSkeleton kind="runs" label="Loading runs" />
                 ) : !error ? (
-                    <View className="bg-[#F5F5F8] dark:bg-card rounded-xl p-5 gap-2">
-                        <Text className="text-card-foreground text-lg font-semibold">
+                    <View className="items-center px-6 gap-2">
+                        <View
+                            accessible={false}
+                            className="bg-[#ecfdf3] rounded-full items-center justify-center mb-3"
+                            style={{ width: 80, height: 80 }}
+                        >
+                            <Feather name={tab === "active" ? "git-branch" : "check-circle"} size={36} color="#24753a" />
+                        </View>
+                        <Text className="text-card-foreground text-lg font-semibold text-center">
                             No {tab} runs
                         </Text>
-                        <Text className="text-muted-foreground">
+                        <Text className="text-muted-foreground text-center" style={{ maxWidth: 300, lineHeight: 22 }}>
                             {tab === "active"
                                 ? "Your assigned runs will appear here when they are ready to start."
                                 : "Runs will appear here after dispatch closes them."}

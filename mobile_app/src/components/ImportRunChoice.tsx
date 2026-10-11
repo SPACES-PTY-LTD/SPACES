@@ -38,7 +38,7 @@ export function ImportRunChoice({ context, draft, review, ready, busy, start, en
     </Pressable>;
   };
   return <View style={styles.content}>
-    <Text style={[styles.address, { color: colors.muted }]}>{context.runs.length ? 'Add this delivery note to your current run or create a new one.' : 'No current run is available. Create a new run for this delivery note.'}</Text>
+    {!!context.runs.length && <Text style={[styles.address, { color: colors.muted }]}>Add this delivery note to your current run or create a new one.</Text>}
     <View accessibilityRole="radiogroup" accessibilityLabel="Choose destination run" style={styles.options}>
       {context.runs.map(run => option(run.run_id, run.label, `${run.status === 'in_progress' ? 'In progress' : 'Ready to start'} · Add to this run${run.vehicle_id ? ` · ${context.vehicles.find(item => item.vehicle_id === run.vehicle_id)?.label || 'Assigned vehicle'}` : ''}`))}
       {option(null, 'Create new run', 'Ready to start after creation')}
@@ -56,7 +56,7 @@ export function ImportRunChoice({ context, draft, review, ready, busy, start, en
         <Text style={[styles.reference, { color: colors.ink }]}>{row.reference}</Text>
         <View style={styles.status}><Text style={[styles.meta, { color: colors.muted }]}>{statusLabel(row.status)}</Text>{row.matched_stop && <Text style={[styles.meta, { color: colors.muted }]}>{row.matched_stop.name}</Text>}</View>
       </View>)}
-      <Text style={[styles.explanation, { color: colors.muted }]}>{draft.create_new_run ? 'Previous-run matches are removed. Your manual status changes are kept.' : 'Recorded stops are kept. Matched visits on this run will be linked. Review any status changes before confirming.'}</Text>
+      {!draft.create_new_run && <Text style={[styles.explanation, { color: colors.muted }]}>Recorded stops are kept. Matched visits on this run will be linked. Review any status changes before confirming.</Text>}
     </View> : <Text accessibilityLiveRegion="polite" style={[styles.meta, { color: colors.muted }]}>{busy ? 'Checking the selected run…' : 'Select a run option to review its final shipment statuses.'}</Text>}
   </View>;
 }

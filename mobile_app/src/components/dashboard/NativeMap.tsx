@@ -1,14 +1,17 @@
 import { Component, forwardRef, useSyncExternalStore, type ReactNode } from 'react';
 import { isRunningInExpoGo } from 'expo';
-import { Platform, StyleSheet, UIManager, View } from 'react-native';
+import { NativeModules, Platform, StyleSheet, UIManager, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE, type MapViewProps } from 'react-native-maps';
 import { Text } from '@/component/ui/Text';
 import { nativeMapCapabilities, selectNativeMapProvider, type NativeMapProvider } from './native-map-provider';
 import { runMapStyle, runMapDarkStyle } from './run-map-style';
 
-// app.config.js omits react-native-maps Google pods on iOS: Navigation owns that framework.
-// RNMapsGoogleMapView still registers a blank Fabric placeholder in these builds.
-const capabilities = nativeMapCapabilities(Platform.OS, name => UIManager.hasViewManagerConfig(name), { isExpoGo: isRunningInExpoGo(), iosGoogleMapsEnabled: false });
+// Probe the installed binary, not an OTA flag or a Fabric placeholder. These managers
+// are exported only when react-native-maps' real Google implementation is compiled.
+const capabilities = nativeMapCapabilities(Platform.OS, name => UIManager.hasViewManagerConfig(name), {
+  isExpoGo: isRunningInExpoGo(),
+  hasNativeModule: name => NativeModules[name] != null,
+});
 const failed = new Set<NativeMapProvider>();
 const listeners = new Set<() => void>();
 const snapshot = () => selectNativeMapProvider(capabilities, failed);

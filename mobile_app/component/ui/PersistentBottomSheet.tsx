@@ -7,11 +7,20 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 const SNAP_POINTS = [0.25, 0.5, 0.92];
 
 /** Persistent dashboard panel with native layout and a draggable resize handle. */
-export function PersistentBottomSheet({ children, header, collapsedHeight, initialSnapIndex = 1, topInset = 0, containerHeight, animatedPosition }: PropsWithChildren<{ header?: ReactNode | ((expand: () => void, isExpanded: boolean) => ReactNode); collapsedHeight?: number; initialSnapIndex?: number; topInset?: number; containerHeight: number; animatedPosition?: SharedValue<number> }>) {
+export function PersistentBottomSheet({ children, header, collapsedHeight, initialSnapIndex = 1, collapseOn = false, topInset = 0, containerHeight, animatedPosition }: PropsWithChildren<{ header?: ReactNode | ((expand: () => void, isExpanded: boolean) => ReactNode); collapsedHeight?: number; initialSnapIndex?: number; collapseOn?: boolean; topInset?: number; containerHeight: number; animatedPosition?: SharedValue<number> }>) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
-  const [snapIndex, setSnapIndex] = useState(initialSnapIndex);
+  const [snapIndex, setSnapIndex] = useState(collapseOn ? 0 : initialSnapIndex);
   const [dragHeight, setDragHeight] = useState<number | null>(null);
+  const [wasCollapseRequested, setWasCollapseRequested] = useState(collapseOn);
+  // Adjust only on entry to guidance, so polling and user expansion do not reset the sheet.
+  if (collapseOn !== wasCollapseRequested) {
+    setWasCollapseRequested(collapseOn);
+    if (collapseOn) {
+      setSnapIndex(0);
+      setDragHeight(null);
+    }
+  }
   const availableHeight = Math.max(0, containerHeight - topInset);
   const snapHeights = useMemo(() => [
     collapsedHeight === undefined ? availableHeight * SNAP_POINTS[0] : Math.min(collapsedHeight, availableHeight * SNAP_POINTS[1]),

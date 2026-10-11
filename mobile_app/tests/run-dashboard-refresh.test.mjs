@@ -27,8 +27,9 @@ function harness(screen) {
   };
   const native = Object.fromEntries(['View', 'Pressable', 'FlatList', 'ScrollView', 'RefreshControl', 'ActivityIndicator'].map(name => [name, name]));
   Object.assign(native, { StyleSheet: { create: styles => styles }, useWindowDimensions: () => ({ height: 900 }), AppState: { addEventListener: (_, fn) => { foreground = fn; return { remove() {} }; } } });
-  const guidance = { state: { phase: 'idle', muted: false }, available: true, start: async target => { guidance.state = { phase: 'active', muted: false, target }; }, exit: async () => { guidance.state = { phase: 'idle', muted: false }; } };
+  const guidance = { state: { phase: 'idle', muted: false }, available: true, start: async target => { guidance.state = { phase: 'guiding', muted: false, target }; }, exit: async () => { guidance.state = { phase: 'idle', muted: false }; } };
   const modules = {
+    '@/component/ui/LoadingSkeleton': { LoadingSkeleton: 'LoadingSkeleton' },
     '@/src/components/dashboard/run-map-data': { locationCoordinate: location => location && typeof location.latitude === 'number' && typeof location.longitude === 'number' ? { latitude: location.latitude, longitude: location.longitude } : null },
     '@/src/components/runs/RunActions': { RunActions: 'RunActions' },
     '@/src/navigation/GuidanceProvider': { useGuidance: () => guidance },
@@ -154,8 +155,10 @@ test('Navigate selects the displayed delivery, Stop restores overview, and compl
   app.resolve(undefined, { run_shipments: [shipment] }); await app.flush();
   app.nodes('NextDeliveryCard')[0].props.onNavigate('selected'); app.render();
   assert.equal(app.nodes('RunMap')[0].props.navigationShipment.shipment_id, 'selected');
+  assert.equal(app.nodes('PersistentBottomSheet')[0].props.collapseOn, true);
   assert.equal(app.nodes('NextDeliveryCard').length, 0);
   app.nodes('RunMap')[0].props.onStopNavigation(); app.render();
+  assert.equal(app.nodes('PersistentBottomSheet')[0].props.collapseOn, false);
   assert.equal(app.nodes('RunMap')[0].props.navigationShipment, undefined);
   assert.equal(app.nodes('NextDeliveryCard').length, 1);
   app.nodes('NextDeliveryCard')[0].props.onNavigate('selected'); app.render();

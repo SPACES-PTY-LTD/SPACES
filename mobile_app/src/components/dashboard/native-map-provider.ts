@@ -1,14 +1,19 @@
 export type NativeMapProvider = 'google' | 'apple' | 'unavailable';
 export type NativeMapCapabilities = { google: boolean; apple: boolean };
 
-/** Fabric registers Google placeholders even without Google pods; respect the build configuration. */
-export function nativeMapCapabilities(platform: string, hasView: (name: string) => boolean, runtime: { isExpoGo: boolean; iosGoogleMapsEnabled?: boolean }): NativeMapCapabilities {
+/** Fabric registers Google placeholders without Google pods; require a real native manager. */
+export function nativeMapCapabilities(platform: string, hasView: (name: string) => boolean, runtime: { isExpoGo: boolean; hasNativeModule: (name: string) => boolean }): NativeMapCapabilities {
   const available = (name: string) => {
     try { return hasView(name); } catch { return false; }
   };
+  const hasGoogleManager = () => {
+    try {
+      return runtime.hasNativeModule('RNMapsGoogleMapViewManager') || runtime.hasNativeModule('AIRGoogleMapManager');
+    } catch { return false; }
+  };
   const standard = available('RNMapsMapView') || available('AIRMap');
   return {
-    google: platform === 'android' ? standard : platform === 'ios' && !runtime.isExpoGo && runtime.iosGoogleMapsEnabled !== false && (available('RNMapsGoogleMapView') || available('AIRGoogleMap')),
+    google: platform === 'android' ? standard : platform === 'ios' && !runtime.isExpoGo && hasGoogleManager() && (available('RNMapsGoogleMapView') || available('AIRGoogleMap')),
     apple: platform === 'ios' && standard,
   };
 }

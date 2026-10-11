@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from '@/component/ui/LoadingSkeleton';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,6 +22,7 @@ import {
     Platform,
     Pressable,
     StyleSheet,
+    ScrollView,
     TextInput,
     View,
 } from 'react-native';
@@ -425,10 +427,9 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                 </View>
             )}
             {initialLoading ? (
-                <View style={styles.loading}>
-                    <ActivityIndicator color="#15803d" />
-                    <Text style={[styles.subtitle, { color: colors.muted }]}>Loading your conversation…</Text>
-                </View>
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 18, paddingVertical: 24 }} showsVerticalScrollIndicator={false}>
+                    <LoadingSkeleton kind="messages" label="Loading your conversation" />
+                </ScrollView>
             ) : (
                 <FlatList
                     style={{ flex: 1 }}
@@ -491,7 +492,7 @@ function DriverChat({ requestedConversation, draftReference, draftRequest }: { r
                                         style={{ fontSize: 12, lineHeight: 17, color: colors.muted }}
                                     >
                                         {item.sender_name} ·{' '}
-                                        {new Date(item.created_at).toLocaleString()}
+                                        {new Date(item.created_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
                                     </Text>
                                     {item.body && (
                                         <Text
@@ -610,7 +611,6 @@ const styles = StyleSheet.create({
     emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
     emptyTitle: { fontSize: 24, lineHeight: 34, fontWeight: '700', textAlign: 'center' },
     emptyCopy: { fontSize: 16, lineHeight: 23, textAlign: 'center' },
-    loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
     error: { marginHorizontal: 20, marginTop: 12, padding: 14, borderRadius: 16 },
     retry: { minHeight: 44, justifyContent: 'center' },
     daySeparator: { textAlign: 'center', fontSize: 12, lineHeight: 18, fontWeight: '500', marginTop: 8, marginBottom: 16 },

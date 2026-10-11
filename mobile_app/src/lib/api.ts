@@ -616,6 +616,11 @@ export const driverApi = {
       token,
     });
   },
+  async updateProfilePhoto(token: string, photo: { uri: string; name: string; type?: string | null }) {
+    const body = new FormData();
+    await appendUploadFile(body, photo, 'photo');
+    return request<AuthUser>('/me/profile-photo', { body, method: 'POST', token });
+  },
   async registerDevice(
     token: string,
     payload: {

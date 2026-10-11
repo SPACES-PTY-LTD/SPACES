@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { nativeMapCapabilities, selectNativeMapProvider } from '../src/components/dashboard/native-map-provider.ts';
-const choose = (platform, views, failed = new Set(), preferApple = false, isExpoGo = false) => selectNativeMapProvider(nativeMapCapabilities(platform, name => views.includes(name), { isExpoGo }), failed, preferApple);
+const choose = (platform, views, failed = new Set(), preferApple = false, isExpoGo = false) => selectNativeMapProvider(nativeMapCapabilities(platform, name => views.includes(name), { isExpoGo, hasNativeModule: () => true }), failed, preferApple);
 
 test('iOS Expo Go selects Apple before mounting despite registered Google views', () => {
   for (const views of [['RNMapsMapView', 'RNMapsGoogleMapView'], ['AIRMap', 'AIRGoogleMap']]) {
@@ -49,13 +49,31 @@ test('failed Google probe still permits registered Apple map', () => {
   const capabilities = nativeMapCapabilities('ios', name => {
     if (name.includes('Google')) throw Error('View absent');
     return name === 'RNMapsMapView';
-  }, { isExpoGo: false });
+  }, { isExpoGo: false, hasNativeModule: () => true });
   assert.equal(selectNativeMapProvider(capabilities, new Set()), 'apple');
 });
 
 test('iOS MapKit build ignores Fabric Google placeholders even outside Expo Go', () => {
-  const capabilities = nativeMapCapabilities('ios', name => ['RNMapsMapView', 'RNMapsGoogleMapView'].includes(name), { isExpoGo: false, iosGoogleMapsEnabled: false });
+  const capabilities = nativeMapCapabilities('ios', name => ['RNMapsMapView', 'RNMapsGoogleMapView'].includes(name), { isExpoGo: false, hasNativeModule: () => false });
   assert.deepEqual(capabilities, { google: false, apple: true });
   assert.equal(selectNativeMapProvider(capabilities, new Set()), 'apple');
   assert.equal(selectNativeMapProvider(capabilities, new Set(['apple'])), 'unavailable');
+});
+
+
+test('real Google manager is required; Navigation SDK alone is insufficient', () => {
+  const views = ['RNMapsMapView', 'RNMapsGoogleMapView'];
+  for (const modules of [[], ['NavViewModule'], ['RNMapsGoogleMapViewManager'], ['AIRGoogleMapManager']]) {
+    const capabilities = nativeMapCapabilities('ios', name => views.includes(name), {
+      isExpoGo: false, hasNativeModule: name => modules.includes(name),
+    });
+    assert.equal(selectNativeMapProvider(capabilities, new Set()), modules.some(name => name.includes('GoogleMap')) ? 'google' : 'apple');
+  }
+});
+
+test('failed native module lookup safely retains Apple', () => {
+  const capabilities = nativeMapCapabilities('ios', () => true, {
+    isExpoGo: false, hasNativeModule: () => { throw Error('Module unavailable'); },
+  });
+  assert.equal(selectNativeMapProvider(capabilities, new Set()), 'apple');
 });

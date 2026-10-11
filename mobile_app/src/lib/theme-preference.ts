@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colorScheme } from 'nativewind';
-import { useSyncExternalStore } from 'react';
+import { colorScheme, useColorScheme as useNativeWindColorScheme } from 'nativewind';
+import { AppState } from 'react-native';
+import { useEffect, useLayoutEffect, useSyncExternalStore } from 'react';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 const key = 'spaces.theme-preference';
@@ -16,14 +17,31 @@ export async function restoreThemePreference() {
   const version = revision;
   try {
     const stored = await AsyncStorage.getItem(key);
-    if (version === revision && (stored === 'light' || stored === 'dark' || stored === 'system')) apply(stored);
+    if (version === revision) apply(stored === 'light' || stored === 'dark' || stored === 'system' ? stored : preference);
   } catch { /* Retain the current preference when storage is unavailable. */ }
 }
 export async function setThemePreference(next: ThemePreference) {
-  ++revision;
+  const version = ++revision;
   await AsyncStorage.setItem(key, next);
-  apply(next);
+  if (version === revision) apply(next);
 }
 export function useThemePreference() {
   return useSyncExternalStore(listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => preference, () => 'light' as ThemePreference);
+}
+
+
+/** Keep utility styles and native appearance aligned with the saved app preference. */
+export function useThemeSynchronization() {
+  const selected = useThemePreference();
+  const { colorScheme: observed } = useNativeWindColorScheme();
+  useLayoutEffect(() => {
+    if (selected !== 'system' && observed !== selected) colorScheme.set(selected);
+  }, [selected, observed]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      // Native appearance may change while an OS picker/modal is open or the app is backgrounded.
+      if (state === 'active') colorScheme.set(preference);
+    });
+    return () => subscription.remove();
+  }, []);
 }

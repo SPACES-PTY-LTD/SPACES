@@ -27,6 +27,7 @@ function harness(initialParams = {}) {
   const imageExports = {};
   vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/lib/chat-images.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { exports: imageExports, Math });
   const modules = {
+    '@/component/ui/LoadingSkeleton': { LoadingSkeleton: 'LoadingSkeleton' },
     '@/src/lib/chat-images': imageExports,
     '@/src/components/ChatImage': { ChatImage: 'ChatImage' },
     '@/src/components/ChatPhotoViewer': { ChatPhotoViewer: 'ChatPhotoViewer' },
@@ -39,7 +40,7 @@ function harness(initialParams = {}) {
     },
     'react/jsx-runtime': { jsx: (type, props, key) => ({ type, props, key }), jsxs: (type, props, key) => ({ type, props, key }) },
     'expo-router': { router: { setParams: patch => { params = { ...params, ...patch }; } }, useLocalSearchParams: () => params, useFocusEffect: callback => effect(() => focused ? callback() : undefined, [callback, focused]) },
-    'react-native': { ...Object.fromEntries(['ActivityIndicator', 'FlatList', 'KeyboardAvoidingView', 'Pressable', 'TextInput', 'View'].map(key => [key, key])), Keyboard: { dismiss() {} }, Platform: { OS: 'ios' }, StyleSheet: { create: styles => styles }, AppState: { currentState: 'active', addEventListener: (_, callback) => { listener = callback; return { remove() {} }; } } },
+    'react-native': { ...Object.fromEntries(['ActivityIndicator', 'FlatList', 'KeyboardAvoidingView', 'Pressable', 'TextInput', 'View', 'ScrollView'].map(key => [key, key])), Keyboard: { dismiss() {} }, Platform: { OS: 'ios' }, StyleSheet: { create: styles => styles }, AppState: { currentState: 'active', addEventListener: (_, callback) => { listener = callback; return { remove() {} }; } } },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 0 }) },
     '@/hooks/use-color-scheme': { useColorScheme: () => ({ colorScheme: 'light' }) },
     '@/src/providers/auth-provider': { useAuth: () => state },
@@ -85,9 +86,11 @@ function headerSpinner(app) { return app.nodes('PageHeader')[0].props.action; }
 test('initial loading becomes a small header spinner while polling preserves messages and draft', async () => {
   const app = harness(); app.render(); await app.flush();
   assert.equal(app.nodes('FlatList').length, 0); assert.equal(headerSpinner(app), undefined);
+  assert.equal(app.nodes('LoadingSkeleton')[0].props.kind, 'messages');
   app.resolve([message('1')], 'older-cursor'); await app.flush();
   app.nodes('TextInput')[0].props.onChangeText('Unsent draft'); app.render();
   app.defer(); app.poll(); await app.flush();
+  assert.equal(app.nodes('LoadingSkeleton').length, 0);
   assert.equal(headerSpinner(app).props.size, 'small'); assert.equal(app.nodes('FlatList')[0].props.data[0].message_id, '1');
   assert.equal(app.nodes('TextInput')[0].props.value, 'Unsent draft'); assert.equal(app.nodes('TextInput')[0].props.editable, true);
   app.resolve([message('1'), message('2')]); await app.flush();
@@ -109,6 +112,7 @@ test('confirmed empty chat uses header loading on foreground refresh', async () 
   const app = harness(); app.render(); app.resolve([]); await app.flush();
   app.defer(); app.foreground(); await app.flush();
   assert.ok(headerSpinner(app)); assert.equal(app.nodes('FlatList')[0].props.data.length, 0);
+  assert.equal(app.nodes('LoadingSkeleton').length, 0);
   app.resolve([]); await app.flush(); assert.equal(headerSpinner(app), undefined); app.unmount();
 });
 test('session metadata does not reset chat and late blurred responses are ignored', async () => {

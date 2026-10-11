@@ -1,5 +1,149 @@
 # Release Notes
 
+## 2026-10-11 | Version: android-expanded-delivery-shadow-v1
+
+- **Summary:** Remove the rectangular Android shadow beneath the expanded next-delivery card.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Suppress outer-wrapper elevation/shadow only for the expanded Android card, avoiding a shadow across the transparent space beside its collapse tab. Preserve collapsed Android and iOS shadows, rounded geometry, animation, height reporting and actions.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused card lint, four next-delivery regressions (updated native Platform mock) and git diff --check pass. Dashboard plan v2.187 and Figma handoff aligned. Physical Android visual confirmation pending.
+
+## 2026-10-11 | Version: compact-run-sheet-on-guidance-entry-v1
+
+- **Summary:** Give navigation more map space by collapsing the active-run details on guidance entry.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Successful navigation collapses the persistent sheet to its measured run-time header plus handle, cancelling any active resize drag. Keep header controls and manual expansion. Refresh, mute, arrival and stopping preserve the driver's subsequent sheet position; failed/cancelled startup and Exit do not reset it. A new guidance session collapses again.
+- **Breaking Changes:** None.
+- **Verification:** Fourteen timer/sheet/dashboard refresh/navigation regressions, mobile TypeScript, shared-sheet lint and dashboard lint with its existing effect rule excluded pass. Updated the stale refresh-test skeleton mock. Dashboard plan v2.188 and Figma guidance state/handoff aligned. Physical transition/drag, light/dark and large-text checks pending.
+
+## 2026-10-11 | Version: upload-completed-result-tiles-v1
+
+- **Summary:** Refine the delivery-note upload-completed bottom sheet.
+- **API Changes:** None; use existing import result arrays.
+- **Database Changes:** None.
+- **Behavior Changes:** Center a compact success badge and shorter confirmation; replace inline counts with themed, wrapping result tiles. Show only positive Created, Assigned, Skipped, Already delivered and Unassigned counts. Omit the tile section when every count is zero. Preserve Continue navigation and dismissal.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused completion/import lint, mocked render checks for all-zero/missing/mixed/individual counts and dark surfaces, and git diff --check pass. Dashboard plan v2.186 and canonical Figma aligned. Native narrow-screen, large-text, theme and all-zero visual checks pending.
+
+## 2026-10-11 | Version: driver-profile-picture-upload-v1
+
+- **Summary:** Add driver picture updates to mobile Edit profile.
+- **API Changes:** Mobile client now uses existing authenticated POST /me/profile-photo with multipart photo; no backend endpoint changes.
+- **Database Changes:** None.
+- **Behavior Changes:** Choose a photo or take one, crop and preview it, undo a draft, then Save to upload and refresh the account picture. Support picture-only saves, 5 MB validation, picker cancellation, upload errors/retry, busy controls and stale-screen guards. Profile details remain saved if a subsequent photo upload fails.
+- **Breaking Changes:** None.
+- **Verification:** Four mocked photo-save/cancellation/size/error/undo regressions, mobile TypeScript and focused Edit profile/API lint pass. Physical camera/library, cropping and live upload verification pending.
+
+## 2026-10-11 | Version: choose-run-helper-copy-cleanup-v1
+
+- **Summary:** Remove the three highlighted helper paragraphs from Choose run.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Omit the no-current-run explanation, new-run previous-match reassurance and generic endpoint reminder under Confirm & upload. Keep existing-run matching guidance, missing-vehicle validation and the existing selection/preview/submission flow.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused lint with the existing import effect rule excluded, two step-navigation regressions and git diff --check pass. Dashboard plan v2.185 and Figma helper labels/handoff aligned. Native layout verification pending.
+
+## 2026-10-11 | Version: prevent-stale-sheet-snap-restoration-v1
+
+- **Summary:** Avoid stale snap-index restoration when closing nested sheets.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Default shared BottomSheet stacking and the fixed-height shipment receipt to push, keeping underlying sheets open. This bypasses the library's minimize/restore path that can restore an index beyond the current dynamic snap-point range. Keep explicit stack overrides, dismissal callbacks, busy guards, backdrop, gestures and keyboard configuration.
+- **Breaking Changes:** None; nested shared sheets now keep their underlying sheet visible instead of minimizing it.
+- **Verification:** Three mocked stack/close regressions, related sheet handoff/status/cancel tests, mobile TypeScript, focused sheet/shipment lint and git diff --check pass. Dashboard plan v2.184 and Figma handoff aligned. Physical nested-sheet dismissal, keyboard and exact reported-flow verification pending.
+
+## 2026-10-11 | Version: messages-initial-loading-skeleton-v1
+
+- **Summary:** Use animated message-bubble skeletons while a conversation first loads.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the initial conversation spinner/text with themed alternating bubble placeholders using the shared Reduce Motion-aware pulse. Keep placeholders scrollable on short screens. Once a conversation has loaded, retain real messages or the confirmed empty state and use the small header spinner during refresh. Existing composer loading guards remain.
+- **Breaking Changes:** None.
+- **Verification:** Messages refresh and shared skeleton regressions, mobile TypeScript, focused Messages/skeleton lint and git diff --check pass. Native visual verification pending.
+
+## 2026-10-11 | Version: animated-mobile-loading-skeletons-v1
+
+- **Summary:** Introduce shared animated loading skeletons for mobile lists and details.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Initial Runs/Documents lists and run/document/shipment detail loads show themed card/section placeholders with a gentle opacity pulse. Retain populated content during refresh. Reduce Motion keeps placeholders static; animation and listeners stop on unmount. A single labelled busy progressbar replaces decorative accessibility noise. Refresh, pagination, uploads and downloads retain their operation indicators.
+- **Breaking Changes:** None.
+- **Verification:** Four mocked skeleton lifecycle/Reduce Motion/accessibility regressions, mobile TypeScript, focused changed-file lint and git diff --check pass. Dashboard plan v2.183 and Figma handoff aligned; physical loading transitions, light/dark and Reduce Motion checks pending.
+
+## 2026-10-11 | Version: truck-location-png-marker-v1
+
+- **Summary:** Use a generated overhead truck PNG for the dashboard truck position.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the blue circular truck glyph with a compact transparent green/silver truck, bundled at 1x/2x/3x densities and sized 24/32/40/48 points as the map zooms in and centered on its reported coordinate. Preserve active/ready/no-run coverage, polling, plate/location/motion/time popup and missing-position feedback. Do not infer heading from position data; guidance phone location is unchanged.
+- **Breaking Changes:** None.
+- **Verification:** PNG alpha/dimensions checked; mobile TypeScript and 18 map/navigation tests pass, including zoom-out/in/out sizing while retaining coordinates and popup. Focused map lint passes with existing set-state-in-effect/purity violations excluded; git diff --check passes. Figma marker/handoff and dashboard plan v2.182 aligned. Native iOS/Android size/anchoring/callout checks pending.
+
+## 2026-10-11 | Version: smaller-timeline-location-titles-v1
+
+- **Summary:** Reduce timeline location-name text slightly.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Shared dashboard/run-detail timeline titles use 16-point type and 22-point line height, reduced from 18/25. Retain bold weight, wrapping, accessibility scaling and location/shipment interactions.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused RunTimeline lint and git diff --check pass. Dashboard plan v2.181 and Figma handoff aligned; native visual checks pending.
+
+## 2026-10-10 | Version: centered-documents-empty-upload-v1
+
+- **Summary:** Center the empty Documents state and place its upload action below the message.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Center the empty-state icon, title, description and Upload document button in the remaining scroll viewport. Remove the filled empty card and hide the header upload button when there are no documents. Populated lists retain the header action. Both actions use the existing upload sheet and busy guards; required uploads, refresh and scrolling remain available.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused Documents lint and git diff --check pass. Physical small-screen, large-text and upload interaction verification pending.
+
+## 2026-10-10 | Version: compact-message-bubble-time-v1
+
+- **Summary:** Show only hours and minutes in message bubbles.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove the repeated date and seconds from bubble metadata, retaining sender names and the existing date headings. Use the phone locale and local timezone for time formatting.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused Messages lint and git diff --check pass. Native visual verification pending.
+
+## 2026-10-10 | Version: synchronize-saved-mobile-theme-v1
+
+- **Summary:** Keep screen styling aligned with the selected Light, Dark or device theme.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reapply explicit app themes when NativeWind appearance drifts and reapply the current preference on foreground return. Remove the layout's unconditional light reset, apply the default for missing/invalid saved preferences, and ignore stale save completions. Device mode continues to follow the OS. Page styles, navigation and status-bar appearance now share the same intended preference.
+- **Breaking Changes:** None.
+- **Verification:** Eight mocked theme regression tests cover default/explicit themes, foreground drift, device mode, storage fallback, stale saves/restoration and save failure. Mobile TypeScript, focused theme/layout lint and git diff --check pass. Physical iOS background/picker return and visual theme verification remain pending.
+
+## 2026-10-10 | Version: ios-native-google-map-detection-v1
+
+- **Summary:** Prefer Google Maps on iOS when the installed binary contains its real overview implementation.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove the unconditional iOS Google disable. Require a compiled Google native manager and map view; Fabric placeholders and the Navigation SDK alone cannot enable it. Retain Apple fallback and Expo Go protection. The current Navigation build still lacks the Google overview implementation, so enabling Google for that build requires compatible native integration and a new iOS build.
+- **Breaking Changes:** None.
+- **Verification:** Twelve provider regressions, mobile TypeScript, focused provider lint and git diff --check pass. Dashboard plan v2.180 and Figma handoff aligned. No native rebuild or physical Google map verification performed.
+
+## 2026-10-10 | Version: inline-run-detail-back-button-v1
+
+- **Summary:** Place a polished circular back button beside the run title.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Run details use PageHeader’s leading slot with a 44-point muted circle and centered black 20-point arrow. Remove the separate back row; preserve Back to runs accessibility, navigation history/fallback, active Actions and completed read-only status.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused run-detail lint and git diff --check pass. Dashboard plan v2.179 and Figma handoff aligned; native light/dark/large-text checks pending.
+
+## 2026-10-10 | Version: centered-runs-empty-state-v1
+
+- **Summary:** Center empty Runs messages with a decorative icon.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Empty Active/Completed lists show a route/check-circle icon in a soft green circle above centered title/body in the available viewport. Remove the filled message card. Keep pull-to-refresh, theme-aware text and wrapping; populated, loading and error states retain their behavior.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused Runs lint and git diff --check pass. Dashboard plan v2.178 and Figma handoff aligned. Native small-screen/large-text and light/dark visual checks pending.
+
 ## 2026-10-10 | Version: timeline-entry-departure-labels-v1
 
 - **Summary:** Label timeline arrival and departure on separate lines.

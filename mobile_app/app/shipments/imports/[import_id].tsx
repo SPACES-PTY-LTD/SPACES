@@ -28,6 +28,7 @@ import { canReturnToImportStep, type ImportStep } from "@/src/components/import-
 import { TripLocationStep } from "@/src/components/TripLocationStep";
 import { shipmentAddressDraft, collectionFromRunStart } from "@/src/lib/import-addresses";
 import { ImportRunChoice } from "@/src/components/ImportRunChoice";
+import { ImportCompletion } from "@/src/components/ImportCompletion";
 import { DeliveryNoteProgress } from "@/src/components/delivery-note-progress";
 
 const quantityUnits = ["Bags", "Boxes", "Crates", "Cubic metres", "Drums", "Kilograms", "Liters", "Pallets", "Rolls", "Tonnes", "Units"];
@@ -335,7 +336,7 @@ export default function ReviewImport() {
                 footer={!result && !creating && stage === 5 && editing === null && !locationKind && !choosingDate && failureIndex === null ? <View style={{ gap: 8 }}>
                     <ImportButton label="Confirm & upload" disabled={!choiceReady || busy || (draft?.create_new_run && !draft.vehicle_id) || !draft}
                         onPress={() => void confirm()} />
-                    <Text style={s.note}>{draft?.create_new_run && !draft.vehicle_id ? "Choose an assigned vehicle to continue." : "Uses the starting point and planned end above."}</Text>
+                    {draft?.create_new_run && !draft.vehicle_id && <Text style={s.note}>Choose an assigned vehicle to continue.</Text>}
                 </View> : undefined}
                 destination={destination}
                 backDisabled={busy || creating}
@@ -352,30 +353,7 @@ export default function ReviewImport() {
                 )}
                 {result ? (
                     <>
-                        <View
-                            style={{
-                                alignItems: "center",
-                                gap: 16,
-                                padding: 20,
-                            }}
-                        >
-                            <Feather
-                                name="check-circle"
-                                color="#24753a"
-                                size={64}
-                            />
-                            <Text style={s.heading}>
-                                Delivery note upload completed and processed
-                            </Text>
-                        </View>
-                        <Text style={s.body}>
-                            {result.created.length} created ·{" "}
-                            {result.attached.length} assigned ·{" "}
-                            {result.skipped.length} skipped
-                        </Text>
-                        <Text style={s.note}>
-                            {result.delivered?.length || 0} already delivered
-                        </Text>
+                        <ImportCompletion result={result} />
                         <ImportButton
                             label="Continue"
                             onPress={() =>

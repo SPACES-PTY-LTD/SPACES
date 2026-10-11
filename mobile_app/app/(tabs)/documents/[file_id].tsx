@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from '@/component/ui/LoadingSkeleton';
 import * as WebBrowser from 'expo-web-browser';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -67,7 +68,7 @@ export default function DocumentDetailsScreen() {
             <Text accessibilityRole="alert">{error}</Text>
             <Pressable accessibilityRole="button" onPress={() => { setResult(null); setAttempt(value => value + 1); }} style={{ paddingVertical: 16 }}><Text className="text-primary font-semibold">Retry</Text></Pressable>
           </View>
-        ) : !file ? <ActivityIndicator color="#15803d" accessibilityLabel="Loading document" /> : (
+        ) : !file ? <LoadingSkeleton kind="document-detail" label="Loading document details" /> : (
           <>
             <View className="bg-[#F5F5F8] dark:bg-card" style={{ borderRadius: 20, padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>

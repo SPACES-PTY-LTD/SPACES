@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from '@/component/ui/LoadingSkeleton';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
@@ -249,16 +250,16 @@ export default function DocumentsScreen() {
 
   return (
     <View className="flex-1 bg-white dark:bg-[#111111]" style={{ paddingTop: insets.top }}>
-      <PageHeader title="Documents" action={
+      <PageHeader title="Documents" action={files.length > 0 ?
         <Pressable accessibilityRole="button" disabled={isUploading || isPicking}
           onPress={() => { resetUploadForm(); uploadSheetRef.current?.present(); }}
           style={{ backgroundColor: '#15803d', borderRadius: 24, minHeight: 44, paddingHorizontal: 16, justifyContent: 'center' }}>
           <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>Upload document</Text>
         </Pressable>
-      } />
+      : undefined} />
       <ScrollView
         className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32, ...(!isLoading && files.length === 0 ? { flexGrow: 1 } : {}) }}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={() => loadDocuments('refresh')} />}
         showsVerticalScrollIndicator={false}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
@@ -291,17 +292,20 @@ export default function DocumentsScreen() {
           </View>
         ) : null}
 
-        {isLoading ? (
-          <View className="bg-[#F5F5F8] dark:bg-card mt-6 items-center rounded-xl px-5 py-12">
-            <ActivityIndicator color="#15803d" />
-          </View>
+        {isLoading && files.length === 0 ? (
+          <LoadingSkeleton kind="documents" label="Loading documents" />
         ) : files.length === 0 ? (
-          <View className="bg-[#F5F5F8] dark:bg-card rounded-[20px] px-5 py-10 items-center">
+          <View className="px-5 py-10 items-center" style={{ flex: 1, justifyContent: 'center' }}>
             <View className="bg-white dark:bg-muted rounded-[14px] p-4 mb-4"><DocumentIcon kind="file" /></View>
             <Text className="text-card-foreground text-lg font-semibold">No documents yet</Text>
             <Text className="text-muted-foreground mt-2 text-sm text-center leading-5">
               Your uploaded documents will appear here. Tap Upload document to add your first file.
             </Text>
+            <Pressable accessibilityRole="button" accessibilityState={{ disabled: isUploading || isPicking }} disabled={isUploading || isPicking}
+              onPress={() => { resetUploadForm(); uploadSheetRef.current?.present(); }}
+              style={{ marginTop: 24, backgroundColor: '#15803d', borderRadius: 24, minHeight: 44, paddingHorizontal: 24, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', opacity: isUploading || isPicking ? 0.5 : 1 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600', textAlign: 'center' }}>Upload document</Text>
+            </Pressable>
           </View>
         ) : (
           <View style={{ gap: 12 }}>

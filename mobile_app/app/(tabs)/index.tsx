@@ -195,6 +195,7 @@ export default function HomeScreen() {
       </Animated.View>
       <PersistentBottomSheet key={showRunDock ? `active:${dashboard?.current_run?.run_id}` : 'dashboard'}
         topInset={mapTopInset} containerHeight={containerHeight} animatedPosition={sheetPosition}
+        collapseOn={showRunDock && !!navigationShipment && ['guiding', 'arrived', 'stopping'].includes(guidance.state.phase)}
         initialSnapIndex={showRunDock ? 0 : 1} collapsedHeight={showRunDock ? runDockHeight + 28 : undefined}
         header={showRunDock && dashboard?.current_run ? (expand, isExpanded) => <ActiveRunDock key={dashboard.current_run?.run_id}
           startedAt={dashboard.current_run?.started_at} endpoints={dashboard.trip_endpoints}

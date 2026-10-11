@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AppState, Pressable, StyleSheet, View } from 'react-native';
+import { AppState, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { Easing, LinearTransition, ReduceMotion } from 'react-native-reanimated';
 import { useIsFocused } from 'expo-router/react-navigation';
 import { Feather } from '@expo/vector-icons';
@@ -57,7 +57,7 @@ export function NextDeliveryCard({ shipment, runId, token, topInset, onOpenShipm
   const canNavigate = !!locationCoordinate(shipment.dropoff_location);
   const Card = collapsed ? Pressable : View;
   return <View pointerEvents="box-none" style={[styles.overlay, { top: topInset + 12 }]}>
-    <Animated.View layout={cardTransition} style={styles.shadow} onLayout={event => onHeightChange?.(event.nativeEvent.layout.height + 12)}>
+    <Animated.View layout={cardTransition} style={[styles.shadow, Platform.OS === 'android' && !collapsed && styles.expandedAndroidShadow]} onLayout={event => onHeightChange?.(event.nativeEvent.layout.height + 12)}>
       <Animated.View layout={cardTransition} style={styles.card}>
         {!collapsed && <View pointerEvents="none" style={styles.collapseJoin} />}
         <Card {...(collapsed ? {
@@ -99,6 +99,8 @@ export function NextDeliveryCard({ shipment, runId, token, topInset, onOpenShipm
 const styles = StyleSheet.create({
   overlay: { position: 'absolute', left: 20, right: 20 },
   shadow: { borderRadius: 20, shadowColor: '#000000', shadowOpacity: 0.22, shadowRadius: 16, shadowOffset: { width: 0, height: 5 }, elevation: 6 },
+  // Android elevates the full rectangular wrapper, including the empty space beside the tab.
+  expandedAndroidShadow: { elevation: 0, shadowOpacity: 0 },
   card: { borderRadius: 20, overflow: 'hidden' },
   content: { backgroundColor: '#111111', borderRadius: 20, overflow: 'hidden', paddingHorizontal: 16, paddingVertical: 10, gap: 12 },
   expandedContent: { paddingBottom: 16 },

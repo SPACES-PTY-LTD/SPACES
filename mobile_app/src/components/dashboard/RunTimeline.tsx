@@ -232,6 +232,6 @@ const styles = StyleSheet.create({
         borderBottomWidth: 2,
         borderBottomLeftRadius: 14,
     },
-    shipmentTitle: { fontSize: 18, lineHeight: 25, fontWeight: "700" },
+    shipmentTitle: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
     shipmentRoute: { fontSize: 13, lineHeight: 19 },
 });

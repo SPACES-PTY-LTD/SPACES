@@ -1,3 +1,4 @@
+import { LoadingSkeleton } from '@/component/ui/LoadingSkeleton';
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { ShipmentDetailsSheet } from "@/src/components/shipments/ShipmentDetails";
 import { StopDetailsSheet } from "@/src/components/dashboard/StopDetailsSheet";
@@ -10,7 +11,6 @@ import {
 } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import {
-    ActivityIndicator,
     AppState,
     Pressable,
     RefreshControl,
@@ -112,24 +112,22 @@ function RunDetail({ token, runId, ownerId }: { token: string; runId: string; ow
             style={{ paddingTop: insets.top }}
         >
             <Stack.Screen options={{ headerShown: false }} />
-            <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Back to runs"
-                onPress={() =>
-                    router.canGoBack()
-                        ? router.back()
-                        : router.replace("/(tabs)/runs")
-                }
-                className="ml-5 h-11 justify-center"
-            >
-                <Feather
-                    name="chevron-left"
-                    size={24}
-                    color={dark ? "#fff" : "#111"}
-                />
-            </Pressable>
             <PageHeader
                 title={run?.reference || "Run details"}
+                leading={
+                    <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Back to runs"
+                        onPress={() =>
+                            router.canGoBack()
+                                ? router.back()
+                                : router.replace("/(tabs)/runs")
+                        }
+                        style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#F5F5F8', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                        <Feather name="arrow-left" size={20} color="#111111" />
+                    </Pressable>
+                }
                 action={run?.status === 'in_progress' ? <RunActions token={token} ownerId={ownerId} run={{ ...run, origin_location_id: run.origin?.location_id, destination_location_id: run.destination?.location_id }} reference={run.reference} disabled={loading || !!error} onSaved={() => void load()} /> : undefined}
                 status={
                     run?.status === "completed"
@@ -166,10 +164,7 @@ function RunDetail({ token, runId, ownerId }: { token: string; runId: string; ow
                     </Pressable>
                 )}
                 {loading && !run && (
-                    <ActivityIndicator
-                        color="#15803d"
-                        style={{ padding: 48 }}
-                    />
+                    <LoadingSkeleton kind="run-detail" label="Loading run details" />
                 )}
                 {run && (
                     <>

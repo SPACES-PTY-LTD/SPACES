@@ -7,22 +7,20 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { colorScheme as appColorScheme, useColorScheme } from '@/hooks/use-color-scheme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BrandLoadingScreen } from '@/src/components/BrandLoadingScreen';
 import { MessageNotifications } from '@/src/providers/message-notifications';
 import { AuthProvider, useAuth } from '@/src/providers/auth-provider';
 import { GuidanceProvider } from '@/src/navigation/GuidanceProvider';
 import { PhoneLocationProvider } from '@/src/providers/phone-location-provider';
-import { restoreThemePreference } from '@/src/lib/theme-preference';
-
-// Start in light mode; the in-app theme toggle can still change it afterwards.
-appColorScheme.set('light');
+import { restoreThemePreference, useThemeSynchronization } from '@/src/lib/theme-preference';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
 
 export default function RootLayout() {
+  useThemeSynchronization();
   const { colorScheme } = useColorScheme();
   useEffect(() => { void restoreThemePreference(); }, []);
 
