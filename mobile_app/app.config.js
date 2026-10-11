@@ -18,9 +18,10 @@ module.exports = ({ config }) => ({
     ["expo-image-picker", { photosPermission: "Allow Spaces Digital to choose delivery note photos.", cameraPermission: "Allow Spaces Digital to photograph delivery notes.", microphonePermission: false }],
     ["react-native-maps", {
       ...(process.env.GOOGLE_MAPS_ANDROID_API_KEY ? { androidGoogleMapsApiKey: process.env.GOOGLE_MAPS_ANDROID_API_KEY } : {}),
-      // iOS overview uses MapKit; GoogleNavigation owns the Google Maps framework.
+      ...(process.env.GOOGLE_MAPS_IOS_API_KEY ? { iosGoogleMapsApiKey: process.env.GOOGLE_MAPS_IOS_API_KEY } : {}),
     }],
-    ['./plugins/with-navigation', { iosApiKey: process.env.GOOGLE_MAPS_IOS_API_KEY }],
+    './plugins/with-google-maps-ios',
+    './plugins/with-navigation',
   ],
   extra: { ...config.extra, navigationEnabled },
   ios: {

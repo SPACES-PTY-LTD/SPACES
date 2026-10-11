@@ -1,5 +1,50 @@
 # Release Notes
 
+## 2026-10-11 | Version: admin-composer-helper-text-v1
+
+- **Summary:** Remove the attachment-limit helper text from the admin message composer.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hide “Up to 5 attachments · 20 MB each”; attachment validation and error feedback remain available.
+- **Breaking Changes:** None.
+- **Verification:** Focused Messages lint and git diff --check pass; reviewed removal of the helper paragraph only.
+
+## 2026-10-11 | Version: admin-merchant-dropdown-button-v1
+
+- **Summary:** Replace the Messages merchant selector with a dropdown button beside New conversation.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Place the outlined chevron button immediately left of New conversation in the title row. The menu contains All merchants plus accessible merchant options and a selected-state indicator. Desktop shows the current merchant name; mobile uses the compact Merchant label. Preserve authorized filtering, reset behavior and creation permissions. Fit the controls at 320-pixel width.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused Messages lint pass. Synthetic browser checks at 320/390-pixel mobile widths and desktop confirm dropdown selection, All merchants checked state, control order and no narrow-screen horizontal overflow. No live API mutations.
+
+## 2026-10-11 | Version: admin-messages-mobile-inbox-v1
+
+- **Summary:** Expand the admin Messages workspace and simplify mobile controls, with an authorized combined merchant inbox.
+- **API Changes:** GET /api/v1/conversations accepts optional `all_merchants=1` for staff; aggregates permitted conversations across accessible merchants using global sorting/pagination and existing search/type/has_messages filters. Driver requests are rejected. Single-merchant requests retain existing behavior.
+- **Database Changes:** None.
+- **Behavior Changes:** Add All merchants to the admin selector and merchant labels to combined inbox rows/thread headers. Creation from All merchants requires a specific manageable merchant. Place New conversation beside the Messages title. Mobile hides the subtitle and search field until its icon is tapped, and replaces type tabs with a dropdown. Remove the outer message card border/padding; fill the available viewport with independently scrolling history and a bottom composer, including visual-viewport resize handling for keyboards. Compact/reposition the Messages feedback control to avoid obscuring composition. Desktop retains visible search/type tabs and a two-column inbox.
+- **Breaking Changes:** None. Deploy the API and website together to enable the combined inbox.
+- **Verification:** 17 ConversationApiTest cases pass (317 assertions), covering merchant/account restrictions, group membership, viewer driver exclusion, super-admin visibility, empty access, pagination and filters. Website TypeScript and focused lint pass. Synthetic mobile (390×844) and desktop (1280×900) browser checks verify combined merchant selection, creation merchant selection, search/type controls, merchant labels and bottom composer; mobile composer bottom/document height equal viewport height. Physical Safari keyboard and production-device checks remain pending. No live messages sent.
+
+## 2026-10-11 — ios-google-overview-v1
+
+- **Summary:** Include Google Maps in iOS overview/preview builds alongside Google Navigation.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** The real iOS Google renderer is enabled with the existing restricted build key; a guarded Expo plugin aligns react-native-maps pods with Navigation’s Maps 10.13.0 and Utils 7.0.0. One shared key initializer replaces the old Navigation-only setup. Existing markers, camera APIs, routes, themes and fallback policy are retained.
+- **Breaking Changes:** A rebuilt iOS app is required; existing binaries and Expo Go continue using Apple Maps.
+- **Verification:** Fifteen configuration/provider regressions, TypeScript, plugin lint and repeated iOS prebuild pass. Generated Podfile includes Google; AppDelegate initializes the key once. Local pod install blocked by Hermes download/toolchain prerequisites; user-approved iOS device development build [f7bca5d1](https://expo.dev/accounts/leroyg/projects/spaces-digital/builds/f7bca5d1-3cfa-403d-9aaf-718a3148f4d0) submitted successfully and verified IN_QUEUE. Native compilation and device rendering/interaction checks remain pending. Dashboard plan/Figma provider handoff aligned.
+
+## 2026-10-11 | Version: black-planned-map-route-v1
+
+- **Summary:** Change the dashboard planned route line from green to black.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Overview planned road routes use #000000 at the existing 4-point width in both themes. Preserve route geometry, validity checks, markers and separate recorded/navigation paths.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused map lint with existing hook-rule violations excluded and git diff --check pass. Dashboard plan v2.189 and Figma handoff aligned; native light/dark visual checks pending.
+
 ## 2026-10-11 | Version: android-expanded-delivery-shadow-v1
 
 - **Summary:** Remove the rectangular Android shadow beneath the expanded next-delivery card.

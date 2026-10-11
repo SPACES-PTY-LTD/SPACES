@@ -11,6 +11,14 @@ import type { ApiListResponse, Driver } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuLabel,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+} from '@/components/ui/dropdown-menu';
+import {
     Dialog,
     DialogContent,
     DialogDescription,
@@ -19,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import {
     ArrowLeft,
+    ChevronDown,
     Download,
     FileText,
     MessageSquare,
@@ -43,9 +52,14 @@ export function MessagesInbox({
     const [merchant, setMerchant] = useState(
         initialMerchant ?? merchants[0]?.id ?? '',
     );
-    const canCreate = Boolean(
-        merchants.find((m) => m.id === merchant)?.canManage,
+    const allMerchants = merchant === 'all';
+    const canCreate = allMerchants
+        ? merchants.some((m) => m.canManage)
+        : Boolean(merchants.find((m) => m.id === merchant)?.canManage);
+    const [createMerchant, setCreateMerchant] = useState(
+        initialMerchant ?? merchants.find((m) => m.canManage)?.id ?? '',
     );
+    const [searchOpen, setSearchOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [conversationType, setConversationType] = useState<
@@ -66,6 +80,8 @@ export function MessagesInbox({
         string | null
     >(null);
     const [chat, setChat] = useState<Conversation | null>(null);
+    const participantMerchant =
+        detailsOpen && chat ? chat.merchant_id : createMerchant;
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [before, setBefore] = useState<string | null>(null);
     const [drivers, setDrivers] = useState<{ id: string; name: string }[]>([]);
@@ -89,12 +105,16 @@ export function MessagesInbox({
     const selected = useRef<string | null>(null);
     const retry = useRef<string | null>(null);
     const uploads = useRef<HTMLInputElement>(null);
+    const searchInput = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (searchOpen) searchInput.current?.focus();
+    }, [searchOpen]);
     const history = useRef<HTMLDivElement>(null);
     const atBottom = useRef(true);
     const cursorLoaded = useRef(false);
 
     const query = new URLSearchParams({
-        merchant_id: merchant,
+        ...(allMerchants ? { all_merchants: '1' } : { merchant_id: merchant }),
         page: String(page),
         has_messages: '1',
     });
@@ -151,6 +171,7 @@ export function MessagesInbox({
         setMobileThread(false);
         setTitle('');
         setSearch('');
+        setSearchOpen(false);
         setDebouncedSearch('');
         setConversationType('');
         setPage(1);
@@ -200,13 +221,18 @@ export function MessagesInbox({
     }, [refreshInbox, merchant, inboxPath]);
 
     useEffect(() => {
-        if (!merchant || (!canCreate && !chat?.can_manage)) return;
+        if (
+            !participantMerchant ||
+            (!createOpen && !detailsOpen) ||
+            (!canCreate && !chat?.can_manage)
+        )
+            return;
         let live = true;
         const timer = setTimeout(() => {
             void apiFetch<ApiListResponse<Driver>>('/api/v1/drivers', {
                 token,
                 params: {
-                    merchant_id: merchant,
+                    merchant_id: participantMerchant,
                     search: driverSearch,
                     per_page: 100,
                 },
@@ -223,7 +249,10 @@ export function MessagesInbox({
                 '/api/v1/conversations/participants',
                 {
                     token,
-                    params: { merchant_id: merchant, search: personSearch },
+                    params: {
+                        merchant_id: participantMerchant,
+                        search: personSearch,
+                    },
                 },
             ).then((result) => {
                 if (live && !isApiErrorResponse(result))
@@ -240,7 +269,9 @@ export function MessagesInbox({
             clearTimeout(timer);
         };
     }, [
-        merchant,
+        participantMerchant,
+        createOpen,
+        detailsOpen,
         token,
         driverSearch,
         personSearch,
@@ -375,7 +406,7 @@ export function MessagesInbox({
                 token,
                 '/driver',
                 'POST',
-                { merchant_id: merchant, driver_id: driver },
+                { merchant_id: createMerchant, driver_id: driver },
             );
             if (version === epoch.current) {
                 choose(result.data);
@@ -392,7 +423,7 @@ export function MessagesInbox({
                 token,
                 '',
                 'POST',
-                { merchant_id: merchant, title, member_ids: members },
+                { merchant_id: createMerchant, title, member_ids: members },
             );
             if (version === epoch.current) {
                 choose(result.data);
@@ -538,68 +569,163 @@ export function MessagesInbox({
     };
 
     return (
-        <div className="flex h-[calc(100dvh-7rem)] min-h-[560px] min-w-0 flex-col gap-5 lg:h-[calc(100dvh-3rem)]">
-            <header className="flex shrink-0 flex-wrap items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-[28px] font-bold leading-tight">
-                        Messages
-                    </h1>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        Your conversations, clearly organised.
-                    </p>
-                </div>
-                <div className="flex flex-wrap items-end gap-3">
-                    <label className="grid gap-1 text-xs text-muted-foreground">
-                        Merchant
-                        <select
-                            aria-label="Merchant"
-                            className={cn(control, 'max-w-64 text-foreground')}
-                            value={merchant}
-                            onChange={(e) => {
-                                if (e.target.value === merchant) return;
-                                invalidateInbox();
-                                setMerchant(e.target.value);
-                                setPage(1);
-                            }}
-                        >
-                            <option value="">Select merchant</option>
-                            {merchants.map((m) => (
-                                <option key={m.id} value={m.id}>
-                                    {m.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    {canCreate && (
-                        <Button
-                            className="h-10 rounded-lg"
-                            disabled={busy || !merchant}
-                            onClick={() => {
-                                setError(null);
-                                setCreateOpen(true);
-                            }}
-                        >
-                            <Plus aria-hidden="true" />
-                            New conversation
-                        </Button>
-                    )}
+        <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3 md:gap-5">
+            <header className="shrink-0 px-4 pt-4 md:px-0 md:pt-0">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <h1 className="text-[28px] font-bold leading-tight max-[359px]:text-[24px]">
+                            Messages
+                        </h1>
+                        <p className="mt-2 hidden text-sm text-muted-foreground md:block">
+                            Your conversations, clearly organised.
+                        </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="h-10 rounded-lg px-3"
+                                    aria-label="Change merchant"
+                                    title={
+                                        allMerchants
+                                            ? 'All merchants'
+                                            : (merchants.find(
+                                                  (m) => m.id === merchant,
+                                              )?.name ?? 'Select merchant')
+                                    }
+                                >
+                                    <span className="sm:hidden">Merchant</span>
+                                    <span className="hidden max-w-48 truncate sm:inline">
+                                        {allMerchants
+                                            ? 'All merchants'
+                                            : (merchants.find(
+                                                  (m) => m.id === merchant,
+                                              )?.name ?? 'Change merchant')}
+                                    </span>
+                                    <ChevronDown
+                                        className="size-4 shrink-0"
+                                        aria-hidden="true"
+                                    />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                                align="end"
+                                className="w-72 max-w-[calc(100vw-2rem)]"
+                            >
+                                <DropdownMenuLabel>
+                                    Change merchant
+                                </DropdownMenuLabel>
+                                <DropdownMenuRadioGroup
+                                    value={merchant}
+                                    onValueChange={(value) => {
+                                        if (value === merchant) return;
+                                        invalidateInbox();
+                                        setMerchant(value);
+                                        setPage(1);
+                                    }}
+                                >
+                                    <DropdownMenuRadioItem value="all">
+                                        All merchants
+                                    </DropdownMenuRadioItem>
+                                    {merchants.map((m) => (
+                                        <DropdownMenuRadioItem
+                                            key={m.id}
+                                            value={m.id}
+                                        >
+                                            {m.name}
+                                        </DropdownMenuRadioItem>
+                                    ))}
+                                </DropdownMenuRadioGroup>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        {canCreate && (
+                            <Button
+                                className="h-10 shrink-0 rounded-lg px-3"
+                                aria-label="New conversation"
+                                disabled={busy || !merchant}
+                                onClick={() => {
+                                    setCreateMerchant(
+                                        allMerchants
+                                            ? (merchants.find(
+                                                  (m) => m.canManage,
+                                              )?.id ?? '')
+                                            : merchant,
+                                    );
+                                    setDrivers([]);
+                                    setPeople([]);
+                                    setDriver('');
+                                    setMembers([]);
+                                    setError(null);
+                                    setCreateOpen(true);
+                                }}
+                            >
+                                <Plus aria-hidden="true" />
+                                <span className="hidden sm:inline">
+                                    New conversation
+                                </span>
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </header>
             {!createOpen && !detailsOpen && errorAlert}
-            <div className="grid min-h-[320px] flex-1 overflow-hidden rounded-xl border bg-background lg:grid-cols-[352px_minmax(0,1fr)]">
+            <div className="grid min-h-0 flex-1 overflow-hidden bg-background lg:grid-cols-[352px_minmax(0,1fr)]">
                 <aside
                     aria-label="Conversation inbox"
                     className={cn(
-                        'min-h-0 min-w-0 flex-col border-r p-4',
+                        'min-h-0 min-w-0 flex-col px-4 lg:border-r lg:pl-0 lg:pr-4',
                         mobileThread ? 'hidden lg:flex' : 'flex',
                     )}
                 >
-                    <div className="relative">
+                    <div className="mb-3 flex gap-2 lg:hidden">
+                        <select
+                            aria-label="Conversation type"
+                            className={control}
+                            value={conversationType}
+                            onChange={(e) => {
+                                invalidateInbox();
+                                setConversationType(
+                                    e.target.value as '' | 'driver' | 'normal',
+                                );
+                                setPage(1);
+                            }}
+                        >
+                            <option value="">All</option>
+                            <option value="driver">Drivers</option>
+                            <option value="normal">Groups</option>
+                        </select>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            aria-label={
+                                searchOpen
+                                    ? 'Hide conversation search'
+                                    : 'Search conversations'
+                            }
+                            aria-expanded={searchOpen}
+                            aria-controls="conversation-search"
+                            onClick={() => {
+                                setSearchOpen(!searchOpen);
+                                if (searchOpen) setSearch('');
+                            }}
+                        >
+                            <Search aria-hidden="true" />
+                        </Button>
+                    </div>
+                    <div
+                        id="conversation-search"
+                        className={cn(
+                            'relative',
+                            searchOpen ? 'block mb-3' : 'hidden lg:block',
+                        )}
+                    >
                         <Search
                             className="pointer-events-none absolute left-3 top-3.5 size-4 text-muted-foreground"
                             aria-hidden="true"
                         />
                         <Input
+                            ref={searchInput}
                             aria-label="Search conversations"
                             placeholder="Search conversations"
                             maxLength={255}
@@ -611,7 +737,7 @@ export function MessagesInbox({
                     <div
                         role="group"
                         aria-label="Conversation type"
-                        className="my-3 flex gap-2"
+                        className="my-3 hidden gap-2 lg:flex"
                     >
                         {(
                             [
@@ -691,6 +817,13 @@ export function MessagesInbox({
                                                 ? 'Driver chat'
                                                 : 'Group conversation')}
                                     </span>
+                                    {allMerchants && (
+                                        <span className="mt-1 block truncate text-xs font-medium text-muted-foreground">
+                                            {merchants.find(
+                                                (m) => m.id === c.merchant_id,
+                                            )?.name ?? 'Merchant'}
+                                        </span>
+                                    )}
                                     <span className="mt-1 block truncate text-sm text-muted-foreground">
                                         {c.latest_message?.body
                                             ? `${c.latest_message.user_id === userId ? 'You: ' : ''}${c.latest_message.body}`
@@ -800,7 +933,7 @@ export function MessagesInbox({
                         </div>
                     ) : (
                         <>
-                            <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 px-4 py-5 sm:px-6">
+                            <header className="flex shrink-0 flex-wrap items-start justify-between gap-3 border-b px-4 py-3 lg:px-5">
                                 <div className="w-full lg:hidden">
                                     <Button
                                         variant="ghost"
@@ -817,6 +950,16 @@ export function MessagesInbox({
                                         {chatTitle}
                                     </h2>
                                     <p className="mt-1 text-xs text-muted-foreground">
+                                        {allMerchants && (
+                                            <>
+                                                {merchants.find(
+                                                    (m) =>
+                                                        m.id ===
+                                                        chat.merchant_id,
+                                                )?.name ?? 'Merchant'}{' '}
+                                                ·{' '}
+                                            </>
+                                        )}
                                         {chat.type === 'driver'
                                             ? 'Driver'
                                             : 'Group'}{' '}
@@ -946,8 +1089,14 @@ export function MessagesInbox({
                                                         onClick={() =>
                                                             void action(
                                                                 async () => {
-                                                                    if (a.reference) {
-                                                                        window.open(`/admin/logistics/shipments/${a.reference.type === 'run' ? 'runs/' : ''}${encodeURIComponent(a.reference.id)}`, '_blank', 'noopener,noreferrer');
+                                                                    if (
+                                                                        a.reference
+                                                                    ) {
+                                                                        window.open(
+                                                                            `/admin/logistics/shipments/${a.reference.type === 'run' ? 'runs/' : ''}${encodeURIComponent(a.reference.id)}`,
+                                                                            '_blank',
+                                                                            'noopener,noreferrer',
+                                                                        );
                                                                         return;
                                                                     }
                                                                     const result =
@@ -1005,13 +1154,13 @@ export function MessagesInbox({
                                 })}
                             </div>
                             <form
-                                className="shrink-0 p-4 sm:p-6"
+                                className="shrink-0 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:px-5"
                                 onSubmit={(e) => {
                                     e.preventDefault();
                                     void send();
                                 }}
                             >
-                                <div className="space-y-3 rounded-xl border p-3">
+                                <div className="space-y-3">
                                     <textarea
                                         aria-label="Message"
                                         disabled={
@@ -1019,7 +1168,7 @@ export function MessagesInbox({
                                             loading ||
                                             chat.status !== 'active'
                                         }
-                                        className="max-h-40 min-h-12 w-full resize-y bg-transparent text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                                        className="max-h-32 min-h-12 w-full resize-y rounded-lg border bg-transparent p-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                                         maxLength={10000}
                                         rows={2}
                                         placeholder={
@@ -1148,9 +1297,6 @@ export function MessagesInbox({
                                                   : 'Send'}
                                         </Button>
                                     </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        Up to 5 attachments · 20 MB each
-                                    </p>
                                 </div>
                             </form>
                         </>
@@ -1172,6 +1318,33 @@ export function MessagesInbox({
                         </DialogDescription>
                     </DialogHeader>
                     {errorAlert}
+                    {allMerchants && (
+                        <label className="grid gap-2 text-sm font-medium">
+                            Merchant
+                            <select
+                                aria-label="New conversation merchant"
+                                className={control}
+                                value={createMerchant}
+                                disabled={busy}
+                                onChange={(e) => {
+                                    setCreateMerchant(e.target.value);
+                                    setDrivers([]);
+                                    setPeople([]);
+                                    setDriver('');
+                                    setMembers([]);
+                                    setNewMember('');
+                                }}
+                            >
+                                {merchants
+                                    .filter((m) => m.canManage)
+                                    .map((m) => (
+                                        <option key={m.id} value={m.id}>
+                                            {m.name}
+                                        </option>
+                                    ))}
+                            </select>
+                        </label>
+                    )}
                     <div
                         role="group"
                         aria-label="New conversation type"
@@ -1211,7 +1384,7 @@ export function MessagesInbox({
                             }}
                         >
                             <fieldset
-                                disabled={busy || !merchant}
+                                disabled={busy || !createMerchant}
                                 className="space-y-4"
                             >
                                 <label className="grid gap-2 text-sm font-medium">
@@ -1258,7 +1431,7 @@ export function MessagesInbox({
                             }}
                         >
                             <fieldset
-                                disabled={busy || !merchant}
+                                disabled={busy || !createMerchant}
                                 className="space-y-4"
                             >
                                 <label className="grid gap-2 text-sm font-medium">

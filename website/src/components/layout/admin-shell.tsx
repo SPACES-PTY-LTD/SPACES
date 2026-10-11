@@ -70,6 +70,16 @@ export function AdminShell({
   const { data: liveSession, update } = useSession()
   const router = useRouter()
   const pathname = usePathname()
+  const messagesPage = pathname === "/admin/messages"
+  const [messagesHeight, setMessagesHeight] = React.useState<number>()
+  React.useEffect(() => {
+    if (!messagesPage || !window.visualViewport) return
+    const viewport = window.visualViewport
+    const resize = () => setMessagesHeight(viewport.height)
+    resize()
+    viewport.addEventListener("resize", resize)
+    return () => viewport.removeEventListener("resize", resize)
+  }, [messagesPage])
   const activeSession = (liveSession as Session) ?? session
   const merchants = activeSession.merchants ?? []
   const selectedMerchant = activeSession.selected_merchant ?? merchants[0]
@@ -283,12 +293,12 @@ export function AdminShell({
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
-      <SidebarInset className="min-w-0 bg-background">
-        <header className="flex items-center gap-2 border-b px-4 py-3 md:hidden">
+      <SidebarInset style={messagesPage && messagesHeight ? { height: messagesHeight } : undefined} className={messagesPage ? "h-dvh min-h-0 min-w-0 overflow-hidden bg-background" : "min-w-0 bg-background"}>
+        <header className="flex shrink-0 items-center gap-2 border-b px-4 py-3 md:hidden">
           <SidebarTrigger />
           <span className="text-sm font-semibold">{appName}</span>
         </header>
-        <main className="min-h-[calc(100vh-4rem)] min-w-0 flex-1 overflow-x-auto px-6 py-6">
+        <main className={messagesPage ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:p-6" : "min-h-[calc(100vh-4rem)] min-w-0 flex-1 overflow-x-auto px-6 py-6"}>
           {children}
         </main>
       </SidebarInset>

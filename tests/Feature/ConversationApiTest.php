@@ -48,6 +48,44 @@ class ConversationApiTest extends TestCase
         return $this->postJson('/api/v1/conversations/driver', [], $this->headers($driver))->assertOk()->assertJsonPath('data.status', 'active')->assertJsonPath('data.is_private', true)->json('data.conversation_id');
     }
 
+    public function test_combined_inbox_preserves_merchant_account_and_group_membership_permissions(): void
+    {
+        [$owner, $merchant, $driverUser] = $this->context();
+        $first = $this->chat($driverUser);
+        $staff = User::factory()->create(['role' => 'user', 'account_id' => $owner->account_id]);
+        $merchant->users()->attach($staff, ['role' => 'admin']);
+        $second = Merchant::factory()->create(['account_id' => $owner->account_id, 'owner_user_id' => $owner->id]);
+        $second->users()->attach($staff, ['role' => 'read_only']);
+        $privateDriver = User::factory()->create(['role' => 'driver', 'account_id' => $owner->account_id]);
+        Driver::create(['account_id' => $owner->account_id, 'merchant_id' => $second->id, 'user_id' => $privateDriver->id]);
+        $privateChat = $this->chat($privateDriver);
+        $group = Conversation::create(['account_id' => $owner->account_id, 'merchant_id' => $second->id, 'type' => 'normal', 'title' => 'Allowed group', 'status' => 'active']);
+        app(ConversationService::class)->addMember($group, $staff, 'member');
+        $hiddenGroup = Conversation::create(['account_id' => $owner->account_id, 'merchant_id' => $second->id, 'type' => 'normal', 'title' => 'Private group', 'status' => 'active']);
+        $otherMerchant = Merchant::factory()->create(['account_id' => $owner->account_id, 'owner_user_id' => $owner->id]);
+        $other = Conversation::create(['account_id' => $owner->account_id, 'merchant_id' => $otherMerchant->id, 'type' => 'normal', 'title' => 'No merchant access', 'status' => 'active']);
+        app(ConversationService::class)->addMember($other, $staff, 'member');
+        [$foreignOwner, $foreignMerchant, $foreignDriver] = $this->context();
+        $foreign = $this->chat($foreignDriver);
+        // Even an invalid cross-account membership must not widen the inbox.
+        $foreignMerchant->users()->attach($staff, ['role' => 'admin']);
+        $ids = $this->getJson('/api/v1/conversations?all_merchants=1', $this->headers($staff))->assertOk()->json('data.*.conversation_id');
+        $this->assertEqualsCanonicalizing([$first, $group->uuid], $ids);
+        $this->getJson('/api/v1/conversations?all_merchants=1&per_page=1&page=2', $this->headers($staff))
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.total', 2)->assertJsonPath('meta.last_page', 2);
+        $this->getJson('/api/v1/conversations?all_merchants=1&has_messages=1', $this->headers($staff))
+            ->assertOk()->assertJsonCount(0, 'data');
+        $super = User::factory()->create(['role' => 'super_admin']);
+        $superIds = $this->getJson('/api/v1/conversations?all_merchants=1', $this->headers($super))->assertOk()->json('data.*.conversation_id');
+        $this->assertEqualsCanonicalizing([$first, $privateChat, $foreign], $superIds);
+        $this->getJson('/api/v1/conversations?all_merchants=1&type=normal&search=Allowed', $this->headers($staff))
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.conversation_id', $group->uuid);
+        $this->getJson('/api/v1/conversations/'.$privateChat, $this->headers($staff))->assertForbidden();
+        $this->getJson('/api/v1/conversations?all_merchants=1', $this->headers($driverUser))->assertForbidden();
+        $outsider = User::factory()->create(['role' => 'user', 'account_id' => $owner->account_id]);
+        $this->getJson('/api/v1/conversations?all_merchants=1', $this->headers($outsider))->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_reference_pickers_default_to_ten_recent_records_and_search_older_assignments(): void
     {
         [$owner, $merchant, $user, $driver] = $this->context();

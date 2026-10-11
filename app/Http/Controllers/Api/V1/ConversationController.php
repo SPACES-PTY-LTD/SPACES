@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SendDriverMessagePush;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\Merchant;
 use App\Models\MessageAttachment;
 use App\Models\Run;
 use App\Models\RunShipment;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Services\ConversationService;
+use App\Support\MerchantAccess;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -65,21 +67,42 @@ class ConversationController extends Controller
             'merchant_id' => 'nullable|uuid', 'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:1|max:100',
             'search' => 'nullable|string|max:255', 'type' => 'nullable|in:driver,normal',
-            'has_messages' => 'nullable|boolean',
+            'has_messages' => 'nullable|boolean', 'all_merchants' => 'nullable|boolean',
         ]);
         $user = $request->user();
-        $merchant = $this->service->merchant($user, $data['merchant_id'] ?? $request->header('X-Merchant-Id'));
-        $query = Conversation::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id);
-        $query->where(function ($query) use ($user, $merchant) {
-            $query->where(function ($query) use ($user) {
-                $query->where('type', 'normal')->whereHas('members', fn ($q) => $q->where('user_id', $user->id)->where('state', 'active'));
-            });
-            if ($this->service->staff($user, $merchant)) {
-                $query->orWhere(fn ($q) => $q->where('type', 'driver')->whereHas('driver', fn ($d) => $d->where('merchant_id', $merchant->id)->where('account_id', $merchant->account_id)));
-            } elseif ($user->role === 'driver') {
-                $query->orWhere(fn ($q) => $q->where('type', 'driver')->where('type_entry_id', $user->driver?->id));
+        if ($request->boolean('all_merchants')) {
+            abort_if($user->role === 'driver', 403);
+            $merchants = Merchant::query();
+            if (! MerchantAccess::isSuperAdmin($user)) {
+                $merchants->where('account_id', $user->account_id)
+                    ->whereIn('id', MerchantAccess::accessibleMerchantIds($user) ?? []);
             }
-        });
+            $merchants = $merchants->get()->filter(fn ($merchant) => MerchantAccess::hasMerchantAccess($user, $merchant));
+        } else {
+            $merchants = collect([$this->service->merchant($user, $data['merchant_id'] ?? $request->header('X-Merchant-Id'))]);
+        }
+        $query = Conversation::query();
+        if ($merchants->isEmpty()) {
+            $query->whereRaw('1 = 0');
+        } else {
+            $query->where(function ($scope) use ($user, $merchants) {
+                foreach ($merchants as $merchant) {
+                    $scope->orWhere(function ($query) use ($user, $merchant) {
+                        $query->where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)
+                            ->where(function ($query) use ($user, $merchant) {
+                                $query->where(function ($query) use ($user) {
+                                    $query->where('type', 'normal')->whereHas('members', fn ($q) => $q->where('user_id', $user->id)->where('state', 'active'));
+                                });
+                                if ($this->service->staff($user, $merchant)) {
+                                    $query->orWhere(fn ($q) => $q->where('type', 'driver')->whereHas('driver', fn ($d) => $d->where('merchant_id', $merchant->id)->where('account_id', $merchant->account_id)));
+                                } elseif ($user->role === 'driver') {
+                                    $query->orWhere(fn ($q) => $q->where('type', 'driver')->where('type_entry_id', $user->driver?->id));
+                                }
+                            });
+                    });
+                }
+            });
+        }
         if ($request->boolean('has_messages')) {
             $query->whereHas('messages');
         }

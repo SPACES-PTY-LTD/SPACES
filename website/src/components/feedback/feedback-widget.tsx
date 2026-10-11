@@ -271,11 +271,11 @@ export function FeedbackWidget({
       <Button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed left-1/2 bottom-4 z-40 h-12 -translate-x-1/2 rounded-full bg-black px-5 text-white shadow-xl hover:bg-black/85 md:bottom-6"
+        className={cn("fixed z-40 rounded-full bg-black text-white shadow-xl hover:bg-black/85", pathname === "/admin/messages" ? "right-4 top-3 h-9 w-9 p-0 md:left-4 md:right-auto md:top-auto md:bottom-6" : "left-1/2 bottom-4 h-12 -translate-x-1/2 px-5 md:bottom-6")}
         aria-label="Give feedback"
       >
         <MessageSquareText className="size-4" />
-        Give feedback
+        <span className={pathname === "/admin/messages" ? "sr-only" : undefined}>Give feedback</span>
         {unreadCount > 0 ? (
           <span className="absolute -top-1 -right-1 min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-background">
             {unreadCount > 99 ? "99+" : unreadCount}

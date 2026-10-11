@@ -223,7 +223,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       initialRegion={{ latitude: 0, longitude: 0, latitudeDelta: 100, longitudeDelta: 100 }}
       showsPointsOfInterests={false} showsCompass={false} rotateEnabled={false} pitchEnabled={false}
       accessibilityLabel={navigationId ? 'Route to selected delivery' : runId ? 'Current run shipment locations' : 'Current truck location'}>
-      {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor={accent} strokeWidth={4} /> : null}
+      {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor="#000000" strokeWidth={4} /> : null}
       {mode === 'planned' && endpointPins.map(p => <Marker key={p.role} coordinate={p.coordinate} onPress={dismissPopup} title={`${p.role} · ${p.name}`} description={p.address} pinColor={p.role === 'Run starting point' ? '#2563eb' : '#71717a'} />)}
       {phone && <Marker coordinate={phone} onPress={dismissPopup} title="Your phone location" pinColor="#2563eb" />}
       {!navigationId && truck ? <Marker coordinate={truck} onPress={dismissPopup} zIndex={100} title={position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}

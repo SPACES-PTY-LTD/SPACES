@@ -234,8 +234,8 @@ export default function MessagesPreview() {
         };
     }, [readonly]);
     return (
-        <main className="mx-auto max-w-[1440px] bg-muted/40 p-6">
-            <div className="mb-3 flex items-center gap-3 text-xs text-muted-foreground">
+        <main className="mx-auto flex h-dvh max-w-[1440px] flex-col bg-background md:p-6">
+            <div className="mb-3 flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
                 <span>
                     LOCAL TEST FIXTURE · Synthetic data · No live API mutations
                 </span>
