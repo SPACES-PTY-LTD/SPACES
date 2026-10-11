@@ -14,6 +14,7 @@ use App\Models\Shipment;
 use App\Models\User;
 use App\Services\ConversationService;
 use App\Support\MerchantAccess;
+use App\Support\ProfilePhotoUrl;
 use App\Support\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,7 +41,7 @@ class ConversationController extends Controller
             'title' => $driverUser?->name ?? $conversation->title, 'description' => $conversation->description,
             'driver' => $driverUser ? [
                 'name' => $driverUser->name,
-                'profile_photo_url' => $driverUser->profile_photo_path ? Storage::disk()->url($driverUser->profile_photo_path) : null,
+                'profile_photo_url' => ProfilePhotoUrl::forPath($driverUser->profile_photo_path),
             ] : null,
             'status' => $conversation->status, 'is_private' => $conversation->is_private,
             'can_manage' => $conversation->type === 'driver' ? $this->service->staff($user, $conversation->merchant) : $this->service->owner($user, $conversation),

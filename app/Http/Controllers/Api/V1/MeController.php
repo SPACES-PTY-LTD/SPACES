@@ -221,7 +221,7 @@ class MeController extends Controller
         $filename = (string) Str::uuid().($extension ? '.'.$extension : '');
         $path = sprintf('profile-photos/%s/%s', $userUuid, $filename);
 
-        if (!$disk->putFileAs(dirname($path), $photo, basename($path), ['visibility' => 'public'])) {
+        if (!$disk->putFileAs(dirname($path), $photo, basename($path), ['visibility' => 'private'])) {
             throw new \RuntimeException('Profile photo storage write failed.');
         }
 

@@ -30,9 +30,10 @@ class ConversationApiTest extends TestCase
         [$owner, $merchant, $user, $driver] = $this->context();
         $id = $this->chat($user);
         $user->update(['name' => 'Updated Driver Name', 'profile_photo_path' => 'profiles/driver.png']);
+        $this->freezeTime();
         config(['filesystems.default' => 'cloud-photos']);
         Storage::fake('cloud-photos');
-        $photo = Storage::disk('cloud-photos')->url('profiles/driver.png');
+        $photo = Storage::disk('cloud-photos')->temporaryUrl('profiles/driver.png', now()->addDay());
 
         $this->getJson('/api/v1/conversations/'.$id, $this->headers($owner))
             ->assertOk()->assertJsonPath('data.title', 'Updated Driver Name')

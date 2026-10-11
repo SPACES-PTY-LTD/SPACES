@@ -141,6 +141,7 @@ class LastAccessedMerchantTest extends TestCase
 
     public function test_user_can_upload_profile_photo_from_me_endpoint(): void
     {
+        $this->freezeTime();
         config(['filesystems.default' => 's3']);
         Storage::fake('s3');
 
@@ -158,7 +159,7 @@ class LastAccessedMerchantTest extends TestCase
         $this->assertNotNull($user->profile_photo_path);
         $this->assertStringStartsWith('profile-photos/'.$user->uuid.'/', $user->profile_photo_path);
         Storage::disk('s3')->assertExists($user->profile_photo_path);
-        $response->assertJsonPath('data.profile_photo_url', Storage::disk('s3')->url($user->profile_photo_path));
+        $response->assertJsonPath('data.profile_photo_url', Storage::disk('s3')->temporaryUrl($user->profile_photo_path, now()->addDay()));
     }
 
     public function test_failed_photo_write_preserves_existing_profile(): void
@@ -177,6 +178,7 @@ class LastAccessedMerchantTest extends TestCase
 
     public function test_profile_upload_and_urls_use_cloud_managed_default_disk(): void
     {
+        $this->freezeTime();
         config(['filesystems.default' => 'cloud-photos', 'filesystems.disks.s3.region' => null]);
         Storage::fake('cloud-photos');
         $user = User::factory()->create(['profile_photo_path' => 'profile-photos/old.jpg']);
@@ -187,10 +189,33 @@ class LastAccessedMerchantTest extends TestCase
         $response->assertOk();
         $path = $user->fresh()->profile_photo_path;
         Storage::disk('cloud-photos')->assertExists($path);
+        $this->assertSame('private', Storage::disk('cloud-photos')->getVisibility($path));
         Storage::disk('cloud-photos')->assertMissing('profile-photos/old.jpg');
-        $url = Storage::disk('cloud-photos')->url($path);
+        $url = Storage::disk('cloud-photos')->temporaryUrl($path, now()->addDay());
         $response->assertJsonPath('data.profile_photo_url', $url);
         $client->getJson('/api/v1/me')->assertOk()->assertJsonPath('data.profile_photo_url', $url);
+    }
+
+    public function test_profile_photo_uses_private_write_and_signed_url(): void
+    {
+        $user = User::factory()->create();
+        $client = $this->authenticated($user);
+        $disk = \Mockery::mock(\Illuminate\Filesystem\FilesystemAdapter::class);
+        $disk->shouldReceive('putFileAs')->once()->withArgs(
+            fn ($directory, $file, $filename, $options) => $options === ['visibility' => 'private']
+        )->andReturnUsing(fn ($directory, $file, $filename) => $directory.'/'.$filename);
+        $disk->shouldReceive('providesTemporaryUrls')->andReturn(true);
+        $disk->shouldReceive('temporaryUrl')->withArgs(
+            fn ($path, $expires) => str_starts_with($path, 'profile-photos/'.$user->uuid.'/')
+                && $expires->isFuture()
+        )->andReturn('https://example.test/photo.jpg?signature=private');
+        $disk->shouldNotReceive('url');
+        Storage::shouldReceive('disk')->withNoArgs()->andReturn($disk);
+
+        $client->post('/api/v1/me/profile-photo', ['photo' => UploadedFile::fake()->image('new.jpg')])
+            ->assertOk()->assertJsonPath('data.profile_photo_url', 'https://example.test/photo.jpg?signature=private');
+        $client->getJson('/api/v1/me')->assertOk()
+            ->assertJsonPath('data.profile_photo_url', 'https://example.test/photo.jpg?signature=private');
     }
 
     public function test_old_photo_cleanup_failure_does_not_fail_saved_upload(): void
@@ -199,6 +224,7 @@ class LastAccessedMerchantTest extends TestCase
         $client = $this->authenticated($user);
         $disk = \Mockery::mock(\Illuminate\Filesystem\FilesystemAdapter::class);
         $disk->shouldReceive('putFileAs')->once()->andReturnUsing(fn ($dir, $file, $name) => $dir.'/'.$name);
+        $disk->shouldReceive('providesTemporaryUrls')->andReturn(false);
         $disk->shouldReceive('url')->andReturn('https://example.test/new.jpg');
         $disk->shouldReceive('delete')->with('profile-photos/existing.jpg')->once()->andThrow(new \RuntimeException('Cleanup unavailable'));
         Storage::shouldReceive('disk')->withNoArgs()->andReturn($disk);

@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-11 | Version: admin-dashboard-kpi-row-v1
+
+- **Summary:** Fit all eight admin dashboard KPI cards in one row on large screens.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use eight equal grid columns at the existing XL breakpoint (1280px and above), retaining two columns on smaller screens and four at the large breakpoint. Keep cards the same height when labels wrap. KPI values and links are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Focused website ESLint and `git diff --check` pass. Reviewed the eight-card grid and responsive classes; live browser visual verification remains pending.
+
+## 2026-10-11 | Version: profile-photo-private-storage-v1
+
+- **Summary:** Align profile photo storage with working private message image attachments.
+- **API Changes:** `profile_photo_url` uses a temporary URL on disks that support signed URLs, valid for one day and renewed whenever profile or conversation data is fetched. URL-only disks retain their existing URL behavior.
+- **Database Changes:** None.
+- **Behavior Changes:** Write profile photos privately on the configured default disk instead of requesting public visibility. User profile and driver conversation avatars share the same URL resolver. Preserve existing replacement and cleanup safeguards. Mobile uploads already use the same multipart helper as message attachments.
+- **Breaking Changes:** None; clients must refresh profile data after a signed URL expires.
+- **Verification:** Profile/account and conversation API suites pass (33 tests, 382 assertions). Regression coverage requires a private write and temporary URL, rejects plain URL generation on private storage, checks replacement visibility and validates conversation avatars. Production deployment and real-device retry remain pending; a fresh production exception has not been inspected.
+
 ## 2026-10-11 | Version: profile-photo-configured-disk-v1
 
 - **Summary:** Use Laravel Cloud's configured filesystem for profile photos instead of the unconfigured standalone S3 disk.

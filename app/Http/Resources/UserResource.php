@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ProfilePhotoUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class UserResource extends JsonResource
 {
@@ -20,7 +20,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'telephone' => $this->telephone,
             'role' => $this->role,
-            'profile_photo_url' => $this->profile_photo_path ? Storage::disk()->url($this->profile_photo_path) : null,
+            'profile_photo_url' => ProfilePhotoUrl::forPath($this->profile_photo_path),
             'driver_merchant' => $merchant ? ['merchant_id' => $merchant->uuid, 'name' => $merchant->name] : null,
             'is_account_holder' => $this->whenLoaded(
                 'account',
