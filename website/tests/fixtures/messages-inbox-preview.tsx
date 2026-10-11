@@ -33,7 +33,8 @@ export default function MessagesPreview() {
                 merchant_id: 'isando',
                 type: 'driver',
                 driver_id: 'driver',
-                title: 'Alex Mokoena',
+                title: 'Former driver name',
+                driver: { name: 'Alex Mokoena', profile_photo_url: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="80"%3E%3Crect width="80" height="80" fill="seagreen"/%3E%3C/svg%3E' },
                 description: 'Driver communication',
                 status: 'active',
                 can_manage: !readonly,
@@ -92,11 +93,17 @@ export default function MessagesPreview() {
                             mime_type: 'application/pdf',
                             size: 245760,
                         },
+                        { attachment_id: 'image-1', filename: 'photo-1.png', mime_type: 'image/png', size: 1024 },
+                        { attachment_id: 'image-2', filename: 'photo-2.png', mime_type: 'image/png', size: 2048 },
+                        { attachment_id: 'run', filename: 'Run 16882', mime_type: null, size: null, reference: { type: 'run', id: '16882', label: 'Run 16882', subtitle: '' } },
+                        { attachment_id: 'shipment', filename: '500092497', mime_type: null, size: null, reference: { type: 'shipment', id: 'shipment-test', label: '500092497', subtitle: '' } },
                     ],
                 },
             ],
         };
         conversations[0].latest_message = messages.alex[1];
+        messages.team = [{ ...messages.alex[0], message_id: 'group-message', body: 'Dispatch team handover' }];
+        conversations[1].latest_message = messages.team[0];
         const sent = new Map<string, ChatMessage>();
         const response = (data: unknown, meta = {}, status = 200) =>
             new Response(JSON.stringify({ data, meta }), {
@@ -157,8 +164,13 @@ export default function MessagesPreview() {
             const id = url.pathname.split('/')[4];
             const c = conversations.find((c) => c.conversation_id === id)!;
             if (url.pathname.endsWith('/read')) return response({});
-            if (url.pathname.endsWith('/download'))
+            if (url.pathname.endsWith('/download')) {
+                if (url.pathname.includes('/image-')) {
+                    const color = url.pathname.includes('image-1') ? 'seagreen' : 'steelblue';
+                    return response({ url: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="${color}"/></svg>`)}` });
+                }
                 return response({ url: 'about:blank' });
+            }
             if (url.pathname.endsWith('/messages')) {
                 if (method === 'POST') {
                     if (failSend) {

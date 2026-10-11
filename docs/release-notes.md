@@ -1,5 +1,59 @@
 # Release Notes
 
+## 2026-10-11 | Version: admin-driver-conversation-profile-v1
+
+- **Summary:** Use current driver profile names and photos in conversations and remove redundant driver conversation controls.
+- **API Changes:** Conversation responses now resolve driver chat titles from the current driver user name and include nullable `driver` data with `name` and `profile_photo_url`. Group titles are unchanged.
+- **Database Changes:** None.
+- **Behavior Changes:** Driver photos appear in the inbox and conversation header when available. Names update through existing refreshes after profile changes. Hide the conversation Details button for driver chats; keep the driver-name drawer and group conversation controls.
+- **Breaking Changes:** None; added response fields are optional for existing clients.
+- **Verification:** Conversation API suite passes (18 tests, 330 assertions), including renames and photo removal; website TypeScript and focused lint pass. Synthetic browser checks cover profile name/photo rendering, refresh after a rename, hidden driver Details and retained group Details. Live profile-image URLs remain unverified.
+
+## 2026-10-11 | Version: admin-conversation-driver-drawer-v1
+
+- **Summary:** Open driver details by selecting the driver's name in a conversation.
+- **API Changes:** None; extend the protected record embed route to render existing driver details.
+- **Database Changes:** None.
+- **Behavior Changes:** Driver conversation names are accessible buttons that open a responsive drawer with the existing profile, files and vehicle assignments. Use the conversation's merchant scope, including All merchants. Group names and the conversation Details button retain their behavior.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused lint pass; synthetic mobile/desktop checks cover name activation, driver embed URL/merchant scope and drawer close. The unauthenticated driver embed redirects to login. Live authenticated driver rendering remains unverified.
+
+## 2026-10-11 | Version: admin-message-attachment-drawer-v1
+
+- **Summary:** Open conversation attachments in a drawer while keeping the message thread in place.
+- **API Changes:** None; file previews use existing authorized signed attachment URLs. Add protected website embed routes for run and shipment details.
+- **Database Changes:** None.
+- **Behavior Changes:** PDFs use an iframe; images use a fitted preview with previous/next arrows across images loaded in the conversation. Run and shipment references show existing detail views inside the drawer without duplicate admin navigation. File download remains available; unsupported previews show a fallback. Reuse extracted run detail content on the existing full page. Extend the local synthetic verification fixture with image and record attachments.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused lint pass. Headless mobile/desktop checks cover image navigation boundaries, PDF iframe, record embed URLs, close and drawer sizing without page errors. Both embed routes redirect unauthenticated requests to login. Extracted run content matches the prior page except its reusable signature and optional breadcrumbs. Live signed PDF rendering and authenticated record interaction remain unverified.
+
+## 2026-10-11 | Version: admin-message-reference-labels-v1
+
+- **Summary:** Identify run and shipment references in admin conversation attachments.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Add Run and Shipment labels above record identifiers. Show Open run or Open shipment with a chevron; file attachments retain their download action.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused Messages lint and diff checks pass; reference labels and actions use the existing reference type. Live device rendering not verified.
+
+## 2026-10-11 | Version: admin-message-image-previews-v1
+
+- **Summary:** Show image attachment previews inside admin conversation bubbles.
+- **API Changes:** None; previews use the existing authorized attachment URL endpoint.
+- **Database Changes:** None.
+- **Behavior Changes:** Image attachments display a bounded, rounded preview with a loading placeholder. Unsupported or unavailable images fall back to the download card. File downloads and run/shipment links remain available.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused Messages lint pass; reviewed signed URL access, image error fallback and effect cleanup. Live device rendering not verified.
+
+## 2026-10-11 | Version: admin-mobile-thread-header-v1
+
+- **Summary:** Give mobile conversations more space by hiding the inbox title row while a thread is open.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hide Messages, the merchant dropdown and New conversation below the desktop two-column breakpoint when viewing a conversation. Restore the row on Back to conversations. Desktop keeps the title row; conversation controls and composer remain available.
+- **Breaking Changes:** None.
+- **Verification:** Focused Messages lint and TypeScript pass; responsive visibility uses the existing mobile-thread state and desktop breakpoint. No API or data changes.
+
 ## 2026-10-11 | Version: admin-composer-helper-text-v1
 
 - **Summary:** Remove the attachment-limit helper text from the admin message composer.

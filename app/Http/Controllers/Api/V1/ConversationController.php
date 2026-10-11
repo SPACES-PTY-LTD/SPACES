@@ -28,11 +28,20 @@ class ConversationController extends Controller
     private function conversationData(Conversation $conversation, User $user): array
     {
         $conversation->loadMissing(['merchant', 'members.user', 'latestMessage.user', 'latestMessage.attachments']);
+        $driverUser = null;
+        if ($conversation->type === 'driver') {
+            $conversation->loadMissing('driver.user');
+            $driverUser = $conversation->driver?->user;
+        }
 
         return [
             'conversation_id' => $conversation->uuid, 'merchant_id' => $conversation->merchant->uuid,
             'type' => $conversation->type, 'driver_id' => $conversation->type === 'driver' ? $conversation->driver?->uuid : null,
-            'title' => $conversation->title, 'description' => $conversation->description,
+            'title' => $driverUser?->name ?? $conversation->title, 'description' => $conversation->description,
+            'driver' => $driverUser ? [
+                'name' => $driverUser->name,
+                'profile_photo_url' => $driverUser->profile_photo_path ? Storage::disk('s3')->url($driverUser->profile_photo_path) : null,
+            ] : null,
             'status' => $conversation->status, 'is_private' => $conversation->is_private,
             'can_manage' => $conversation->type === 'driver' ? $this->service->staff($user, $conversation->merchant) : $this->service->owner($user, $conversation),
             'members' => $conversation->members->where('state', 'active')->map(fn ($member) => [
@@ -121,7 +130,7 @@ class ConversationController extends Controller
                         ->whereHas('driver.user', fn ($users) => $users->where('name', 'like', $pattern)));
             });
         }
-        $page = $query->with(['merchant', 'driver', 'members.user', 'latestMessage.user', 'latestMessage.attachments'])->orderByDesc('updated_at')->orderByDesc('id')->paginate($data['per_page'] ?? 20);
+        $page = $query->with(['merchant', 'driver.user', 'members.user', 'latestMessage.user', 'latestMessage.attachments'])->orderByDesc('updated_at')->orderByDesc('id')->paginate($data['per_page'] ?? 20);
 
         return ApiResponse::success($page->getCollection()->map(fn ($c) => $this->conversationData($c, $user)), [
             'current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total(),

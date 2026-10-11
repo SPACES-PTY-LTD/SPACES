@@ -10,6 +10,8 @@ import { apiFetch, isApiErrorResponse } from '@/lib/api/client';
 import type { ApiListResponse, Driver } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import {
     DropdownMenu,
     DropdownMenuTrigger,
@@ -28,7 +30,7 @@ import {
 import {
     ArrowLeft,
     ChevronDown,
-    Download,
+    ChevronRight,
     FileText,
     MessageSquare,
     Paperclip,
@@ -37,6 +39,8 @@ import {
     X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MessageImagePreview } from './message-image-preview';
+import { AttachmentDrawer, type AttachmentSelection } from './attachment-drawer';
 
 export function MessagesInbox({
     token,
@@ -70,6 +74,7 @@ export function MessagesInbox({
     const [createOpen, setCreateOpen] = useState(false);
     const [createType, setCreateType] = useState<'driver' | 'normal'>('driver');
     const [detailsOpen, setDetailsOpen] = useState(false);
+    const [driverDetailsConversation, setDriverDetailsConversation] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState('');
     const [editDescription, setEditDescription] = useState('');
     const [mobileThread, setMobileThread] = useState(false);
@@ -83,6 +88,15 @@ export function MessagesInbox({
     const participantMerchant =
         detailsOpen && chat ? chat.merchant_id : createMerchant;
     const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [attachmentSelection, setAttachmentSelection] = useState<(AttachmentSelection & { conversationId: string }) | null>(null);
+    const openAttachment = (attachment: ChatMessage['attachments'][number]) => {
+        if (!chat) return;
+        setAttachmentSelection({
+            attachment,
+            conversationId: chat.conversation_id,
+            images: messages.flatMap((message) => message.attachments).filter((item) => !item.reference && item.mime_type?.startsWith('image/')),
+        });
+    };
     const [before, setBefore] = useState<string | null>(null);
     const [drivers, setDrivers] = useState<{ id: string; name: string }[]>([]);
     const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
@@ -539,6 +553,7 @@ export function MessagesInbox({
     const control =
         'w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
     const chatTitle =
+        chat?.driver?.name ||
         chat?.title ||
         (chat?.type === 'driver' ? 'Driver chat' : 'Group conversation');
     const formatTime = (value?: string | null) =>
@@ -570,7 +585,12 @@ export function MessagesInbox({
 
     return (
         <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col gap-3 md:gap-5">
-            <header className="shrink-0 px-4 pt-4 md:px-0 md:pt-0">
+            <header
+                className={cn(
+                    'shrink-0 px-4 pt-4 md:px-0 md:pt-0',
+                    mobileThread && 'hidden lg:block',
+                )}
+            >
                 <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                         <h1 className="text-[28px] font-bold leading-tight max-[359px]:text-[24px]">
@@ -811,11 +831,14 @@ export function MessagesInbox({
                                     )}
                                     onClick={() => choose(c)}
                                 >
-                                    <span className="block truncate text-sm font-medium">
-                                        {c.title ||
+                                    <span className="flex items-center gap-3 text-sm font-medium">
+                                        {c.type === 'driver' && c.driver?.profile_photo_url && (
+                                            <Avatar><AvatarImage src={c.driver.profile_photo_url} alt="" className="object-cover" /><AvatarFallback>{c.driver.name.charAt(0)}</AvatarFallback></Avatar>
+                                        )}
+                                        <span className="min-w-0 truncate">{c.driver?.name || c.title ||
                                             (c.type === 'driver'
                                                 ? 'Driver chat'
-                                                : 'Group conversation')}
+                                                : 'Group conversation')}</span>
                                     </span>
                                     {allMerchants && (
                                         <span className="mt-1 block truncate text-xs font-medium text-muted-foreground">
@@ -947,7 +970,19 @@ export function MessagesInbox({
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <h2 className="break-words text-lg font-bold">
-                                        {chatTitle}
+                                        {chat.type === 'driver' && chat.driver_id ? (
+                                            <button
+                                                type="button"
+                                                className="inline-flex items-center gap-3 text-left underline-offset-4 hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                aria-label={`View driver details for ${chatTitle}`}
+                                                onClick={() => setDriverDetailsConversation(chat.conversation_id)}
+                                            >
+                                                {chat.driver?.profile_photo_url && (
+                                                    <Avatar size="lg"><AvatarImage src={chat.driver.profile_photo_url} alt="" className="object-cover" /><AvatarFallback>{chatTitle.charAt(0)}</AvatarFallback></Avatar>
+                                                )}
+                                                {chatTitle}
+                                            </button>
+                                        ) : chatTitle}
                                     </h2>
                                     <p className="mt-1 text-xs text-muted-foreground">
                                         {allMerchants && (
@@ -969,7 +1004,7 @@ export function MessagesInbox({
                                             : 'Closed'}
                                     </p>
                                 </div>
-                                <Button
+                                {chat.type === 'normal' && <Button
                                     variant="outline"
                                     className="rounded-lg"
                                     aria-label="Conversation details"
@@ -987,7 +1022,7 @@ export function MessagesInbox({
                                         Conversation details
                                     </span>
                                     <span className="sm:hidden">Details</span>
-                                </Button>
+                                </Button>}
                             </header>
                             <div
                                 ref={history}
@@ -1076,71 +1111,60 @@ export function MessagesInbox({
                                                     </p>
                                                 )}
                                                 {m.attachments.map((a) => (
-                                                    <button
-                                                        type="button"
-                                                        disabled={busy}
-                                                        key={a.attachment_id}
-                                                        className={cn(
-                                                            'mt-2 flex w-full min-w-0 items-center gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                                            outgoing
-                                                                ? 'border-primary-foreground/20 hover:bg-primary-foreground/10'
-                                                                : 'border-border hover:bg-background',
+                                                    <div key={a.attachment_id}>
+                                                        {!a.reference &&
+                                                            a.mime_type?.startsWith('image/') && (
+                                                            <MessageImagePreview
+                                                                key={`${chatId}/${a.attachment_id}/${token}`}
+                                                                token={token}
+                                                                conversationId={chatId!}
+                                                                attachment={a}
+                                                                onOpen={() => openAttachment(a)}
+                                                            />
                                                         )}
-                                                        onClick={() =>
-                                                            void action(
-                                                                async () => {
-                                                                    if (
-                                                                        a.reference
-                                                                    ) {
-                                                                        window.open(
-                                                                            `/admin/logistics/shipments/${a.reference.type === 'run' ? 'runs/' : ''}${encodeURIComponent(a.reference.id)}`,
-                                                                            '_blank',
-                                                                            'noopener,noreferrer',
-                                                                        );
-                                                                        return;
-                                                                    }
-                                                                    const result =
-                                                                        await conversationRequest<{
-                                                                            url: string;
-                                                                        }>(
-                                                                            token,
-                                                                            `/${chatId}/attachments/${a.attachment_id}/download`,
-                                                                        );
-                                                                    window.open(
-                                                                        result
-                                                                            .data
-                                                                            .url,
-                                                                        '_blank',
-                                                                        'noopener,noreferrer',
-                                                                    );
-                                                                },
-                                                            )
-                                                        }
-                                                    >
-                                                        <FileText
-                                                            aria-hidden="true"
-                                                            className="size-5 shrink-0"
-                                                        />
-                                                        <span className="min-w-0 flex-1">
-                                                            <span className="block break-words font-medium [overflow-wrap:anywhere]">
-                                                                {a.filename ||
-                                                                    'Attachment'}
-                                                            </span>
-                                                            <span className="mt-1 block text-xs opacity-70">
-                                                                {formatSize(
-                                                                    a.size,
+                                                        <button
+                                                            type="button"
+                                                            disabled={busy}
+                                                            className={cn(
+                                                                'mt-2 flex w-full min-w-0 items-center gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                                                outgoing
+                                                                    ? 'border-primary-foreground/20 hover:bg-primary-foreground/10'
+                                                                    : 'border-border hover:bg-background',
+                                                            )}
+                                                            onClick={() => openAttachment(a)}
+                                                        >
+                                                            <FileText
+                                                                aria-hidden="true"
+                                                                className="size-5 shrink-0"
+                                                            />
+                                                            <span className="min-w-0 flex-1">
+                                                                {a.reference && (
+                                                                    <span className="mb-1 inline-flex rounded-full border border-current/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                                                                        {a.reference.type === 'run' ? 'Run' : 'Shipment'}
+                                                                    </span>
                                                                 )}
-                                                                {a.size !==
-                                                                    null &&
-                                                                    ' · '}
-                                                                Download
+                                                                <span className="block break-words font-medium [overflow-wrap:anywhere]">
+                                                                    {a.filename ||
+                                                                        'Attachment'}
+                                                                </span>
+                                                                <span className="mt-1 block text-xs opacity-70">
+                                                                    {a.reference ? (
+                                                                        a.reference.type === 'run' ? 'Open run' : 'Open shipment'
+                                                                    ) : (
+                                                                        <>
+                                                                            {formatSize(a.size)}
+                                                                            {a.size !== null && ' · '}
+                                                                            Preview
+                                                                        </>
+                                                                    )}
+                                                                </span>
                                                             </span>
-                                                        </span>
-                                                        <Download
-                                                            aria-hidden="true"
-                                                            className="size-4 shrink-0"
-                                                        />
-                                                    </button>
+                                                            <ChevronRight
+                                                                aria-hidden="true"
+                                                                className="size-4 shrink-0"
+                                                            />
+                                                        </button>
+                                                    </div>
                                                 ))}
                                                 <p className="mt-2 text-xs opacity-70">
                                                     {outgoing
@@ -1703,6 +1727,30 @@ export function MessagesInbox({
                     )}
                 </DialogContent>
             </Dialog>
+            {attachmentSelection && attachmentSelection.conversationId === chatId && (
+                <AttachmentDrawer
+                    key={`${chatId}/${attachmentSelection.attachment.attachment_id}`}
+                    selection={attachmentSelection}
+                    conversationId={attachmentSelection.conversationId}
+                    token={token}
+                    onClose={() => setAttachmentSelection(null)}
+                />
+            )}
+            {chat?.type === 'driver' && chat.driver_id && driverDetailsConversation === chatId && (
+                <Sheet open onOpenChange={(open) => { if (!open) setDriverDetailsConversation(null); }}>
+                    <SheetContent className="h-dvh w-full gap-0 sm:max-w-5xl">
+                        <SheetHeader className="shrink-0 border-b pr-12">
+                            <SheetTitle>{chatTitle}</SheetTitle>
+                            <SheetDescription>Driver details</SheetDescription>
+                        </SheetHeader>
+                        <iframe
+                            title={`Driver details for ${chatTitle}`}
+                            src={`/admin/messages/attachments/driver/${encodeURIComponent(chat.driver_id)}?merchant_id=${encodeURIComponent(chat.merchant_id)}`}
+                            className="min-h-0 w-full flex-1 border-0"
+                        />
+                    </SheetContent>
+                </Sheet>
+            )}
         </div>
     );
 }

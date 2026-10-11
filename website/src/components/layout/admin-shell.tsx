@@ -60,7 +60,7 @@ function getInitials(name: string | null | undefined) {
     .join("")
 }
 
-export function AdminShell({
+function FullAdminShell({
   session,
   children,
 }: {
@@ -311,4 +311,12 @@ export function AdminShell({
       <Toaster richColors position="top-right" />
     </SidebarProvider>
   )
+}
+
+export function AdminShell({ session, children }: { session: Session; children: React.ReactNode }) {
+  const pathname = usePathname()
+  if (pathname.startsWith("/admin/messages/attachments/")) {
+    return <main className="min-h-dvh bg-background p-4">{children}</main>
+  }
+  return <FullAdminShell session={session}>{children}</FullAdminShell>
 }

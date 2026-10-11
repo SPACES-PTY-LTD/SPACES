@@ -25,6 +25,27 @@ class ConversationApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_driver_conversation_uses_current_profile_name_and_photo(): void
+    {
+        [$owner, $merchant, $user, $driver] = $this->context();
+        $id = $this->chat($user);
+        $user->update(['name' => 'Updated Driver Name', 'profile_photo_path' => 'profiles/driver.png']);
+        $photo = Storage::disk('s3')->url('profiles/driver.png');
+
+        $this->getJson('/api/v1/conversations/'.$id, $this->headers($owner))
+            ->assertOk()->assertJsonPath('data.title', 'Updated Driver Name')
+            ->assertJsonPath('data.driver.name', 'Updated Driver Name')
+            ->assertJsonPath('data.driver.profile_photo_url', $photo);
+        $this->getJson('/api/v1/conversations?merchant_id='.$merchant->uuid, $this->headers($owner))
+            ->assertOk()->assertJsonPath('data.0.title', 'Updated Driver Name')
+            ->assertJsonPath('data.0.driver.profile_photo_url', $photo);
+
+        $user->update(['name' => 'Renamed Again', 'profile_photo_path' => null]);
+        $this->getJson('/api/v1/conversations/'.$id, $this->headers($owner))
+            ->assertOk()->assertJsonPath('data.title', 'Renamed Again')
+            ->assertJsonPath('data.driver.profile_photo_url', null);
+    }
+
     private function context(): array
     {
         $owner = User::factory()->create(['role' => 'user']);

@@ -27,6 +27,7 @@ export type Conversation = {
     merchant_id: string;
     type: 'driver' | 'normal';
     driver_id: string | null;
+    driver?: { name: string; profile_photo_url: string | null } | null;
     title: string | null;
     description: string | null;
     status: 'active' | 'closed';
