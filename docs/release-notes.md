@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-11 | Version: profile-photo-upload-errors-v1
+
+- **Summary:** Handle profile-photo storage failures safely and keep handled mobile upload errors out of the red development overlay.
+- **API Changes:** Unexpected profile-photo failures return HTTP 500 rather than 400, preserving `PROFILE_PHOTO_UPDATE_FAILED` and the request ID with retry guidance. Server logs include the exception.
+- **Database Changes:** None.
+- **Behavior Changes:** Check storage-write success before saving the user. Preserve the previous photo until the replacement is persisted, remove the new upload if persistence fails, and treat old-file cleanup as a non-fatal warning. Mobile photo-upload API errors remain thrown to the existing form error handler but are logged as warnings rather than console errors.
+- **Breaking Changes:** Clients that depend on HTTP 400 for unexpected upload failures must handle HTTP 500.
+- **Verification:** 13 profile/account API tests pass (39 assertions), including failed writes and failed old-file cleanup. Mobile TypeScript, focused API lint and diff checks pass. The production exception for request `37b6e30e-a60e-4358-ac74-8e02d0ba06b8` is not available locally; its underlying upload cause and real-device retry remain unverified. Changes are not deployed.
+
 ## 2026-10-11 | Version: admin-driver-conversation-profile-v1
 
 - **Summary:** Use current driver profile names and photos in conversations and remove redundant driver conversation controls.

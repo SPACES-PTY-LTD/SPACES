@@ -111,25 +111,39 @@ class MeController extends Controller
 
     public function updateProfilePhoto(UploadUserProfilePhotoRequest $request)
     {
+        $newPath = null;
+        $saved = false;
         try {
             $user = $request->user();
-            $user->profile_photo_path = $this->storeProfilePhoto(
+            $existingPath = $user->profile_photo_path;
+            $newPath = $this->storeProfilePhoto(
                 $user->uuid,
-                $request->file('photo'),
-                $user->profile_photo_path
+                $request->file('photo')
             );
-            $user->save();
-
-            return ApiResponse::success(new UserResource(
+            $user->profile_photo_path = $newPath;
+            if (!$user->save()) {
+                throw new \RuntimeException('Profile photo user update failed.');
+            }
+            $saved = true;
+            $response = ApiResponse::success(new UserResource(
                 $user->fresh()->load(['account', 'merchants', 'lastAccessedMerchant'])
             ));
         } catch (Throwable $e) {
+            if ($newPath && !$saved) {
+                $this->deleteProfilePhoto($newPath);
+            }
             Log::error('Profile photo update failed', [
                 'request_id' => ApiResponse::requestId(),
+                'exception' => $e,
                 'error' => $e->getMessage(),
             ]);
-            return $this->apiError($e, 'PROFILE_PHOTO_UPDATE_FAILED', 'Unable to update profile photo.');
+            return $this->apiError($e, 'PROFILE_PHOTO_UPDATE_FAILED', 'Unable to update profile photo. Please try again.', Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+
+        if ($existingPath && $existingPath !== $newPath) {
+            $this->deleteProfilePhoto($existingPath);
+        }
+        return $response;
     }
 
     public function updateLastAccessedMerchant(UpdateLastAccessedMerchantRequest $request)
@@ -200,19 +214,28 @@ class MeController extends Controller
         }
     }
 
-    private function storeProfilePhoto(string $userUuid, UploadedFile $photo, ?string $existingPath = null): string
+    private function storeProfilePhoto(string $userUuid, UploadedFile $photo): string
     {
         $disk = Storage::disk('s3');
         $extension = $photo->getClientOriginalExtension();
         $filename = (string) Str::uuid().($extension ? '.'.$extension : '');
         $path = sprintf('profile-photos/%s/%s', $userUuid, $filename);
 
-        $disk->putFileAs(dirname($path), $photo, basename($path), ['visibility' => 'public']);
-
-        if (!empty($existingPath) && $existingPath !== $path) {
-            $disk->delete($existingPath);
+        if (!$disk->putFileAs(dirname($path), $photo, basename($path), ['visibility' => 'public'])) {
+            throw new \RuntimeException('Profile photo storage write failed.');
         }
 
         return $path;
+    }
+
+    private function deleteProfilePhoto(string $path): void
+    {
+        try {
+            if (!Storage::disk('s3')->delete($path)) {
+                throw new \RuntimeException('Profile photo cleanup failed.');
+            }
+        } catch (Throwable $e) {
+            Log::warning('Profile photo cleanup failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
+        }
     }
 }

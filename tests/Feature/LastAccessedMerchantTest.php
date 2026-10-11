@@ -160,6 +160,35 @@ class LastAccessedMerchantTest extends TestCase
         $response->assertJsonPath('data.profile_photo_url', Storage::disk('s3')->url($user->profile_photo_path));
     }
 
+    public function test_failed_photo_write_preserves_existing_profile(): void
+    {
+        $user = User::factory()->create(['profile_photo_path' => 'profile-photos/existing.jpg']);
+        $client = $this->authenticated($user);
+        $disk = \Mockery::mock(\Illuminate\Filesystem\FilesystemAdapter::class);
+        $disk->shouldReceive('putFileAs')->once()->andReturn(false);
+        $disk->shouldNotReceive('delete');
+        Storage::shouldReceive('disk')->with('s3')->andReturn($disk);
+
+        $client->post('/api/v1/me/profile-photo', ['photo' => UploadedFile::fake()->image('new.jpg')])
+            ->assertStatus(500)->assertJsonPath('error.code', 'PROFILE_PHOTO_UPDATE_FAILED');
+        $this->assertSame('profile-photos/existing.jpg', $user->fresh()->profile_photo_path);
+    }
+
+    public function test_old_photo_cleanup_failure_does_not_fail_saved_upload(): void
+    {
+        $user = User::factory()->create(['profile_photo_path' => 'profile-photos/existing.jpg']);
+        $client = $this->authenticated($user);
+        $disk = \Mockery::mock(\Illuminate\Filesystem\FilesystemAdapter::class);
+        $disk->shouldReceive('putFileAs')->once()->andReturnUsing(fn ($dir, $file, $name) => $dir.'/'.$name);
+        $disk->shouldReceive('url')->andReturn('https://example.test/new.jpg');
+        $disk->shouldReceive('delete')->with('profile-photos/existing.jpg')->once()->andThrow(new \RuntimeException('Cleanup unavailable'));
+        Storage::shouldReceive('disk')->with('s3')->andReturn($disk);
+
+        $client->post('/api/v1/me/profile-photo', ['photo' => UploadedFile::fake()->image('new.jpg')])
+            ->assertOk()->assertJsonPath('data.profile_photo_url', 'https://example.test/new.jpg');
+        $this->assertNotSame('profile-photos/existing.jpg', $user->fresh()->profile_photo_path);
+    }
+
     public function test_account_holder_can_update_account_country_from_me_profile(): void
     {
         $user = User::factory()->create();

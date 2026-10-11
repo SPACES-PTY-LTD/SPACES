@@ -499,7 +499,7 @@ async function performRequest<T>(path: string, options: RequestOptions = {}): Pr
   } else payload = (await response.json()) as ApiEnvelope<T>;
 
   if (!response.ok || !payload.success) {
-    const logFailure = response.status === 429 && ['/driver/devices/register', '/driver/phone-location', '/driver/location-sharing'].includes(path) ? console.warn : console.error;
+    const logFailure = path === '/me/profile-photo' || (response.status === 429 && ['/driver/devices/register', '/driver/phone-location', '/driver/location-sharing'].includes(path)) ? console.warn : console.error;
     logFailure(`[api] request failed: ${method} ${url}`, {
       status: response.status,
       error: payload.error,
