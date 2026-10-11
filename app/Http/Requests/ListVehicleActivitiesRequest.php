@@ -35,6 +35,8 @@ class ListVehicleActivitiesRequest extends BaseRequest
             ])],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
+            'occurred_from' => ['nullable', 'date'],
+            'occurred_to' => ['nullable', 'date'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }

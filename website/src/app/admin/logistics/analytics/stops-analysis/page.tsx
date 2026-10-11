@@ -1,5 +1,6 @@
 import { format, isValid, parseISO } from "date-fns"
 import { StopsAnalysisDateFilter } from "@/components/reports/stops-analysis-date-filter"
+import { normalizeStopAnalysisPeriod, stopAnalysisPeriodBounds } from "@/components/reports/stops-analysis-period"
 import { PageHeader } from "@/components/layout/page-header"
 import { DataTable } from "@/components/common/data-table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -98,7 +99,7 @@ function locationLabel(activity: VehicleActivity): string {
   )
 }
 
-async function fetchEnteredLocationActivities(token: string, merchantId?: string, from?: string, to?: string): Promise<VehicleActivity[]> {
+async function fetchEnteredLocationActivities(token: string, merchantId?: string, from?: string, to?: string, timestampBounds: { occurred_from?: string; occurred_to?: string } = {}): Promise<VehicleActivity[]> {
   const rows: VehicleActivity[] = []
   const maxPages = 10
 
@@ -110,6 +111,7 @@ async function fetchEnteredLocationActivities(token: string, merchantId?: string
       event_type: "entered_location",
       from,
       to,
+      ...timestampBounds,
     })
 
     if (isApiErrorResponse(response)) {
@@ -253,9 +255,15 @@ export default async function StopsAnalysisPage({
   let from = normalizeDateFilter(getSingleValue(params.from))
   let to = normalizeDateFilter(getSingleValue(params.to))
   if (from && to && from > to) [from, to] = [to, from]
+  const period = normalizeStopAnalysisPeriod(getSingleValue(params.period), Boolean(from || to))
   const session = await requireAuth()
   const merchantId = session.selected_merchant?.merchant_id ?? undefined
-  const activities = await fetchEnteredLocationActivities(session.accessToken, merchantId, from, to)
+  const activities = await fetchEnteredLocationActivities(
+    session.accessToken, merchantId,
+    period === "custom" ? from : undefined,
+    period === "custom" ? to : undefined,
+    stopAnalysisPeriodBounds(period, new Date())
+  )
   const rows = sortStopAnalysisRows(buildStopAnalysisRows(activities), sortBy, sortDir)
   const tableRows = rows.map((row) => ({
     ...row,
@@ -277,7 +285,7 @@ export default async function StopsAnalysisPage({
       <PageHeader
         title="Stops Analysis"
         description="Visit and dwell-time analysis for geofenced stops."
-        actions={<StopsAnalysisDateFilter from={from} to={to} />}
+        actions={<StopsAnalysisDateFilter period={period} from={from} to={to} />}
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

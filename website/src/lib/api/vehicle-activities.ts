@@ -12,6 +12,8 @@ export type ListVehicleActivitiesParams = {
   event_type?: string
   from?: string
   to?: string
+  occurred_from?: string
+  occurred_to?: string
 }
 
 export type VehicleActivitiesResponse = ApiEnvelope<VehicleActivity[]> & ApiListResponse<VehicleActivity>
@@ -33,6 +35,8 @@ export async function listVehicleActivities(
       event_type: params.event_type,
       from: params.from,
       to: params.to,
+      occurred_from: params.occurred_from,
+      occurred_to: params.occurred_to,
     },
   })
 }

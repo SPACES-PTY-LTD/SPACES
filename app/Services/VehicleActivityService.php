@@ -70,6 +70,14 @@ class VehicleActivityService
             $query->whereDate('occurred_at', '<=', $filters['to']);
         }
 
+        if (! empty($filters['occurred_from'])) {
+            $query->where('occurred_at', '>=', \Illuminate\Support\Carbon::parse($filters['occurred_from'])->utc());
+        }
+
+        if (! empty($filters['occurred_to'])) {
+            $query->where('occurred_at', '<=', \Illuminate\Support\Carbon::parse($filters['occurred_to'])->utc());
+        }
+
         $perPage = min((int) ($filters['per_page'] ?? 20), 100);
 
         return $query->paginate($perPage);

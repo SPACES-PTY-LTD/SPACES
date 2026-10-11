@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-12 | Version: stops-analysis-period-presets-v1
+
+- **Summary:** Replace the Stops Analysis date filter with a preset dropdown and conditional custom date picker.
+- **API Changes:** `GET /api/v1/vehicle-activities` accepts optional inclusive `occurred_from` and `occurred_to` timestamp bounds, normalized to UTC. Existing whole-date `from`/`to` behavior is preserved.
+- **Database Changes:** None.
+- **Behavior Changes:** Offer Last 24hrs, Last 48hrs, Last 7 days, Last 2 weeks, Last month, Last 3 months, Last 6 months and Custom. Default to Last 24hrs; hour/week presets roll back from the report request time and month presets subtract calendar months. Custom reveals the existing date-range selector; applying/clearing dates preserves Custom. Keep the period in the URL, preserve sorting and reset pagination. Legacy date-bound links select Custom. Switching presets removes custom bounds and applies the same window to all activity pages, totals and rows.
+- **Breaking Changes:** None to API consumers. The report now defaults to the last 24 hours rather than unbounded history; deploy timestamp-filter API support alongside the website.
+- **Verification:** Three frontend regressions pass for hour/week durations, month-end clamping, default/invalid/legacy selections and custom bounds. Timestamp-filter API regression passes (6 assertions), covering inclusive exact bounds, timezone offsets, existing whole-date bounds and invalid values. Website TypeScript, focused ESLint and git diff checks pass. Authenticated browser dropdown/custom interaction remains pending; the report retains its existing 1,000-activity limit.
+
 ## 2026-10-12 | Version: shipment-run-end-timeline-v1
 
 - **Summary:** Show where a shipment's linked run ended after delivery when the recorded end location differs from the delivery location.
