@@ -120,6 +120,63 @@ class AutoRunLifecycleServiceTest extends TestCase
         $this->assertSame(Run::STATUS_IN_PROGRESS, $visit->run->fresh()->status);
     }
 
+    #[\PHPUnit\Framework\Attributes\DataProvider('exitCreationScenarios')]
+    public function test_exit_automation_delivers_the_shipment_it_creates(bool $explicitExit, bool $startNextRun): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $origin = $this->createLocation($merchant, 'Origin', true, -33.92, 18.42);
+        $destination = $this->createLocation($merchant, 'Destination', false, -33.95, 18.45);
+        $exitActions = [['id' => 'create-on-exit', 'action' => 'create_shipment', 'conditions' => []]];
+        if ($startNextRun) {
+            $exitActions[] = ['id' => 'start-next-run', 'action' => 'start_run', 'conditions' => []];
+        }
+        $merchant->update(['location_automation_settings' => ['location_types' => [[
+            'location_type_id' => $destination->locationType->uuid,
+            'entry' => [['id' => 'record-entry', 'action' => 'record_vehicle_entry', 'conditions' => []]],
+            'exit' => $exitActions,
+        ]]]]);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-10-11 08:00:00');
+        $service->processVehiclePosition($vehicle, $merchant, -33.92, 18.42, $at, null, null, 1000);
+        $deliveryRun = Run::sole();
+        $service->processVehiclePosition($vehicle, $merchant, -33.95, 18.45, $at->copy()->addMinutes(10), null, null, 1010);
+        $this->assertDatabaseCount('shipments', 0);
+        $exitAt = $at->copy()->addMinutes(20);
+        if ($explicitExit) {
+            $this->assertTrue($service->processVehicleLocationExit($vehicle, $merchant, $destination, $exitAt));
+        } else {
+            $service->processVehiclePosition($vehicle, $merchant, -33.90, 18.40, $exitAt, null, null, 1020);
+        }
+
+        $shipment = Shipment::sole();
+        $visit = VehicleActivity::where('location_id', $destination->id)
+            ->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION)->sole();
+        $this->assertSame('delivered', $shipment->status);
+        $this->assertSame($origin->id, $shipment->pickup_location_id);
+        $this->assertSame($deliveryRun->id, $visit->run_id);
+        $this->assertSame($shipment->id, $visit->shipment_id);
+        $this->assertTrue($visit->exited_at->equalTo($exitAt));
+        $this->assertSame('delivered', $shipment->booking->status);
+        $this->assertTrue($shipment->booking->delivered_at->equalTo($exitAt));
+        $this->assertSame($explicitExit ? null : 1020, $shipment->booking->odometer_at_delivery);
+        $this->assertSame(RunShipment::STATUS_DONE, RunShipment::sole()->status);
+        $this->assertSame($startNextRun ? Run::STATUS_COMPLETED : Run::STATUS_IN_PROGRESS, $deliveryRun->fresh()->status);
+        $this->assertSame($startNextRun ? 2 : 1, Run::count());
+        $delivery = VehicleActivity::where('shipment_id', $shipment->id)
+            ->where('event_type', VehicleActivity::EVENT_SHIPMENT_DELIVERY)->sole();
+        $this->assertTrue($delivery->exited_at->equalTo($exitAt));
+        $this->assertFalse($service->processVehicleLocationExit($vehicle, $merchant, $destination, $exitAt->copy()->addMinute()));
+        $service->processVehiclePosition($vehicle, $merchant, -33.90, 18.40, $exitAt->copy()->addMinutes(2));
+        $this->assertDatabaseCount('shipments', 1);
+        $this->assertSame(1, $shipment->trackingEvents()->where('event_code', 'delivered')->count());
+        $this->assertSame(1, VehicleActivity::where('shipment_id', $shipment->id)->where('event_type', VehicleActivity::EVENT_SHIPMENT_ENDED)->count());
+    }
+
+    public static function exitCreationScenarios(): array
+    {
+        return [[false, false], [true, false], [false, true], [true, true]];
+    }
+
     public function test_stale_departure_cannot_close_a_newer_arrival(): void
     {
         [$service, $merchant, $vehicle, $destination, $shipment, $visit, $at] = $this->arrivalContext();

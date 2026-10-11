@@ -308,6 +308,7 @@ class AutoRunLifecycleService
         }
         $this->markAutoShipmentDeliveredOnLocationExit($activeVisit, $occurredAt, $odometerKilometres);
         if ($activeVisit->location && !$driverRun) {
+            $shipmentIdBeforeAutomation = $activeVisit->shipment_id;
             $this->executeConfiguredLocationAutomation(
                 merchant: $merchant,
                 vehicle: $vehicle,
@@ -318,6 +319,12 @@ class AutoRunLifecycleService
                 driverIntegrationId: $driverIntegrationId,
                 odometerKilometres: $odometerKilometres,
             );
+            // Exit rules can create/link a shipment after the first completion check.
+            // Keep that check before rules that may start another run, then complete
+            // newly linked work using the same recorded departure and delivery run.
+            if ($activeVisit->shipment_id && $activeVisit->shipment_id !== $shipmentIdBeforeAutomation) {
+                $this->markAutoShipmentDeliveredOnLocationExit($activeVisit, $occurredAt, $odometerKilometres);
+            }
         }
 
         $this->recordVehicleActivity(

@@ -14,6 +14,7 @@ use App\Http\Resources\TrackingEventResource;
 use App\Models\Merchant;
 use App\Models\RunShipment;
 use App\Models\Shipment;
+use App\Models\VehicleActivity;
 use App\Services\BookingService;
 use App\Services\RunService;
 use App\Services\ShipmentService;
@@ -220,6 +221,41 @@ class ShipmentController extends Controller
             $shipmentIntervals = $visitIntervals[$shipment->id] ?? [];
             $shipment->setRelation('pickupVisitActivity', $shipmentIntervals['pickup'] ?? null);
             $shipment->setRelation('dropoffVisitActivity', $shipmentIntervals['dropoff'] ?? null);
+
+            // Run-end observations belong to the run, often without a shipment_id.
+            // Use recorded evidence, never the run's planned destination.
+            $runEnds = VehicleActivity::query()
+                ->with(['merchant', 'vehicle.lastDriver.user', 'location.locationType', 'run.driver.user', 'shipment'])
+                ->where('event_type', VehicleActivity::EVENT_RUN_ENDED)
+                ->where('account_id', $shipment->account_id)
+                ->where('merchant_id', $shipment->merchant_id)
+                ->whereHas('run', function ($query) use ($shipment) {
+                    $query->where('account_id', $shipment->account_id)
+                        ->where('merchant_id', $shipment->merchant_id)
+                        ->whereColumn('runs.vehicle_id', 'vehicle_activity.vehicle_id')
+                        ->whereHas('runShipments', function ($query) use ($shipment) {
+                            $query->where('shipment_id', $shipment->id)
+                                ->where('status', '!=', RunShipment::STATUS_REMOVED);
+                        });
+                })
+                ->get();
+
+            $shipment->setRelation('vehicleActivities', $shipment->vehicleActivities
+                ->concat($runEnds)
+                ->unique('id')
+                ->filter(function (VehicleActivity $activity) use ($shipment) {
+                    if ($activity->event_type !== VehicleActivity::EVENT_RUN_ENDED) {
+                        return true;
+                    }
+
+                    if ($activity->location_id !== null) {
+                        return $activity->location_id !== $shipment->dropoff_location_id;
+                    }
+
+                    return $activity->latitude !== null && $activity->longitude !== null;
+                })
+                ->sortBy([['occurred_at', 'asc'], ['id', 'asc']])
+                ->values());
 
             return ApiResponse::success(new ShipmentResource($shipment));
         } catch (Throwable $e) {

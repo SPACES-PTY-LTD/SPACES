@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-12 | Version: shipment-run-end-timeline-v1
+
+- **Summary:** Show where a shipment's linked run ended after delivery when the recorded end location differs from the delivery location.
+- **API Changes:** `GET /api/v1/shipments/{shipment_uuid}` includes eligible linked-run `run_ended` observations in existing `stops`, with no schema change. Omit same-delivery-location run ends and deduplicate existing shipment-linked observations.
+- **Database Changes:** None; reuse recorded vehicle activities and nonremoved run assignments.
+- **Behavior Changes:** Show Run ended in the chronological shipment timeline, existing map and stop dialog, including completed historical run assignments. Compare saved location IDs rather than names; constrain added events to the shipment account/merchant and run vehicle. GPS-only endings display coordinate titles. Missing coordinates no longer create zero-coordinate markers. Planned endpoints and missing end observations never imply a recorded ending.
+- **Breaking Changes:** None.
+- **Verification:** Ten shipment-detail API regressions pass (39 assertions), covering distinct/same locations, identical names, completed runs, deduplication, removed/unrelated assignments, merchant/vehicle isolation, GPS-only ends and missing evidence. Website TypeScript and focused shipment-timeline ESLint pass. Authenticated live browser verification and deployment remain pending. Dashboard plan updated; mobile Figma unaffected.
+
+## 2026-10-12 | Version: exit-automation-shipment-delivery-v1
+
+- **Summary:** Complete automatic shipments created or linked by delivery-location exit rules on the same recorded departure.
+- **API Changes:** None.
+- **Database Changes:** None; no historical backfill or production record changes.
+- **Behavior Changes:** Preserve the existing pre-automation delivery check, then complete a newly linked shipment after exit actions execute. Update its shipment and internal booking to Delivered, set booking delivery time from the recorded exit, retain valid GPS departure odometer data and mark the original run assignment done. Keep the original delivery-run link when a subsequent exit action starts the next run. Existing vehicle/run/merchant/destination checks, driver corrections, terminal-state protection and duplicate-event guards remain enforced.
+- **Breaking Changes:** None.
+- **Verification:** Reproduced the previous failure in all four new regression scenarios (GPS/explicit exit, with/without starting the next run). After the fix, 69 lifecycle, tracking-job and shipment-report tests pass (751 assertions). PHP syntax and git diff checks pass. Read-only production inspection of AUTO-SHIP-16344-28111 confirms shipment creation and recorded exit share 2026-10-10 14:09:57 while its status remains At delivery location. Deployment and historical reconciliation remain outstanding; no live statuses were edited. Dashboard implementation note updated; intended behavior and Figma flow unchanged.
+
 ## 2026-10-11 | Version: admin-run-stop-duration-v1
 
 - **Summary:** Show total time at location and overdue warnings beside recorded run stops.

@@ -1,7 +1,7 @@
 # Driver dashboard plan
 
-Version: 2.198
-Last updated: 2026-10-11
+Version: 2.200
+Last updated: 2026-10-12
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
 ## Purpose and maintenance
@@ -593,11 +593,26 @@ New `POST /api/v1/runs/{run_uuid}/shipments/create` validates the existing shipm
 
 Verification: targeted API/lifecycle/import tests, website TypeScript, focused lint and diff checks are recorded in release notes. Authenticated browser interaction remains pending. Existing mobile Figma screens and actions are unaffected; no corresponding admin shipment-card Figma design is referenced in this plan.
 
+### Admin shipment run-end timeline (2.200 — implemented locally)
+
+On shipment details, include recorded **Run ended** observations from nonremoved shipment run assignments in the chronological stop timeline, map and stop-details dialog. Include historical completed runs even when `currentRunShipment` is absent. Restrict observations to the shipment account/merchant and the linked run vehicle; exclude unrelated runs and deduplicate by activity ID. Hide the run-end entry when its saved location ID equals the shipment delivery location ID. Compare IDs rather than names. Preserve delivery and other shipment events.
+
+Use the recorded end timestamp, location and GPS coordinates. GPS-only ends display their coordinates as the title. Do not infer an actual end from a planned destination or completion timestamp; omit end observations without a saved location or coordinate pair. Missing coordinates must not produce a map marker at zero. Existing mobile dashboard Figma designs are unaffected; this plan references no corresponding admin shipment-timeline Figma screen.
+
+- [x] Include distinct recorded run endings from nonremoved linked runs, preserving chronological order and suppressing duplicate/same-delivery-location entries.
+- [x] Verify different/same locations, identical names, completed runs, duplicates, removed assignments, unrelated runs, merchant/vehicle isolation, GPS-only ends and missing evidence with 10 API regressions (39 assertions). Website TypeScript and focused ESLint pass.
+- [ ] Verify authenticated live shipment timeline, map marker and stop dialog after deployment. Historical runs without recorded end observations remain unavailable.
+
 ### Auto-created shipment arrival and departure (2.07, implemented locally)
 
 For future qualifying destination visits, auto-created shipments and their internal bookings use **At delivery location** (`at_delivery_location`) from confirmed destination geofence entry until a recorded exit. This confirms presence only; it does not claim unloading has started. Keep the shipment outstanding, the assignment active and delivery time unset while the visit is open. Ordinary in-transit shipments retain **In transit** before arrival. This also applies to existing auto-created shipments attached to driver-workflow runs; it does not enable automatic shipment creation in that workflow.
 
 On departure, update the matching shipment and booking to **Delivered**, use the recorded exit time as `delivered_at`, retain valid recorded odometer data and mark the assignment done in the existing transaction. Require the same vehicle, account/merchant, run and destination, a nonremoved assignment and pickup distinct from destination. A combined delivery/collection stop retains its delivery-run link when collection automation starts the next run; the new run retains its own run-start event. Respect driver corrections and terminal states. Repeated position/exit reports must not duplicate shipments or status/delivery events; stale departure timestamps cannot close newer visits. Missing departure evidence never completes delivery. Shipment completion alone does not close the run.
+
+Implementation correction (2.199, 2026-10-12): configured exit rules may create or link the shipment only after the initial departure completion check. Complete that newly linked shipment after the exit rules, using the same recorded exit and original delivery-run link, including when a later exit rule starts the next run. The existing pre-rule check preserves completion of already linked work and existing rule conditions. This repairs the intended departure behavior; it does not change the Figma flow. Production AUTO-SHIP-16344-28111 visibly has shipment creation and exit at the same timestamp but remains At delivery location. Four new GPS/explicit-exit and next-run scenarios reproduced the bug before the fix; 69 targeted lifecycle/tracking/report tests (751 assertions) pass afterward. Implemented locally; deployment and historical reconciliation remain pending, with no production status edits or backfill.
+
+- [x] Complete shipments newly created/linked by exit automation on the same departure; synchronize booking time/status and original assignment, preserve valid odometer evidence and avoid duplicate delivery events.
+- [ ] Deploy the fix and verify exit-created shipments complete on live departure; audit historical stuck shipments before any reconciliation.
 
 Booking synchronization preserves arrival status. Record automatic entry/exit changes in shipment status history with old/new values, source and linked visit. Show the new label in website badges/filters and mobile shipment/import review. Active mapped-booking reports include arrival bookings; dashboard statistics expose a separate `at_delivery_location_bookings` count and card, preserving the existing in-transit count. Driver-selectable values remain exactly Booked, Delivered, In transit and Failed Delivery; arrival is system-assigned.
 
@@ -1340,6 +1355,8 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-12 | 2.200 | Include recorded run-end locations in admin shipment timelines when distinct from delivery; retain chronological map/dialog behavior and suppress duplicates. Ten API regressions, website TypeScript and focused lint pass. Authenticated live verification pending; mobile Figma unaffected. |
+| 2026-10-12 | 2.199 | Fix departure completion for shipments created/linked by exit automation, preserving original delivery-run links when a next run starts. Four regression scenarios reproduced the bug before the fix; 69 targeted tests pass. Local implementation only; production deployment and historical reconciliation pending. Intended behavior and Figma flow unchanged. |
 | 2026-10-11 | 2.198 | Show recorded arrival/departure duration on admin run stops, with a red warning and explanatory tooltip above the saved location allowance. Missing intervals remain unavailable; automated verification recorded in release notes, live browser verification pending. Mobile Figma unaffected. |
 | 2026-10-11 | 2.197 | Use recorded arrivals and saved location allowances for per-vehicle monitoring overdue colour and elapsed/excess/allowed-time notices. Open standby visits remain eligible. Automated verification recorded in release notes; live browser verification pending. Mobile Figma unaffected. |
 | 2026-10-11 | 2.196 | Show admin recorded-stop and shipment location types; open merchant-scoped location details in a drawer. Browser verification pending; mobile Figma unaffected. |

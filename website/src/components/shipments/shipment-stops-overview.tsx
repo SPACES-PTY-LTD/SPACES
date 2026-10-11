@@ -33,8 +33,9 @@ const defaultZoom = 11
 const singleStopZoom = 14
 
 function toCoordinate(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") return null
   const coordinate = Number(value)
-  return Number.isNaN(coordinate) ? null : coordinate
+  return Number.isFinite(coordinate) ? coordinate : null
 }
 
 function getStopKey(stop: ShipmentStop, fallbackIndex: number) {
@@ -91,6 +92,12 @@ function formatEventLabel(value?: string | null) {
 }
 
 function getStopTitle(stop: ShipmentStop) {
+  if (stop.event_type === "run_ended" && !stop.location) {
+    const position = getStopPosition(stop)
+    return position
+      ? `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`
+      : "Run end location unavailable"
+  }
   return (
     stop.location?.name ??
     stop.location?.code ??
