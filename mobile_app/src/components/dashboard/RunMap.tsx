@@ -17,6 +17,18 @@ import { groupRunMapStops, locationCoordinate, runMapStops } from './run-map-dat
 
 // Temporarily hide mode selection; keep Recorded available for re-enabling later.
 const SHOW_MAP_MODE_SWITCH = false;
+const runStartMarkers = {
+  24: require('../../../assets/images/maps/run-start-16.png'),
+  32: require('../../../assets/images/maps/run-start-20.png'),
+  40: require('../../../assets/images/maps/run-start-24.png'),
+  48: require('../../../assets/images/maps/run-start.png'),
+};
+const runStopMarkers = {
+  24: require('../../../assets/images/maps/run-stop-16.png'),
+  32: require('../../../assets/images/maps/run-stop-20.png'),
+  40: require('../../../assets/images/maps/run-stop-24.png'),
+  48: require('../../../assets/images/maps/run-stop.png'),
+};
 const truckMarkerImages = {
   24: require('../../../assets/images/maps/truck-location-24.png'),
   32: require('../../../assets/images/maps/truck-location-32.png'),
@@ -56,6 +68,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   const [showRouteInfo, setShowRouteInfo] = useState(false);
   const [ready, setReady] = useState(false);
   const [truckMarkerSize, setTruckMarkerSize] = useState<24 | 32 | 40 | 48>(24);
+  const markerHalfExtent = { 24: 6, 32: 8, 40: 10, 48: 12 }[truckMarkerSize];
   const focused = useIsFocused();
   const mapLifecycle = useRef({ ready: false, loaded: false, width: 0, height: 0 });
   const [selectedMode, setMode] = useState<'planned' | 'recorded'>('planned');
@@ -137,7 +150,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   const popupY = Math.max(popupClearance, Math.min(popupTop, mapSize.height - popupHeight - 12));
   const popupAbove = !!popup && popupY + popupHeight <= popup.point.y;
   const pointerEdge = popupAbove ? popupY + popupHeight : popupY;
-  const pointerHeight = popup ? Math.abs(popup.point.y - (popupAbove ? 30 : 0) - pointerEdge) : 0;
+  const pointerHeight = popup ? Math.abs(popup.point.y - (popupAbove ? markerHalfExtent : -markerHalfExtent) - pointerEdge) : 0;
   const pointerBase = popup ? Math.max(24, Math.min(popup.point.x - popupLeft, popupWidth - 24)) : 0;
   const pointerShift = popup ? popup.point.x - popupLeft - pointerBase : 0;
   const openPopupShipment = () => {
@@ -224,7 +237,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       showsPointsOfInterests={false} showsCompass={false} rotateEnabled={false} pitchEnabled={false}
       accessibilityLabel={navigationId ? 'Route to selected delivery' : runId ? 'Current run shipment locations' : 'Current truck location'}>
       {mode === 'planned' && road && missing === 0 ? <Polyline coordinates={road} strokeColor="#000000" strokeWidth={4} /> : null}
-      {mode === 'planned' && endpointPins.map(p => <Marker key={p.role} coordinate={p.coordinate} onPress={dismissPopup} title={`${p.role} · ${p.name}`} description={p.address} pinColor={p.role === 'Run starting point' ? '#2563eb' : '#71717a'} />)}
+      {mode === 'planned' && endpointPins.map(p => <Marker key={p.role} coordinate={p.coordinate} onPress={dismissPopup} title={`${p.role} · ${p.name}`} description={p.address} image={p.role === 'Run starting point' ? runStartMarkers[truckMarkerSize] : runStopMarkers[truckMarkerSize]} anchor={{ x: 0.5, y: 0.5 }} />)}
       {phone && <Marker coordinate={phone} onPress={dismissPopup} title="Your phone location" pinColor="#2563eb" />}
       {!navigationId && truck ? <Marker coordinate={truck} onPress={dismissPopup} zIndex={100} title={position?.plate_number ? `Truck · ${position.plate_number}` : 'Your truck'}
         image={truckMarkerImages[truckMarkerSize]} anchor={{ x: 0.5, y: 0.5 }}
@@ -236,20 +249,16 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
       </Marker> : null}
       {mode === 'planned' && groups.map(group => {
         const numbers = group.stops.map(stop => stop.number).join(' · ');
-        const allDelivered = group.stops.every(stop => stop.shipment.status === 'delivered');
         return <Marker key={groupIds(group)} coordinate={group.coordinate}
+          image={runStopMarkers[truckMarkerSize]} anchor={{ x: 0.5, y: 0.5 }}
           identifier={`stop-${numbers}`} accessibilityLabel={`Stop ${numbers}. Show shipment location`}
-          onPress={event => { event.stopPropagation?.(); void showPopup(group); }}>
-          <View style={[styles.marker, { backgroundColor: allDelivered ? '#24753a' : '#15803d' }]}>
-            <Text style={styles.number}>{numbers}</Text>
-          </View>
-        </Marker>;
+          onPress={event => { event.stopPropagation?.(); void showPopup(group); }} />;
       })}
       {mode === 'recorded' && recorded.track?.segments.map((segment, index) => segment.length > 1
         ? <Polyline key={index} coordinates={segment} strokeColor="#2563eb" strokeWidth={4} />
         : segment[0] ? <Marker key={index} coordinate={segment[0]} title="Recorded position" /> : null)}
       {mode === 'recorded' && recorded.track?.stops.map((stop, index) => <Marker key={index} coordinate={stop} title="Stationary"
-        description={`${new Date(stop.first_seen_at).toLocaleString()} – ${new Date(stop.last_seen_at).toLocaleString()}`} pinColor="#71717a" />)}
+        description={`${new Date(stop.first_seen_at).toLocaleString()} – ${new Date(stop.last_seen_at).toLocaleString()}`} image={runStopMarkers[truckMarkerSize]} anchor={{ x: 0.5, y: 0.5 }} />)}
     </NativeMap>
     {popupGroup && popup && mapSize.width > 0 && <View
       onLayout={event => setPopupHeight(event.nativeEvent.layout.height)}
@@ -371,8 +380,6 @@ const styles = StyleSheet.create({
   popupPointer: { position: 'absolute', width: 0, height: 0, borderLeftWidth: 10, borderRightWidth: 10, borderLeftColor: 'transparent', borderRightColor: 'transparent' },
   shipmentPopup: { position: 'absolute', padding: 12, gap: 12, borderRadius: 12, shadowColor: '#000000', shadowOpacity: 0.16, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 5 },
   shipmentInfoButton: { minHeight: 44, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: '#15803d', alignItems: 'center', justifyContent: 'center' },
-  marker: { minWidth: 30, paddingHorizontal: 6, height: 30, borderRadius: 15, borderWidth: 3, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
-  number: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
   empty: { position: 'absolute', top: '42%', alignSelf: 'center', width: '82%', padding: 18, borderRadius: 16, backgroundColor: '#ffffff' },
   emptyTitle: { color: '#111111', fontSize: 16, fontWeight: '700', textAlign: 'center' },
   emptyText: { color: '#71717a', fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 6 },

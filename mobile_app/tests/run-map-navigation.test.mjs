@@ -53,9 +53,10 @@ function harness() {
 }
 const route = { status: 'ready', shipment_id: 'selected', origin_source: 'phone', origin_coordinate: { latitude: 0, longitude: 0 }, coordinates: [{ latitude: -26, longitude: 28 }, { latitude: -26.1, longitude: 28.1 }], distance_meters: 1000, duration_seconds: 120 };
 
-test('overview truck image scales down with zoom without changing its coordinate or popup', async () => {
+test('overview truck, start and stop images scale with zoom without changing coordinates', async () => {
   const app = harness();
   app.props.navigationShipment = undefined;
+  app.props.endpoints.push({ role: 'Run starting point', name: 'Depot', latitude: -25, longitude: 27 });
   app.render();
   await app.flush();
   for (const [span, image] of [[10, 'truck-location-24.png'], [0.3, 'truck-location-32.png'], [0.05, 'truck-location-40.png'], [0.005, 'truck-location.png'], [2, 'truck-location-24.png']]) {
@@ -68,6 +69,16 @@ test('overview truck image scales down with zoom without changing its coordinate
     assert.equal(marker.props.description, 'Last report');
     assert.equal(marker.props.anchor.x, 0.5);
     assert.equal(marker.props.anchor.y, 0.5);
+    const size = span >= 1 ? 16 : span >= 0.1 ? 20 : span >= 0.02 ? 24 : 28;
+    const suffix = size === 28 ? '' : `-${size}`;
+    const start = app.nodes('Marker').find(n => n.props.title?.startsWith('Run starting point'));
+    const stop = app.nodes('Marker').find(n => n.props.identifier === 'stop-1 · 2');
+    assert.ok(start.props.image.endsWith(`run-start${suffix}.png`));
+    assert.ok(stop.props.image.endsWith(`run-stop${suffix}.png`));
+    assert.equal(start.props.coordinate.latitude, -25);
+    assert.equal(stop.props.coordinate.latitude, -26.1);
+    assert.equal(start.props.anchor.y, 0.5);
+    assert.equal(stop.props.anchor.y, 0.5);
   }
 });
 
@@ -130,7 +141,7 @@ test('shipment marker shows a location popup before Shipment info opens details'
   assert.ok(h.nodes('Text').some(n => n.props.children === 'selected'));
   const pointer = h.nodes('View').find(n => n.props.testID === 'shipment-popup-pointer');
   assert.equal(pointer.props.pointerEvents, 'none');
-  assert.equal(pointer.props.style[1].borderBottomWidth, 20);
+  assert.equal(pointer.props.style[1].borderBottomWidth, 14);
   h.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Shipment info').props.onPress(); h.render();
   assert.deepEqual(h.opened, ['selected']);
   assert.equal(h.nodes('Pressable').some(n => n.props.accessibilityLabel === 'Shipment info'), false);
@@ -183,7 +194,7 @@ test('popup pointer stays on the projected marker when the card is shifted at ma
     const tipX = current.left + pointer.left + 10 + skew * (downward ? height / 2 : -height / 2);
     const tipY = current.top + pointer.top + (downward ? height : 0);
     assert.ok(Math.abs(tipX - point.x) < 0.001);
-    assert.equal(tipY, point.y - (downward ? 30 : 0));
+    assert.equal(tipY, point.y - (downward ? 6 : -6));
     assert.equal(pointer.borderTopColor, '#ffffff');
   }
 });

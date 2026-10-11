@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-11 | Version: mobile-run-safety-hide-empty-v1
+
+- **Summary:** Hide Safety and speeding when there is no recorded information to display.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Omit the section heading, divider, spacing and unavailable-data message for missing/null safety or zero events with no finite speed/exceedance readings. Keep populated events and recorded zero readings visible.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused component ESLint and diff checks pass. Dashboard plan and Figma handoff aligned. Native visual verification pending.
+
+## 2026-10-11 | Version: dashboard-start-stop-marker-images-v1
+
+- **Summary:** Use distinct black-and-white marker images for run starting locations and stops.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** The starting endpoint uses a black circle with a white round dot; shipment stops, planned end and recorded stationary stops use a black square with a white square dot. Generate transparent 16/20/24/28-point PNGs with 1×/2×/3× variants and editable base SVG sources. Match truck zoom thresholds (latitude span ≥1 / ≥0.1 / ≥0.02 / closer) so start/stop markers shrink when zoomed out and grow when zoomed in. Center markers on coordinates and adjust popup pointers to the current square edge as marker size changes. Retain truck/phone markers, grouping, route geometry and stop numbers in accessibility labels/popups; replace green numbered map badges.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused map lint (pre-existing effect/purity errors excluded) and 18 map/navigation tests pass. Update existing tests for zoom-specific start/stop images, preserved coordinates/anchors and centered square popup geometry. Image assets visually inspected; dashboard plan, canonical Figma stop illustrations and handoff aligned. Native iOS/Android density, contrast, marker placement and popup checks remain pending.
+
 ## 2026-10-11 | Version: mobile-message-delete-v1
 
 - **Summary:** Long-press a driver’s sent message to open a destructive Delete message action sheet.
