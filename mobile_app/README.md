@@ -61,15 +61,16 @@ This app uses a custom Expo development client for native Google Maps and the da
 - `development-simulator`: iOS simulator client, without Apple signing credentials.
 - `development`: internal development client for physical devices; Android produces an APK. Physical iOS devices require Apple signing/provisioning.
 - `preview` and `production`: separate non-development build profiles.
+- `production-apk`: signed release APK for direct Android installation, extending `production` and using its EAS production variables (Maps, API and Firebase). Submit with `eas build --platform android --profile production-apk`. The `production` profile still produces the Play Store AAB.
 
-Configure these variables in the EAS **development** environment before submitting:
+Configure these variables in the EAS environment selected by the build profile before submitting:
 
 | Variable | Visibility | Purpose |
 | --- | --- | --- |
 | `GOOGLE_MAPS_IOS_API_KEY` | Sensitive | Maps SDK for iOS |
 | `GOOGLE_MAPS_ANDROID_API_KEY` | Sensitive | Maps SDK for Android |
 | `EXPO_PUBLIC_API_BASE_URL` | Plaintext | Reachable Laravel URL including `/api/v1` |
-| `EXPO_PUBLIC_APP_ENV` | Plaintext | `development` |
+| `EXPO_PUBLIC_APP_ENV` | Plaintext | `development` for development builds; `production` for production builds |
 
 `app.config.js` passes keys through the current `react-native-maps` plugin options (`iosGoogleMapsApiKey` / `androidGoogleMapsApiKey`). Missing platform keys fail EAS builds with an actionable error. Keep actual keys out of app.json and Git. Sensitive variables are needed during both local EAS config resolution and the remote build. Root `.easignore` includes only the mobile app and excludes environment files, native generated directories and dependencies.
 
@@ -86,12 +87,14 @@ For Android: `npm run build:dev:android`. For a signed physical iOS client: `eas
 
 Setup status (2026-10-07): dev client and EAS profiles/project are configured. With explicit user approval, both Maps keys were added as Sensitive variables and the API URL/app environment as Plaintext variables in the EAS development environment. The previous Android build failed because that environment had no variables. [Android development build retry](https://expo.dev/accounts/leroyg/projects/spaces-digital/builds/1fb1ff0a-dd1d-4929-98d8-1f1d3ae3c433) was submitted using the existing remote signing credentials; native map verification remains pending until it completes and is installed.
 
+Production Android setup (2026-10-12): the first production build failed during app-config resolution because the production EAS environment had no variables. With explicit user approval, the existing Sensitive `GOOGLE_MAPS_ANDROID_API_KEY` now applies to both development and production; production Plaintext values are `EXPO_PUBLIC_APP_ENV=production` and `EXPO_PUBLIC_API_BASE_URL=https://api.spaces.za.com/api/v1`. [Production Android retry](https://expo.dev/accounts/leroyg/projects/spaces-digital/builds/92ec5b7c-6417-4664-8dc0-68d85ef7c7d5) was submitted using the existing remote keystore. Cloud completion and installed-device Maps verification remain pending. Production iOS still needs its own Maps variable and signing setup.
+
 
 ## Messages and assigned vehicles
 
 Messages replaces Vehicles in the bottom navigation and opens the driver's shared dispatch conversation. Account → **Vehicles assigned to me** opens the existing assigned fleet and vehicle details. Text and up to five private attachments (20 MB each) are supported. Normal conversations are website/API-only initially. Visible chats poll every ten seconds; drafts survive send failures.
 
-Native push uses `expo-notifications`, existing device registration, the configured EAS project ID, and queued backend delivery. Rebuild development clients. Android needs FCM v1 credentials and an EAS File variable `GOOGLE_SERVICES_JSON` for `android.googleServicesFile`; iOS needs APNs credentials and a signed device build. These external credentials/builds remain pending. Permission denial leaves messaging available. Notification taps authorize and open the driver's chat; active-chat banners are suppressed.
+Native push uses `expo-notifications`, existing device registration, the configured EAS project ID, and queued backend delivery. Rebuild development clients. Android needs FCM v1 credentials and an EAS File variable `GOOGLE_SERVICES_JSON` for `android.googleServicesFile`; iOS needs APNs credentials and a signed device build. On 2026-10-12, the verified Firebase Android configuration for project `xamplle-94d00` and package `com.spaces.logistics` was uploaded with user approval as a Sensitive File variable `GOOGLE_SERVICES_JSON` in the EAS production environment. A new production build is required to embed it; earlier builds do not acquire the file retroactively. FCM v1 sending credentials and installed-device push verification remain pending; this file is not a service-account credential. iOS APNs/signed-device setup remains pending. Permission denial leaves messaging available. Notification taps authorize and open the driver's chat; active-chat banners are suppressed.
 
 See [messaging API, permissions and rollout](../docs/messaging.md) for migrations, workers, private storage and verification.
 

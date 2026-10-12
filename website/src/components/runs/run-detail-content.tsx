@@ -16,7 +16,9 @@ import { formatAddress } from "@/lib/address"
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import { LocationDetailsDrawer } from "@/components/locations/location-details-drawer"
 import { Badge } from "@/components/ui/badge"
+import { ShipmentLocationTimeCell } from "@/components/runs/shipment-location-time-cell"
 import { RunStopDuration } from "@/components/runs/run-stop-duration"
+import { RecordedStopDrawer } from "@/components/runs/recorded-stop-drawer"
 import type { Location, ShipmentStop } from "@/lib/types"
 
 function runLocationLabel(location: Location | null | undefined, fallback: string) {
@@ -85,6 +87,7 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
     return <ErrorMessage title="Run" description="Run details and recorded telemetry." message={run.message} />
   }
 
+  const initialNow = new Date().toISOString()
   const stats = run.stats
   const safety = run.safety
   const distanceSource = stats?.distance_source === "gps" ? "Calculated from recorded GPS points" : stats?.distance_source === "odometer" ? "Calculated from start and end odometer" : "No distance telemetry"
@@ -143,7 +146,7 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
         </CardHeader>
         <CardContent>
           <Table>
-            <TableHeader><TableRow><TableHead>Reference</TableHead><TableHead>Created at</TableHead><TableHead>Sequence</TableHead><TableHead>Pickup</TableHead><TableHead>Drop-off</TableHead><TableHead>Parcels</TableHead><TableHead>Shipment status</TableHead><TableHead>Run status</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Reference</TableHead><TableHead>Created at</TableHead><TableHead>Sequence</TableHead><TableHead>Pickup</TableHead><TableHead>Drop-off</TableHead><TableHead>Total time at location</TableHead><TableHead>Parcels</TableHead><TableHead>Shipment status</TableHead><TableHead>Run status</TableHead></TableRow></TableHeader>
             <TableBody>
               {(run.shipments ?? []).length ? (run.shipments ?? []).map((shipment) => (
                 <TableRow key={shipment.shipment_id}>
@@ -152,11 +155,12 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
                   <TableCell>{shipment.sequence ?? "-"}</TableCell>
                   <TableCell><ShipmentLocation location={shipment.pickup_location} accessToken={session.accessToken} merchantId={run.merchant_id} /></TableCell>
                   <TableCell><ShipmentLocation location={shipment.dropoff_location} accessToken={session.accessToken} merchantId={run.merchant_id} /></TableCell>
+                  <TableCell><ShipmentLocationTimeCell stops={run.actual_stops ?? []} pickupId={shipment.pickup_location?.location_id} dropoffId={shipment.dropoff_location?.location_id} initialNow={initialNow} startedAt={run.started_at} completedAt={run.completed_at} isActive={run.status === "in_progress"} vehicleId={run.vehicle?.vehicle_id} /></TableCell>
                   <TableCell>{shipment.total_parcel_count ?? "-"}</TableCell>
                   <TableCell><StatusBadge status={shipment.shipment_status ?? "unknown"} /></TableCell>
                   <TableCell><StatusBadge status={shipment.run_status ?? "unknown"} /></TableCell>
                 </TableRow>
-              )) : <TableRow><TableCell colSpan={8} className="py-8 text-center text-muted-foreground">No shipments are attached to this run.</TableCell></TableRow>}
+              )) : <TableRow><TableCell colSpan={9} className="py-8 text-center text-muted-foreground">No shipments are attached to this run.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
@@ -194,7 +198,7 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
             {(run.actual_stops ?? []).length ? (run.actual_stops ?? []).map((stop, index) => (
               <div key={stop.activity_id ?? index} className="border-l-2 pl-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{index + 1}. {stop.location?.location_id ? <LocationDetailsDrawer locationId={stop.location.location_id} label={stopName(stop)} accessToken={session.accessToken} merchantId={run.merchant_id} /> : stopName(stop)}</span>
+                  <span className="font-medium">{index + 1}. {stop.location?.location_id ? <LocationDetailsDrawer locationId={stop.location.location_id} label={stopName(stop)} accessToken={session.accessToken} merchantId={run.merchant_id} /> : <RecordedStopDrawer stop={stop} label={stopName(stop)} accessToken={session.accessToken} merchantId={run.merchant_id} />}</span>
                   <Badge variant="outline">{stop.location?.type?.title || "Type not set"}</Badge>
                 </div>
                 <div className="capitalize text-xs text-muted-foreground">{(stop.event_type ?? "stop").replaceAll("_", " ")} · {dateTime(stop.occurred_at)}</div>

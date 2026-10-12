@@ -1,26 +1,15 @@
+import { buildStopAnalysisDetails, buildStopAnalysisRows, type StopAnalysisRow } from "@/components/reports/stops-analysis-visits"
 import { format, isValid, parseISO } from "date-fns"
 import { StopsAnalysisDateFilter } from "@/components/reports/stops-analysis-date-filter"
-import { normalizeStopAnalysisPeriod, stopAnalysisPeriodBounds } from "@/components/reports/stops-analysis-period"
+import { normalizeStopAnalysisPeriod, stopAnalysisPeriodBounds, stopAnalysisPeriods } from "@/components/reports/stops-analysis-period"
 import { PageHeader } from "@/components/layout/page-header"
-import { DataTable } from "@/components/common/data-table"
+import { StopsAnalysisTable } from "@/components/reports/stops-analysis-table"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listVehicleActivities } from "@/lib/api/vehicle-activities"
 import type { VehicleActivity } from "@/lib/types"
 import { requireAuth } from "@/lib/auth"
 import { AdminRoute } from "@/lib/routes/admin"
-
-type StopAnalysisRow = {
-  key: string
-  locationId?: string
-  locationName: string
-  visitCount: number
-  uniqueVehicleCount: number
-  averageDwellMinutes: number | null
-  maxDwellMinutes: number | null
-  openVisits: number
-  latestVisitAt: string | null
-}
 
 type SortBy =
   | "stop"
@@ -64,14 +53,6 @@ function parseDate(value?: string | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-function minutesBetween(start?: string | null, end?: string | null): number | null {
-  const startDate = parseDate(start)
-  const endDate = parseDate(end)
-  if (!startDate || !endDate) return null
-  const diff = (endDate.getTime() - startDate.getTime()) / 60000
-  return diff >= 0 ? diff : null
-}
-
 function formatMinutes(value: number | null): string {
   if (value === null) return "-"
   return `${value.toFixed(1)} min`
@@ -87,16 +68,6 @@ function formatDateTime(value?: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date)
-}
-
-function locationLabel(activity: VehicleActivity): string {
-  return (
-    activity.location?.name ??
-    activity.location?.company ??
-    activity.location?.code ??
-    activity.location?.location_id ??
-    "Unknown location"
-  )
 }
 
 async function fetchEnteredLocationActivities(token: string, merchantId?: string, from?: string, to?: string, timestampBounds: { occurred_from?: string; occurred_to?: string } = {}): Promise<VehicleActivity[]> {
@@ -128,71 +99,6 @@ async function fetchEnteredLocationActivities(token: string, merchantId?: string
   }
 
   return rows
-}
-
-function buildStopAnalysisRows(rows: VehicleActivity[]): StopAnalysisRow[] {
-  const grouped = new Map<string, {
-    locationId?: string
-    locationName: string
-    visitCount: number
-    vehicles: Set<string>
-    dwellTotal: number
-    dwellCount: number
-    maxDwell: number | null
-    openVisits: number
-    latestVisitAt: string | null
-  }>()
-
-  for (const activity of rows) {
-    const locationId = activity.location?.location_id ?? activity.location_id ?? undefined
-    const key = locationId ?? locationLabel(activity)
-    const current = grouped.get(key) ?? {
-      locationId,
-      locationName: locationLabel(activity),
-      visitCount: 0,
-      vehicles: new Set<string>(),
-      dwellTotal: 0,
-      dwellCount: 0,
-      maxDwell: null,
-      openVisits: 0,
-      latestVisitAt: null,
-    }
-
-    current.visitCount += 1
-    const vehicleId = activity.vehicle?.vehicle_id ?? activity.vehicle_id ?? undefined
-    if (vehicleId) {
-      current.vehicles.add(vehicleId)
-    }
-
-    const dwell = minutesBetween(activity.entered_at, activity.exited_at)
-    if (dwell !== null) {
-      current.dwellTotal += dwell
-      current.dwellCount += 1
-      current.maxDwell = current.maxDwell === null ? dwell : Math.max(current.maxDwell, dwell)
-    } else {
-      current.openVisits += 1
-    }
-
-    const lastVisit = activity.exited_at ?? activity.entered_at ?? activity.occurred_at ?? null
-    if (!current.latestVisitAt || (parseDate(lastVisit)?.getTime() ?? 0) > (parseDate(current.latestVisitAt)?.getTime() ?? 0)) {
-      current.latestVisitAt = lastVisit
-    }
-
-    grouped.set(key, current)
-  }
-
-  return Array.from(grouped.entries())
-    .map(([key, value]) => ({
-      key,
-      locationId: value.locationId,
-      locationName: value.locationName,
-      visitCount: value.visitCount,
-      uniqueVehicleCount: value.vehicles.size,
-      averageDwellMinutes: value.dwellCount > 0 ? value.dwellTotal / value.dwellCount : null,
-      maxDwellMinutes: value.maxDwell,
-      openVisits: value.openVisits,
-      latestVisitAt: value.latestVisitAt,
-    }))
 }
 
 function sortStopAnalysisRows(
@@ -258,16 +164,26 @@ export default async function StopsAnalysisPage({
   const period = normalizeStopAnalysisPeriod(getSingleValue(params.period), Boolean(from || to))
   const session = await requireAuth()
   const merchantId = session.selected_merchant?.merchant_id ?? undefined
+  const timestampBounds = stopAnalysisPeriodBounds(period, new Date())
+  const periodLabel = stopAnalysisPeriods.find(item => item.value === period)!.label
+  const rangeLabel = period === "custom"
+    ? `Custom: ${from ?? "All earlier dates"} – ${to ?? "All later dates"}`
+    : `${periodLabel}: ${formatDateTime(timestampBounds.occurred_from)} – ${formatDateTime(timestampBounds.occurred_to)}`
   const activities = await fetchEnteredLocationActivities(
     session.accessToken, merchantId,
     period === "custom" ? from : undefined,
     period === "custom" ? to : undefined,
-    stopAnalysisPeriodBounds(period, new Date())
+    timestampBounds
   )
   const rows = sortStopAnalysisRows(buildStopAnalysisRows(activities), sortBy, sortDir)
+  const details = buildStopAnalysisDetails(activities)
   const tableRows = rows.map((row) => ({
     ...row,
     stopHref: row.locationId ? AdminRoute.locationDetails(row.locationId) : "",
+    vehicles: details[row.key]?.vehicles ?? [],
+    visits: (details[row.key]?.visits ?? []).map(visit => ({
+      ...visit, entryDisplay: formatDateTime(visit.enteredAt), exitDisplay: formatDateTime(visit.exitedAt),
+    })),
     averageDwellDisplay: formatMinutes(row.averageDwellMinutes),
     maxDwellDisplay: formatMinutes(row.maxDwellMinutes),
     latestVisitDisplay: formatDateTime(row.latestVisitAt),
@@ -314,59 +230,7 @@ export default async function StopsAnalysisPage({
           <CardTitle>Stop Performance</CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable
-            data={tableRows}
-            emptyMessage="No stop activity data found."
-            enableSorting
-            sortableColumns={[
-              "locationName",
-              "visitCount",
-              "uniqueVehicleCount",
-              "averageDwellDisplay",
-              "maxDwellDisplay",
-              "openVisits",
-              "latestVisitDisplay",
-            ]}
-            sortKeyMap={{
-              locationName: "stop",
-              visitCount: "visits",
-              uniqueVehicleCount: "vehicles",
-              averageDwellDisplay: "avg_dwell",
-              maxDwellDisplay: "max_dwell",
-              openVisits: "open_visits",
-              latestVisitDisplay: "latest_visit",
-            }}
-            columns={[
-              {
-                key: "locationName", label: "Stop", link: "stopHref",
-                description: "The geofenced location where visits were recorded. Select its name to view the saved location details.",
-              },
-              {
-                key: "visitCount", label: "Visits",
-                description: "The number of recorded location-entry events at this stop in the loaded report data, within the selected date range when applied.",
-              },
-              {
-                key: "uniqueVehicleCount", label: "Unique vehicles",
-                description: "The number of distinct vehicles with a recorded visit at this stop. Visits without a vehicle ID are excluded from this count.",
-              },
-              {
-                key: "averageDwellDisplay", label: "Avg dwell",
-                description: "The average time in minutes between entry and exit for visits with valid timestamps. Visits without a valid duration are excluded; a dash means none are available.",
-              },
-              {
-                key: "maxDwellDisplay", label: "Max dwell",
-                description: "The longest time in minutes between entry and exit for a visit with valid timestamps. A dash means no valid durations are available.",
-              },
-              {
-                key: "openVisits", label: "Open visits",
-                description: "Visits without a valid entry-to-exit duration, including visits with no recorded exit, missing or invalid timestamps, or an exit before entry.",
-              },
-              {
-                key: "latestVisitDisplay", label: "Latest visit",
-                description: "The most recent visit timestamp at this stop, using the exit time when present, otherwise the entry time, then the activity occurrence time.",
-              },
-            ]}
-          />
+          <StopsAnalysisTable rows={tableRows} rangeLabel={rangeLabel} />
         </CardContent>
       </Card>
     </div>

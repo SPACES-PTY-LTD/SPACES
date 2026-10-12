@@ -1,5 +1,68 @@
 # Release Notes
 
+## 2026-10-12 | Version: eas-production-android-apk-v1
+
+- **Summary:** Add and submit a signed production APK profile for direct Android installation.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** `production-apk` extends the existing production profile, inherits its production Maps/API/Firebase environment and explicitly selects Android `buildType: apk` with internal distribution. Build a release app without the development client using existing remote signing credentials. Keep the `production` Play Store AAB profile available.
+- **Breaking Changes:** None.
+- **Verification:** JSON/profile assertions pass for production inheritance, APK output and internal distribution. EAS resolved the production environment, reused the existing keystore and uploaded/submitted build `58e8968b-1d97-4bb9-b87d-58fb34bb42a2`. Cloud completion, APK installation and installed-device Maps/push verification remain pending.
+
+## 2026-10-12 | Version: eas-production-firebase-file-v1
+
+- **Summary:** Upload the Spaces Android Firebase configuration to the EAS production environment.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** With user approval, configure `GOOGLE_SERVICES_JSON` as a Sensitive File variable for production in `@leroyg/spaces-digital`. Existing app configuration supplies the file to `android.googleServicesFile` on subsequent builds. Earlier builds remain unchanged. Keep file contents and API keys out of source and logs.
+- **Breaking Changes:** None.
+- **Verification:** Downloaded the Firebase configuration through Chrome and verified valid JSON, project `xamplle-94d00` and Android package `com.spaces.logistics`. EAS confirms successful upload, production scope, File type and Sensitive visibility. A new build, FCM v1 sending credentials and installed-device push verification remain pending.
+
+## 2026-10-12 | Version: eas-production-android-environment-v1
+
+- **Summary:** Configure the missing EAS production environment and resubmit the Android production build.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** With explicit user approval, enable the existing Sensitive Android Maps variable for development and production in the same Expo project. Set production Plaintext app environment to `production` and API base URL to `https://api.spaces.za.com/api/v1`. Retry the production Android store build using the existing remote keystore. Keep actual key values out of source and logs; document environment-specific setup.
+- **Breaking Changes:** None.
+- **Verification:** Confirmed the original Chrome build log reports a missing Android Maps variable during Expo config resolution. EAS variable listing verifies Sensitive visibility and both environments; production runtime variables are present. Retry upload and build submission succeeded: `92ec5b7c-6417-4664-8dc0-68d85ef7c7d5`. Cloud completion and installed-device Maps verification remain pending.
+
+## 2026-10-12 | Version: stops-analysis-location-drawer-v1
+
+- **Summary:** Open location statistics and vehicle/visit tables in a Stops Analysis drawer.
+- **API Changes:** None; use the same authorized, date-filtered activity records already loaded for the report. Send only projected statistics and visit details to the drawer.
+- **Database Changes:** None.
+- **Behavior Changes:** Location names open a responsive right-side drawer without leaving the report. Show the selected preset/date bounds, location visit/vehicle/open/dwell/latest totals, one statistics row per vehicle (plate, reference or ID fallback), and newest-first recorded visits with entry/exit, dwell and open/completed status. Vehicle totals use the same distinct-visit rules as the report; completed dwell excludes open visits and retains zero values. Preserve report sorting/search and offer View saved location separately. Use scrollable tables on narrow screens and the existing accessible drawer dismissal/focus behavior.
+- **Breaking Changes:** None. Location-name clicks now open the report drawer; the saved location page remains accessible inside it.
+- **Verification:** Seven visit/drawer-data regressions and three period regressions pass, including reconciliation of location/vehicle totals, location isolation, window-scoped inputs, duplicate entries, return visits, open visits and zero dwell. Website TypeScript and focused ESLint pass. Local fixture browser verified drawer opening, statistics/vehicle/visit tables, layout, Escape dismissal and focus return. Authenticated production report verification remains pending; date-window filtering and the existing 1,000-activity cap still bound loaded evidence.
+
+## 2026-10-12 | Version: stops-analysis-distinct-visits-v1
+
+- **Summary:** Count distinct truck visits in Stops Analysis instead of counting every location-entry record.
+- **API Changes:** None; reuse recorded location-entry activities and their entry/exit timestamps.
+- **Database Changes:** None; historical activity records are unchanged.
+- **Behavior Changes:** Group entries chronologically by merchant, truck and saved location. Repeated entries without departure and overlapping observations count once, including across runs/shipments. Count another visit only when a valid recorded exit precedes or coincides with a later entry. Deduplicate same-time entries, retain zero-duration visits and ignore invalid/reversed exits as departure evidence. Calculate dwell/open/latest totals from grouped visits. Exclude entries without truck/location identity or a valid entry timestamp; use occurrence time when entry time is absent. Update table help to explain visit semantics.
+- **Breaking Changes:** None to APIs. Report counts may decrease where repeated entries previously inflated visits.
+- **Verification:** Five visit regressions and three existing period tests pass. Website TypeScript, focused ESLint and git diff checks pass. Authenticated live report verification remains pending; the existing date-window filtering and 1,000-activity cap still bound available visit evidence.
+
+## 2026-10-12 | Version: run-shipment-location-totals-v1
+
+- **Summary:** Add Total time at location to the admin run Shipments table.
+- **API Changes:** None; reuse existing run stop entry/exit timestamps and location/vehicle IDs.
+- **Database Changes:** None.
+- **Behavior Changes:** Show separate Pickup and Drop-off totals from recorded location-entry visits for the run vehicle. Merge overlapping observations, sum separate visits and clip durations to run start/completion. Open visits update each minute on in-progress runs and show ongoing; completed runs stop at recorded completion. Missing/invalid evidence shows Not available; zero-minute visits remain visible. Adjust empty-table column span.
+- **Breaking Changes:** None.
+- **Verification:** Four timing regressions cover aggregation/overlap, live/completed visits, identity/event/timestamp guards, run boundaries and zero values. Website TypeScript, focused ESLint and git diff checks pass. Authenticated browser layout and live elapsed-time verification remain pending. Dashboard plan updated; mobile Figma unaffected.
+
+## 2026-10-12 | Version: unknown-recorded-stop-location-v1
+
+- **Summary:** Open unknown recorded run stops in a map drawer and create a saved location from their coordinates.
+- **API Changes:** None; reuse existing merchant-scoped location creation and Google Maps address lookup.
+- **Database Changes:** None.
+- **Behavior Changes:** Unknown stop labels open a right-side map drawer with a top-right Create new location from coordinates action. Reuse the merchant-locked location form, preserving exact recorded GPS and prepopulating known details plus optional reverse-geocoded address fields. Snapshot suggestions on form opening to preserve user edits. Invalid/missing coordinates disable creation; map/address failures retain manual coordinate-based creation. Saving creates a location without relinking historical stops or inventing a geofence.
+- **Breaking Changes:** None.
+- **Verification:** Three coordinate/address-prefill regressions and five existing stop-timing tests pass. Website TypeScript and focused ESLint pass. Authenticated live map/geocoding/create/save and responsive keyboard verification remain pending. Dashboard plan updated; mobile Figma unaffected.
+
 ## 2026-10-12 | Version: stops-analysis-period-presets-v1
 
 - **Summary:** Replace the Stops Analysis date filter with a preset dropdown and conditional custom date picker.

@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.200
+Version: 2.202
 Last updated: 2026-10-12
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -575,15 +575,30 @@ Show a red notice in Truck details: **Allowed waiting time exceeded**, followed 
 - [x] Per-vehicle red state and truck-details notice, including zero/missing limits and open standby visits.
 - [ ] Verify authenticated live 3D colour, details notice and departure refresh.
 
+### Admin unknown recorded-stop locations (2.201 — implemented locally)
+
+Click an unknown Recorded stops entry on the website run page to open a right-side drawer showing its recorded coordinate pin. At the top right, **Create new location from coordinates** opens the existing merchant-locked location creation drawer. Preserve the exact observation coordinates (including valid zero values); only fall back to a complete valid location coordinate pair. Try reverse geocoding to suggest name/address, town, city, province, postal code and country while retaining known stop details. Capture suggestions when opening the form so late lookup responses cannot overwrite user edits. Leave unknown company/contact/type/geofence details blank for review. Address/map failures still allow coordinate-based creation; missing/invalid coordinates disable creation and show an explicit unavailable state. Saving creates a new location only; it does not relink historical stops or invent a geofence. This admin-only flow does not affect the existing mobile Figma designs.
+
+- [x] Accessible unknown-stop trigger, map pin, responsive drawer and top-right creation action.
+- [x] Merchant-locked existing form with exact coordinates, optional address suggestions and manual fallback.
+- [x] Coordinate validity/zero/pair selection and address-prefill regressions; website TypeScript and focused ESLint pass.
+- [ ] Verify authenticated live map, geocoding, create/save, keyboard and narrow-screen interactions.
+
 ### Admin run location details (2.196 — implemented locally)
 
-The website run page shows location-type badges for recorded stops and shipment pickup/drop-off locations, with **Type not set** for unavailable types. Saved location names open a right-side drawer without leaving the run. Fetch current merchant-scoped location details on opening; show loading, error and retry states, address, contact information, coordinates, expected waiting time, tags, the existing geofence view and a link to the full location page. Stops without a saved location ID remain plain text. Closing the drawer cancels stale fetch updates. This admin-only addition does not affect the mobile dashboard Figma designs.
+The website run page shows location-type badges for recorded stops and shipment pickup/drop-off locations, with **Type not set** for unavailable types. Saved location names open a right-side drawer without leaving the run. Fetch current merchant-scoped location details on opening; show loading, error and retry states, address, contact information, coordinates, expected waiting time, tags, the existing geofence view and a link to the full location page. Stops without a saved location ID open the recorded-coordinate map drawer described above. Closing the drawer cancels stale fetch updates. This admin-only addition does not affect the mobile dashboard Figma designs.
 
 - [x] Show recorded-stop and shipment location types and accessible drawer triggers for saved locations.
 - [x] Load current location details with merchant scope, loading/error/retry states and stale-response cleanup.
 - [ ] Verify authenticated browser drawer, geofence and keyboard interaction with live run data.
 
 ### Admin run shipments (1.90)
+
+Shipment location totals (2.202, implemented locally): the run Shipments table includes **Total time at location**, with separate Pickup and Drop-off values. Sum recorded location-entry visit durations for the run vehicle and matching saved location ID, clipped to the run start/end; merge overlapping observations to avoid double counting. Open visits update each minute while the run is in progress, marked **ongoing**. Completed runs stop at the recorded completion timestamp. Missing or invalid entry/exit evidence shows **Not available**; shipment creation, collection and delivery timestamps do not imply geofence arrival or departure. This admin-only addition has no affected mobile Figma screen; no corresponding admin shipment-card Figma design is referenced in this plan.
+
+- [x] Display recorded pickup/drop-off totals, separate visits, overlap deduplication and live open-visit elapsed time.
+- [x] Guard location/vehicle identity and invalid timestamps; bound durations to the run window.
+- [ ] Verify authenticated browser table layout and open/completed run display.
 
 Implemented locally: the website run-detail **Shipments** card has a top-right **Add shipment** button for users with run-update permission on draft, dispatched or in-progress runs. The dialog supports reference search and selection of an existing eligible shipment, or **Create new shipment** using the shared pickup/destination/parcels form. Successful saves refresh the run table/counts. Keep failed drafts and show actionable errors; disable duplicate attachment submissions. Hide the action for completed/cancelled runs and viewers.
 
@@ -1355,6 +1370,8 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-12 | 2.202 | Add pickup/drop-off total time at location to the admin run Shipments table, using run-bounded recorded visits and live active-run elapsed time. Timing verification recorded in release notes; authenticated browser verification pending. Mobile Figma unaffected. |
+| 2026-10-12 | 2.201 | Open unknown admin recorded stops in a map drawer and create merchant-scoped locations from exact coordinates with optional address prefill. Coordinate/address regressions and static checks pass; authenticated browser verification pending. Mobile Figma unaffected. |
 | 2026-10-12 | 2.200 | Include recorded run-end locations in admin shipment timelines when distinct from delivery; retain chronological map/dialog behavior and suppress duplicates. Ten API regressions, website TypeScript and focused lint pass. Authenticated live verification pending; mobile Figma unaffected. |
 | 2026-10-12 | 2.199 | Fix departure completion for shipments created/linked by exit automation, preserving original delivery-run links when a next run starts. Four regression scenarios reproduced the bug before the fix; 69 targeted tests pass. Local implementation only; production deployment and historical reconciliation pending. Intended behavior and Figma flow unchanged. |
 | 2026-10-11 | 2.198 | Show recorded arrival/departure duration on admin run stops, with a red warning and explanatory tooltip above the saved location allowance. Missing intervals remain unavailable; automated verification recorded in release notes, live browser verification pending. Mobile Figma unaffected. |
