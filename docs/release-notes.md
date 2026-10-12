@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-12 | Version: admin-run-actions-v1
+
+- **Summary:** Add Edit run, Update delivery order and Message the driver to the admin run-detail header Actions dropdown.
+- **API Changes:** Add authorized `PATCH /api/v1/runs/{run_uuid}/endpoints` and `GET/PATCH /api/v1/runs/{run_uuid}/delivery-order`, mirroring driver expected-value payloads and response shapes. Run resources add `can_edit_endpoints`, `can_update_delivery_order`, `can_message_driver`, `planned_origin` and `planned_destination`. Permit authorized conversation staff to search/send Run references for the selected driver chat, including completed/cancelled runs; driver shipment-reference scope stays unchanged.
+- **Database Changes:** None.
+- **Behavior Changes:** Authorized admins edit saved planned locations and reorder remaining deliveries on draft/dispatched/in-progress runs; completed/cancelled runs remain read-only for these mutations. Require both endpoints, allow round trips, reject stale expected values and preserve terminal delivery slots and recorded history. Messaging opens the assigned driver's merchant-scoped chat with one removable Run draft; select the correct merchant, consume the handoff once, retain same-chat drafts, enforce the combined attachment cap, focus the composer and require Send. Closed/deleted chats do not receive a draft/message automatically. Missing driver shows disabled messaging guidance. Share transactional endpoint/order logic with Expo while retaining its active-only restriction and auditing the actual actor against the run's account.
+- **Breaking Changes:** None; API fields/endpoints and staff Run references are additive. Deploy backend support before website controls.
+- **Verification:** 73 targeted Laravel tests (1,338 assertions) and 14 website action/handoff/refresh/unread regressions, website TypeScript, focused ESLint and git diff checks pass. Local fixture browser verifies endpoint selection/save, keyboard reordering and Save activation, Escape dismissal, desktop/light and 390px/dark wrapping/layout, driver composer focus, attachment removal and explicit send with the run reference. Authenticated production run, real browser drag/long-list scrolling, concurrent-device changes and live driver-message delivery remain pending. Dashboard plan/status/acceptance/revision history updated; mobile Figma flows unchanged.
+
 ## 2026-10-12 | Version: end-run-resubmission-review-v1
 
 - **Summary:** Reopen the visible dispatch review when a driver resubmits an End Run request after rejection.

@@ -60,8 +60,15 @@ class RunResource extends JsonResource
         $displayOrigin = $this->originLocation ?? $orderedRunShipments->first()?->shipment?->pickupLocation;
         $displayDestination = $this->destinationLocation ?? $orderedRunShipments->last()?->shipment?->dropoffLocation;
 
+        $canManage = $request->user()?->role !== 'driver' && ($request->user()?->can('update', $this->resource) ?? false);
+        $canEdit = $canManage && in_array($this->status, [\App\Models\Run::STATUS_DRAFT, \App\Models\Run::STATUS_DISPATCHED, \App\Models\Run::STATUS_IN_PROGRESS], true);
         return [
             'run_id' => $this->uuid,
+            'can_edit_endpoints' => $canEdit,
+            'can_update_delivery_order' => $canEdit,
+            'can_message_driver' => $request->user() && app(\App\Services\ConversationService::class)->staff($request->user(), $this->merchant),
+            'planned_origin' => $this->originLocation ? LocationResource::make($this->originLocation) : null,
+            'planned_destination' => $this->destinationLocation ? LocationResource::make($this->destinationLocation) : null,
             'can_add_shipments' => in_array($this->status, [\App\Models\Run::STATUS_DRAFT, \App\Models\Run::STATUS_DISPATCHED, \App\Models\Run::STATUS_IN_PROGRESS], true) && ($request->user()?->can('update', $this->resource) ?? false),
             'end_request' => $this->latestEndRequest?->toSummary(),
             'can_review_end_request' => $request->user()?->role !== 'driver' && ($request->user()?->can('update', $this->resource) ?? false),

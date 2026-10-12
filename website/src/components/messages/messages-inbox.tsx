@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MessageImagePreview } from './message-image-preview';
+import { useRunMessageHandoff, type DraftRunReference } from './use-run-message-handoff';
 import { AttachmentDrawer, type AttachmentSelection } from './attachment-drawer';
 
 export function MessagesInbox({
@@ -47,11 +48,15 @@ export function MessagesInbox({
     userId,
     merchants,
     initialMerchant,
+    initialRunId,
+    initialHandoff,
 }: {
     token: string;
     userId: string;
     merchants: { id: string; name: string; canManage: boolean }[];
     initialMerchant?: string;
+    initialRunId?: string;
+    initialHandoff?: string;
 }) {
     const [merchant, setMerchant] = useState(
         initialMerchant ?? merchants[0]?.id ?? '',
@@ -105,6 +110,9 @@ export function MessagesInbox({
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
     const [files, setFiles] = useState<File[]>([]);
+    const [references, setReferences] = useState<DraftRunReference[]>([]);
+    const [focusDraft, setFocusDraft] = useState(false);
+    const messageInput = useRef<HTMLTextAreaElement>(null);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -172,6 +180,8 @@ export function MessagesInbox({
         setBefore(null);
         setBody('');
         setFiles([]);
+        setReferences([]);
+        setFocusDraft(false);
         retry.current = null;
         setInbox([]);
         setDrivers([]);
@@ -374,7 +384,7 @@ export function MessagesInbox({
             history.current?.scrollTo({ top: history.current.scrollHeight });
     }, [messages]);
 
-    function choose(next: Conversation) {
+    const choose = useCallback((next: Conversation) => {
         setMobileThread(true);
         setDetailsOpen(false);
         if (selected.current === next.conversation_id) return;
@@ -388,11 +398,36 @@ export function MessagesInbox({
         setBefore(null);
         setBody('');
         setFiles([]);
+        setReferences([]);
+        setFocusDraft(false);
         retry.current = null;
         setError(null);
         setLoading(true);
         atBottom.current = true;
-    }
+    }, []);
+    const openRunDraft = useCallback((next: Conversation, reference: DraftRunReference | null, issue?: string) => {
+        const sameChat = selected.current === next.conversation_id;
+        choose(next);
+        setStartedConversation(next.conversation_id);
+        setError(issue ?? null);
+        if (reference && sameChat && !references.some(item => item.id === reference.id) && files.length + references.length >= 5) {
+            setError('Remove an attachment before adding this run.');
+            return;
+        }
+        if (reference) {
+            setReferences(current => current.some(item => item.id === reference.id) ? current : [...current, reference]);
+            setFocusDraft(true);
+            retry.current = null;
+        }
+    }, [choose, files.length, references]);
+    useRunMessageHandoff(initialRunId, initialHandoff, merchant, token, openRunDraft, setError, setMerchant);
+    useEffect(() => {
+        if (focusDraft && !loading && chat?.status === 'active') {
+            messageInput.current?.focus();
+            setFocusDraft(false);
+        }
+    }, [focusDraft, loading, chat?.status]);
+
     async function action(work: () => Promise<void>) {
         if (actionRunning.current) return false;
         const version = epoch.current;
@@ -450,7 +485,8 @@ export function MessagesInbox({
         });
     }
     async function send() {
-        if (!chat || (!body.trim() && !files.length)) return;
+        if (!chat || chat.status !== 'active' || (!body.trim() && !files.length && !references.length)) return;
+        if (files.length + references.length > 5) { setError('Choose up to five attachments in total.'); return; }
         const id = chat.conversation_id;
         const version = epoch.current;
         retry.current ??= crypto.randomUUID();
@@ -459,6 +495,10 @@ export function MessagesInbox({
             form.append('body', body);
             form.append('temporary_id', retry.current!);
             files.forEach((f) => form.append('attachments[]', f));
+            references.forEach((reference, index) => {
+                form.append(`references[${index}][type]`, reference.type);
+                form.append(`references[${index}][id]`, reference.id);
+            });
             const result = await conversationRequest<ChatMessage>(
                 token,
                 `/${id}/messages`,
@@ -479,6 +519,7 @@ export function MessagesInbox({
             );
             setBody('');
             setFiles([]);
+            setReferences([]);
             retry.current = null;
             if (uploads.current) uploads.current.value = '';
             atBottom.current = true;
@@ -1186,6 +1227,7 @@ export function MessagesInbox({
                             >
                                 <div className="space-y-3">
                                     <textarea
+                                        ref={messageInput}
                                         aria-label="Message"
                                         disabled={
                                             busy ||
@@ -1206,6 +1248,12 @@ export function MessagesInbox({
                                             retry.current = null;
                                         }}
                                     />
+                                    {references.length > 0 && <ul aria-label="Attached run" className="flex flex-wrap gap-2">
+                                        {references.map(reference => <li key={reference.id} className="flex max-w-full items-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
+                                            <span className="min-w-0 break-all">{reference.label}</span>
+                                            <Button type="button" size="icon-xs" variant="ghost" aria-label="Remove run attachment" disabled={busy} onClick={() => { setReferences(current => current.filter(item => item.id !== reference.id)); retry.current = null; }}><X aria-hidden="true" /></Button>
+                                        </li>)}
+                                    </ul>}
                                     {files.length > 0 && (
                                         <ul
                                             className="flex flex-wrap gap-2"
@@ -1270,7 +1318,7 @@ export function MessagesInbox({
                                                     ),
                                                 ];
                                                 if (
-                                                    next.length > 5 ||
+                                                    next.length + references.length > 5 ||
                                                     next.some(
                                                         (f) =>
                                                             f.size >
@@ -1311,7 +1359,7 @@ export function MessagesInbox({
                                                 busy ||
                                                 loading ||
                                                 chat.status !== 'active' ||
-                                                (!body.trim() && !files.length)
+                                                (!body.trim() && !files.length && !references.length)
                                             }
                                         >
                                             {busy

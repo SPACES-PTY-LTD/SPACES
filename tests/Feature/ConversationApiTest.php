@@ -189,7 +189,8 @@ class ConversationApiTest extends TestCase
                 ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $records[11]->uuid);
         }
         $this->getJson($base.'?type=shipment&search=RECENT', $headers)->assertOk()->assertJsonCount(12, 'data');
-        $this->getJson($base.'?type=run', $this->headers($owner))->assertForbidden();
+        $this->getJson($base.'?type=run', $this->headers($owner))->assertOk()->assertJsonCount(10, 'data');
+        $this->getJson($base.'?type=shipment', $this->headers($owner))->assertForbidden();
     }
 
     public function test_driver_can_search_and_send_scoped_run_and_shipment_references(): void
@@ -229,7 +230,7 @@ class ConversationApiTest extends TestCase
         $this->post($base.'/messages', ['temporary_id' => 'mixed-limit',
             'references' => array_fill(0, 5, ['type' => 'run', 'id' => $run->uuid]),
             'attachments' => [UploadedFile::fake()->create('note.pdf', 1)]], $headers)->assertUnprocessable();
-        $this->getJson($base.'/references?type=run&search='.$run->uuid, $this->headers($owner))->assertForbidden();
+        $this->getJson($base.'/references?type=run&search='.$run->uuid, $this->headers($owner))->assertOk()->assertJsonCount(1, 'data');
         $this->assertDatabaseCount('messages', 1);
         $this->assertDatabaseCount('message_attachments', 2);
     }

@@ -4,7 +4,8 @@ import type { ApiListResponse, Merchant } from '@/lib/types';
 import { isApiErrorResponse } from '@/lib/api/client';
 import { MessagesInbox } from '@/components/messages/messages-inbox';
 
-export default async function MessagesPage() {
+export default async function MessagesPage({ searchParams }: { searchParams: Promise<{ merchant_id?: string; run_id?: string; handoff?: string }> }) {
+    const params = await searchParams;
     const session = await requireRole(['user', 'super_admin']);
     let merchants = session.merchants ?? [];
     if (session.user.role === 'super_admin') {
@@ -30,7 +31,9 @@ export default async function MessagesPage() {
                     session.user.role === 'super_admin' ||
                     Boolean(m.access?.permissions.can_create_update_resources),
             }))}
-            initialMerchant={session.selected_merchant?.merchant_id}
+            initialMerchant={merchants.some(m => m.merchant_id === params.merchant_id) ? params.merchant_id : session.selected_merchant?.merchant_id}
+            initialRunId={params.run_id}
+            initialHandoff={params.handoff}
         />
     );
 }

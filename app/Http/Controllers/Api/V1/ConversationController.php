@@ -307,12 +307,14 @@ class ConversationController extends Controller
 
     private function referenceQuery(Request $request, Conversation $conversation, string $type)
     {
-        $driver = $request->user()->driver;
-        abort_unless($conversation->type === 'driver' && $driver && $driver->is_active
+        $staffRun = $request->user()->role !== 'driver' && $type === 'run'
+            && $this->service->staff($request->user(), $conversation->merchant);
+        $driver = $staffRun ? $conversation->driver : $request->user()->driver;
+        abort_unless($conversation->type === 'driver' && $driver && ($staffRun || $driver->is_active)
             && (int) $conversation->type_entry_id === (int) $driver->id, 403);
         $runs = Run::query()->where('account_id', $conversation->account_id)
             ->where('merchant_id', $conversation->merchant_id)->where('driver_id', $driver->id)
-            ->where('status', '!=', Run::STATUS_CANCELLED);
+            ->when(! $staffRun, fn ($query) => $query->where('status', '!=', Run::STATUS_CANCELLED));
         if ($type === 'run') {
             return $runs;
         }

@@ -43,6 +43,9 @@ export function LocationCombobox({
   placeholder = "Select location",
   searchPlaceholder = "Search locations...",
   disabled,
+  token,
+  environmentId,
+  allowCreate = true,
 }: {
   value?: Location | null
   onChange: (location: Location) => void
@@ -50,6 +53,9 @@ export function LocationCombobox({
   placeholder?: string
   searchPlaceholder?: string
   disabled?: boolean
+  token?: string
+  environmentId?: string | null
+  allowCreate?: boolean
 }) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
@@ -62,8 +68,9 @@ export function LocationCombobox({
     let cancelled = false
     const timeoutId = window.setTimeout(async () => {
       setLoading(true)
-      const response = await listLocations(undefined, {
+      const response = await listLocations(token, {
         merchant_id: merchantId,
+        environment_id: environmentId === undefined ? undefined : environmentId ?? "",
         search: query.trim() || undefined,
         per_page: 25,
       })
@@ -82,7 +89,7 @@ export function LocationCombobox({
       cancelled = true
       window.clearTimeout(timeoutId)
     }
-  }, [merchantId, open, query])
+  }, [merchantId, open, query, token, environmentId])
 
   const options = React.useMemo(() => {
     if (!value?.location_id) return locations
@@ -161,9 +168,9 @@ export function LocationCombobox({
               )
             })}
           </CommandList>
-          <CommandSeparator />
+          {allowCreate && <CommandSeparator />}
           <div className="p-1">
-            <LocationDialog
+            {allowCreate && <LocationDialog
               merchantId={merchantId}
               onSaved={(location) => {
                 onChange(location)
@@ -186,7 +193,7 @@ export function LocationCombobox({
                   Add new location
                 </Button>
               }
-            />
+            />}
           </div>
         </Command>
       </PopoverContent>

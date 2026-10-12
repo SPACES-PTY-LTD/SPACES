@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.204
+Version: 2.205
 Last updated: 2026-10-12
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -558,6 +558,25 @@ Actions button styling (1.55, implemented locally): use 10-point rounded corners
 - CRM contract: `POST /runs/{run_uuid}/end-requests/{request_uuid}/review` with `decision=approved|rejected`, rejection `reason`, and `confirm_early_closure=true` for approval. Review requires existing run-update permission. Lock run/request, reject conflicting decisions and audit changes. Dashboard/run resources expose `end_request`; CRM summaries eager-load the latest request without embedding activity history.
 
 Implementation status: mobile/API/CRM flows are implemented locally, migrations applied to the local development database. Targeted API regressions and Actions TypeScript checks pass. Full mobile and website TypeScript now pass after messaging dependencies and generated routes are available. iOS menu/form handoff, endpoint selection, reason gating, cost validation and cancellation are verified; Android native interaction, CRM authenticated visual review and production deployment remain acceptance gates. [Figma flow handoff](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=131-1445) uses existing component instances and SF Pro; the active-run header and scenario guide are aligned.
+
+### Admin run actions (2.205 — implemented locally)
+
+The admin run-detail header adds a top-right **Actions** dropdown beside the status badge. **Edit run** and **Update delivery order** are available to authorized run-update staff on `draft`, `dispatched` and `in_progress` runs. Hide them on completed/cancelled runs. **Message the driver** remains available to authorized conversation staff in every run state; disable it with assignment guidance when the run has no assigned driver. Use server permission flags, not the URL or client role alone.
+
+**Edit run** opens a website dialog containing saved planned start/end locations, independently of the shipment-derived display fallback. Search existing merchant/environment-scoped locations using the shared combobox. Require both selections, allow round trips, validate coordinates and save both endpoints atomically. Preserve recorded events, driver/vehicle assignment and delivery locations. Compare expected saved endpoint IDs under the run lock; conflicting edits require **Reload run locations**. Preserve drafts on recoverable failure, prevent duplicate saves/dismissal while busy and refresh details after success.
+
+**Update delivery order** opens a scrollable website dialog with numbered remaining shipment references/destinations, desktop drag handles and keyboard/touch-accessible earlier/later buttons. Enable Save only after changes and outside loading/dragging/saving. Exclude delivered, failed, cancelled and returned shipments and preserve their slots in the full sequence, delivery evidence and assignment statuses. Expected order/membership conflicts require **Reload delivery order**. Closing discards the draft; save failure retains it. Shared backend endpoint/order services preserve the existing Expo driver's in-progress-only guard and transaction/audit behavior.
+
+Admin contracts: `PATCH /runs/{run_uuid}/endpoints` and `GET/PATCH /runs/{run_uuid}/delivery-order` mirror the driver payload/response shapes, including expected endpoint IDs and `expected_shipment_ids`. Run details add `can_edit_endpoints`, `can_update_delivery_order`, `can_message_driver`, `planned_origin` and `planned_destination`. Staff mutations require existing update permission and scoped run access, then lock the run and affected assignments/shipments. No migration or change to the general run-update endpoint.
+
+**Message the driver** navigates to admin Messages, selects the run's merchant and assigned driver chat and adds a removable typed Run reference. Validate the run and assignment from the API, consume the handoff once and remove its URL parameters. Preserve an existing same-chat draft, deduplicate the run reference, respect the combined five-file/reference cap and focus the loaded composer. Require explicit Send; closed chats receive no draft and deleted/unavailable chats show an error. Authorized staff can search/send run references belonging to that chat's assigned driver, including completed/cancelled runs; driver shipment-reference permissions remain unchanged. Sending revalidates account, merchant, driver and conversation state.
+
+Implementation status: website/API implemented locally. Existing mobile Figma actions/flows remain unchanged; this adds admin website controls only. Verification and remaining browser/deployment gates are recorded in the release notes.
+
+- [x] Permission-driven admin dropdown, saved-endpoint dialog, remaining-delivery reorder dialog and explicit-send driver-chat run attachment.
+- [x] Shared backend services, active/ready/closed guards, expected-value conflicts, idempotent saves, scoped staff references and actual-actor audit coverage.
+- [x] Local fixture checks for endpoint selection/save, keyboard reordering, Escape dismissal, desktop/light and narrow/dark layout, composer focus, removable attachment and explicit send.
+- [ ] Deploy API before website controls and verify the authenticated run with concurrent Expo/admin updates, real browser drag/long-list scrolling and live driver-message delivery.
 
 ### Admin recorded-stop duration (2.198 — implemented locally)
 
@@ -1376,6 +1395,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-12 | 2.205 | Add admin run-header Actions for ready/active planned endpoint edits and delivery reordering, plus assigned-driver chat drafts with a removable run reference in all run states. Share driver backend rules, enforce permission/scoping/conflict/audit guards and retain history. Automated and local fixture verification recorded in release notes; authenticated deployment and real drag/live delivery checks pending. Mobile Figma unchanged. |
 | 2026-10-12 | 2.204 | Refresh active-run CRM end-request cards when a driver resubmits after rejection, retaining request/review history and closure guards. Three refresh regressions, 66 API tests/1,225 assertions, website TypeScript and focused lint pass; live two-device verification pending. Existing mobile Figma states unchanged. |
 | 2026-10-12 | 2.203 | Use shared native KeyboardAvoidingView scrolling for the End Run reason form with a native input, retaining reason/approval/busy guards. Static checks and existing action/sheet regressions recorded in release notes; native keyboard verification pending. Existing Figma form/flow unchanged. |
 | 2026-10-12 | 2.202 | Add pickup/drop-off total time at location to the admin run Shipments table, using run-bounded recorded visits and live active-run elapsed time. Timing verification recorded in release notes; authenticated browser verification pending. Mobile Figma unaffected. |

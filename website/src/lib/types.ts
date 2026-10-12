@@ -516,6 +516,11 @@ export interface RunSafety {
 
 export type RunEndRequest = { request_id: string; status: 'pending' | 'approved' | 'rejected' | 'resolved'; reason: string; requested_at: string; requested_by?: string | null; reviewed_by?: string | null; review_reason?: string | null };
 export interface Run {
+  can_edit_endpoints?: boolean
+  can_update_delivery_order?: boolean
+  can_message_driver?: boolean
+  planned_origin?: Location | null
+  planned_destination?: Location | null
   can_add_shipments?: boolean
   end_request?: RunEndRequest | null;
   can_review_end_request?: boolean;

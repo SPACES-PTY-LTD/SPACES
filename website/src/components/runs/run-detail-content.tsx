@@ -1,4 +1,5 @@
 import { NewShipmentButton } from "@/components/shipments/new-shipment-button"
+import { AdminRunActions } from "@/components/runs/admin-run-actions"
 import { RunEndReview } from "@/components/runs/run-end-review"
 import { AdditionalCosts } from "@/components/costs/additional-costs"
 import Link from "next/link"
@@ -98,7 +99,7 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
       <PageHeader
         title={`Run ${run.run_id}`}
         description={`${runLocationLabel(run.origin, "Unknown origin")} → ${runLocationLabel(run.destination, "Unknown destination")}`}
-        actions={<StatusBadge status={run.status ?? "unknown"} />}
+        actions={<div className="flex items-center gap-2"><StatusBadge status={run.status ?? "unknown"} /><AdminRunActions key={run.run_id + session.user.uuid} run={run} token={session.accessToken} /></div>}
       />
 
       {run.end_request && <RunEndReview key={run.end_request.request_id + run.end_request.status} runId={run.run_id} active={run.status === "in_progress"} request={run.end_request} canReview={run.can_review_end_request === true} accessToken={session.accessToken} unfinished={Math.max(0, (stats?.shipment_count ?? run.shipment_count ?? 0) - (stats?.completed_shipments ?? 0) - (stats?.failed_shipments ?? 0))} />}
