@@ -1,3 +1,5 @@
+import type { LocationIconMeshType } from "@/lib/location-type-icons";
+
 export type TruckAction = "ARRIVE" | "DEPART";
 export type TruckStatus = "arriving" | "parked" | "departing";
 
@@ -28,7 +30,7 @@ export type LocationCategory =
   | "fuel"
   | "placeholder";
 
-export type LocationMeshType = "warehouse" | "workshop" | "waypoint" | "rest" | "fuel" | "placeholder";
+export type LocationMeshType = LocationIconMeshType | "placeholder";
 export type FilterableLocationMeshType = Exclude<LocationMeshType, "placeholder">;
 
 export type LocationNode = {

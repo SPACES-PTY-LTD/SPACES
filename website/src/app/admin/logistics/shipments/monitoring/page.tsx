@@ -20,6 +20,7 @@ import {
   ACTIVITY_FEED_SOURCE,
   BASE_ROAD_LANE_COUNT,
   LOCATION_EXIT_MS,
+  LOCATION_MESH_TYPE_OPTIONS,
   ROAD_COLUMNS_PER_ROW
 } from "./constants";
 import { ActivityScene } from "./components/activity-scene";
@@ -339,13 +340,9 @@ export default function VirtualWarehousePage() {
     ACTIVITY_FEED_SOURCE === "dummy" ? createInitialStandbyTrucks() : []
   );
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
-  const [visibleLocationTypes, setVisibleLocationTypes] = useState<FilterableLocationMeshType[]>([
-    "warehouse",
-    "workshop",
-    "waypoint",
-    "rest",
-    "fuel"
-  ]);
+  const [visibleLocationTypes, setVisibleLocationTypes] = useState<FilterableLocationMeshType[]>(
+    () => LOCATION_MESH_TYPE_OPTIONS.map((option) => option.value)
+  );
   const [showVehicleRegNumbers, setShowVehicleRegNumbers] = useState(false);
   const [showLocationLabels, setShowLocationLabels] = useState(false);
   const [selectedTruckId, setSelectedTruckId] = useState<string | null>(null);
@@ -780,13 +777,9 @@ export default function VirtualWarehousePage() {
     displayedParkedTrucks.length + displayedRoadTrucks.length + displayedParkingTrucks.length + displayedStandbyTrucks.length;
 
   const locationTypeCounts = useMemo(() => {
-    const counts: Record<FilterableLocationMeshType, number> = {
-      warehouse: 0,
-      workshop: 0,
-      waypoint: 0,
-      rest: 0,
-      fuel: 0
-    };
+    const counts = Object.fromEntries(
+      LOCATION_MESH_TYPE_OPTIONS.map((option) => [option.value, 0])
+    ) as Record<FilterableLocationMeshType, number>;
 
     for (const location of locations) {
       if (location.meshType !== "placeholder") counts[location.meshType] += 1;

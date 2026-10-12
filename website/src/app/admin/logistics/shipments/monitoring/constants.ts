@@ -1,3 +1,4 @@
+import { LOCATION_TYPE_ICONS } from "@/lib/location-type-icons";
 import type { FilterableLocationMeshType, LocationCategory } from "./types";
 
 export type ActivityFeedSource = "dummy" | "api_endpoint";
@@ -38,10 +39,5 @@ export const LOCATION_EXIT_MS = 360;
 export const LOAD_TYPES = ["Dry groceries", "Pharmaceuticals", "Consumer electronics", "Fresh produce", "Auto spares"];
 export const LOAD_DESTINATIONS = ["JHB Hub", "CPT Port", "DBN DC", "PE Crossdock", "BFN Depot"];
 
-export const LOCATION_MESH_TYPE_OPTIONS: Array<{ value: FilterableLocationMeshType; label: string }> = [
-  { value: "warehouse", label: "Warehouse" },
-  { value: "workshop", label: "Truck workshop" },
-  { value: "waypoint", label: "Waypoint" },
-  { value: "rest", label: "Rest area" },
-  { value: "fuel", label: "Fuel station" }
-];
+export const LOCATION_MESH_TYPE_OPTIONS: Array<{ value: FilterableLocationMeshType; label: string }> =
+  LOCATION_TYPE_ICONS.map((icon) => ({ value: icon.meshType, label: icon.label }));

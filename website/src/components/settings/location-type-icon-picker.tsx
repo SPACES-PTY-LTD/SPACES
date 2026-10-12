@@ -35,7 +35,7 @@ export function LocationTypeIconPicker({ value, onChange }: { value: string; onC
         setOpen(nextOpen)
       }}>
         <DialogTrigger asChild><Button variant="outline" type="button" className="w-full">Choose icon</Button></DialogTrigger>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Choose a 3D icon</DialogTitle>
             <DialogDescription>Select the model used for this location type in shipment monitoring.</DialogDescription>
@@ -53,7 +53,7 @@ export function LocationTypeIconPicker({ value, onChange }: { value: string; onC
               setSelection(LOCATION_TYPE_ICONS[next].value)
               optionRefs.current[next]?.focus()
             }}
-            aria-label="Location icons" value={selection} onValueChange={setSelection} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            aria-label="Location icons" value={selection} onValueChange={setSelection} className="grid max-h-[55dvh] grid-cols-2 gap-3 overflow-y-auto p-1 sm:grid-cols-3">
             {LOCATION_TYPE_ICONS.map((icon, index) => (
               <RadioGroup.Item key={icon.value} value={icon.value} aria-label={icon.label}
                 ref={(element) => { optionRefs.current[index] = element }}

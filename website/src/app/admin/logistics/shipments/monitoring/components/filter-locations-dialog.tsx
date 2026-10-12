@@ -41,7 +41,7 @@ export function FilterLocationsDialog({
       <DialogTrigger asChild>
         <Button variant="outline">Options</Button>
       </DialogTrigger>
-      <DialogContent className="z-50">
+      <DialogContent className="z-50 max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Options</DialogTitle>
           <DialogDescription>Configure visibility for scene elements.</DialogDescription>
@@ -83,7 +83,7 @@ export function FilterLocationsDialog({
         </div>
 
         <div style={{ marginTop: 12, fontSize: 12, fontWeight: 700, color: "#0f172a" }}>Location Types</div>
-        <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+        <div className="max-h-[40dvh] overflow-y-auto" style={{ display: "grid", gap: 8, marginTop: 12 }}>
           {LOCATION_MESH_TYPE_OPTIONS.map((option) => {
             const checked = visibleTypeSet.has(option.value);
             const isLastSelected = checked && visibleLocationTypes.length === 1;

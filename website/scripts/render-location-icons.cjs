@@ -8,20 +8,26 @@ const path = require('node:path');
   const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome' });
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    page.on('pageerror', error => console.error('Render error:', error.message));
     await page.route('**/api/v1/location-types**', route => route.fulfill({ json: { success: true, data: [] } }));
-    await page.goto(`${process.argv[2] || 'http://localhost:3000'}/dev-location-icons-preview?render=1`);
-    await page.waitForSelector('[data-icon="fuel"] canvas');
-    // Wait for every WebGL scene to draw real pixels rather than exporting an empty canvas.
-    await page.waitForFunction(() => [...document.querySelectorAll('[data-icon] canvas')].length === 5 && [...document.querySelectorAll('[data-icon] canvas')].every(canvas => {
-      const gl = canvas.getContext('webgl2');
-      const pixels = new Uint8Array(512 * 512 * 4);
-      gl.readPixels(0, 0, 512, 512, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-      return pixels.some((value, index) => index % 4 === 3 && value > 0);
-    }));
-    const assets = await page.locator('[data-icon]').evaluateAll(nodes => nodes.map(node => ({ value: node.dataset.icon, data: node.querySelector('canvas').toDataURL('image/png').split(',')[1] })));
+    const base = process.argv[2] || 'http://localhost:3000';
+    await page.route('**/api/auth/session', route => route.fulfill({ json: {} }));
+    await page.goto(`${base}/dev-location-icons-preview`, { waitUntil: 'domcontentloaded' });
+    // Render one scene per request to stay below browser WebGL context limits.
+    await page.waitForSelector('[data-icon-catalogue]');
+    const values = await page.locator('[data-icon-catalogue]').evaluate(node => JSON.parse(node.dataset.iconCatalogue));
     const destination = path.resolve(__dirname, '../public/images/location-types');
     await mkdir(destination, { recursive: true });
-    for (const asset of assets) await writeFile(path.join(destination, `${asset.value}.png`), Buffer.from(asset.data, 'base64'));
-    console.log(`Rendered ${assets.length} transparent 512 × 512 PNGs.`);
+    for (const value of values) {
+      if (!value || !/^[a-z0-9-]+$/.test(value)) throw new Error('Invalid catalogue icon key');
+      await page.goto(`${base}/dev-location-icons-preview?render=1&icon=${value}`, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector(`[data-icon="${value}"] canvas`);
+      console.log('Capturing', value);
+      await page.waitForFunction(() => document.querySelector('[data-icon] canvas')?.dataset.png);
+      const data = await page.locator('[data-icon] canvas').evaluate(canvas => canvas.dataset.png.split(',')[1]);
+      await writeFile(path.join(destination, `${value}.png`), Buffer.from(data, 'base64'));
+      console.log(`Rendered ${value}`);
+    }
+    console.log(`Rendered ${values.length} transparent 512 × 512 PNGs.`);
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

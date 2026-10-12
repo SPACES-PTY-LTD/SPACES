@@ -2,6 +2,14 @@
 // Requires Playwright and the website development server; uses mocked API data only.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+async function pickerCatalogue(page, openEditor, openPicker, picker, editor) {
+ await openEditor(); await openPicker();
+ const choices = await picker().getByRole('radio').evaluateAll(nodes=>nodes.map(n=>[n.getAttribute('value'),n.getAttribute('aria-label')]));
+ assert.equal(choices.length,21);
+ await page.keyboard.press('Escape'); await editor().getByRole('button',{name:'Cancel',exact:true}).click();
+ return choices;
+}
+
 (async () => {
  const browser = await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL || 'chrome'});
  try {
@@ -20,6 +28,7 @@ const assert = require('node:assert/strict');
    }
    return route.fulfill({json:{success:true,data:types}});
   });
+  await page.route('**/api/auth/session', route=>route.fulfill({json:{}}));
   await page.goto(`${process.argv[2] || 'http://localhost:3000'}/dev-location-icons-preview`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   console.log('Fixture loaded');
   const openEditor=()=>page.getByText('Example stop',{exact:true}).click();
@@ -40,7 +49,8 @@ const assert = require('node:assert/strict');
   await finish();
   assert.equal(await page.getByRole('button',{name:'Save',exact:true}).isDisabled(),true);
   assert.equal(saves,0);
-  for(const [value,label] of [['warehouse','Warehouse'],['workshop','Truck workshop'],['waypoint','Waypoint'],['restarea','Rest area'],['fuel','Fuel station']]) {
+  const choices = await pickerCatalogue(page, openEditor, openPicker, picker, editor);
+  for(const [value,label] of choices) {
    console.log('Opening editor/picker'); await openEditor(); await openPicker();
    await picker().getByRole('radio',{name:label,exact:true}).click();
    await picker().getByRole('button',{name:'Use icon',exact:true}).click();
@@ -57,7 +67,7 @@ const assert = require('node:assert/strict');
   assert.equal(await picker().getByRole('radio',{name:'Truck workshop',exact:true}).getAttribute('aria-checked'),'true');
   await picker().getByRole('button',{name:'Use icon',exact:true}).click(); await finish();
   failSave=true; await save(); await page.getByText('Fixture save failed',{exact:true}).waitFor();
-  assert.equal(types[0].icon,'fuel');
+  assert.equal(types[0].icon,'fuel-station-2');
   assert.equal(await page.getByRole('button',{name:'Save',exact:true}).isEnabled(),true);
   console.log('Opening editor/picker'); await openEditor(); await openPicker();
   assert.equal(await picker().getByRole('radio',{name:'Truck workshop',exact:true}).getAttribute('aria-checked'),'true');
@@ -73,6 +83,6 @@ const assert = require('node:assert/strict');
   await page.getByRole('button',{name:'New type',exact:true}).click();
   await page.getByRole('dialog',{name:'Create location type',exact:true}).getByText('Default preview. No icon selected.',{exact:true}).waitFor();
   assert.deepEqual(errors,[]);
-  console.log('PASS: five save/reload choices, legacy preservation, cancel/Escape/focus, keyboard selection, failed-save draft, blank new type and desktop/light + mobile/dark layout.');
+  console.log('PASS: all 21 save/reload choices, legacy preservation, cancel/Escape/focus, keyboard selection, failed-save draft, blank new type and desktop/light + mobile/dark layout.');
  } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

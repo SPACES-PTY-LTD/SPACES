@@ -1,3 +1,4 @@
+import { ADDITIONAL_LOCATION_MODELS, type AdditionalLocationMeshType } from "./additional-location-models";
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef, useState } from "react";
@@ -490,6 +491,26 @@ function PlaceholderMesh({ x, z, changedAt }: { x: number; z: number; changedAt:
   );
 }
 
+function AdditionalLocationMesh({ location, x, z, showLocationLabels, onSelectLocation }: {
+  location: LocationNode;
+  x: number;
+  z: number;
+  showLocationLabels: boolean;
+  onSelectLocation?: (locationId: string) => void;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const Model = ADDITIONAL_LOCATION_MODELS[location.meshType as AdditionalLocationMeshType];
+  return (
+    <AnimatedLocationGroup x={x} z={z} status={location.status} changedAt={location.changedAt}
+      onPointerEnter={() => setIsHovered(true)} onPointerLeave={() => setIsHovered(false)}
+      onClick={() => onSelectLocation?.(location.locationId)}>
+      <Model />
+      <LocationBadge label={location.label ?? location.company ?? location.meshType.replaceAll("-", " ").toUpperCase()}
+        visible={location.status === "active" && (showLocationLabels || isHovered)} />
+    </AnimatedLocationGroup>
+  );
+}
+
 export function LocationMesh({
   location,
   x,
@@ -503,6 +524,9 @@ export function LocationMesh({
   showLocationLabels: boolean;
   onSelectLocation?: (locationId: string) => void;
 }) {
+  if (Object.hasOwn(ADDITIONAL_LOCATION_MODELS, location.meshType)) {
+    return <AdditionalLocationMesh location={location} x={x} z={z} showLocationLabels={showLocationLabels} onSelectLocation={onSelectLocation} />;
+  }
   if (location.meshType === "placeholder") {
     return <PlaceholderMesh x={x} z={z} changedAt={location.changedAt} />;
   }

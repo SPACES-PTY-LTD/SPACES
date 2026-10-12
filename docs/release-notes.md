@@ -1,5 +1,15 @@
 # Release Notes
 
+## 2026-10-12 | Version: location-type-models-expanded-v1
+
+- **Summary:** Add 16 distinct 3D monitoring models and matching icon choices, including a detailed Fuel station 2, expanding the library to 21.
+- **API Changes:** No endpoint changes; new supported icon strings are container-terminal, seaport, airport-cargo, rail-freight, mine, quarry, factory, farm, grain-terminal, cold-storage, retail, construction, weighbridge, border, toll-plaza and fuel-station-2.
+- **Database Changes:** None; no merchant location types created or reassigned automatically.
+- **Behavior Changes:** Each new icon resolves to a real 3D scene model, with existing arrival/exit animations, hover labels and location-click actions. Monitoring starts with all catalogue models visible and derives filters/counts from the same list. Preserve the original five models and legacy Warehouse fallback. Picker cards scroll within a bounded dialog while confirmation actions remain visible; monitoring Options supports the longer list. Fuel station 2 adds a rounded blue/white/orange canopy, pump display screens, hoses/nozzles, price sign and marked lanes.
+- **Breaking Changes:** None.
+- **Internal Changes:** Sequential PNG capture avoids the WebGL context limit; expand catalogue/model/asset and browser regressions. Canonical dashboard plan/status/acceptance/revision history updated; mobile Figma unaffected.
+- **Verification:** Website TypeScript, focused ESLint and nine catalogue/model/PNG/monitoring-wait regressions pass. Sequential exporter generated all 21 512 × 512 RGBA PNGs; alpha transparency and unclipped bounds checked for every asset, full-size/thumbnail overview visually reviewed. Mocked browser checks verify all 21 save/reload choices, legacy/blank preservation, cancel/Escape/focus restoration, keyboard selection and failed-save draft retention. Desktop light and 390px dark picker screenshots reviewed, with scrolling cards and visible confirmation actions. Authenticated live monitoring/save/hover/click/filter verification remains pending.
+
 ## 2026-10-12 | Version: location-type-3d-icon-picker-v1
 
 - **Summary:** Add transparent PNG previews of the five existing shipment-monitoring models and an accessible visual icon picker to location-type settings.
