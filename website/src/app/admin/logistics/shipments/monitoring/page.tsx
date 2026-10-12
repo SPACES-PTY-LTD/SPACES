@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { resolveLocationMeshType } from "@/lib/location-type-icons";
 import { Canvas } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
@@ -200,15 +201,6 @@ function getActivityTime(activity: VehicleActivity): number {
   if (!raw) return 0;
   const parsed = new Date(raw).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function resolveLocationMeshType(icon?: string | null): FilterableLocationMeshType {
-  const normalized = icon?.trim().toLowerCase();
-  if (normalized === "workshop") return "workshop";
-  if (normalized === "waypoint") return "waypoint";
-  if (normalized === "restarea") return "rest";
-  if (normalized === "fuel") return "fuel";
-  return "warehouse";
 }
 
 function buildLocationDetails(activity: VehicleActivity) {

@@ -42,6 +42,7 @@ export async function listShipments(
     service_type?: string
     priority?: string
     auto_assign?: boolean
+    unassigned?: boolean
     invoiced?: boolean
     from?: string
     to?: string

@@ -204,6 +204,10 @@ Route::prefix('v1')->group(function () {
         Route::match(['GET', 'POST'], 'runs/{run_uuid}/additional-costs', [\App\Http\Controllers\Api\V1\AdditionalCostController::class, 'handle']);
         Route::match(['PATCH', 'DELETE'], 'runs/{run_uuid}/additional-costs/{cost_uuid}', [\App\Http\Controllers\Api\V1\AdditionalCostController::class, 'handle']);
 
+        Route::get('schedule', [\App\Http\Controllers\Api\V1\ScheduleController::class, 'index'])->middleware('merchant.context');
+        Route::post('schedule/runs', [\App\Http\Controllers\Api\V1\ScheduleController::class, 'createRun'])->middleware('merchant.context');
+        Route::post('schedule/transfer', [\App\Http\Controllers\Api\V1\ScheduleController::class, 'transfer'])->middleware('merchant.context');
+
         Route::post('runs', [RunController::class, 'store']);
         Route::get('runs', [RunController::class, 'index'])->middleware('merchant.context');
         Route::get('runs/{run_uuid}/track', [\App\Http\Controllers\Api\V1\RunTrackController::class, 'show']);

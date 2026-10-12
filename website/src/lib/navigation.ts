@@ -1,6 +1,7 @@
 import { AdminLinks } from "@/lib/routes/admin"
 import {
   Activity,
+  CalendarDays,
   Boxes,
   ClipboardCheck,
   CreditCard,
@@ -54,6 +55,7 @@ export const adminNavGroups: NavGroup[] = [
         href: AdminLinks.dashboard,
         icon: Home,
       },
+      { title: "Schedule", href: AdminLinks.schedule, icon: CalendarDays },
       {
         title: "Shipments",
         href: AdminLinks.reportsShipments,

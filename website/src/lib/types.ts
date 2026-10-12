@@ -527,6 +527,7 @@ export interface Run {
   additional_costs?: AdditionalCost[]
   additional_cost_totals?: CostTotal[]
   run_id: UUID
+  schedule_managed?: boolean
   merchant_id?: UUID
   environment_id?: UUID | null
   status?: string

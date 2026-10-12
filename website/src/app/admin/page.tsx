@@ -1,5 +1,6 @@
 import { AdminLinks, withAdminQuery } from "@/lib/routes/admin"
 import Link from "next/link"
+import type { CSSProperties } from "react"
 import { PageHeader } from "@/components/layout/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CreatedOverTimeChart } from "@/components/reports/created-over-time-chart"
@@ -126,9 +127,12 @@ export default async function AdminDashboardPage() {
         description="Live performance across merchants, carriers, and shipments."
       />
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+      <div
+        className="grid gap-4 grid-cols-2 lg:grid-cols-4 xl:grid-cols-[repeat(var(--kpi-columns),minmax(0,1fr))]"
+        style={{ "--kpi-columns": kpis.length } as CSSProperties}
+      >
         {kpis.map((kpi) => (
-          <Link key={kpi.label} href={kpi.href} className="group">
+          <Link key={kpi.label} href={kpi.href} className="group min-w-0">
             <Card className="h-full gap-0 py-3 transition-shadow group-hover:shadow-md">
               <CardHeader className="px-3">
                 <CardTitle className="text-sm text-muted-foreground mb-0 pb-0">

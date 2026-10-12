@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\DeliveryRoute;
 use App\Models\Driver;
+use App\Models\Location;
 use App\Models\Merchant;
 use App\Models\MerchantEnvironment;
 use App\Models\Run;
@@ -167,6 +168,24 @@ class RunService
             $merchant = $this->resolveMerchant($data, $environment);
             $environmentModel = $this->resolveEnvironment($merchant, $data, $environment);
 
+            Merchant::whereKey($merchant->id)->lockForUpdate()->firstOrFail();
+            $scheduled = (bool) ($data['schedule_managed'] ?? false);
+            $requestData = $data;
+            ksort($requestData);
+            $requestHash = hash('sha256', json_encode($requestData));
+            if ($scheduled && ! empty($data['schedule_request_id'])) {
+                $existing = Run::where('schedule_request_id', $data['schedule_request_id'])->first();
+                if ($existing) {
+                    if ($existing->merchant_id !== $merchant->id || (int) $existing->environment_id !== (int) $environmentModel?->id || $existing->schedule_request_hash !== $requestHash) {
+                        throw new ConflictHttpException('This creation request was already used for a different plan.');
+                    }
+                    return $this->loadRun($existing);
+                }
+            }
+            if ($scheduled && (empty($data['planned_start_at']) || empty($data['origin_location_id']) || empty($data['destination_location_id']) || empty($data['vehicle_id']))) {
+                throw new UnprocessableEntityHttpException('Scheduled runs require a truck, planned time, start and end locations.');
+            }
+
             $run = Run::create([
                 'account_id' => $merchant->account_id,
                 'merchant_id' => $merchant->id,
@@ -175,12 +194,20 @@ class RunService
                 'vehicle_id' => $this->resolveVehicleId($merchant, $data['vehicle_id'] ?? $data['vehicle_uuid'] ?? null),
                 'route_id' => $this->resolveRouteId($merchant, $data['route_id'] ?? $data['route_uuid'] ?? null),
                 'status' => Run::STATUS_DRAFT,
-                'planned_start_at' => $data['planned_start_at'] ?? null,
+                'schedule_managed' => $scheduled,
+                'schedule_request_id' => $scheduled ? ($data['schedule_request_id'] ?? null) : null,
+                'schedule_request_hash' => $scheduled ? $requestHash : null,
+                'driver_workflow' => $scheduled,
+                'origin_location_id' => $this->resolveLocationId($merchant, $environmentModel?->id, $data['origin_location_id'] ?? null),
+                'destination_location_id' => $this->resolveLocationId($merchant, $environmentModel?->id, $data['destination_location_id'] ?? null),
+                'planned_start_at' => isset($data['planned_start_at']) ? \Illuminate\Support\Carbon::parse($data['planned_start_at'])->utc() : null,
                 'service_area' => $data['service_area'] ?? null,
                 'notes' => $data['notes'] ?? null,
             ]);
 
+            $this->validateScheduleResources($run);
             $this->syncDriverVehicleAssignment($run);
+            if (! empty($data['shipment_ids'])) $run = $this->attachShipments($run, $data['shipment_ids']);
 
             return $this->loadRun($run);
         });
@@ -237,44 +264,60 @@ class RunService
 
     public function updateRun(Run $run, array $data): Run
     {
-        if (! $run->isMutable()) {
-            throw new ConflictHttpException('Run can only be edited while in draft or dispatched status.');
-        }
+        return DB::transaction(function () use ($run, $data) {
+            Merchant::whereKey($run->merchant_id)->lockForUpdate()->firstOrFail();
+            $run = Run::whereKey($run->id)->lockForUpdate()->firstOrFail();
+            if (! $run->isMutable()) {
+                throw new ConflictHttpException('Run can only be edited while in draft or dispatched status.');
+            }
 
-        if (array_key_exists('driver_id', $data) || array_key_exists('driver_uuid', $data)) {
-            $run->driver_id = $this->resolveDriverId($run->merchant, $data['driver_id'] ?? $data['driver_uuid'] ?? null);
-        }
+            if (array_key_exists('expected_driver_id', $data) && $run->driver?->uuid !== $data['expected_driver_id']) {
+                throw new ConflictHttpException('The assigned driver changed. Refresh before assigning a driver.');
+            }
+            if (array_key_exists('driver_id', $data) || array_key_exists('driver_uuid', $data)) {
+                $run->driver_id = $this->resolveDriverId($run->merchant, $data['driver_id'] ?? $data['driver_uuid'] ?? null);
+            }
 
-        if (array_key_exists('vehicle_id', $data) || array_key_exists('vehicle_uuid', $data)) {
-            $run->vehicle_id = $this->resolveVehicleId($run->merchant, $data['vehicle_id'] ?? $data['vehicle_uuid'] ?? null);
-        }
+            if (array_key_exists('vehicle_id', $data) || array_key_exists('vehicle_uuid', $data)) {
+                $run->vehicle_id = $this->resolveVehicleId($run->merchant, $data['vehicle_id'] ?? $data['vehicle_uuid'] ?? null);
+            }
 
-        if (array_key_exists('route_id', $data) || array_key_exists('route_uuid', $data)) {
-            $run->route_id = $this->resolveRouteId($run->merchant, $data['route_id'] ?? $data['route_uuid'] ?? null);
-        }
+            if (array_key_exists('route_id', $data) || array_key_exists('route_uuid', $data)) {
+                $run->route_id = $this->resolveRouteId($run->merchant, $data['route_id'] ?? $data['route_uuid'] ?? null);
+            }
 
-        if (array_key_exists('planned_start_at', $data)) {
-            $run->planned_start_at = $data['planned_start_at'];
-        }
+            if (array_key_exists('planned_start_at', $data)) {
+                $run->planned_start_at = $data['planned_start_at'] ? \Illuminate\Support\Carbon::parse($data['planned_start_at'])->utc() : null;
+            }
 
-        if (array_key_exists('service_area', $data)) {
-            $run->service_area = $data['service_area'];
-        }
+            if (array_key_exists('service_area', $data)) {
+                $run->service_area = $data['service_area'];
+            }
 
-        if (array_key_exists('notes', $data)) {
-            $run->notes = $data['notes'];
-        }
+            if (array_key_exists('notes', $data)) {
+                $run->notes = $data['notes'];
+            }
 
-        $run->save();
-        $this->syncDriverVehicleAssignment($run);
-        $this->internalBookingLifecycleService->syncRunBookingDrivers($run->fresh());
+            foreach (['origin_location_id', 'destination_location_id'] as $field) {
+                if (array_key_exists($field, $data)) $run->{$field} = $this->resolveLocationId($run->merchant, $run->environment_id, $data[$field]);
+            }
+            if ($run->schedule_managed && (! $run->planned_start_at || ! $run->origin_location_id || ! $run->destination_location_id || ! $run->vehicle_id)) {
+                throw new UnprocessableEntityHttpException('Scheduled runs require a truck, planned time, start and end locations.');
+            }
+            $this->validateScheduleResources($run);
+            if ($run->schedule_managed) $run->status = Run::STATUS_DRAFT;
+            $run->save();
+            $this->syncDriverVehicleAssignment($run);
+            if (! $run->schedule_managed || $run->status !== Run::STATUS_DRAFT) $this->internalBookingLifecycleService->syncRunBookingDrivers($run->fresh());
 
-        return $this->loadRun($run);
+            return $this->loadRun($run);
+        }, 5);
     }
 
     public function attachShipments(Run $run, array $shipmentUuids, bool $allowInProgress = false): Run
     {
         return DB::transaction(function () use ($run, $shipmentUuids, $allowInProgress) {
+            Merchant::whereKey($run->merchant_id)->lockForUpdate()->firstOrFail();
             $run = Run::query()->lockForUpdate()->findOrFail($run->id);
             $canAttach = $run->isMutable() || ($allowInProgress && $run->status === Run::STATUS_IN_PROGRESS);
             if (! $canAttach) {
@@ -285,7 +328,7 @@ class RunService
                 : RunShipment::STATUS_PLANNED;
             $shipments = Shipment::query()
                 ->whereIn('uuid', $shipmentUuids)
-                ->get()
+                ->orderBy('id')->lockForUpdate()->get()
                 ->keyBy('uuid');
 
             foreach ($shipmentUuids as $shipmentUuid) {
@@ -302,7 +345,7 @@ class RunService
                     throw new UnprocessableEntityHttpException("Shipment {$shipmentUuid} belongs to a different environment.");
                 }
 
-                if (in_array($shipment->status, ['cancelled', 'delivered', 'failed'], true)) {
+                if (in_array($shipment->status, ['cancelled', 'delivered', 'failed', 'returned'], true)) {
                     throw new UnprocessableEntityHttpException("Shipment {$shipmentUuid} is already terminal and cannot be attached.");
                 }
 
@@ -346,33 +389,41 @@ class RunService
 
     public function detachShipment(Run $run, string $shipmentUuid): Run
     {
-        if (! $run->isMutable()) {
-            throw new ConflictHttpException('Run shipments can only be modified while run is draft or dispatched.');
-        }
+        return DB::transaction(function () use ($run, $shipmentUuid) {
+            Merchant::whereKey($run->merchant_id)->lockForUpdate()->firstOrFail();
+            $run = Run::whereKey($run->id)->lockForUpdate()->firstOrFail();
+            if (! $run->isMutable()) {
+                throw new ConflictHttpException('Run shipments can only be modified while run is draft or dispatched.');
+            }
 
-        $shipmentId = Shipment::where('uuid', $shipmentUuid)->value('id');
-        if (! $shipmentId) {
-            throw new UnprocessableEntityHttpException('Shipment was not found.');
-        }
+            $shipmentId = Shipment::where('uuid', $shipmentUuid)->value('id');
+            if (! $shipmentId) {
+                throw new UnprocessableEntityHttpException('Shipment was not found.');
+            }
 
-        $runShipment = RunShipment::query()
-            ->where('run_id', $run->id)
-            ->where('shipment_id', $shipmentId)
-            ->where('status', '!=', RunShipment::STATUS_REMOVED)
-            ->first();
+            $runShipment = RunShipment::query()
+                ->where('run_id', $run->id)
+                ->where('shipment_id', $shipmentId)
+                ->where('status', '!=', RunShipment::STATUS_REMOVED)
+                ->first();
 
-        if (! $runShipment) {
-            throw new UnprocessableEntityHttpException('Shipment is not attached to this run.');
-        }
+            if (! $runShipment) {
+                throw new UnprocessableEntityHttpException('Shipment is not attached to this run.');
+            }
 
-        $runShipment->status = RunShipment::STATUS_REMOVED;
-        $runShipment->save();
+            $runShipment->status = RunShipment::STATUS_REMOVED;
+            $runShipment->save();
 
-        return $this->loadRun($run->fresh());
+            return $this->loadRun($run->fresh());
+        }, 5);
     }
 
     public function dispatchRun(Run $run): Run
     {
+        if ($run->schedule_managed) {
+            app(RunReadinessService::class)->assertReady($run);
+            return $this->loadRun($run);
+        }
         if ($run->status !== Run::STATUS_DRAFT) {
             throw new ConflictHttpException('Only draft runs can be dispatched.');
         }
@@ -390,20 +441,26 @@ class RunService
 
     public function startRun(Run $run, ?int $odometerStartKm = null): Run
     {
-        if (! in_array($run->status, [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED], true)) {
-            throw new ConflictHttpException('Only draft or dispatched runs can be started.');
-        }
+        return DB::transaction(function () use ($run, $odometerStartKm) {
+            Merchant::whereKey($run->merchant_id)->lockForUpdate()->firstOrFail();
+            app(RunReadinessService::class)->assertReady($run);
+            Driver::whereKey($run->driver_id)->lockForUpdate()->first();
+            Vehicle::whereKey($run->vehicle_id)->lockForUpdate()->first();
+            $run = Run::whereKey($run->id)->lockForUpdate()->firstOrFail();
+            if ($run->schedule_managed && $run->status !== Run::STATUS_DISPATCHED) throw new ConflictHttpException('This planned run is no longer ready.');
+            if (! in_array($run->status, [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED], true)) {
+                throw new ConflictHttpException('Only draft or dispatched runs can be started.');
+            }
 
-        if (! $run->driver_id) {
-            throw new UnprocessableEntityHttpException('Run must have a driver before it can be started.');
-        }
+            if (! $run->driver_id) {
+                throw new UnprocessableEntityHttpException('Run must have a driver before it can be started.');
+            }
 
-        $activeShipmentsCount = $run->runShipments()->where('status', '!=', RunShipment::STATUS_REMOVED)->count();
-        if ($activeShipmentsCount === 0) {
-            throw new UnprocessableEntityHttpException('Run must have at least one shipment before start.');
-        }
+            $activeShipmentsCount = $run->runShipments()->where('status', '!=', RunShipment::STATUS_REMOVED)->count();
+            if ($activeShipmentsCount === 0) {
+                throw new UnprocessableEntityHttpException('Run must have at least one shipment before start.');
+            }
 
-        DB::transaction(function () use ($run, $odometerStartKm) {
             $run->status = Run::STATUS_IN_PROGRESS;
             $run->started_at = now();
             if ($odometerStartKm !== null) {
@@ -418,9 +475,8 @@ class RunService
                 ->update(['status' => RunShipment::STATUS_ACTIVE]);
 
             $this->internalBookingLifecycleService->markRunShipmentsInTransit($run->fresh(), $run->started_at);
-        });
-
-        return $this->loadRun($run->fresh());
+            return $this->loadRun($run->fresh());
+        }, 5);
     }
 
     public function completeRun(Run $run, ?int $odometerEndKm = null): Run
@@ -501,6 +557,26 @@ class RunService
             ->where('uuid', $environmentUuid)
             ->where('merchant_id', $merchant->id)
             ->firstOrFail();
+    }
+
+    private function validateScheduleResources(Run $run): void
+    {
+        if (! $run->schedule_managed) return;
+        $driver = $run->driver_id ? Driver::find($run->driver_id) : null;
+        $vehicle = $run->vehicle_id ? Vehicle::find($run->vehicle_id) : null;
+        if (($driver && (int) $driver->merchant_id !== (int) $run->merchant_id) || ($vehicle && (int) $vehicle->merchant_id !== (int) $run->merchant_id)) {
+            throw new UnprocessableEntityHttpException('Choose a driver and truck belonging to this merchant.');
+        }
+    }
+
+    private function resolveLocationId(Merchant $merchant, ?int $environmentId, ?string $uuid): ?int
+    {
+        if (! $uuid) return null;
+        $location = Location::where('uuid', $uuid)->where('account_id', $merchant->account_id)
+            ->where('merchant_id', $merchant->id)
+            ->where(fn ($q) => $q->whereNull('environment_id')->orWhere('environment_id', $environmentId))->first();
+        if (! $location) throw new UnprocessableEntityHttpException('Choose a location in this merchant and environment.');
+        return $location->id;
     }
 
     private function resolveDriverId(Merchant $merchant, ?string $driverUuid): ?int
@@ -619,7 +695,7 @@ class RunService
 
     private function syncDriverVehicleAssignment(Run $run): void
     {
-        if (! $run->driver_id || ! $run->vehicle_id) {
+        if (($run->schedule_managed && $run->status === Run::STATUS_DRAFT) || ! $run->driver_id || ! $run->vehicle_id) {
             return;
         }
 

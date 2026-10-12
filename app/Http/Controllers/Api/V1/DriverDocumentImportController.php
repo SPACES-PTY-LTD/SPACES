@@ -40,8 +40,9 @@ class DriverDocumentImportController extends Controller
 
     private function runs($driver)
     {
+        app(\App\Services\RunReadinessService::class)->reconcile($driver->merchant_id);
         return Run::where('driver_id', $driver->id)->where('account_id', $driver->account_id)
-            ->where('merchant_id', $driver->merchant_id)->whereIn('status', ['draft', 'dispatched', 'in_progress']);
+            ->where('merchant_id', $driver->merchant_id)->where(fn ($q) => \App\Services\RunReadinessService::operational($q))->whereIn('status', ['draft', 'dispatched', 'in_progress']);
     }
 
     private function owned(Request $request, string $id)
@@ -174,7 +175,9 @@ class DriverDocumentImportController extends Controller
         $driver = $this->driver($request);
         $run = $this->runs($driver)->where('uuid', $run_uuid)->firstOrFail();
         return DB::transaction(function () use ($run, $runs) {
-            $run = Run::whereKey($run->id)->lockForUpdate()->firstOrFail();
+            \App\Models\Merchant::whereKey($run->merchant_id)->lockForUpdate()->firstOrFail();
+            // RunService takes shared resource locks before locking the run.
+            $run->refresh();
             abort_unless($run->vehicle_id, 422, 'Ask dispatch to assign a vehicle before starting.');
             if ($run->status !== Run::STATUS_IN_PROGRESS) $runs->startRun($run);
             return ApiResponse::success(['run_id' => $run->uuid, 'status' => Run::STATUS_IN_PROGRESS]);

@@ -1,5 +1,42 @@
 # Release Notes
 
+## 2026-10-12 | Version: location-type-3d-icon-picker-v1
+
+- **Summary:** Add transparent PNG previews of the five existing shipment-monitoring models and an accessible visual icon picker to location-type settings.
+- **API Changes:** None; persist existing icon strings (`warehouse`, `workshop`, `waypoint`, `restarea`, `fuel`) through the existing merchant-scoped sync endpoint.
+- **Database Changes:** None.
+- **Behavior Changes:** Choose icon opens labelled radio cards with PNG previews and explicit Use icon/Cancel actions. Confirm updates only the editor draft; Add type/Update type and page Save retain their existing flow. Settings rows show thumbnails. Blank/unknown legacy strings remain unchanged until explicit replacement and retain Warehouse fallback. Monitoring shares the catalogue resolver; existing models and colour behaviour remain unchanged. Bound both dialogs to viewport height.
+- **Breaking Changes:** None.
+- **Internal Changes:** Add a development-only render/editor fixture, repeatable Playwright PNG exporter and mapping/asset/browser regression checks. Dashboard plan status, acceptance criteria and revision history updated; mobile Figma screens unaffected.
+- **Verification:** Five 512 × 512 RGBA PNGs rendered from actual models and visually inspected. Eight catalogue/PNG and existing monitoring-wait regressions pass; website TypeScript and focused ESLint pass. Mocked browser checks pass for all five save/reload choices, unchanged legacy values, blank new types, Cancel/Escape/focus return, keyboard selection and failed-save draft retention. Desktop light and 390px dark screenshots visually reviewed. Reusable exporter verified. Authenticated live save/reload remains pending.
+
+## 2026-10-12 | Version: admin-schedule-v1
+
+- **Summary:** Add the admin Schedule board for planning sequential truck runs, drivers and shipments.
+- **API Changes:** Add merchant/environment-scoped `GET /api/v1/schedule`, atomic `POST /api/v1/schedule/transfer`, and `POST /api/v1/schedule/runs` for moving a planned shipment into a new run. Run creation accepts `schedule_managed`, required schedule creation UUID, start/end location UUIDs and optional shipment IDs; updates accept endpoints and expected driver UUID. Run resources expose `schedule_managed`; shipment lists support server-side `unassigned=true` for both user/environment contexts. Schedule responses return lightweight run summaries, eligibility/waiting reasons, separate pagination, environment names/UUIDs and management permissions.
+- **Database Changes:** Add default-false `runs.schedule_managed`, nullable unique `schedule_request_id`, creation fingerprint and a readiness lookup index. Existing runs retain their previous workflow.
+- **Behavior Changes:** Add Schedule navigation, Today/date-range filters, ongoing/overdue truck grouping, searches, fleet/driver filters, environment selection, independent scrolling and narrow-screen tabs. Support drag/drop and keyboard/button assignment, driver replacement confirmation, empty drafts, editable endpoints/time and shared shipment creation drawers. Transfers and new-run shipment moves are atomic, audited and retry safe; stale membership/driver changes are rejected. Active-run drivers/existing shipments remain locked, while unassigned shipments can join active runs. From merchant-local midnight, promote the earliest complete due plan for free resources; defer permanent vehicle/booking driver synchronization until readiness. Reconcile each minute and after relevant mutations/closure. Exclude future/waiting plans from driver selection/import/shipment actions, manual starts and GPS run selection; preserve legacy/upload/automatic workflows.
+- **Breaking Changes:** None for existing clients. New schedule clients require this migration/backend before rollout; Laravel scheduler must execute every minute.
+- **Verification:** 200 targeted Laravel schedule/run/driver/GPS/action/import tests (2,191 assertions), including fourteen schedule regressions, pass. 22 website regressions (including five schedule checks), website TypeScript, focused ESLint and git diff whitespace checks pass. Local fixture desktop driver assignment and location/run creation, narrow-screen tabs and shipment drawer reviewed. Canonical plan/version/acceptance and Figma scenario guide/readiness handoff aligned. Authenticated live operations, production MySQL lock contention/load and physical driver-device acceptance remain pending; fixture data is not live dispatch data.
+
+## 2026-10-12 | Version: dashboard-adaptive-kpi-columns-v1
+
+- **Summary:** Size the Analytics and admin dashboard KPI columns from the displayed card count.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Wide-screen KPI rows use equal-width columns for every displayed card, supporting seven or eight KPIs without a leftover card on a second row. Preserve existing smaller-screen column counts, spacing, values and links. Analytics cards fill their row height when labels wrap.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint for both pages and git diff whitespace checks pass. Authenticated browser visual verification remains pending. This website layout correction does not change the mobile dashboard plan or its Figma designs.
+
+## 2026-10-12 | Version: shipment-exit-wait-warning-v1
+
+- **Summary:** Show total time at location and an excessive-wait warning on shipment timeline exit events.
+- **API Changes:** None; use the existing exit activity visit timestamps in metadata and location expected waiting time (minutes), with direct visit timestamp fallback.
+- **Database Changes:** None.
+- **Behavior Changes:** Only `exited_location` events show total visit duration. Show a red warning triangle when the exact duration strictly exceeds the configured allowance; its hover/keyboard tooltip explains total time, expected time and excess. Retain zero-minute allowances. Missing/invalid intervals show Not available without a warning; missing/invalid allowances retain duration without a warning. Keep stop details and the warning as separate keyboard controls to avoid nested buttons.
+- **Breaking Changes:** None.
+- **Verification:** Six timing regressions pass, covering metadata-backed exits, direct timestamp fallback, exact thresholds, seconds, zero allowances, unknown/invalid intervals and multi-day/timezone durations. Website TypeScript and focused ESLint pass. Authenticated shipment timeline visual/interaction verification remains pending.
+
 ## 2026-10-12 | Version: admin-run-actions-v1
 
 - **Summary:** Add Edit run, Update delivery order and Message the driver to the admin run-detail header Actions dropdown.

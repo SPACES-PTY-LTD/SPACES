@@ -153,6 +153,12 @@ class ShipmentService
             }
         }
 
+        if (filter_var($filters['unassigned'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $query->whereNotIn('shipments.status', ['delivered', 'failed', 'cancelled', 'returned'])
+                ->whereDoesntHave('runShipments', fn ($q) => $q->where('status', '!=', \App\Models\RunShipment::STATUS_REMOVED)
+                    ->whereHas('run', fn ($r) => $r->whereIn('status', ['draft', 'dispatched', 'in_progress'])));
+        }
+
         if (!empty($filters['status'])) {
             $query->where('shipments.status', $filters['status']);
         }
@@ -233,6 +239,12 @@ class ShipmentService
             ])
             ->where('shipments.merchant_id', $environment->merchant_id)
             ->where('shipments.environment_id', $environment->id);
+
+        if (filter_var($filters['unassigned'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $query->whereNotIn('shipments.status', ['delivered', 'failed', 'cancelled', 'returned'])
+                ->whereDoesntHave('runShipments', fn ($q) => $q->where('status', '!=', \App\Models\RunShipment::STATUS_REMOVED)
+                    ->whereHas('run', fn ($r) => $r->whereIn('status', ['draft', 'dispatched', 'in_progress'])));
+        }
 
         if (!empty($filters['status'])) {
             $query->where('shipments.status', $filters['status']);

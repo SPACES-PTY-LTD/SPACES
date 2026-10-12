@@ -528,6 +528,7 @@ class DriverShipmentController extends Controller
             'environment',
         ])->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)->whereHas('currentRunShipment.run', function (Builder $builder) use ($driver) {
             $builder->where('driver_id', $driver->id)
+                ->where(fn ($q) => \App\Services\RunReadinessService::operational($q))
                 ->whereIn('status', [
                     Run::STATUS_DRAFT,
                     Run::STATUS_DISPATCHED,

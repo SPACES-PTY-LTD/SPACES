@@ -85,3 +85,11 @@ Schedule::command('tracking:sync-vehicle-locations')
     ->everyMinute();
 Schedule::command('billing:generate-monthly-invoices')->dailyAt('01:00');
 Schedule::command('billing:charge-due-invoices')->dailyAt('02:00');
+
+// Resolve midnight eligibility and retry plans waiting on assignments or occupied resources.
+Schedule::call(function () {
+    \App\Models\Run::where('schedule_managed', true)->whereIn('status', ['draft', 'dispatched'])
+        ->select('merchant_id')->distinct()->pluck('merchant_id')->each(
+            fn ($merchantId) => app(\App\Services\RunReadinessService::class)->reconcile($merchantId)
+        );
+})->name('runs:reconcile-schedule')->everyMinute()->withoutOverlapping();

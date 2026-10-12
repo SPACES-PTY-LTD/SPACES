@@ -21,6 +21,8 @@ class DriverDashboardController extends Controller
             return ApiResponse::error('FORBIDDEN', 'Driver profile not found.', [], 403);
         }
 
+        app(\App\Services\RunReadinessService::class)->reconcile($driver->merchant_id);
+
         $timezone = $driver->merchant?->timezone ?: config('app.timezone');
         $today = now($timezone);
         $start = $today->copy()->startOfDay()->utc();
@@ -30,7 +32,7 @@ class DriverDashboardController extends Controller
         $active = Shipment::query()
             ->where('account_id', $driver->account_id)
             ->whereNotIn('status', ['delivered', 'failed', 'cancelled'])
-            ->whereHas('currentRunShipment.run', fn ($query) => $query->where('driver_id', $driver->id))
+            ->whereHas('currentRunShipment.run', fn ($query) => $query->where('driver_id', $driver->id)->where(fn ($q) => \App\Services\RunReadinessService::operational($q)))
             ->whereRaw('COALESCE(collection_date, ready_at, created_at) <= ?', [$end]);
 
         // A completed run must still contribute to today's delivered count.
@@ -62,6 +64,8 @@ class DriverDashboardController extends Controller
             ->where('account_id', $driver->account_id)
             ->where('merchant_id', $driver->merchant_id)
             ->whereIn('status', [Run::STATUS_IN_PROGRESS, Run::STATUS_DISPATCHED, Run::STATUS_DRAFT])
+            ->where(fn ($q) => \App\Services\RunReadinessService::operational($q))
+            ->orderByRaw("CASE WHEN schedule_managed = 1 AND status = 'in_progress' THEN 0 ELSE 1 END")
             ->when($request->query('run_id'), fn ($q) => $q->orderByRaw('CASE WHEN uuid = ? THEN 0 ELSE 1 END', [$request->query('run_id')]))
             ->orderByRaw("CASE status WHEN 'in_progress' THEN 0 WHEN 'dispatched' THEN 1 ELSE 2 END")
             ->orderBy('started_at')->orderBy('id')->first();

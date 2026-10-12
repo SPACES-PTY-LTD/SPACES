@@ -53,6 +53,8 @@ class AutoRunLifecycleService
             return false;
         }
 
+        app(RunReadinessService::class)->reconcile($merchant->id);
+
         $occurredAt = Carbon::instance(($eventAt ?? now())->toDateTime());
 
         return DB::transaction(function () use (
@@ -180,7 +182,7 @@ class AutoRunLifecycleService
 
                 // Driver-planned runs keep the physical visit but are closed only by dispatch.
                 if (!$arrivingRun) {
-                    $arrivingRun = Run::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)->where('vehicle_id', $vehicle->id)->where('driver_workflow', true)->whereIn('status', [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED])->where('origin_location_id', $location->id)->lockForUpdate()->first();
+                    $arrivingRun = Run::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)->where('vehicle_id', $vehicle->id)->where('driver_workflow', true)->where(fn ($q) => RunReadinessService::operational($q))->whereIn('status', [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED])->where('origin_location_id', $location->id)->lockForUpdate()->first();
                 }
                 if ($arrivingRun?->driver_workflow) {
                     $visit->update(['run_id' => $arrivingRun->id]);
@@ -298,7 +300,7 @@ class AutoRunLifecycleService
 
         $driverRun = Run::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)
             ->where('vehicle_id', $vehicle->id)->where('driver_workflow', true)
-            ->whereIn('status', [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED, Run::STATUS_IN_PROGRESS])
+            ->where(fn ($q) => RunReadinessService::operational($q))->whereIn('status', [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED, Run::STATUS_IN_PROGRESS])
             ->orderByRaw("CASE status WHEN 'in_progress' THEN 0 ELSE 1 END")->lockForUpdate()->first();
         if ($driverRun && $driverRun->status !== Run::STATUS_IN_PROGRESS &&
             ($driverRun->origin_location_id ? $driverRun->origin_location_id === $activeVisit->location_id : $activeVisit->location?->locationType?->collection_point)) {
@@ -1134,7 +1136,7 @@ class AutoRunLifecycleService
         return Run::query()
             ->where('merchant_id', $merchant->id)
             ->where('vehicle_id', $vehicle->id)
-            ->whereIn('status', [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED, Run::STATUS_IN_PROGRESS])
+            ->where(fn ($q) => RunReadinessService::operational($q))->whereIn('status', [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED, Run::STATUS_IN_PROGRESS])
             ->orderByDesc('started_at')
             ->orderByDesc('id')
             ->lockForUpdate()

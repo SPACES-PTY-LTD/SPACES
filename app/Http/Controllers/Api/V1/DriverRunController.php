@@ -27,7 +27,8 @@ class DriverRunController extends Controller
         };
         $location = fn ($q) => $q->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id);
 
-        return Run::query()->where('driver_id', $driver->id)->where('account_id', $driver->account_id)
+        app(\App\Services\RunReadinessService::class)->reconcile($driver->merchant_id);
+        return Run::query()->where(fn ($q) => \App\Services\RunReadinessService::operational($q))->where('driver_id', $driver->id)->where('account_id', $driver->account_id)
             ->where('merchant_id', $driver->merchant_id)
             ->with(['merchant', 'driver.user', 'vehicle' => $location, 'originLocation' => $location, 'destinationLocation' => $location, 'latestEndRequest',
                 'recordedEndStop' => $location, 'recordedEndStop.location' => $location,

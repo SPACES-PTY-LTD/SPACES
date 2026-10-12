@@ -24,6 +24,7 @@ import {
   type UpsertLocationTypePayload,
 } from "@/lib/api/location-types"
 import type { LocationType } from "@/lib/types"
+import { LocationTypeIconPicker, LocationTypeIconPreview } from "./location-type-icon-picker"
 
 type EditableLocationType = {
   location_type_id?: string | null
@@ -384,6 +385,7 @@ export function LocationTypesManager({
                     >
                       <GripVertical className="h-4 w-4" />
                     </button>
+                    <LocationTypeIconPreview value={type.icon} />
                     <div className="min-w-[180px] flex-1">
                       <div
                         onClick={() => openEditDialog(index)}
@@ -415,7 +417,7 @@ export function LocationTypesManager({
       ) : null}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingIndex == null ? "Create location type" : "Edit location type"}</DialogTitle>
             <DialogDescription>
@@ -461,13 +463,10 @@ export function LocationTypesManager({
                   onChange={(event) => onChangeForm("sequence", event.target.value)}
                 />
               </div> */}
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">Icon</label>
-                <Input
-                  value={formValues.icon}
-                  onChange={(event) => onChangeForm("icon", event.target.value)}
-                />
-              </div>
+              <LocationTypeIconPicker
+                value={formValues.icon}
+                onChange={(value) => onChangeForm("icon", value)}
+              />
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">Color</label>
                 <Input

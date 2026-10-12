@@ -12,6 +12,9 @@ class UpdateRunRequest extends BaseRequest
     public function rules(): array
     {
         return [
+            'origin_location_id' => ['sometimes', 'nullable', 'uuid', 'exists:locations,uuid'],
+            'destination_location_id' => ['sometimes', 'nullable', 'uuid', 'exists:locations,uuid'],
+            'expected_driver_id' => ['sometimes', 'nullable', 'uuid'],
             'driver_id' => ['sometimes', 'nullable', 'uuid', 'exists:drivers,uuid'],
             'vehicle_id' => ['sometimes', 'nullable', 'uuid', 'exists:vehicles,uuid'],
             'route_id' => ['sometimes', 'nullable', 'uuid', 'exists:routes,uuid'],

@@ -6,6 +6,7 @@ const SHIPMENTS_BASE = `${LOGISTICS_BASE}/shipments`
 
 export const AdminLinks = {
   dashboard: ADMIN_BASE,
+  schedule: `${LOGISTICS_BASE}/schedule`,
   activityLog: `${ADMIN_BASE}/activity-log`,
   bookings: `${SHIPMENTS_BASE}/bookings`,
   billing: `${ADMIN_BASE}/billing`,

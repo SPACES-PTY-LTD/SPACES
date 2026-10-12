@@ -1,4 +1,5 @@
 import Link from "next/link"
+import type { CSSProperties } from "react"
 import { CreatedOverTimeChart } from "@/components/reports/created-over-time-chart"
 import { PageHeader } from "@/components/layout/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -333,10 +334,13 @@ export default async function LogisticsAnalyticsPage() {
         description="Live logistics activity linked back to the operational pages."
       />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-7">
+      <div
+        className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[repeat(var(--kpi-columns),minmax(0,1fr))]"
+        style={{ "--kpi-columns": kpis.length } as CSSProperties}
+      >
         {kpis.map((kpi) => (
-          <Link href={kpi.href} className="group" key={kpi.label}>
-            <Card className="gap-0 py-3 transition-shadow group-hover:shadow-md">
+          <Link href={kpi.href} className="group min-w-0" key={kpi.label}>
+            <Card className="h-full gap-0 py-3 transition-shadow group-hover:shadow-md">
               <CardHeader className="px-3 mb-0">
                 <CardTitle className="text-sm text-muted-foreground mb-0 pb-0">
                   {kpi.label}

@@ -14,6 +14,8 @@ import {
 import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 import type { ShipmentStop } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import { RunStopDuration } from "@/components/runs/run-stop-duration"
+import { shipmentExitVisit } from "@/components/shipments/shipment-exit-visit"
 
 type LatLngLiteral = google.maps.LatLngLiteral
 
@@ -526,9 +528,8 @@ export function ShipmentStopsOverview({
                 const active = stop.stopKey === selectedStopKey
                 const hovered = stop.stopKey === hoveredStopKey
                 return (
-                  <button
+                  <div
                     key={stop.stopKey}
-                    type="button"
                     className={cn(
                       "relative flex w-full items-start gap-4 rounded-xl border px-4 py-3 text-left transition-colors",
                       active
@@ -537,7 +538,6 @@ export function ShipmentStopsOverview({
                           ? "border-primary/30 bg-primary/5"
                           : "border-transparent hover:border-border/80 hover:bg-muted/30"
                     )}
-                    onClick={() => setSelectedStopKey(stop.stopKey)}
                     onMouseEnter={() => setHoveredStopKey(stop.stopKey)}
                     onMouseLeave={() =>
                       setHoveredStopKey((current) =>
@@ -572,6 +572,11 @@ export function ShipmentStopsOverview({
                       </div>
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
+                      <button
+                        type="button"
+                        className="block w-full space-y-1 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => setSelectedStopKey(stop.stopKey)}
+                      >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="font-medium">{getStopTitle(stop)}</div>
@@ -593,8 +598,12 @@ export function ShipmentStopsOverview({
                           <span>Speed: {formatValue(stop.speed_kph)} km/h</span>
                         )}
                       </div>
+                      </button>
+                      {stop.event_type === "exited_location" ? (
+                        <RunStopDuration stop={shipmentExitVisit(stop)} />
+                      ) : null}
                     </div>
-                  </button>
+                  </div>
                 )
                 })}
               </div>

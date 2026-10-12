@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.205
+Version: 2.207
 Last updated: 2026-10-12
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -588,6 +588,18 @@ Show a red warning triangle immediately beside the total only when the exact dur
 - [x] Strict per-location warning with total/expected/excess tooltip, zero-limit support and keyboard access.
 - [ ] Verify authenticated live run rows, hover/focus and narrow-screen wrapping.
 
+### Admin location-type 3D icon picker (2.207 — implemented locally)
+
+On `/admin/settings/location-types`, creating or editing a location type shows its PNG preview and **Choose icon**. Open a keyboard-accessible visual dialog for Warehouse, Truck workshop, Waypoint, Rest area and Fuel station; show the selected radio card and confirm with **Use icon**. Cancel, Escape and close discard the picker selection and return focus to Choose icon. Confirmation changes only the editor draft; Add type/Update type and the page Save retain the existing merchant-scoped persistence flow. Show small previews in the settings list. Keep the separate colour field independent of model colours.
+
+Use transparent 512 × 512 PNGs rendered from the existing monitoring models with consistent isometric camera, lighting and padding, without labels, hover effects or entry animation. Share one catalogue/resolver between settings and monitoring: persisted `warehouse`, `workshop`, `waypoint`, `restarea`, `fuel` map to `warehouse`, `workshop`, `waypoint`, `rest`, `fuel`. Preserve blank and unrecognised legacy values until explicit replacement; their preview and monitoring model remain Warehouse. No API/schema changes. The development-only `/dev-location-icons-preview` fixture and `website/scripts/render-location-icons.cjs` support regeneration and mocked UI verification; require a local website server and Playwright. Existing mobile Figma screens are unaffected.
+
+- [x] Five transparent PNG previews from the existing models, visually inspected at full size.
+- [x] Shared catalogue and resolver preserve supported mappings and legacy Warehouse fallback; targeted regressions pass.
+- [x] Visual picker and list previews implemented with explicit confirmation, keyboard radio navigation, draft isolation and bounded responsive dialogs.
+- [x] Mocked browser checks verify all five save/reload choices, legacy/blank preservation, cancel/Escape/focus, synchronous keyboard selection and failed-save draft retention; desktop light and 390px dark screenshots visually reviewed.
+- [ ] Verify authenticated live save/reload after deployment.
+
 ### Admin shipment monitoring overdue stops (2.197 — implemented locally)
 
 On `/admin/logistics/shipments/monitoring`, colour each parked vehicle red once its open visit exceeds the saved location's `expected_waiting_time` in minutes. Calculate elapsed time from `monitoring.since_at`, retaining arrival time across polling and using the existing one-second wall-clock refresh. Compare each vehicle independently; exact equality is not overdue. Zero minutes is a valid limit; missing/invalid limits or arrival times do not alert. Departing, on-road and unknown-location vehicles do not show stop-overdue alerts. Open visits grouped as standby after 48 hours remain eligible without changing their grouping. Existing speeding alerts remain supported.
@@ -614,6 +626,27 @@ The website run page shows location-type badges for recorded stops and shipment 
 - [x] Show recorded-stop and shipment location types and accessible drawer triggers for saved locations.
 - [x] Load current location details with merchant scope, loading/error/retry states and stale-response cleanup.
 - [ ] Verify authenticated browser drawer, geofence and keyboard interaction with live run data.
+
+### Admin Schedule (2.206 — implemented locally)
+
+The admin **Schedule** page at `/admin/logistics/schedule` uses three independently scrolling columns: searchable drivers, trucks containing multiple run cards, and unassigned shipments. Narrow screens use Drivers / Runs / Shipments tabs. Default to Today in the merchant timezone; support previous/next day and a date range. Always include ongoing runs, separate overdue plans, and keep completed/cancelled runs in the existing historical Runs page. Search and paginate each column on the server. Fleet filters cover active/inactive and available/ready-or-active; driver Assigned means an open run assignment, not a permanent vehicle association. General shipments means the null environment; a named environment selector isolates runs/shipments. Environment choices expose names/UUIDs only, never tokens.
+
+Assign through drag/drop or equivalent buttons. A direct run drop targets that card; a truck drop offers eligible runs and Create run, or opens creation when none exists. New-run creation captures saved merchant/environment start/end locations and planned date/time, prefilling the truck and dragged item. Save an empty draft before adding shipments. Confirm driver replacement and send the expected driver UUID to reject stale assignments. Driver changes/removal and shipment moves/removal are allowed only on draft/dispatched plans; unassigned shipments can also be added to active runs. Existing active-run drivers/shipments remain locked. Header Create shipment uses the shared right drawer with automatic offers disabled and leaves the shipment unassigned; per-run creation is transactional with attachment. A failed/cancelled new-run or transfer never removes the original assignment. UUID creation keys/fingerprints and expected source membership make retries safe. Preserve assignment history and booking synchronization.
+
+Schedule-created runs use `schedule_managed=true`, with existing statuses: draft = planned/waiting, dispatched = ready, in_progress = active. Normalize planned timestamps to UTC; display and evaluate days in merchant timezone, falling back to the application timezone. From merchant-local midnight, reconcile due and overdue plans ordered by planned start then creation ID. Promote the earliest **eligible** plan for each free driver/truck only when it has an active driver, active non-maintenance truck, start/end endpoints and at least one unfinished shipment. Incomplete plans remain waiting with an explanation. Existing ready/active runs retain their resources. Run reconciliation each minute and after relevant mutations/closure; use merchant and shared resource/run locks plus transaction retries. Planning does not change permanent driver/vehicle associations; promotion synchronizes them and booking drivers. Date/assignment edits demote and re-evaluate an unstarted schedule plan.
+
+The shared operational predicate excludes schedule drafts from the driver current-run/remaining-work queries, driver run/import/shipment selection and all GPS run-selection queries. Manual start/dispatch uses the same readiness resolver. Once ready, existing origin-departure automation and manual Start run remain available. Active runs persist until dispatch closure; delivering every shipment never advances the queue by itself. Closure makes the next eligible due plan ready, otherwise the dashboard returns to No current run. Existing non-schedule runs are not reclassified or backfilled.
+
+[Updated Figma dashboard scenario guide](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0?node-id=32-980) and [Admin Schedule readiness handoff](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0?node-id=584-2128) record these rules. Existing mobile screen geometry is unchanged; the handoff is an implementation annotation, not a new admin screen mockup.
+
+Implementation: schedule API/website, migration, shared lifecycle selection and minute reconciliation are implemented locally. Apply the migration and deploy the backend before website controls; the Laravel scheduler must run continuously. Automated checks and fixture browser verification are recorded in release notes. Authenticated end-to-end operations, production MySQL contention/load and physical-driver-device verification remain release gates.
+
+- [x] Three-column/date-based truck grouping, responsive tabs, server search/pagination and environment isolation.
+- [x] Driver and shipment drag/button assignment, empty drafts, location/time creation and shared shipment drawer.
+- [x] Atomic transfers/new-run moves, retry keys, stale-source/driver rejection and active-run locks.
+- [x] Merchant-midnight readiness, chronological resource queueing, overdue carryover and future-run exclusion.
+- [x] Canonical plan, release notes and affected Figma lifecycle handoff aligned.
+- [ ] Authenticated live workflow, production database concurrency/load, and physical driver device acceptance.
 
 ### Admin run shipments (1.90)
 
@@ -1395,6 +1428,8 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-12 | 2.207 | Add PNG renders of the five existing monitoring models and a visual location-type icon dialog, shared catalogue/resolver, draft confirmation and legacy-value preservation. API/schema unchanged; static and mapping/asset checks pass, browser verification recorded in release notes. Mobile Figma unaffected. |
+| 2026-10-12 | 2.206 | Add admin Schedule board, transactional assignments/creation, scoped environment/search/pagination and shared midnight readiness queue; keep future plans out of driver/GPS workflows. Implemented locally with targeted checks and fixture review; Figma run rules/handoff aligned. Authenticated production, MySQL contention/load and physical device gates remain pending. |
 | 2026-10-12 | 2.205 | Add admin run-header Actions for ready/active planned endpoint edits and delivery reordering, plus assigned-driver chat drafts with a removable run reference in all run states. Share driver backend rules, enforce permission/scoping/conflict/audit guards and retain history. Automated and local fixture verification recorded in release notes; authenticated deployment and real drag/live delivery checks pending. Mobile Figma unchanged. |
 | 2026-10-12 | 2.204 | Refresh active-run CRM end-request cards when a driver resubmits after rejection, retaining request/review history and closure guards. Three refresh regressions, 66 API tests/1,225 assertions, website TypeScript and focused lint pass; live two-device verification pending. Existing mobile Figma states unchanged. |
 | 2026-10-12 | 2.203 | Use shared native KeyboardAvoidingView scrolling for the End Run reason form with a native input, retaining reason/approval/busy guards. Static checks and existing action/sheet regressions recorded in release notes; native keyboard verification pending. Existing Figma form/flow unchanged. |

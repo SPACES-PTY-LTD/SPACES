@@ -54,8 +54,11 @@ class RunController extends Controller
             }
 
             $run = $service->createRun($request->validated(), $environment);
-
+            app(\App\Services\RunReadinessService::class)->reconcile($run->merchant_id);
+            $run->refresh();
             return ApiResponse::success(new RunResource($run), [], Response::HTTP_CREATED);
+        } catch (ConflictHttpException $e) {
+            return ApiResponse::error('RUN_CONFLICT', $e->getMessage(), [], Response::HTTP_CONFLICT);
         } catch (UnprocessableEntityHttpException $e) {
             return ApiResponse::error('VALIDATION', $e->getMessage(), [], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Throwable $e) {
@@ -84,6 +87,8 @@ class RunController extends Controller
             $this->authorize('update', $run);
 
             $run = $service->updateRun($run, $request->validated());
+            app(\App\Services\RunReadinessService::class)->reconcile($run->merchant_id);
+            $run->refresh();
 
             return ApiResponse::success(new RunResource($run));
         } catch (ConflictHttpException $e) {
@@ -103,6 +108,8 @@ class RunController extends Controller
             $this->authorize('update', $run);
 
             $run = $service->attachShipments($run, $request->validated()['shipment_ids'], allowInProgress: true);
+            app(\App\Services\RunReadinessService::class)->reconcile($run->merchant_id);
+            $run->refresh();
 
             return ApiResponse::success(new RunResource($run));
         } catch (ConflictHttpException $e) {
@@ -127,6 +134,7 @@ class RunController extends Controller
             }
 
             $run = DB::transaction(function () use ($run, $data, $service, $shipments) {
+                Merchant::whereKey($run->merchant_id)->lockForUpdate()->firstOrFail();
                 $run = Run::query()->lockForUpdate()->findOrFail($run->id);
                 if (! in_array($run->status, [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED, Run::STATUS_IN_PROGRESS], true)) {
                     throw new ConflictHttpException('Shipments cannot be added to a completed or cancelled run.');
@@ -141,6 +149,8 @@ class RunController extends Controller
                 return $service->attachShipments($run, [$result['shipment']->uuid], allowInProgress: true);
             });
 
+            app(\App\Services\RunReadinessService::class)->reconcile($run->merchant_id);
+            $run->refresh();
             return ApiResponse::success(new RunResource($run), [], Response::HTTP_CREATED);
         } catch (ConflictHttpException $e) {
             return ApiResponse::error('RUN_CONFLICT', $e->getMessage(), [], Response::HTTP_CONFLICT);
@@ -159,6 +169,8 @@ class RunController extends Controller
             $this->authorize('update', $run);
 
             $run = $service->detachShipment($run, $shipment_uuid);
+            app(\App\Services\RunReadinessService::class)->reconcile($run->merchant_id);
+            $run->refresh();
 
             return ApiResponse::success(new RunResource($run));
         } catch (ConflictHttpException $e) {

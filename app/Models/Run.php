@@ -39,6 +39,9 @@ class Run extends Model
         'status',
         'auto_created',
         'driver_workflow',
+        'schedule_managed',
+        'schedule_request_id',
+        'schedule_request_hash',
         'planned_start_at',
         'started_at',
         'origin_departure_time',
@@ -58,10 +61,17 @@ class Run extends Model
         'odometer_end_km' => 'integer',
         'auto_created' => 'boolean',
         'driver_workflow' => 'boolean',
+        'schedule_managed' => 'boolean',
     ];
 
     protected static function booted(): void
     {
+        static::saved(function (Run $run) {
+            if ($run->schedule_managed || $run->wasChanged('status')) {
+                $merchantId = $run->merchant_id;
+                \Illuminate\Support\Facades\DB::afterCommit(fn () => app(\App\Services\RunReadinessService::class)->reconcile($merchantId));
+            }
+        });
         static::updated(function (Run $run) {
             if ($run->wasChanged('status') && in_array($run->status, [self::STATUS_COMPLETED, self::STATUS_CANCELLED], true)) {
                 foreach ($run->endRequests()->where('status', 'pending')->get() as $entry) {

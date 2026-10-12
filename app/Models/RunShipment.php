@@ -27,6 +27,17 @@ class RunShipment extends Model
         'status',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(function (RunShipment $assignment) {
+            $run = $assignment->run;
+            if ($run?->schedule_managed) {
+                $merchantId = $run->merchant_id;
+                \Illuminate\Support\Facades\DB::afterCommit(fn () => app(\App\Services\RunReadinessService::class)->reconcile($merchantId));
+            }
+        });
+    }
+
     public function run(): BelongsTo
     {
         return $this->belongsTo(Run::class);

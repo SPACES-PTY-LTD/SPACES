@@ -41,6 +41,8 @@ export type ShipmentQuoteFormValues = {
 
 export function ShipmentQuoteDialog({
   merchantId,
+  environmentId,
+  token,
   title,
   description,
   triggerLabel,
@@ -52,6 +54,8 @@ export function ShipmentQuoteDialog({
   onSubmit,
 }: {
   merchantId?: string
+  environmentId?: string
+  token?: string
   title: string
   description?: string
   triggerLabel: string
@@ -283,6 +287,8 @@ export function ShipmentQuoteDialog({
             <div className="grid gap-2">
               <Label>Pickup location</Label>
               <LocationCombobox
+                environmentId={environmentId}
+                token={token}
                 merchantId={merchantId}
                 value={pickupLocation}
                 onChange={setPickupLocation}
@@ -293,6 +299,8 @@ export function ShipmentQuoteDialog({
             <div className="grid gap-2">
               <Label>Dropoff location</Label>
               <LocationCombobox
+                environmentId={environmentId}
+                token={token}
                 merchantId={merchantId}
                 value={dropoffLocation}
                 onChange={setDropoffLocation}
