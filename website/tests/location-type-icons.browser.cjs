@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 async function pickerCatalogue(page, openEditor, openPicker, picker, editor) {
  await openEditor(); await openPicker();
  const choices = await picker().getByRole('radio').evaluateAll(nodes=>nodes.map(n=>[n.getAttribute('value'),n.getAttribute('aria-label')]));
- assert.equal(choices.length,22);
+ assert.equal(choices.length,23);
  await page.keyboard.press('Escape'); await editor().getByRole('button',{name:'Cancel',exact:true}).click();
  return choices;
 }
@@ -67,7 +67,7 @@ async function pickerCatalogue(page, openEditor, openPicker, picker, editor) {
   assert.equal(await picker().getByRole('radio',{name:'Truck workshop',exact:true}).getAttribute('aria-checked'),'true');
   await picker().getByRole('button',{name:'Use icon',exact:true}).click(); await finish();
   failSave=true; await save(); await page.getByText('Fixture save failed',{exact:true}).waitFor();
-  assert.equal(types[0].icon,'fuel-depot');
+  assert.equal(types[0].icon,'staging-area');
   assert.equal(await page.getByRole('button',{name:'Save',exact:true}).isEnabled(),true);
   console.log('Opening editor/picker'); await openEditor(); await openPicker();
   assert.equal(await picker().getByRole('radio',{name:'Truck workshop',exact:true}).getAttribute('aria-checked'),'true');
@@ -83,6 +83,6 @@ async function pickerCatalogue(page, openEditor, openPicker, picker, editor) {
   await page.getByRole('button',{name:'New type',exact:true}).click();
   await page.getByRole('dialog',{name:'Create location type',exact:true}).getByText('Default preview. No icon selected.',{exact:true}).waitFor();
   assert.deepEqual(errors,[]);
-  console.log('PASS: all 22 save/reload choices, legacy preservation, cancel/Escape/focus, keyboard selection, failed-save draft, blank new type and desktop/light + mobile/dark layout.');
+  console.log('PASS: all 23 save/reload choices, legacy preservation, cancel/Escape/focus, keyboard selection, failed-save draft, blank new type and desktop/light + mobile/dark layout.');
  } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

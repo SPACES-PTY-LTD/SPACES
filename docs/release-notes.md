@@ -1,5 +1,15 @@
 # Release Notes
 
+## 2026-10-12 | Version: staging-area-location-icon-v1
+
+- **Summary:** Add Staging area as the 23rd location icon and real shipment-monitoring model.
+- **API Changes:** No endpoint changes; the existing icon field supports the additional `staging-area` value.
+- **Database Changes:** None; no location types created or reassigned automatically.
+- **Behavior Changes:** Staging area appears in Choose icon and catalogue-derived monitoring filters/default visibility. The paved yard has marked bays, two waiting trucks, an empty bay, dispatch booth, parking sign, lane arrows and cones. Preserve existing arrival/exit animation, hover labels, location clicks and draft/save behaviour.
+- **Breaking Changes:** None.
+- **Internal Changes:** Extend model/catalogue/asset and browser coverage to 23 choices. Canonical dashboard plan/status/acceptance/revision updated; mobile Figma unaffected.
+- **Verification:** Staging area PNG rendered from the actual model and visually reviewed; 512 × 512 RGBA, alpha transparency and unclipped bounds verified. Website TypeScript, focused ESLint, nine catalogue/model/PNG/monitoring regressions and git diff checks pass. Mocked browser checks verify all 23 save/reload choices including Staging area, cancellation/Escape/focus, keyboard selection, blank/legacy preservation, failed-save drafts and desktop light/390px dark layouts. Authenticated live monitoring/save verification remains pending.
+
 ## 2026-10-12 | Version: fuel-depot-location-icon-v1
 
 - **Summary:** Add Fuel depot as the 22nd location icon and real shipment-monitoring model.

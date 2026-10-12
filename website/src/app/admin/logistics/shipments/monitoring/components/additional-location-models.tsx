@@ -264,7 +264,37 @@ function FuelDepot() {
   </>
 }
 
+function StagingArea() {
+  return <><Pad color="#aebbc6" />
+    <Block at={[0, 0.106, -0.75]} size={[5.7, 0.015, 3.1]} color="#667587" />
+    {[-2.65, -0.85, 0.85, 2.65].map(x => <Block key={x} at={[x, 0.12, -0.75]} size={[0.055, 0.015, 3]} color={cream} />)}
+    <Block at={[0, 0.12, -2.25]} size={[5.35, 0.015, 0.055]} color={cream} />
+    {[-1.75, 0].map((x, i) => <group key={x} position={[x, 0.13, -0.8]} rotation={[0, -Math.PI / 2, 0]}>
+      <Block at={[-0.2, 0.27, 0]} size={[2.65, 0.13, 0.75]} color={steel} />
+      <RoundBlock at={[-0.45, 0.83, 0]} size={[1.85, 1.02, 0.8]} radius={0.05} color={i ? "#e2e8f0" : "#cbd5e1"} />
+      <Block at={[-0.45, 0.46, 0.414]} size={[1.75, 0.075, 0.025]} color={i ? "#0284c7" : "#ea580c"} />
+      <RoundBlock at={[0.98, 0.71, 0]} size={[0.72, 0.86, 0.8]} radius={0.06} color={i ? "#0284c7" : "#f59e0b"} />
+      <Block at={[1.355, 0.89, 0]} size={[0.025, 0.29, 0.57]} color={glass} />
+      <Block at={[0.98, 0.87, 0.413]} size={[0.44, 0.27, 0.025]} color={glass} />
+      {[-1.1, -0.65, 0.93].flatMap(wheelX => [-0.43, 0.43].map(z => <Cylinder key={`${wheelX}-${z}`} at={[wheelX, 0.25, z]} radius={0.22} height={0.12} rotation={[Math.PI / 2, 0, 0]} color="#1e293b" />))}
+    </group>)}
+    <RoundBlock at={[1.8, 0.65, -2.55]} size={[1.1, 1.1, 0.75]} radius={0.045} color={cream} />
+    <RoundBlock at={[1.8, 1.25, -2.55]} size={[1.25, 0.16, 0.85]} radius={0.06} color="#1d4ed8" />
+    <Block at={[1.8, 0.9, -2.157]} size={[0.75, 0.32, 0.025]} color={glass} />
+    <Beam from={[2.35, 0.1, 0.25]} to={[2.35, 1.5, 0.25]} color={steel} width={0.055} />
+    <RoundBlock at={[2.35, 1.55, 0.25]} size={[0.65, 0.6, 0.12]} radius={0.04} color="#1d4ed8" />
+    <Block at={[2.28, 1.56, 0.319]} size={[0.04, 0.34, 0.015]} color={cream} />
+    <Block at={[2.38, 1.71, 0.319]} size={[0.23, 0.04, 0.015]} color={cream} />
+    <Block at={[2.47, 1.63, 0.319]} size={[0.04, 0.2, 0.015]} color={cream} />
+    <Block at={[2.38, 1.54, 0.319]} size={[0.22, 0.04, 0.015]} color={cream} />
+    <Block at={[1.75, 0.13, -0.7]} size={[0.04, 0.02, 0.6]} color={cream} />
+    {[-2.35, -0.45, 1.4].map(x => <group key={x}><Block at={[x, 0.125, 1.05]} size={[0.6, 0.015, 0.05]} color={cream} /><Block at={[x + 0.2, 0.125, 0.95]} size={[0.32, 0.015, 0.045]} rotation={[0, -Math.PI / 4, 0]} color={cream} /><Block at={[x + 0.2, 0.125, 1.15]} size={[0.32, 0.015, 0.045]} rotation={[0, Math.PI / 4, 0]} color={cream} /></group>)}
+    {[-2.9, 2.9].map(x => <Cylinder key={x} at={[x, 0.28, 0.5]} radius={0.11} top={0.025} height={0.36} color="#f97316" />)}
+  </>
+}
+
 export const ADDITIONAL_LOCATION_MODELS = {
+  "staging-area": StagingArea,
   "fuel-depot": FuelDepot,
   "container-terminal": ContainerTerminal,
   seaport: Seaport,

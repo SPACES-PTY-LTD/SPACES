@@ -10,7 +10,7 @@ const { LOCATION_TYPE_ICONS, findLocationTypeIcon, getLocationTypeIconPreview, r
 test("every selectable persisted value resolves to its actual monitoring model", () => {
   assert.deepEqual(LOCATION_TYPE_ICONS.map((icon) => [icon.value, resolveLocationMeshType(icon.value)]), [
     ["warehouse", "warehouse"], ["workshop", "workshop"], ["waypoint", "waypoint"], ["restarea", "rest"], ["fuel", "fuel"],
-    ...["container-terminal", "seaport", "airport-cargo", "rail-freight", "mine", "quarry", "factory", "farm", "grain-terminal", "cold-storage", "retail", "construction", "weighbridge", "border", "toll-plaza", "fuel-station-2", "fuel-depot"].map(value => [value, value]),
+    ...["container-terminal", "seaport", "airport-cargo", "rail-freight", "mine", "quarry", "factory", "farm", "grain-terminal", "cold-storage", "retail", "construction", "weighbridge", "border", "toll-plaza", "fuel-station-2", "fuel-depot", "staging-area"].map(value => [value, value]),
   ])
   assert.equal(resolveLocationMeshType(" FUEL "), "fuel")
   assert.equal(resolveLocationMeshType(" FUEL-STATION-2 "), "fuel-station-2")
@@ -25,7 +25,7 @@ test("legacy and empty values keep the existing warehouse fallback without being
 })
 
 test("every catalogue entry has a distinct 512 by 512 RGBA PNG asset", async () => {
-  assert.equal(new Set(LOCATION_TYPE_ICONS.map((icon) => icon.image)).size, 22)
+  assert.equal(new Set(LOCATION_TYPE_ICONS.map((icon) => icon.image)).size, 23)
   for (const icon of LOCATION_TYPE_ICONS) {
     const png = await readFile(new URL(`../public${icon.image}`, import.meta.url))
     assert.equal(png.subarray(1, 4).toString(), "PNG")
