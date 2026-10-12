@@ -182,6 +182,48 @@ class AdminScheduleTest extends TestCase
         $this->getJson('/api/v1/shipments?merchant_id='.$c['merchant']->uuid.'&unassigned=true', $c['headers'])->assertOk()->assertJsonCount(1, 'data');
     }
 
+    public function test_delivered_shipments_are_excluded_from_unassigned_pages_counts_and_search(): void
+    {
+        $c = $this->context();
+        for ($i = 0; $i < 31; $i++) {
+            $delivered = $this->shipment($c, 'delivered');
+            $delivered->update(['merchant_order_ref' => 'DELIVERED-'.$i, 'delivery_note_number' => 'DONE-'.$i]);
+            $this->shipment($c);
+        }
+        $url = '/api/v1/schedule?merchant_id='.$c['merchant']->uuid;
+        $response = $this->getJson($url, $c['headers'])->assertOk()
+            ->assertJsonCount(30, 'data.shipments')
+            ->assertJsonPath('data.pagination.shipments.total', 31)
+            ->assertJsonPath('data.pagination.shipments.last_page', 2);
+        $this->assertNotContains('delivered', array_column($response->json('data.shipments'), 'status'));
+        $response = $this->getJson($url.'&shipment_page=2', $c['headers'])->assertOk()
+            ->assertJsonCount(1, 'data.shipments')->assertJsonPath('data.pagination.shipments.total', 31);
+        $this->assertNotContains('delivered', array_column($response->json('data.shipments'), 'status'));
+        foreach (['DELIVERED', 'DONE'] as $search) {
+            $this->getJson($url.'&shipment_search='.$search, $c['headers'])->assertOk()
+                ->assertJsonCount(0, 'data.shipments')->assertJsonPath('data.pagination.shipments.total', 0);
+        }
+    }
+
+    public function test_unassigned_status_multiselect_all_none_and_validation(): void
+    {
+        $c = $this->context();
+        $draft = $this->shipment($c);
+        $delivered = $this->shipment($c, 'delivered');
+        $this->shipment($c, 'failed');
+        $url = '/api/v1/schedule?merchant_id='.$c['merchant']->uuid;
+        $response = $this->getJson($url.'&shipment_statuses=draft,delivered', $c['headers'])->assertOk()
+            ->assertJsonCount(2, 'data.shipments')->assertJsonPath('data.pagination.shipments.total', 2);
+        $this->assertEqualsCanonicalizing([$draft->uuid, $delivered->uuid], array_column($response->json('data.shipments'), 'shipment_id'));
+        $this->getJson($url.'&shipment_statuses=all', $c['headers'])->assertOk()
+            ->assertJsonCount(3, 'data.shipments')->assertJsonPath('data.pagination.shipments.total', 3);
+        $this->getJson($url.'&shipment_statuses=none', $c['headers'])->assertOk()
+            ->assertJsonCount(0, 'data.shipments')->assertJsonPath('data.pagination.shipments.total', 0);
+        $this->getJson($url.'&shipment_statuses=invalid', $c['headers'])->assertUnprocessable();
+        $this->postJson('/api/v1/schedule/transfer', ['merchant_id' => $c['merchant']->uuid, 'shipment_id' => $delivered->uuid,
+            'expected_source_run_id' => null, 'target_run_id' => null], $c['headers'])->assertUnprocessable();
+    }
+
     public function test_foreign_merchant_and_environment_selections_are_rejected(): void
     {
         $c = $this->context();

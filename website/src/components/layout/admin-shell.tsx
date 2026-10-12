@@ -240,6 +240,12 @@ function FullAdminShell({
           />
         </SidebarContent>
         <SidebarFooter>
+          <FeedbackWidget
+            accessToken={activeSession.accessToken}
+            merchantId={selectedMerchant?.merchant_id ?? null}
+            canReviewFeedback={canReviewFeedback}
+            onReviewerUnreadChange={setFeedbackUnreadCount}
+          />
           <SidebarMenu>
             <SidebarMenuItem>
               <DropdownMenu>
@@ -302,12 +308,6 @@ function FullAdminShell({
           {children}
         </main>
       </SidebarInset>
-      <FeedbackWidget
-        accessToken={activeSession.accessToken}
-        merchantId={selectedMerchant?.merchant_id ?? null}
-        canReviewFeedback={canReviewFeedback}
-        onReviewerUnreadChange={setFeedbackUnreadCount}
-      />
       <Toaster richColors position="top-right" />
     </SidebarProvider>
   )

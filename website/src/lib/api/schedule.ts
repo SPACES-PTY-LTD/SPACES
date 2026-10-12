@@ -27,7 +27,7 @@ export type ScheduleData = {
 }
 export type ScheduleFilters = {
   from: string; to: string; truck_search: string; driver_search: string; shipment_search: string
-  availability: string; fleet_status: string; driver_filter: string
+  availability: string; fleet_status: string; driver_filter: string; shipment_statuses?: string
   truck_page: number; driver_page: number; shipment_page: number
 }
 export type ScheduleItem = { kind: "driver"; driver: ScheduleDriver } | { kind: "shipment"; shipment: ScheduleShipment }

@@ -2,9 +2,10 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { CalendarDays, ChevronLeft, ChevronRight, GripVertical, Package, Plus, RefreshCw, Truck, UserRound, X } from "lucide-react"
+import { CalendarDays, ListFilter, ChevronLeft, ChevronRight, GripVertical, Package, Plus, RefreshCw, Truck, UserRound, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from "@/components/ui/drawer"
@@ -21,6 +22,9 @@ import { dateInTimezone, eligibleRun, merchantTimeToIso, shiftDay } from "./sche
 
 type Props = { merchantId: string; environmentId?: string; token: string; timezone: string }
 type RunForm = { requestId: string; truck: ScheduleTruck; item?: ScheduleItem; run?: ScheduleRun }
+const shipmentStatuses = ["draft", "ready", "quoted", "booked", "offer_failed", "in_transit", "at_delivery_location", "delivered", "exception", "failed", "cancelled", "returned"]
+const defaultShipmentStatuses = shipmentStatuses.filter(status => !["delivered", "failed", "cancelled", "returned"].includes(status))
+const shipmentStatusLabel = (status: string) => status.replaceAll("_", " ").replace(/^./, value => value.toUpperCase())
 const selectClass = "h-9 rounded-md border bg-background px-2 text-sm"
 const statusName = (status: string) => status === "in_progress" ? "Active" : status === "dispatched" ? "Ready" : "Planned"
 
@@ -37,7 +41,7 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
   const [environmentId, setEnvironmentId] = React.useState(initialEnvironmentId)
   const [filters, setFilters] = React.useState<ScheduleFilters>(() => {
     const today = dateInTimezone(new Date(), initialTimezone)
-    return { from: today, to: today, driver_search: "", truck_search: "", shipment_search: "", driver_filter: "all", fleet_status: "active", availability: "all", truck_page: 1, driver_page: 1, shipment_page: 1 }
+    return { from: today, to: today, driver_search: "", truck_search: "", shipment_search: "", shipment_statuses: defaultShipmentStatuses.join(","), driver_filter: "all", fleet_status: "active", availability: "all", truck_page: 1, driver_page: 1, shipment_page: 1 }
   })
   const [data, setData] = React.useState<ScheduleData | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -165,11 +169,13 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
     event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = "move"; setHover(id)
   }
   function shipmentCard(shipment: ScheduleShipment, movable: boolean) {
+    movable = movable && !["delivered", "failed", "cancelled", "returned"].includes(shipment.status)
     const item: ScheduleItem = { kind: "shipment", shipment }
     const chosen = selected?.kind === "shipment" && selected.shipment.shipment_id === shipment.shipment_id
     return <div key={shipment.shipment_id} draggable={movable && canManage && !busy} onDragStart={event => beginDrag(event, item)} onDragEnd={dragEnd}
       className={cn("rounded-lg border bg-background p-3 text-sm", movable && canManage && "cursor-grab", chosen && "border-primary bg-primary/5")}>
       <div className="flex items-center gap-2"><Package className="size-4 shrink-0 text-muted-foreground" /><Link className="min-w-0 flex-1 truncate font-medium hover:underline" href={AdminRoute.shipmentDetails(shipment.shipment_id)}>{shipment.reference || shipment.delivery_note_number || "Shipment"}</Link>{movable && canManage && <GripVertical className="size-4 text-muted-foreground" />}</div>
+      <p className="mt-1 text-xs text-muted-foreground">{shipmentStatusLabel(shipment.status)}</p>
       <p className="mt-2 text-xs text-muted-foreground">{shipment.pickup?.name || "Pickup not set"} → {shipment.dropoff?.name || "Destination not set"}</p>
       <p className="mt-1 text-xs text-muted-foreground">Collection: {shipment.collection_date ? formatTime(shipment.collection_date) : "Not set"}</p>
       {movable && canManage && <div className="mt-2 flex flex-wrap gap-1"><Button size="sm" variant="ghost" disabled={busy} onClick={() => { setSelected(item); setPicker({ item }) }}>{shipment.source_run_id ? "Move" : "Assign"}</Button>
@@ -237,7 +243,17 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
       </section>
       <section aria-label="Unassigned shipments" onDragOver={event => over(event, "unassigned", selected?.kind === "shipment" && !!selected.shipment.source_run_id)} onDrop={event => { if (!dragging) return; event.preventDefault(); setDragging(false); if (selected?.kind === "shipment" && selected.shipment.source_run_id) void returnShipment(selected.shipment) }}
         className={cn("flex h-[calc(100dvh-300px)] min-h-96 flex-col overflow-hidden rounded-xl border bg-background", tab !== "shipments" && "hidden @min-[1100px]:flex", hover === "unassigned" && "ring-2 ring-primary")}>
-        <div className="grid gap-3 border-b p-4"><h2 className="font-semibold">Unassigned shipments <span className="text-xs font-normal text-muted-foreground">{data?.pagination.shipments.total ?? ""}</span></h2><Input aria-label="Search unassigned shipments" placeholder="Search shipment…" value={filters.shipment_search} disabled={busy} onChange={event => changeFilters({ shipment_search: event.target.value })} /></div>
+        <div className="grid gap-3 border-b p-4"><div className="flex items-center justify-between gap-2"><h2 className="font-semibold">Unassigned shipments <span className="text-xs font-normal text-muted-foreground">{data?.pagination.shipments.total ?? ""}</span></h2>
+          <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" aria-label="Filter shipment statuses" disabled={busy} className="relative shrink-0"><ListFilter className="size-4" />{filters.shipment_statuses !== "all" && <span className="absolute -right-1 -top-1 size-2 rounded-full bg-primary" />}</Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end"><DropdownMenuLabel>Shipment status</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem checked={filters.shipment_statuses === "all"} onSelect={event => event.preventDefault()} onCheckedChange={checked => changeFilters({ shipment_statuses: checked ? "all" : "none" })}>All</DropdownMenuCheckboxItem><DropdownMenuSeparator />
+              {shipmentStatuses.map(status => <DropdownMenuCheckboxItem key={status} checked={filters.shipment_statuses === "all" || (filters.shipment_statuses ?? "").split(",").includes(status)} onSelect={event => event.preventDefault()} onCheckedChange={checked => {
+                const selectedStatuses = filters.shipment_statuses === "all" ? shipmentStatuses : filters.shipment_statuses === "none" ? [] : (filters.shipment_statuses ?? "").split(",")
+                const next = checked ? [...selectedStatuses, status] : selectedStatuses.filter(value => value !== status)
+                changeFilters({ shipment_statuses: next.length === shipmentStatuses.length ? "all" : next.join(",") || "none" })
+              }}>{shipmentStatusLabel(status)}</DropdownMenuCheckboxItem>)}
+            </DropdownMenuContent></DropdownMenu>
+          </div><Input aria-label="Search unassigned shipments" placeholder="Search shipment…" value={filters.shipment_search} disabled={busy} onChange={event => changeFilters({ shipment_search: event.target.value })} /></div>
         <div className="flex-1 space-y-2 overflow-y-auto p-3">{loading && !data ? <p className="text-sm text-muted-foreground">Loading shipments…</p> : data?.shipments.map(shipment => shipmentCard(shipment, true))}{!loading && data?.shipments.length === 0 && <p className="p-3 text-sm text-muted-foreground">No unassigned shipments.</p>}</div>
         <Pagination page={data?.pagination.shipments} disabled={loading || busy} onChange={shipment_page => setFilters(old => ({ ...old, shipment_page }))} />
       </section>

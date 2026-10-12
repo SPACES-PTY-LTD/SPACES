@@ -1,3 +1,33 @@
+# Refined box truck design QA
+
+Result: **passed** for the selected component implementation and local monitoring-component checks (2026-10-12). Authenticated live data/polling and production fleet load are not claimed.
+
+Selected source: `/Users/leroygwirize/.codex/generated_images/01a13076-ccb0-7702-a364-62aa525dd34e/exec-96dfab92-6f62-4a0a-a023-7904ab539f2a.png`.
+
+Rendered evidence: `/Users/leroygwirize/.codex/visualizations/2026/10/12/01a13076-ccb0-7702-a364-62aa525dd34e/refined-box-truck-preview.jpg`.
+
+Preview: `http://localhost:3012/dev-location-icons-preview?truck=1` (development only). Uses actual TruckMesh/RoadTruckMesh; no raster truck substitution.
+
+## Comparison
+
+- Structure/silhouette: separate raised bevelled cargo box and compact angled cab match the selected direction. The model stays within existing hitboxes and keeps original road/parking orientation.
+- Materials/colour: grey cab/cargo, blue-grey glass, black tyres/chassis, metallic hubs/steps and cream lights. Both painted sections switch to existing selected blue and alert red; alerts override selection. Geometry batches share immutable neutral materials.
+- Detail/scale: mirrors, grille slats, door handles, wheel arches, rear seam and tail lamps are present. Thumbnail fleet review shows distinct cab and cargo with recognisable grey/red/blue states.
+- Spacing/lighting: softened geometry edges use the monitoring scene's lighting. Preview cameras differ from the generated presentation to inspect both direction wrappers. No production lighting or parking spacing was changed.
+- Typography/UI: existing plate label and monitoring controls remain unchanged. The concept board's captions and presentation cards are not production UI requirements.
+
+## Interaction and checks
+
+- Actual road and parked trucks: click selects blue; hover reveals registration with global labels off; global registration toggle shows both labels.
+- Selected plus speeding renders red; waiting-overdue uses the same alert resolver. Existing speed fallback and explicit false semantics covered by tests.
+- Arrival/departure replay exercised; parked departure reports exactly one completion callback. Road nudge remains active.
+- Fixed material batching limits the model to seven draw calls excluding label/hitbox. Bounds and finite positions/normals verified by geometry regression. No fleet performance benchmark claimed.
+- Website TypeScript and focused ESLint pass. All 12 targeted truck, waiting-time and location-icon regressions pass. No browser runtime errors; existing Three Clock deprecation warning observed.
+
+Intentional translation: implement a compact native model with the selected silhouette/material zones rather than photorealistic source lighting. This preserves dynamic colours, picking and the existing scene scale.
+
+---
+
 # Admin run-map replay visual verification
 
 Date: 2026-09-21

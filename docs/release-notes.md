@@ -1,5 +1,44 @@
 # Release Notes
 
+## 2026-10-12 | Version: refined-monitoring-box-truck-v1
+
+- **Summary:** Implement the selected Refined box truck for road and location vehicles on admin shipment monitoring.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace the single body box with a bevelled cargo body, angled cab, mirrors, grille, wheel arches, silver hubs/steps and lights. Keep dynamic cab/cargo status colours: alert red takes precedence over selected blue, then hover/normal grey. Retain existing telemetry interpretation, selection, registration labels, road direction, parking slots and arrival/departure/nudge animations.
+- **Breaking Changes:** None.
+- **Internal Changes:** Share seven immutable geometry batches and neutral materials across the fleet; dispose per-truck paint materials independently. Add development-only actual road/location preview and colour/geometry regressions. Update canonical plan/status/acceptance/history and design QA; mobile Figma and location icon assets unaffected.
+- **Verification:** Website TypeScript, focused ESLint, 12 targeted truck/monitoring/icon regressions and git diff checks pass. Visually inspect native geometry, grey/blue/red states and fleet-scale thumbnails; verify actual road/location click selection, hover labels, registration toggle, arrival replay and one departure callback. Browser has no runtime errors; existing Three Clock deprecation warning remains. Authenticated live polling/events and production fleet load remain unverified.
+
+## 2026-10-12 | Version: schedule-design-options-v1
+
+- **Summary:** Create three editable Figma proposals for the admin Schedule page, awaiting user selection.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None; Dispatch board, Fleet table and Focused run queue are design alternatives, not implemented layouts.
+- **Breaking Changes:** None.
+- **Internal Changes:** Link the desktop/narrow-screen proposals in the canonical dashboard plan with selection acceptance criteria and operational handoff notes. Preserve existing shipment status filters, readiness, environment scope and active-run assignment locks.
+- **Verification:** Review the existing ScheduleBoard through its local sample-data fixture; inspect Figma desktop/narrow-screen renders and editable text/component/vector structure; assert Space Grotesk typography and no complete-screen image layers. Remove the temporary fixture route. No runtime code changed for this design task; authenticated operations remain unverified.
+
+## 2026-10-12 | Version: unassigned-shipment-status-filter-v1
+
+- **Summary:** Add a top-right status filter to Schedule's Unassigned shipments panel with multi-select and All.
+- **API Changes:** Schedule accepts optional comma-separated `shipment_statuses`, `all`, or `none`; omitted filters retain existing finished-status exclusion. Apply filtering before pagination and totals, with existing merchant/environment and open-run assignment scope.
+- **Database Changes:** None.
+- **Behavior Changes:** Default excludes delivered, failed, cancelled and returned. All includes finished shipments; no selections shows an empty list. Selection changes reset pages. Show status labels and omit assignment/drag controls for finished shipments; server mutation guards remain.
+- **Breaking Changes:** None; deploy API support before the website filter.
+- **Internal Changes:** Update canonical dashboard plan, acceptance criteria, implementation status, revision history and Figma Schedule handoff. Add API/UI filter and delivered-exclusion regressions.
+- **Verification:** All 16 AdminScheduleTest tests pass (126 assertions). Website TypeScript, focused ESLint and Schedule UI regressions checked; git diff checks pass. Authenticated browser verification remains pending.
+
+## 2026-10-12 | Version: sidebar-feedback-placement-v1
+
+- **Summary:** Move Give feedback directly above the user dropdown in the admin sidebar footer.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show the labelled feedback button within the sidebar on all admin pages, including Messages and the mobile navigation drawer, instead of floating over page content. Retain the feedback dialogs and unread badge.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused ESLint pass; git diff checks pass. Authenticated browser visual and interaction verification remains pending.
+
 ## 2026-10-12 | Version: branded-and-brewery-depot-icons-v1
 
 - **Summary:** Add Sasol Depot, Engen Depot and Brewery depot models and matching icon previews, expanding the library to 26.

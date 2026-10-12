@@ -12,7 +12,7 @@ function compile(path, modules = {}, globals = {}) {
   return exports;
 }
 const utils = compile('../src/components/schedule/schedule-utils.ts');
-const shipment = { shipment_id: 'shipment', reference: 'DN-1', source_run_id: null, pickup: null, dropoff: null };
+const shipment = { shipment_id: 'shipment', reference: 'DN-1', status: 'draft', source_run_id: null, pickup: null, dropoff: null };
 const driver = { driver_id: 'driver', name: 'Alex', assigned: false };
 const planned = { run_id: 'planned', status: 'draft', can_assign_driver: true, can_add_shipment: true, driver: null, shipments: [], origin: null, destination: null };
 const active = { ...planned, run_id: 'active', status: 'in_progress', can_assign_driver: false, driver, shipments: [{ ...shipment, source_run_id: 'active' }] };
@@ -88,4 +88,27 @@ test('filter refresh ignores an older response after its request was aborted', a
   app.requests[1].resolve({ data: app.data }); await app.tick();
   app.requests[0].resolve({ error: true, message: 'stale failure' }); await app.tick();
   assert.equal(app.nodes().some(n => app.text(n).includes('stale failure')), false);
+});
+
+test('status multiselect sends explicit selections and All, resetting shipment pagination', async () => {
+  const app = harness(); await app.load();
+  const choice = label => app.find(n => n.type === 'DropdownMenuCheckboxItem' && app.text(n) === label);
+  assert.equal(choice('Delivered').props.checked, false);
+  choice('Delivered').props.onCheckedChange(true); app.render(); app.timersRun();
+  assert.ok(app.requests.at(-1).args[2].shipment_statuses.split(',').includes('delivered'));
+  assert.equal(app.requests.at(-1).args[2].shipment_page, 1);
+  choice('All').props.onCheckedChange(true); app.render(); app.timersRun();
+  assert.equal(app.requests.at(-1).args[2].shipment_statuses, 'all');
+  choice('Delivered').props.onCheckedChange(false); app.render(); app.timersRun();
+  assert.ok(!app.requests.at(-1).args[2].shipment_statuses.split(',').includes('delivered'));
+  choice('All').props.onCheckedChange(false); app.render(); app.timersRun();
+  assert.equal(app.requests.at(-1).args[2].shipment_statuses, 'none');
+  choice('Delivered').props.onCheckedChange(true); app.render(); app.timersRun();
+  assert.equal(app.requests.at(-1).args[2].shipment_statuses, 'delivered');
+});
+test('delivered shipments remain visible but cannot be assigned or dragged', async () => {
+  const app = harness(); app.data.shipments[0].status = 'delivered'; await app.load();
+  const card = app.find(n => n.props?.draggable !== undefined && app.text(n).includes('DN-1'));
+  assert.equal(card.props.draggable, false);
+  assert.equal(app.nodes(card).some(n => n.type === 'Button' && app.text(n) === 'Assign'), false);
 });

@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.212
+Version: 2.215
 Last updated: 2026-10-12
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -588,6 +588,19 @@ Show a red warning triangle immediately beside the total only when the exact dur
 - [x] Strict per-location warning with total/expected/excess tooltip, zero-limit support and keyboard access.
 - [ ] Verify authenticated live run rows, hover/focus and narrow-screen wrapping.
 
+### Admin monitoring refined box truck (2.215 — implemented locally)
+
+On `/admin/logistics/shipments/monitoring`, use the selected Refined box truck for both road vehicles and trucks parked at locations, including existing standby/unknown parking uses of the shared truck components. Render a separate bevelled cargo box and angled cab, dark chassis, grille, mirrors and wheel arches, blue-grey glazing, silver hubs and steps, cream headlights and small red rear lights. This is native Three.js geometry, so cab and cargo both respond to the current system colours. Preserve alert red (lighter on hover) before selected blue, then hover grey and normal grey; explicit speeding metadata and speed-limit fallback retain their existing semantics. Neutral details do not change with status.
+
+Keep the existing footprint/hitboxes, road direction, parking slots, arrival/departure/nudge animations, click selection and registration-label behaviour. Share seven geometry/material batches across the fleet, with separately disposed per-truck paint materials. Static location-icon previews and mobile map artwork/Figma remain unaffected.
+
+Implementation status: both production monitoring components now use the refined geometry. Actual road/location components were visually and interactively reviewed in the development fixture; TypeScript, focused lint and 12 targeted truck/monitoring/icon regressions pass. Authenticated live monitoring and production fleet-load verification remain pending.
+
+- [x] Replace both road and parked location truck visuals with the selected refined box truck.
+- [x] Preserve status colour priority, speed boundaries/legacy telemetry, shared paint zones and existing hitbox bounds with regression checks.
+- [x] Visually inspect normal/selected/alert states and fleet thumbnails; verify road/location clicks, hover registration labels, arrival replay and one departure callback in the local fixture.
+- [ ] Verify authenticated monitoring with real polling/events and representative fleet load after deployment.
+
 ### Admin location-type 3D icon picker (2.212 — expanded models implemented locally)
 
 On `/admin/settings/location-types`, creating or editing a location type shows its PNG preview and **Choose icon**. Open a keyboard-accessible visual dialog with 26 models: the original Warehouse, Truck workshop, Waypoint, Rest area and Fuel station, plus Container terminal, Seaport, Airport cargo terminal, Rail freight terminal, Mine, Quarry, Factory, Farm, Grain terminal, Cold storage facility, Retail delivery point, Construction site, Weighbridge, Border checkpoint, Toll plaza, Fuel station 2, Fuel depot, Staging area, Sasol Depot, Engen Depot and Brewery depot. Keep the heading and Use icon/Cancel actions visible while the cards scroll; show the selected radio card and confirm with **Use icon**. Cancel, Escape and close discard the picker selection and return focus to Choose icon. Confirmation changes only the editor draft; Add type/Update type and the page Save retain the existing merchant-scoped persistence flow. Show small previews in the settings list. Keep the separate colour field independent of model colours.
@@ -632,11 +645,20 @@ The website run page shows location-type badges for recorded stops and shipment 
 - [x] Load current location details with merchant scope, loading/error/retry states and stale-response cleanup.
 - [ ] Verify authenticated browser drawer, geofence and keyboard interaction with live run data.
 
-### Admin Schedule (2.206 — implemented locally)
+### Admin Schedule (2.213 — implemented locally)
+
+**Layout exploration (2.214 — proposals, awaiting selection):** [Three editable Figma options](https://www.figma.com/design/CnRPXeKfhGsMcyAXgF50ZA) explore improvements to `/admin/logistics/schedule`: [01 Dispatch board](https://www.figma.com/design/CnRPXeKfhGsMcyAXgF50ZA?node-id=2-30) retains three independent resource columns with clearer truck queues and waiting reasons; [02 Fleet table](https://www.figma.com/design/CnRPXeKfhGsMcyAXgF50ZA?node-id=2-31) groups runs in compact fleet rows with assignment resources below; [03 Focused run queue](https://www.figma.com/design/CnRPXeKfhGsMcyAXgF50ZA?node-id=2-32) places the selected run's assignments beside its truck queue. Each includes a narrow-screen example, source-derived Space Grotesk typography, shared editable components/tokens and operational handoff notes. All are design proposals with illustrative data; none is selected or implemented. The existing runtime layout and scheduling semantics remain authoritative until selection. Preserve the status multi-select/All, unfinished default, read-only finished cards, merchant-timezone dates, environment isolation, server search/pagination, readiness queue, active-run locks and button alternatives to drag/drop in any chosen implementation.
+
+- [x] Create and visually review three editable desktop layout alternatives and corresponding narrow-screen examples in Figma.
+- [x] Record operational constraints and proposal status; retain current runtime behaviour.
+- [ ] User selects one layout; refine its interaction, loading/empty/error/read-only states and implementation acceptance criteria before implementation.
+- [ ] Implement and verify the selected layout in a separately authorized task.
 
 The admin **Schedule** page at `/admin/logistics/schedule` uses three independently scrolling columns: searchable drivers, trucks containing multiple run cards, and unassigned shipments. Narrow screens use Drivers / Runs / Shipments tabs. Default to Today in the merchant timezone; support previous/next day and a date range. Always include ongoing runs, separate overdue plans, and keep completed/cancelled runs in the existing historical Runs page. Search and paginate each column on the server. Fleet filters cover active/inactive and available/ready-or-active; driver Assigned means an open run assignment, not a permanent vehicle association. General shipments means the null environment; a named environment selector isolates runs/shipments. Environment choices expose names/UUIDs only, never tokens.
 
 Assign through drag/drop or equivalent buttons. A direct run drop targets that card; a truck drop offers eligible runs and Create run, or opens creation when none exists. New-run creation captures saved merchant/environment start/end locations and planned date/time, prefilling the truck and dragged item. Save an empty draft before adding shipments. Confirm driver replacement and send the expected driver UUID to reject stale assignments. Driver changes/removal and shipment moves/removal are allowed only on draft/dispatched plans; unassigned shipments can also be added to active runs. Existing active-run drivers/shipments remain locked. Header Create shipment uses the shared right drawer with automatic offers disabled and leaves the shipment unassigned; per-run creation is transactional with attachment. A failed/cancelled new-run or transfer never removes the original assignment. UUID creation keys/fingerprints and expected source membership make retries safe. Preserve assignment history and booking synchronization.
+
+Unassigned shipments has a top-right **Filter shipment statuses** button with checkbox multi-select and **All**. Default selections exclude delivered, failed, cancelled and returned; All includes finished shipments with no open-run assignment. No selections returns an empty list. Apply status filtering on the server before pagination, totals and search results; reset pages and clear the selected assignment when changing filters. Show shipment status on each card. Finished shipments remain viewable but have no Assign/Move/Unassign or drag controls; server terminal-status mutation guards remain enforced. Merchant/environment and open-run-assignment scope apply to every selection. Implemented locally in 2.213; targeted API/UI tests pass, authenticated browser verification pending. The existing Figma Admin Schedule readiness handoff records these rules.
 
 Schedule-created runs use `schedule_managed=true`, with existing statuses: draft = planned/waiting, dispatched = ready, in_progress = active. Normalize planned timestamps to UTC; display and evaluate days in merchant timezone, falling back to the application timezone. From merchant-local midnight, reconcile due and overdue plans ordered by planned start then creation ID. Promote the earliest **eligible** plan for each free driver/truck only when it has an active driver, active non-maintenance truck, start/end endpoints and at least one unfinished shipment. Incomplete plans remain waiting with an explanation. Existing ready/active runs retain their resources. Run reconciliation each minute and after relevant mutations/closure; use merchant and shared resource/run locks plus transaction retries. Planning does not change permanent driver/vehicle associations; promotion synchronizes them and booking drivers. Date/assignment edits demote and re-evaluate an unstarted schedule plan.
 
@@ -646,6 +668,7 @@ The shared operational predicate excludes schedule drafts from the driver curren
 
 Implementation: schedule API/website, migration, shared lifecycle selection and minute reconciliation are implemented locally. Apply the migration and deploy the backend before website controls; the Laravel scheduler must run continuously. Automated checks and fixture browser verification are recorded in release notes. Authenticated end-to-end operations, production MySQL contention/load and physical-driver-device verification remain release gates.
 
+- [x] Server-backed shipment status multi-select and All, matching counts/pagination, default finished exclusion and read-only finished cards (2.213).
 - [x] Three-column/date-based truck grouping, responsive tabs, server search/pagination and environment isolation.
 - [x] Driver and shipment drag/button assignment, empty drafts, location/time creation and shared shipment drawer.
 - [x] Atomic transfers/new-run moves, retry keys, stale-source/driver rejection and active-run locks.
@@ -1433,6 +1456,9 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-12 | 2.215 | Implement the selected Refined box truck for road and location vehicles in admin monitoring. Preserve dynamic status colours, hitboxes, selection/labels and all movement wrappers; share geometry batches and dispose per-truck paint. Local fixture/static/regression checks pass; authenticated live/load checks pending. Mobile Figma unaffected. |
+| 2026-10-12 | 2.214 | Add three editable Admin Schedule Figma layout proposals (Dispatch board, Fleet table, Focused run queue) with narrow-screen examples and operational handoff. Await user selection; runtime layout and lifecycle/status rules remain unchanged. |
+| 2026-10-12 | 2.213 | Add top-right Unassigned shipment status multi-select and All; filter server rows/counts/pages, default to unfinished and keep finished cards read-only. API/UI regressions pass; Figma Schedule handoff aligned. Authenticated browser verification pending. |
 | 2026-10-12 | 2.212 | Add Sasol Depot, Engen Depot and Brewery depot as distinct stylised models and matching PNG choices, expanding the library to 26. Use local sign textures without remote fonts/assets; retain original waypoint and existing save/filter behaviour. Verification recorded in release notes; authenticated live checks pending. Mobile Figma unaffected. |
 | 2026-10-12 | 2.211 | Confirm the original cyan sphere/pole/ring Waypoint design after visual review. Restore original model and PNG byte-for-byte; retain the waypoint key, 23-choice catalogue and interactions. Documentation decision only relative to the accepted runtime; mobile Figma unaffected. |
 | 2026-10-12 | 2.210 | Add Staging area as the 23rd icon/model with marked waiting bays, trucks, dispatch booth, parking sign and traffic markings. Preserve catalogue-derived filters and icon persistence; verification recorded in release notes, authenticated live checks pending. Mobile Figma unaffected. |

@@ -52,6 +52,7 @@ class ScheduleController extends Controller
             'fleet_status' => ['nullable', 'in:all,active,inactive'], 'driver_filter' => ['nullable', 'in:all,assigned,unassigned'],
             'truck_page' => ['nullable', 'integer', 'min:1'], 'driver_page' => ['nullable', 'integer', 'min:1'],
             'shipment_page' => ['nullable', 'integer', 'min:1'],
+            'shipment_statuses' => ['nullable', 'string', 'regex:/^(all|none|(?:draft|ready|quoted|booked|offer_failed|in_transit|at_delivery_location|delivered|exception|failed|cancelled|returned)(?:,(?:draft|ready|quoted|booked|offer_failed|in_transit|at_delivery_location|delivered|exception|failed|cancelled|returned))*)$/'],
         ]);
         $readiness->reconcile($merchant->id);
         $timezone = $merchant->timezone ?: config('app.timezone', 'UTC');
@@ -92,9 +93,16 @@ class ScheduleController extends Controller
         }
         $drivers = $drivers->withCount(['runs as assigned_count' => $open])->orderBy('id')->paginate(30, ['*'], 'driver_page');
         $shipments = Shipment::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)->where('environment_id', $environment?->id)
-            ->whereNotIn('status', ['delivered', 'failed', 'cancelled', 'returned'])
             ->whereDoesntHave('runShipments', fn ($q) => $q->where('status', '!=', RunShipment::STATUS_REMOVED)->whereHas('run', fn ($q) => $q->whereIn('status', ['draft', 'dispatched', 'in_progress'])))
             ->with(['pickupLocation', 'dropoffLocation']);
+        $statuses = $filters['shipment_statuses'] ?? null;
+        if ($statuses === 'none') {
+            $shipments->whereRaw('1 = 0');
+        } elseif ($statuses && $statuses !== 'all') {
+            $shipments->whereIn('status', explode(',', $statuses));
+        } elseif (! $statuses) {
+            $shipments->whereNotIn('status', ['delivered', 'failed', 'cancelled', 'returned']);
+        }
         if ($search = $filters['shipment_search'] ?? null) {
             $shipments->where(fn ($q) => $q->where('merchant_order_ref', 'like', "%$search%")->orWhere('delivery_note_number', 'like', "%$search%"));
         }

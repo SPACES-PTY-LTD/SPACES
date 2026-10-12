@@ -1,3 +1,5 @@
+import { RefinedBoxTruck } from "./refined-box-truck";
+import { getTruckBodyColour } from "../truck-appearance";
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useRef, useState } from "react";
@@ -37,23 +39,11 @@ function TruckVisual({
   isHovered: boolean;
   showRegNumbers: boolean;
 }) {
-  const isSpeeding =
-    truck.isSpeeding ??
-    (truck.speedKph !== null &&
-      truck.speedKph !== undefined &&
-      truck.speedLimitKph !== null &&
-      truck.speedLimitKph !== undefined &&
-      truck.speedKph > truck.speedLimitKph);
-  const isWaitingOverdue = truck.isWaitingOverdue ?? false;
-  const isAlert = isSpeeding || isWaitingOverdue;
-  const bodyColor = isAlert ? (isHovered ? "#f87171" : "#ef4444") : isSelected ? "#2563eb" : isHovered ? "#9ca3af" : "#999999";
+  const bodyColor = getTruckBodyColour(truck, isSelected, isHovered);
 
   return (
     <>
-      <mesh name={`truck-${truck.truckId}-body`} position={[0, 0.53, 0]}>
-        <boxGeometry args={[2.15, 0.66, 0.9]} />
-        <meshStandardMaterial color={bodyColor} roughness={0.86} />
-      </mesh>
+      <RefinedBoxTruck bodyColor={bodyColor} truckId={truck.truckId} />
 
       {showRegNumbers || isHovered ? (
         <Html position={[0, 1.22, 0]} center zIndexRange={[16, 0]}>
@@ -76,50 +66,6 @@ function TruckVisual({
         </div>
       </Html>
       ) : null}
-
-      <mesh name={`truck-${truck.truckId}-front-window`} position={[-1.09, 0.57, 0]}>
-        <boxGeometry args={[0.04, 0.34, 0.62]} />
-        <meshStandardMaterial color="#3fa0d8" roughness={0.4} metalness={0.08} />
-      </mesh>
-      <mesh name={`truck-${truck.truckId}-front-grille`} position={[-1.11, 0.34, 0]}>
-        <boxGeometry args={[0.03, 0.14, 0.48]} />
-        <meshStandardMaterial color="#c3ccd8" roughness={0.72} />
-      </mesh>
-
-      <mesh name={`truck-${truck.truckId}-rear-door`} position={[1.09, 0.52, 0]}>
-        <boxGeometry args={[0.04, 0.48, 0.72]} />
-        <meshStandardMaterial color="#e8edf3" roughness={0.84} />
-      </mesh>
-      <mesh position={[1.11, 0.52, 0]}>
-        <boxGeometry args={[0.03, 0.44, 0.02]} />
-        <meshStandardMaterial color="#b8c3d1" roughness={0.75} />
-      </mesh>
-
-      <mesh position={[-0.34, 0.34, 0.42]}>
-        <boxGeometry args={[0.74, 0.14, 0.05]} />
-        <meshStandardMaterial color="#c3ccd8" roughness={0.75} />
-      </mesh>
-      <mesh position={[-0.34, 0.34, -0.42]}>
-        <boxGeometry args={[0.74, 0.14, 0.05]} />
-        <meshStandardMaterial color="#c3ccd8" roughness={0.75} />
-      </mesh>
-
-      <mesh name={`truck-${truck.truckId}-wheel-fr`} position={[-0.7, 0.18, 0.45]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
-        <meshStandardMaterial color="#0f172a" />
-      </mesh>
-      <mesh name={`truck-${truck.truckId}-wheel-rr`} position={[0.7, 0.18, 0.45]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
-        <meshStandardMaterial color="#0f172a" />
-      </mesh>
-      <mesh name={`truck-${truck.truckId}-wheel-fl`} position={[-0.7, 0.18, -0.45]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
-        <meshStandardMaterial color="#0f172a" />
-      </mesh>
-      <mesh name={`truck-${truck.truckId}-wheel-rl`} position={[0.7, 0.18, -0.45]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.15, 0.15, 0.1, 16]} />
-        <meshStandardMaterial color="#0f172a" />
-      </mesh>
     </>
   );
 }
