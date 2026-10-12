@@ -2,6 +2,7 @@ import type { ScheduleItem, ScheduleRun } from "@/lib/api/schedule"
 
 export function eligibleRun(item: ScheduleItem, run: ScheduleRun) {
   if (item.kind === "driver") return run.can_assign_driver
+  if (["delivered", "failed", "cancelled", "returned"].includes(item.shipment.status)) return false
   if (item.shipment.source_run_id === run.run_id) return false
   return run.can_add_shipment && (!item.shipment.source_run_id || run.status !== "in_progress")
 }

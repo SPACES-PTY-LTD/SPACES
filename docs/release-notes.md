@@ -1,5 +1,135 @@
 # Release Notes
 
+## 2026-10-12 | Version: schedule-dispatch-board-implementation-v1
+
+- **Summary:** Implement the selected Figma Dispatch board at `/admin/logistics/schedule`.
+- **API Changes:** Add optional scoped `summary` counts and complete open `drivers[].assigned_runs` to GET `/api/v1/schedule`; totals cover matching results beyond the current page. Existing response fields and mutation endpoints remain compatible.
+- **Database Changes:** None for this change.
+- **Behavior Changes:** Fill the available admin viewport with contiguous, equal-height Drivers/Truck runs/Shipments panels and independent scrolling. Hide searches behind accessible title buttons; retain queries/focus/Escape behavior. Use driver filter dropdowns and contiguous assignment rows, registration/run cells with one run per row, compact permission-aware Options menus, opposing desktop route/driver summaries, and smaller destination-only shipment tiles with plus creation. Keep narrow-screen tabs, server filters/pagination, existing drawers, replacement confirmation, terminal shipment restrictions and active-run locks. Preserve mutable shipment Move/Return actions through tile menus.
+- **Internal Changes:** Add a development-only fixture preview and behavioral/API regression coverage; align canonical plan and Figma handoff. The preview uses synthetic data and is unavailable in production.
+- **Breaking Changes:** None. Deploy backend additions with the website for full summaries/assignment labels; older payloads show unknown counts and fallback labels.
+- **Verification:** 18 AdminSchedule API tests pass (154 assertions); 13 website schedule tests pass; website TypeScript and focused ESLint pass. Fixture browser checks pass at 1280 × 720 and 390 × 844 for viewport containment, mobile tabs, search focus/Escape/query retention, driver filter, active/planned Options, plus drawer, driver assignment and environment empty state. Authenticated live mutations, production pagination/concurrency, dark mode and long-data visual checks remain pending.
+
+## 2026-10-12 | Version: schedule-run-options-dropdown-design-v1
+
+- **Summary:** Replace selected Figma run-card View run buttons with compact Options dropdowns.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime. Design uses a 78 × 28 px Options/chevron trigger at top right; View run moves into the dropdown, with existing Edit plan/Assign driver in editable examples. Remove standalone driver actions; retain shipment plus tiles.
+- **Breaking Changes:** None.
+- **Internal Changes:** Align selected states/template, add active/planned/overdue menu previews, and update canonical plan, permission/keyboard/focus acceptance criteria and revision history. Active-run reassignment remains locked.
+- **Verification:** Visually inspect board and planned-run menu; verify compact labels, menu choices, preserved driver/route alignment, shipment tiles and Space Grotesk typography. Git diff checks pass. Website implementation and runtime permission/action/keyboard behavior remain pending.
+
+## 2026-10-12 | Version: schedule-remove-subcolumn-titles-design-v1
+
+- **Summary:** Remove redundant TRUCK and RUNS subcolumn titles from selected Figma board.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime; design starts grouped truck rows directly beneath title/search controls, preserving the registration/run divider.
+- **Breaking Changes:** None.
+- **Internal Changes:** Align selected prototype states and update canonical plan, acceptance criteria and revision history.
+- **Verification:** Visually inspect revised Figma board; verify both subcolumn titles are hidden in all seven selected states and grouped rows remain intact. Git diff checks pass. Website implementation remains pending.
+
+## 2026-10-12 | Version: schedule-compact-shipment-tiles-design-v1
+
+- **Summary:** Reduce selected Figma shipment tile and add-plus box size, especially height.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime. Design reduces shipment tiles from 220 × 60 to 200 × 44 px and plus boxes from 60 × 60 to 44 × 44 px, preserving reference/status/final location.
+- **Breaking Changes:** None.
+- **Internal Changes:** Align selected prototype states/template and update canonical plan, acceptance criteria and revision history. Specify natural long-content growth during implementation.
+- **Verification:** Visually inspect the revised board; confirm compact dimensions, readable two-line tile content, matching plus boxes and Space Grotesk typography. Git diff checks pass. Website implementation and runtime long-content checks remain pending.
+
+## 2026-10-12 | Version: schedule-run-card-header-alignment-design-v1
+
+- **Summary:** Refine selected Figma run-card action and route/driver alignment.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime. Design moves View run to the top right, with driver name and shipment count right-aligned opposite the start/end route beneath the header.
+- **Breaking Changes:** None.
+- **Internal Changes:** Align selected prototype states/template and update canonical plan, responsive acceptance criteria and revision history. Retain horizontal destination-only shipment strips, plus tiles and permitted run actions.
+- **Verification:** Visually inspect the updated board; verify top-right View run, paired route/driver-count row, retained shipment tiles/plus controls, full-width run stacks and Space Grotesk typography. Git diff checks pass. Website implementation and long-value/responsive runtime checks remain pending.
+
+## 2026-10-12 | Version: schedule-run-shipment-strip-design-v1
+
+- **Summary:** Refine selected Figma runs to one per row with horizontal shipment tiles and an add-plus box.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime. Design stacks full-width runs, shows final destination only on shipment tiles, adds an empty plus-icon box at the end of each strip, and removes the text Add shipment button. Keep reference/status and run endpoint summaries.
+- **Breaking Changes:** None.
+- **Internal Changes:** Align selected prototype states and template; replace superseded side-by-side-run/pickup-route guidance in the canonical plan. Record permission-guarded plus creation/drop and horizontal shipment/vertical run scroll acceptance criteria.
+- **Verification:** Visually inspect the corrected Figma render; verify 527 px full-width stacked runs, 220 × 60 px destination tiles beside 60 × 60 px plus boxes, visible final locations, removed text add actions and Space Grotesk typography. Correct initial stack/text sizing so the second run and tile destinations remain visible. Git diff checks pass. Website implementation and runtime scrolling/add/drop interactions remain pending.
+
+## 2026-10-12 | Version: schedule-inline-run-shipments-design-v1
+
+- **Summary:** Show assigned shipments inside the selected Figma Dispatch board run cards.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime. Design shows shipment reference, status and pickup/destination inside active, planned and overdue run cards, retaining assignment locks and run actions.
+- **Breaking Changes:** None.
+- **Internal Changes:** Align selected board/search/filter states and the truck-row template. Update canonical plan, revision history and complete-list/count/empty-state/details-handoff acceptance criteria. Shipment statuses are illustrative fixtures, not inferred from run status.
+- **Verification:** Visually inspect the revised board; verify inline shipment rows in all three run cards, preserved equal-height columns, readable reference/status/routes and Space Grotesk typography. Git diff checks pass. Website implementation, actual multi-shipment lists and details interactions remain pending.
+
+## 2026-10-12 | Version: schedule-run-header-filters-design-v1
+
+- **Summary:** Move Active fleet and All availability beside the selected Figma Runs search button.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime. Design places both controls in the Runs title row, removes the separate filter row and keeps revealed truck search beneath the title controls.
+- **Breaking Changes:** None.
+- **Internal Changes:** Align seven selected prototype states and update canonical plan, acceptance criteria and revision history. Preserve existing fleet/availability filter semantics and responsive wrapping.
+- **Verification:** Visually inspect the revised board; verify title-row control order, hidden default search, expanded-search layout metadata, preserved grouping/equal-height columns and Space Grotesk typography. Git diff checks pass. Website implementation and runtime responsive filter/search behaviour remain pending.
+
+## 2026-10-12 | Version: schedule-truck-registration-run-rows-design-v1
+
+- **Summary:** Restructure the selected Figma Runs column into aligned truck registration and grouped-run columns.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime. Design gives each truck a registration cell beside a wider area for all its runs, including empty trucks and ongoing/overdue examples; multiple runs appear side by side with responsive wrapping specified.
+- **Breaking Changes:** None.
+- **Internal Changes:** Align seven selected board/search/filter prototype states and update canonical plan, revision history and responsive grouping/pagination/assignment acceptance criteria. Preserve all matching fleet results through server pagination; no unbounded fetch is proposed.
+- **Verification:** Visually review the selected board against the attached row-list reference; verify 144/543 px inner registration/run columns, two runs on one truck, an empty truck, an overdue plan, aligned separators, preserved 593 px outer columns and Space Grotesk typography. Git diff checks pass. Website implementation and runtime fleet pagination/wrapping/drop behaviour remain pending.
+
+## 2026-10-12 | Version: schedule-driver-filter-dropdown-design-v1
+
+- **Summary:** Move the selected Figma board's driver filters into an icon dropdown beside Search.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime. Design replaces the All / Unassigned / Assigned tab row with a single-select filter dropdown, defaults to All and retains open-run assignment semantics.
+- **Breaking Changes:** None.
+- **Internal Changes:** Align selected board/search states; add illustrative open-menu and filtered-list states. Update canonical plan, revision history and keyboard/dismissal/active-selection implementation criteria.
+- **Verification:** Visually inspect default board and open dropdown; verify title-row filter/search placement, removed visible tabs, the three dropdown choices, illustrative 2-unassigned/1-assigned rows, unchanged column bounds and Space Grotesk typography. Git diff checks pass. Website implementation and runtime filtering/focus remain pending.
+
+## 2026-10-12 | Version: schedule-compact-driver-rows-design-v1
+
+- **Summary:** Simplify the selected Figma Dispatch board driver list to compact contiguous rows.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime. Design removes driver Assign buttons, rounded card outlines and inter-row margins; uses bottom borders and shows driver names with open run assignments or No assigned runs.
+- **Breaking Changes:** None.
+- **Internal Changes:** Update the canonical plan, revision history and row activation/keyboard/assignment-display acceptance criteria. Align all selected search-open states; retain drag, replacement confirmation and active-run guards. Website implementation remains pending.
+- **Verification:** Visually review the revised Figma board; verify three touching 64 px rows, zero list gap, bottom separators, no row Assign buttons, complete names and assignment labels, and Space Grotesk typography. Git diff checks pass. Runtime assignment display and row interaction remain unverified.
+
+## 2026-10-12 | Version: schedule-collapsible-search-design-v1
+
+- **Summary:** Refine selected Dispatch board in Figma with title-row search-icon buttons and visible column borders.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime. Design hides Drivers, Runs and Shipments search inputs by default and links icon buttons to per-column search-open/close prototype states; preserve shipment status controls and equal-height independent scroll columns.
+- **Breaking Changes:** None.
+- **Internal Changes:** Update canonical plan, revision history and focus/Escape/retained-query implementation acceptance criteria. Website implementation remains pending.
+- **Verification:** Visually review collapsed and driver-search-open Figma renders; verify hidden inputs, icon navigation/close targets, visible dividers, unchanged contiguous/equal column bounds and Space Grotesk typography. Git diff checks pass. Prototype states simulate search visibility; runtime input, search and keyboard behaviour remain unverified.
+
+## 2026-10-12 | Version: schedule-dispatch-board-full-viewport-design-v1
+
+- **Summary:** Select and refine Figma Option 1 Dispatch board to fill the available admin page viewport.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None in runtime; the updated design removes outer board gutters and column gaps, gives all three panels the same available height, and specifies pinned controls/footers with independent body scrolling.
+- **Breaking Changes:** None.
+- **Internal Changes:** Record the selected layout, 1440 × 900 reference, responsive acceptance criteria and pending implementation status in the canonical dashboard plan and Figma handoff.
+- **Verification:** Inspect the revised Figma render; verify zero column gap, contiguous 248/720/288 px widths, matching 593 px heights, vertical scroll bodies, editable layers and Space Grotesk typography. Git diff checks pass. Website implementation and runtime viewport/scroll verification remain pending.
+
 ## 2026-10-12 | Version: refined-monitoring-box-truck-v1
 
 - **Summary:** Implement the selected Refined box truck for road and location vehicles on admin shipment monitoring.

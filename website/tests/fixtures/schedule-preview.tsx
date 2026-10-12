@@ -1,6 +1,6 @@
 "use client"
 
-// Local fixture; never mounted by a production route.
+// Local fixture; only mounted by the development-only preview route.
 import { useEffect, useState } from "react"
 import { ScheduleBoard } from "@/components/schedule/schedule-board"
 import type { ScheduleData, ScheduleRun, ScheduleShipment } from "@/lib/api/schedule"
@@ -13,7 +13,7 @@ const run = (id: string, status: string, hour: string): ScheduleRun => ({ run_id
   can_assign_driver: status !== "in_progress", can_add_shipment: true, waiting_reason: status === "draft" ? "Waiting for an earlier run or an occupied driver/truck." : null,
   origin: depot, destination: mine, driver: status === "in_progress" ? { driver_id: "driver-1", name: "Alex Mokoena" } : null, shipments: [shipment(id, id)] })
 const page = { current_page: 1, last_page: 1, total: 3 }
-const initial: ScheduleData = { environments: [], timezone: "Africa/Johannesburg", can_manage: true,
+const initial: ScheduleData = { environments: [{ environment_id: "sandbox", name: "Sandbox" }], timezone: "Africa/Johannesburg", can_manage: true,
   drivers: [{ driver_id: "driver-1", name: "Alex Mokoena", phone: "071 000 0001", assigned: true }, { driver_id: "driver-2", name: "Zolani Ntantiso", phone: "071 000 0002", assigned: false }, { driver_id: "driver-3", name: "Yandisa Tenenengu", assigned: false }],
   trucks: [{ vehicle_id: "truck-1", plate_number: "694HJSGP", is_active: true, available: false, can_create: true, runs: [run("run-1", "in_progress", "06"), run("run-2", "draft", "12")] },
     { vehicle_id: "truck-2", plate_number: "700HJSGP", is_active: true, available: true, can_create: true, runs: [] },
@@ -33,7 +33,16 @@ export default function SchedulePreview() {
       if (url.pathname === "/api/v1/schedule") {
         if (url.searchParams.get("truck_search") === "error") return new Response(JSON.stringify({ error: { message: "Fixture connection failed" } }), { status: 503 })
         const visible = structuredClone(data)
-        if (url.searchParams.get("truck_search") === "empty") { visible.trucks = []; visible.drivers = []; visible.shipments = [] }
+        const runs = data.trucks.flatMap(truck => truck.runs)
+        visible.drivers.forEach(driver => { driver.assigned_runs = runs.filter(run => run.driver?.driver_id === driver.driver_id).map(run => ({ run_id: run.run_id, status: run.status, planned_start_at: run.planned_start_at })); driver.assigned = driver.assigned_runs.length > 0 })
+        const contains = (text: string, search: string | null) => !search || text.toLowerCase().includes(search.toLowerCase())
+        visible.drivers = visible.drivers.filter(driver => contains(driver.name, url.searchParams.get("driver_search")) && (url.searchParams.get("driver_filter") === "assigned" ? driver.assigned : url.searchParams.get("driver_filter") === "unassigned" ? !driver.assigned : true))
+        visible.trucks = visible.trucks.filter(truck => contains(truck.plate_number, url.searchParams.get("truck_search")) && (url.searchParams.get("availability") === "available" ? truck.available : url.searchParams.get("availability") === "busy" ? !truck.available : true) && (url.searchParams.get("fleet_status") === "inactive" ? !truck.is_active : true))
+        const statuses = url.searchParams.get("shipment_statuses")
+        visible.shipments = visible.shipments.filter(shipment => contains(shipment.reference, url.searchParams.get("shipment_search")) && statuses !== "none" && (statuses === "all" || (statuses ? statuses.split(",").includes(shipment.status) : !["delivered", "failed", "cancelled", "returned"].includes(shipment.status))))
+        if (url.searchParams.get("environment_id") === "sandbox" || url.searchParams.get("truck_search") === "empty") { visible.trucks = []; visible.drivers = []; visible.shipments = [] }
+        visible.summary = { unassigned_drivers: visible.drivers.filter(driver => !driver.assigned).length, available_trucks: visible.trucks.filter(truck => truck.available).length, active_runs: visible.trucks.flatMap(truck => truck.runs).filter(run => run.status === "in_progress").length, overdue_plans: visible.trucks.flatMap(truck => truck.runs).filter(run => run.overdue).length, unassigned_shipments: visible.shipments.length }
+        for (const key of ["drivers", "trucks", "shipments"] as const) visible.pagination[key].total = visible[key].length
         return envelope(visible)
       }
       if (url.pathname === "/api/v1/locations") return envelope([depot, mine], { current_page: 1, last_page: 1 })
@@ -68,5 +77,5 @@ export default function SchedulePreview() {
     setReady(true)
     return () => { window.fetch = original }
   }, [])
-  return <main className="mx-auto max-w-[1900px] p-5">{ready && <ScheduleBoard merchantId="fixture-merchant" token="fixture-token" timezone="Africa/Johannesburg" />}</main>
+  return <main className="flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden">{ready && <ScheduleBoard merchantId="fixture-merchant" token="fixture-token" timezone="Africa/Johannesburg" />}</main>
 }

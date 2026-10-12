@@ -7,7 +7,10 @@ export type ScheduleShipment = {
   collection_date?: string | null; status: string; source_run_id: string | null
   pickup: ScheduleLocation | null; dropoff: ScheduleLocation | null
 }
-export type ScheduleDriver = { driver_id: string; name: string; phone?: string | null; assigned: boolean }
+export type ScheduleDriver = {
+  driver_id: string; name: string; phone?: string | null; assigned: boolean
+  assigned_runs?: { run_id: string; status: string; planned_start_at: string | null }[]
+}
 export type ScheduleRun = {
   run_id: string; status: string; schedule_managed: boolean
   planned_start_at: string | null; started_at: string | null; overdue: boolean; waiting_reason: string | null
@@ -21,6 +24,7 @@ export type ScheduleTruck = {
 }
 export type SchedulePage = { current_page: number; last_page: number; total: number }
 export type ScheduleData = {
+  summary?: { unassigned_drivers: number; available_trucks: number; active_runs: number; overdue_plans: number; unassigned_shipments: number }
   environments: { environment_id: string; name: string }[]
   timezone: string; can_manage: boolean; trucks: ScheduleTruck[]; drivers: ScheduleDriver[]; shipments: ScheduleShipment[]
   pagination: { trucks: SchedulePage; drivers: SchedulePage; shipments: SchedulePage }

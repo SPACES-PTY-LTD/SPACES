@@ -75,7 +75,7 @@ class ScheduleController extends Controller
         if (($filters['availability'] ?? 'all') === 'available') {
             $vehicles->where('is_active', true)->whereNull('maintenance_mode_at')->whereDoesntHave('runs', $busy);
         }
-        $trucks = $vehicles->with(['runs' => function ($q) use ($open, $from, $to, $todayStart) {
+        $trucks = (clone $vehicles)->with(['runs' => function ($q) use ($open, $from, $to, $todayStart) {
             $open($q);
             $q->where(fn ($q) => $q->where('status', 'in_progress')->orWhereNull('planned_start_at')->orWhereBetween('planned_start_at', [$from, $to])->orWhere('planned_start_at', '<', $todayStart))
                 ->with(['merchant', 'driver.user', 'vehicle', 'originLocation', 'destinationLocation', 'runShipments.shipment.pickupLocation', 'runShipments.shipment.dropoffLocation'])
@@ -91,7 +91,11 @@ class ScheduleController extends Controller
         if (($filters['driver_filter'] ?? 'all') === 'unassigned') {
             $drivers->whereDoesntHave('runs', $open);
         }
-        $drivers = $drivers->withCount(['runs as assigned_count' => $open])->orderBy('id')->paginate(30, ['*'], 'driver_page');
+        $unassignedDrivers = (clone $drivers)->whereDoesntHave('runs', $open)->count();
+        $drivers = $drivers->with(['runs' => function ($q) use ($open) {
+            $open($q);
+            $q->orderBy('planned_start_at')->orderBy('id');
+        }])->withCount(['runs as assigned_count' => $open])->orderBy('id')->paginate(30, ['*'], 'driver_page');
         $shipments = Shipment::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)->where('environment_id', $environment?->id)
             ->whereDoesntHave('runShipments', fn ($q) => $q->where('status', '!=', RunShipment::STATUS_REMOVED)->whereHas('run', fn ($q) => $q->whereIn('status', ['draft', 'dispatched', 'in_progress'])))
             ->with(['pickupLocation', 'dropoffLocation']);
@@ -108,9 +112,18 @@ class ScheduleController extends Controller
         }
         $shipments = $shipments->orderBy('collection_date')->orderBy('id')->paginate(30, ['*'], 'shipment_page');
         $canManage = $request->user()->can('create', [Run::class, $merchant]);
+        $summaryRuns = Run::whereIn('vehicle_id', (clone $vehicles)->select('vehicles.id'));
+        $open($summaryRuns);
 
         return ApiResponse::success([
             'timezone' => $timezone, 'can_manage' => $canManage,
+            'summary' => [
+                'unassigned_drivers' => $unassignedDrivers,
+                'available_trucks' => (clone $vehicles)->where('is_active', true)->whereNull('maintenance_mode_at')->whereDoesntHave('runs', $busy)->count(),
+                'active_runs' => (clone $summaryRuns)->where('status', 'in_progress')->count(),
+                'overdue_plans' => (clone $summaryRuns)->where('status', '!=', 'in_progress')->where('planned_start_at', '<', $todayStart)->count(),
+                'unassigned_shipments' => $shipments->total(),
+            ],
             'environments' => MerchantEnvironment::where('merchant_id', $merchant->id)->orderBy('name')->get()->map(fn ($e) => ['environment_id' => $e->uuid, 'name' => $e->name]),
             'trucks' => $trucks->map(fn ($vehicle) => [
                 'vehicle_id' => $vehicle->uuid, 'plate_number' => $vehicle->plate_number, 'ref_code' => $vehicle->ref_code,
@@ -127,7 +140,12 @@ class ScheduleController extends Controller
                     'shipments' => $run->runShipments->where('status', '!=', RunShipment::STATUS_REMOVED)->sortBy(fn ($a) => $a->sequence ?? PHP_INT_MAX)->map(fn ($a) => $this->shipment($a->shipment, $run->uuid))->filter()->values(),
                 ])->values(),
             ])->values(),
-            'drivers' => $drivers->map(fn ($driver) => ['driver_id' => $driver->uuid, 'name' => $driver->user?->name, 'phone' => $driver->user?->telephone, 'assigned' => $driver->assigned_count > 0])->values(),
+            'drivers' => $drivers->map(fn ($driver) => [
+                'driver_id' => $driver->uuid, 'name' => $driver->user?->name, 'phone' => $driver->user?->telephone,
+                'assigned' => $driver->assigned_count > 0,
+                'assigned_runs' => $driver->runs->map(fn ($run) => ['run_id' => $run->uuid, 'status' => $run->status,
+                    'planned_start_at' => $run->planned_start_at?->toIso8601String()])->values(),
+            ])->values(),
             'shipments' => $shipments->map(fn ($shipment) => $this->shipment($shipment))->values(),
             'pagination' => ['trucks' => $this->page($trucks), 'drivers' => $this->page($drivers), 'shipments' => $this->page($shipments)],
         ]);
