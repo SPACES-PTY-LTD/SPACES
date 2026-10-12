@@ -1,5 +1,25 @@
 # Release Notes
 
+## 2026-10-12 | Version: branded-and-brewery-depot-icons-v1
+
+- **Summary:** Add Sasol Depot, Engen Depot and Brewery depot models and matching icon previews, expanding the library to 26.
+- **API Changes:** No endpoint changes; existing icon field supports `sasol-depot`, `engen-depot` and `brewery-depot`.
+- **Database Changes:** None; no location types created or reassigned automatically.
+- **Behavior Changes:** The three choices appear in the icon picker and catalogue-derived monitoring filters/default visibility. Sasol Depot has vertical storage tanks, loading canopy and SASOL signage with blue detailing. Engen Depot has horizontal tanks, loading pipework and ENGEN signage with red/blue detailing. Brewery depot has copper tanks, a brewhouse, keg pallets, bottle crates and BREWERY signage. Keep the original waypoint and all existing saved values, draft/save flow, animation, hover labels and location clicks.
+- **Breaking Changes:** None.
+- **Internal Changes:** Create sign textures locally without remote fonts/assets; dispose textures on unmount. Extend model/catalogue/PNG/browser coverage to 26 choices. Canonical dashboard plan/status/acceptance/revision updated; mobile Figma unaffected.
+- **Verification:** All three PNGs rendered from actual models and visually reviewed; 512 × 512 RGBA, transparency and unclipped bounds verified. Corrected overlapping Engen tank cap surfaces before final export. Website TypeScript, focused ESLint, nine catalogue/model/PNG/monitoring regressions and git diff checks pass. Mocked browser checks verify all 26 save/reload choices, including all three additions, plus cancellation/Escape/focus, keyboard selection, blank/legacy preservation, failed-save drafts and desktop light/390px dark layouts. Original waypoint remains byte-for-byte unchanged. Authenticated live monitoring/save verification remains pending.
+
+## 2026-10-12 | Version: waypoint-original-retained-v1
+
+- **Summary:** Retain the original Waypoint model and matching PNG after visual review.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** None relative to the accepted runtime. Waypoint keeps its cyan sphere, dark pole and blue ground ring; existing saved values, picker, monitoring filters and interactions remain unchanged.
+- **Breaking Changes:** None.
+- **Internal Changes:** Record the decision in the canonical dashboard plan, acceptance criteria and revision history. Mobile Figma unaffected.
+- **Verification:** Original model source and PNG restored byte-for-byte from the accepted repository version; no runtime diff remains for either file. Git diff checks pass.
+
 ## 2026-10-12 | Version: staging-area-location-icon-v1
 
 - **Summary:** Add Staging area as the 23rd location icon and real shipment-monitoring model.

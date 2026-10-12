@@ -1,6 +1,6 @@
 import { RoundedBox } from "@react-three/drei"
-import { useMemo } from "react"
-import { CatmullRomCurve3, Quaternion, Vector3 } from "three"
+import { useEffect, useMemo } from "react"
+import { CanvasTexture, CatmullRomCurve3, Quaternion, SRGBColorSpace, Vector3 } from "three"
 import type { LocationIconMeshType } from "@/lib/location-type-icons"
 
 type V3 = [number, number, number]
@@ -293,7 +293,102 @@ function StagingArea() {
   </>
 }
 
+// Locally rendered sign names keep model exports independent of remote fonts/assets.
+function DepotSign({ name, color, accent, at, width = 2.1 }: { name: string; color: string; accent: string; at: V3; width?: number }) {
+  const texture = useMemo(() => {
+    const canvas = document.createElement("canvas")
+    canvas.width = 640
+    canvas.height = 180
+    const context = canvas.getContext("2d")!
+    context.fillStyle = "#ffffff"
+    context.fillRect(0, 0, 640, 180)
+    context.fillStyle = accent
+    context.fillRect(0, 154, 640, 26)
+    context.fillStyle = color
+    context.font = "bold 104px Arial, sans-serif"
+    context.textAlign = "center"
+    context.textBaseline = "middle"
+    context.fillText(name, 320, 82, 585)
+    const map = new CanvasTexture(canvas)
+    map.colorSpace = SRGBColorSpace
+    return map
+  }, [name, color, accent])
+  useEffect(() => () => texture.dispose(), [texture])
+  return <group position={at}>
+    <RoundBlock at={[0, 0, 0]} size={[width, width * 0.3, 0.12]} radius={0.035} color={cream} />
+    <mesh position={[0, 0, 0.066]}><planeGeometry args={[width * 0.96, width * 0.27]} /><meshBasicMaterial map={texture} /></mesh>
+  </group>
+}
+function SasolDepot() {
+  const blue = "#0068b5"
+  return <><Pad color="#dce6ed" />
+    {[-1.8, -0.35, 1.1].map(x => <group key={x}>
+      <Cylinder at={[x, 1.25, -1.9]} radius={0.59} height={2.25} color={cream} />
+      <mesh position={[x, 2.38, -1.9]} scale={[0.59, 0.18, 0.59]}><sphereGeometry args={[1, 16, 10]} /><meshStandardMaterial color="#cbd5e1" /></mesh>
+      {[0.55, 1.95].map(y => <Cylinder key={y} at={[x, y, -1.9]} radius={0.6} height={0.1} color={blue} />)}
+      <Cylinder at={[x, 2.65, -1.9]} radius={0.065} height={0.25} color={steel} />
+      <Hose points={[[x, 0.35, -1.3], [x, 0.28, -0.85], [x + 0.3, 0.25, -0.6]]} radius={0.055} color="#dca628" />
+    </group>)}
+    <Beam from={[-1.9, 2.1, -1.1]} to={[-1.9, 3, -1.1]} width={0.055} />
+    <Beam from={[0, 2.1, -1.1]} to={[0, 3, -1.1]} width={0.055} />
+    <DepotSign name="SASOL" color={blue} accent="#eab308" at={[-0.95, 2.82, -1.1]} width={2.35} />
+    <RoundBlock at={[2.25, 0.65, -1.9]} size={[0.8, 1.1, 0.95]} radius={0.05} color={cream} />
+    <Block at={[2.25, 1.25, -1.9]} size={[0.95, 0.15, 1.05]} color={blue} />
+    <Block at={[2.25, 0.9, -1.405]} size={[0.5, 0.3, 0.025]} color={glass} />
+    <RoundBlock at={[-0.8, 1.6, 0.15]} size={[3.6, 0.2, 1]} radius={0.08} color={blue} />
+    {[-2.35, 0.75].map(x => <Beam key={x} from={[x, 0.1, -0.1]} to={[x, 1.5, -0.1]} color={steel} width={0.1} />)}
+    <Hose points={[[-0.8, 1.5, 0.2], [-0.8, 1.1, 0.4], [-0.4, 0.65, 0.4]]} />
+    <MiniTruck at={[1.5, 0.1, 0.65]} color={blue} />
+    <Block at={[-0.8, 0.12, 0.5]} size={[2.8, 0.025, 0.055]} color="#eab308" />
+  </>
+}
+function EngenDepot() {
+  const red = "#e11d48", blue = "#163d7a"
+  return <><Pad color="#dce0e7" />
+    {[-2.25, -1.1, 0.05].map(z => <group key={z}>
+      <Cylinder at={[-0.85, 0.98, z]} radius={0.45} height={2.8} rotation={[0, 0, Math.PI / 2]} color={cream} />
+      {[-2.28, 0.58].map(x => <Cylinder key={x} at={[x, 0.98, z]} radius={0.46} height={0.06} rotation={[0, 0, Math.PI / 2]} color={red} />)}
+      {[-1.8, 0.1].map(x => <Block key={x} at={[x, 0.4, z]} size={[0.22, 0.6, 0.7]} color={steel} />)}
+      <Hose points={[[0.6, 0.95, z], [0.9, 0.9, z], [1.05, 0.35, z], [1.15, 0.3, 0.6]]} radius={0.05} color={blue} />
+    </group>)}
+    <RoundBlock at={[1.95, 0.65, -2.2]} size={[1.1, 1.1, 1]} radius={0.05} color={cream} />
+    <Block at={[1.95, 1.23, -2.2]} size={[1.2, 0.17, 1.1]} color={red} />
+    <Block at={[1.95, 0.9, -1.68]} size={[0.75, 0.35, 0.025]} color={glass} />
+    <Beam from={[2, 0.1, -0.35]} to={[2, 2.4, -0.35]} color={blue} width={0.13} />
+    <DepotSign name="ENGEN" color={blue} accent={red} at={[2, 2.38, -0.35]} width={1.75} />
+    <Block at={[-0.85, 0.15, 0.9]} size={[3.3, 0.06, 0.45]} color={blue} />
+    {[-2.5, -0.6, 1.3].map(x => <group key={x}><Beam from={[x, 0.12, 0.95]} to={[x, 0.65, 0.95]} color={red} width={0.075} /></group>)}
+    <Beam from={[-2.5, 0.68, 0.95]} to={[1.3, 0.68, 0.95]} color={red} width={0.08} />
+    <RoundBlock at={[1.6, 0.52, 0.65]} size={[0.45, 0.8, 0.4]} radius={0.05} color={red} />
+    <Hose points={[[1.6, 0.88, 0.65], [1.3, 1.25, 0.5], [0.7, 1.3, 0.5], [0.4, 0.95, 0.45]]} radius={0.055} />
+  </>
+}
+function BreweryDepot() {
+  const copper = "#b86a35", green = "#166534"
+  return <><Pad color="#e4dacb" />
+    <Block at={[0, 0.95, -2.5]} size={[4.8, 1.7, 0.75]} color="#c18059" />
+    <RoundBlock at={[0, 1.9, -2.5]} size={[5, 0.18, 0.9]} radius={0.06} color={green} />
+    <DepotSign name="BREWERY" color={green} accent="#b86a35" at={[0, 2.28, -2.1]} width={2.7} />
+    {[-1.65, -0.2, 1.25].map(x => <group key={x}>
+      <Cylinder at={[x, 1.05, -1.05]} radius={0.55} height={1.65} color={copper} />
+      <Cylinder at={[x, 2.02, -1.05]} radius={0.58} top={0.13} height={0.34} color="#d99a62" />
+      <Cylinder at={[x, 2.28, -1.05]} radius={0.1} height={0.2} color={steel} />
+      {[0.45, 1.55].map(y => <Cylinder key={y} at={[x, y, -1.05]} radius={0.562} height={0.06} color="#f0c59b" />)}
+      <Beam from={[x, 0.35, -0.46]} to={[x, 0.35, 0.05]} color={steel} width={0.08} />
+    </group>)}
+    <Beam from={[-1.65, 2.35, -1.05]} to={[1.25, 2.35, -1.05]} color={steel} width={0.07} />
+    <Cylinder at={[2.15, 2.15, -2.5]} radius={0.14} height={1.3} color="#64748b" />
+    <Block at={[-1.6, 0.15, 0.55]} size={[1.7, 0.16, 0.85]} color="#9a6b3c" />
+    {[-2.1, -1.6, -1.1].map(x => <group key={x}><Cylinder at={[x, 0.46, 0.55]} radius={0.22} height={0.5} color="#cbd5e1" />{[0.29, 0.6].map(y => <Cylinder key={y} at={[x, y, 0.55]} radius={0.235} height={0.045} color={steel} />)}</group>)}
+    <Block at={[1.4, 0.3, 0.55]} size={[1.3, 0.4, 0.8]} color={green} />
+    {[1.05, 1.4, 1.75].flatMap(x => [0.35, 0.75].map(z => <group key={`${x}-${z}`}><Cylinder at={[x, 0.66, z]} radius={0.09} height={0.32} color="#166534" /><Cylinder at={[x, 0.9, z]} radius={0.035} height={0.17} color="#166534" /></group>))}
+  </>
+}
+
 export const ADDITIONAL_LOCATION_MODELS = {
+  "sasol-depot": SasolDepot,
+  "engen-depot": EngenDepot,
+  "brewery-depot": BreweryDepot,
   "staging-area": StagingArea,
   "fuel-depot": FuelDepot,
   "container-terminal": ContainerTerminal,

@@ -22,6 +22,9 @@ export const LOCATION_TYPE_ICONS = [
   { value: "fuel-station-2", label: "Fuel station 2", meshType: "fuel-station-2", image: "/images/location-types/fuel-station-2.png" },
   { value: "fuel-depot", label: "Fuel depot", meshType: "fuel-depot", image: "/images/location-types/fuel-depot.png" },
   { value: "staging-area", label: "Staging area", meshType: "staging-area", image: "/images/location-types/staging-area.png" },
+  { value: "sasol-depot", label: "Sasol Depot", meshType: "sasol-depot", image: "/images/location-types/sasol-depot.png" },
+  { value: "engen-depot", label: "Engen Depot", meshType: "engen-depot", image: "/images/location-types/engen-depot.png" },
+  { value: "brewery-depot", label: "Brewery depot", meshType: "brewery-depot", image: "/images/location-types/brewery-depot.png" },
 ] as const
 
 export type LocationIconMeshType = (typeof LOCATION_TYPE_ICONS)[number]["meshType"]
