@@ -1,13 +1,13 @@
 import { BottomSheetModal, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as Crypto from 'expo-crypto';
 import { BottomSheet } from '@/component/ui/BottomSheet';
 import { Text } from '@/component/ui/Text';
 import { documentImportApi, driverRunActionsApi, type ImportLocation, type DriverDashboard } from '@/src/lib/api';
-import { ImportButton, ImportField, importStyles as s } from '../document-import-ui';
+import { ImportButton, importStyles as s } from '../document-import-ui';
 
 import { LocationSearchPicker, type LocationSearchPickerHandle } from '../LocationSearchPicker';
 
@@ -82,11 +82,14 @@ export function RunActionForm({ action, token, run, onDismiss, onSaved }: {
     finally { submitting.current = false; if (alive.current) setBusy(false); }
   }
   const address = (location?: ImportLocation) => location?.full_address || [location?.address_line_1, location?.city, location?.province, location?.country].filter(Boolean).join(', ');
-  return <BottomSheet showCloseButton={!choosing} plainScroll={!!choosing} modalRef={modal} title={choosing ? choosing === 'origin' ? 'Search planned start location' : 'Search planned end location' : heading} onBack={choosing ? () => { Keyboard.dismiss(); setChoosing(null); } : undefined} keyboardBehavior="interactive" onScroll={event => picker.current?.onScroll(event)} showHandle={action !== 'edit'} scrollable dismissible={!busy} onDismiss={onDismiss}>
+  return <BottomSheet showCloseButton={!choosing} plainScroll={action === 'end' || !!choosing} modalRef={modal} title={choosing ? choosing === 'origin' ? 'Search planned start location' : 'Search planned end location' : heading} onBack={choosing ? () => { Keyboard.dismiss(); setChoosing(null); } : undefined} keyboardBehavior="interactive" onScroll={event => picker.current?.onScroll(event)} showHandle={action !== 'edit'} scrollable dismissible={!busy} onDismiss={onDismiss}>
     {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
     {action === 'end' && <>
       <Text style={s.subtitle}>Request dispatch approval to end this run. Your run stays active until dispatch approves it, even if deliveries remain unfinished.</Text>
-      <ImportField label="Reason" multiline value={reason} onChange={setReason} />
+      <View style={{ gap: 6 }}>
+        <Text style={s.label}>Reason</Text>
+        <TextInput accessibilityLabel="Reason" multiline value={reason} onChangeText={setReason} editable={!busy} maxLength={2000} autoCapitalize="sentences" style={[s.input, { textAlignVertical: 'top' }]} placeholderTextColor="#777" />
+      </View>
     </>}
     {action === 'cost' && <>
       <View style={[styles.notice, { backgroundColor: surface }]}><Feather name="file-text" size={18} color={muted} /><Text style={[styles.note, { color: muted }]}>Record an extra expense for this run.</Text></View>

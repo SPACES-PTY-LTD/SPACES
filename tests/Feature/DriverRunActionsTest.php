@@ -114,9 +114,32 @@ class DriverRunActionsTest extends TestCase
         $url = "/api/v1/runs/{$run->uuid}/end-requests/$id/review";
         $this->postJson($url, ['decision' => 'rejected'], $this->auth($owner))->assertUnprocessable();
         $this->postJson($url, ['decision' => 'rejected', 'reason' => 'Contact dispatch'], $this->auth($owner))->assertOk();
-        $this->postJson("/api/v1/driver/runs/{$run->uuid}/end-requests", ['reason' => 'Truck still broken'], $this->auth($driver))->assertCreated();
+        $driverHeaders = $this->auth($driver);
+        $ownerHeaders = $this->auth($owner);
+        $resubmitUrl = "/api/v1/driver/runs/{$run->uuid}/end-requests";
+        $newId = $this->postJson($resubmitUrl, ['reason' => 'Truck still broken'], $driverHeaders)
+            ->assertCreated()->assertJsonPath('data.status', 'pending')
+            ->assertJsonPath('data.review_reason', null)->json('data.request_id');
+        $this->assertNotSame($id, $newId);
         $this->assertDatabaseCount('run_end_requests', 2);
         $this->assertSame('in_progress', $run->fresh()->status);
+        $this->assertSame('rejected', $run->endRequests()->where('uuid', $id)->firstOrFail()->status);
+        $this->getJson('/api/v1/driver/dashboard', $driverHeaders)->assertOk()
+            ->assertJsonPath('data.current_run.end_request.request_id', $newId)
+            ->assertJsonPath('data.current_run.end_request.status', 'pending');
+        $this->getJson("/api/v1/runs/{$run->uuid}", $ownerHeaders)->assertOk()
+            ->assertJsonPath('data.end_request.request_id', $newId)
+            ->assertJsonPath('data.end_request.status', 'pending')
+            ->assertJsonPath('data.end_request.reason', 'Truck still broken')
+            ->assertJsonPath('data.can_review_end_request', true);
+        $this->postJson($resubmitUrl, ['reason' => 'Retry'], $driverHeaders)->assertOk()
+            ->assertJsonPath('data.request_id', $newId);
+        $this->assertDatabaseCount('run_end_requests', 2);
+        $this->postJson($url, ['decision' => 'approved', 'confirm_early_closure' => true], $ownerHeaders)->assertConflict();
+        $this->postJson("/api/v1/runs/{$run->uuid}/end-requests/$newId/review",
+            ['decision' => 'approved', 'confirm_early_closure' => true], $ownerHeaders)
+            ->assertOk()->assertJsonPath('data.status', 'approved');
+        $this->assertSame('completed', $run->fresh()->status);
     }
 
     public function test_early_approval_preserves_unfinished_shipments_and_assignments(): void

@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { apiFetch, isApiErrorResponse } from "@/lib/api/client"
+import { useRunEndRequestRefresh } from "@/components/runs/use-run-end-request-refresh"
 import { cn } from "@/lib/utils"
 import type { ApiEnvelope, RunEndRequest } from "@/lib/types"
 
-export function RunEndReview({ runId, request, accessToken, unfinished, canReview }: {
-  runId: string; request: RunEndRequest; accessToken?: string; unfinished: number; canReview: boolean;
+export function RunEndReview({ runId, request, accessToken, unfinished, canReview, active }: {
+  runId: string; request: RunEndRequest; accessToken?: string; unfinished: number; canReview: boolean; active: boolean;
 }) {
   const router = useRouter()
   const submitting = useRef(false)
@@ -19,6 +20,7 @@ export function RunEndReview({ runId, request, accessToken, unfinished, canRevie
   const [confirm, setConfirm] = useState(false)
   const [error, setError] = useState("")
   const [entry, setEntry] = useState(request)
+  useRunEndRequestRefresh(runId, entry, accessToken, active && !busy)
   async function decide(decision: "approved" | "rejected") {
     if (submitting.current) return
     submitting.current = true; setBusy(true); setError("")

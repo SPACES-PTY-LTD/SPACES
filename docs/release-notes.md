@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-12 | Version: end-run-resubmission-review-v1
+
+- **Summary:** Reopen the visible dispatch review when a driver resubmits an End Run request after rejection.
+- **API Changes:** None; existing resubmission creates a fresh pending request and exposes it as the run's latest request.
+- **Database Changes:** None; preserve previous rejection/review history.
+- **Behavior Changes:** Active-run admin request cards check on mount, every 10 seconds while visible and on focus/visibility return. A changed request ID/status or run closure refreshes run details, restoring Awaiting approval and review controls for the new request. Keep loaded content on failure, avoid overlapping reads, ignore stale responses and pause during submission. Completed/cancelled runs stay closed.
+- **Breaking Changes:** None.
+- **Verification:** Three website refresh regressions and 66 Laravel run-action/run/conversation tests (1,225 assertions) pass. API coverage verifies rejection history, new pending ID/reason in dashboard/CRM, retry deduplication, old-request conflict and approval of the resubmitted request. Website TypeScript and focused ESLint pass. Authenticated live two-device verification remains pending. Dashboard plan updated; existing mobile Figma states/layout unchanged.
+
+## 2026-10-12 | Version: end-run-reason-keyboard-avoidance-v1
+
+- **Summary:** Keep the End Run reason form reachable while the keyboard is open.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use the shared bottom sheet's native ScrollView wrapped in KeyboardAvoidingView (iOS padding, Android resize) for End Run. Use a native multiline reason input to avoid simultaneous Gorhom keyboard translation. Keep the approval action scrollable and tappable with the keyboard open; retain draft, blank-reason, pending-request and busy guards, and enforce the existing 2,000-character limit in the input. Edit Run and additional-cost keyboard paths are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused RunActionForm ESLint and six existing run-action/sheet-stack regressions pass. Git diff checks pass. Native keyboard-open reason/button layout, long text, scrolling and iOS/Android dismissal verification remain pending. Dashboard plan updated; existing Figma form/approval flow unchanged.
+
 ## 2026-10-12 | Version: eas-production-android-apk-v1
 
 - **Summary:** Add and submit a signed production APK profile for direct Android installation.
