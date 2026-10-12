@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-12 | Version: admin-mobile-sticky-header-v1
+
+- **Summary:** Keep the mobile admin main bar visible while scrolling.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** The shared mobile sidebar-toggle/app-name header sticks to the top, with an opaque theme background and stacking above page content. Applies across admin pages, including the merchant dashboard; desktop layout is unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Focused admin-shell ESLint and git diff checks pass. Physical mobile browser scrolling remains unverified.
+
 ## 2026-10-12 | Version: schedule-dispatch-board-implementation-v1
 
 - **Summary:** Implement the selected Figma Dispatch board at `/admin/logistics/schedule`.

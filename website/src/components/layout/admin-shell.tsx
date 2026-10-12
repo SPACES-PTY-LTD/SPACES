@@ -301,7 +301,7 @@ function FullAdminShell({
         <SidebarRail />
       </Sidebar>
       <SidebarInset style={messagesPage && messagesHeight ? { height: messagesHeight } : undefined} className={schedulePage ? "h-dvh min-h-0 min-w-0 overflow-hidden bg-background md:h-[calc(100dvh-1rem)]" : messagesPage ? "h-dvh min-h-0 min-w-0 overflow-hidden bg-background" : "min-w-0 bg-background"}>
-        <header className="flex shrink-0 items-center gap-2 border-b px-4 py-3 md:hidden">
+        <header className="sticky top-0 z-30 flex shrink-0 items-center gap-2 border-b bg-background px-4 py-3 md:hidden">
           <SidebarTrigger />
           <span className="text-sm font-semibold">{appName}</span>
         </header>
