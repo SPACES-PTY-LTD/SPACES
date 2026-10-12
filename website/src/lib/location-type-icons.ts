@@ -20,6 +20,7 @@ export const LOCATION_TYPE_ICONS = [
   { value: "border", label: "Border checkpoint", meshType: "border", image: "/images/location-types/border.png" },
   { value: "toll-plaza", label: "Toll plaza", meshType: "toll-plaza", image: "/images/location-types/toll-plaza.png" },
   { value: "fuel-station-2", label: "Fuel station 2", meshType: "fuel-station-2", image: "/images/location-types/fuel-station-2.png" },
+  { value: "fuel-depot", label: "Fuel depot", meshType: "fuel-depot", image: "/images/location-types/fuel-depot.png" },
 ] as const
 
 export type LocationIconMeshType = (typeof LOCATION_TYPE_ICONS)[number]["meshType"]

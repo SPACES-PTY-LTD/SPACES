@@ -1,5 +1,15 @@
 # Release Notes
 
+## 2026-10-12 | Version: fuel-depot-location-icon-v1
+
+- **Summary:** Add Fuel depot as the 22nd location icon and real shipment-monitoring model.
+- **API Changes:** No endpoint changes; the existing icon field supports the additional `fuel-depot` value.
+- **Database Changes:** None; no location types created or reassigned automatically.
+- **Behavior Changes:** Fuel depot appears in Choose icon and catalogue-derived monitoring filters/default visibility. Its model shows bulk storage tanks with domed roofs, reinforcing bands, vents, ladder/hazard signs, orange pipework, pump control and a tanker loading gantry. Retain existing animation, hover labels, location clicks and draft/save behaviour.
+- **Breaking Changes:** None.
+- **Internal Changes:** Support an optional icon key in the PNG exporter to regenerate one asset. Expand catalogue/asset/model and browser coverage to 22 choices. Canonical dashboard plan/status/acceptance/revision updated; mobile Figma unaffected.
+- **Verification:** Fuel depot PNG rendered from the actual model and visually reviewed; 512 × 512 RGBA, alpha transparency and unclipped bounds verified. Website TypeScript, focused ESLint, nine catalogue/model/PNG/monitoring regressions and git diff checks pass. Mocked browser checks verify all 22 save/reload choices including Fuel depot, cancellation/Escape/focus, keyboard selection, blank/legacy preservation, failed-save draft retention and desktop light/390px dark layouts. Authenticated live monitoring/save verification remains pending.
+
 ## 2026-10-12 | Version: location-type-models-expanded-v1
 
 - **Summary:** Add 16 distinct 3D monitoring models and matching icon choices, including a detailed Fuel station 2, expanding the library to 21.

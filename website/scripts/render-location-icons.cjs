@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- Standalone CommonJS Playwright utility. */
 // Requires Playwright (local install or NODE_PATH) and a running website dev server.
-// Run: node scripts/render-location-icons.cjs http://localhost:3000
+// Run: node scripts/render-location-icons.cjs http://localhost:3000 [icon-key]
 const { chromium } = require('playwright');
 const { mkdir, writeFile } = require('node:fs/promises');
 const path = require('node:path');
@@ -15,7 +15,9 @@ const path = require('node:path');
     await page.goto(`${base}/dev-location-icons-preview`, { waitUntil: 'domcontentloaded' });
     // Render one scene per request to stay below browser WebGL context limits.
     await page.waitForSelector('[data-icon-catalogue]');
-    const values = await page.locator('[data-icon-catalogue]').evaluate(node => JSON.parse(node.dataset.iconCatalogue));
+    const catalogue = await page.locator('[data-icon-catalogue]').evaluate(node => JSON.parse(node.dataset.iconCatalogue));
+    const values = process.argv[3] ? catalogue.filter(value => value === process.argv[3]) : catalogue;
+    if (!values.length) throw new Error('Unknown icon key');
     const destination = path.resolve(__dirname, '../public/images/location-types');
     await mkdir(destination, { recursive: true });
     for (const value of values) {

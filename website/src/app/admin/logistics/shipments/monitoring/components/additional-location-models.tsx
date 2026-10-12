@@ -231,7 +231,41 @@ function FuelStation2() {
   </>
 }
 
+function FuelDepot() {
+  return <><Pad color="#d8e0e8" />
+    {[-1.6, 0.35].map(x => <group key={x}>
+      <Cylinder at={[x, 1.2, -1.65]} radius={0.78} height={2.15} color="#e2e8f0" />
+      <mesh position={[x, 2.28, -1.65]} scale={[0.78, 0.22, 0.78]}><sphereGeometry args={[1, 20, 12]} /><meshStandardMaterial color="#cbd5e1" roughness={0.55} /></mesh>
+      {[0.35, 1.15, 2].map(y => <Cylinder key={y} at={[x, y, -1.65]} radius={0.793} height={0.045} color="#94a3b8" />)}
+      <Cylinder at={[x, 2.62, -1.65]} radius={0.08} height={0.32} color={steel} />
+      <Cylinder at={[x, 2.8, -1.65]} radius={0.12} height={0.055} color={steel} />
+      <mesh position={[x, 1.48, -0.852]}><circleGeometry args={[0.2, 3]} /><meshStandardMaterial color={orange} /></mesh>
+      <Block at={[x, 1.48, -0.833]} size={[0.035, 0.12, 0.015]} color="#172033" />
+      <Hose points={[[x, 0.35, -0.85], [x, 0.3, -0.5], [x, 0.25, -0.2]]} radius={0.065} color="#ea580c" />
+    </group>)}
+    {[-1.85, -1.45].map(x => <Beam key={x} from={[x, 0.15, -0.81]} to={[x, 2.4, -0.81]} color={steel} width={0.035} />)}
+    {[0.35, 0.65, 0.95, 1.25, 1.55, 1.85, 2.15].map(y => <Beam key={y} from={[-1.85, y, -0.8]} to={[-1.45, y, -0.8]} color={steel} width={0.035} />)}
+    <Hose points={[[-1.6, 0.25, -0.2], [-0.7, 0.25, -0.2], [0.35, 0.25, -0.2], [1.9, 0.25, -0.2]]} radius={0.065} color="#ea580c" />
+    <RoundBlock at={[2, 0.5, -1.65]} size={[0.85, 0.8, 0.9]} color="#1d4ed8" radius={0.08} />
+    <Block at={[2, 0.62, -1.185]} size={[0.45, 0.25, 0.03]} color="#172033" />
+    <Beam from={[2, 0.2, -0.2]} to={[2, 0.5, -1.3]} color="#ea580c" width={0.1} />
+    <group position={[0.1, 0.1, 0.65]}>
+      <Block at={[0, 0.32, 0]} size={[2.9, 0.12, 0.75]} color={steel} />
+      <Cylinder at={[-0.35, 0.85, 0]} radius={0.38} height={1.9} rotation={[0, 0, Math.PI / 2]} color="#e2e8f0" />
+      {[-0.95, 0.3].map(x => <Cylinder key={x} at={[x, 0.85, 0]} radius={0.39} height={0.05} rotation={[0, 0, Math.PI / 2]} color="#94a3b8" />)}
+      <RoundBlock at={[1.13, 0.7, 0]} size={[0.75, 0.85, 0.8]} color="#0284c7" radius={0.075} />
+      <Block at={[1.515, 0.87, 0]} size={[0.025, 0.3, 0.59]} color={glass} />
+      <Block at={[1.12, 0.87, 0.41]} size={[0.4, 0.28, 0.025]} color={glass} />
+      {[-1.05, -0.55, 1.05].flatMap(x => [-0.43, 0.43].map(z => <Cylinder key={`${x}-${z}`} at={[x, 0.27, z]} radius={0.23} height={0.14} rotation={[Math.PI / 2, 0, 0]} color="#1e293b" />))}
+    </group>
+    {[-2.4, 0.6].map(x => <Beam key={x} from={[x, 0.1, 0.8]} to={[x, 1.7, 0.8]} color={orange} width={0.09} />)}
+    <Beam from={[-2.4, 1.7, 0.8]} to={[0.6, 1.7, 0.8]} color={orange} width={0.09} />
+    <Hose points={[[-0.4, 1.7, 0.8], [-0.4, 1.45, 0.8], [-0.25, 1.25, 0.65]]} radius={0.045} />
+  </>
+}
+
 export const ADDITIONAL_LOCATION_MODELS = {
+  "fuel-depot": FuelDepot,
   "container-terminal": ContainerTerminal,
   seaport: Seaport,
   "airport-cargo": AirportCargo,
