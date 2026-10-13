@@ -3,61 +3,36 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { FileUp, Loader2, Plus, Route, CheckCircle2 } from "lucide-react"
+import { FileUp, Loader2, Plus, Route, CheckCircle2, Check, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from "@/components/ui/drawer"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { LocationCombobox } from "@/components/locations/location-combobox"
 import { apiFetch, isApiErrorResponse } from "@/lib/api/client"
 import { analyzeDeliveryNote, getDeliveryNoteAnalysis } from "@/lib/api/delivery-note-imports"
-import { listMerchantEnvironments } from "@/lib/api/merchants"
 import { pollDocumentImport } from "@/lib/delivery-note-analysis-poll"
 import { emptyRunDraft, extractedRows, hasMapPosition, eligibleManualShipment, validateDocumentFile, quantityUnits, type RunDraft, type ImportRow, type ImportReview } from "@/lib/admin-run-import"
 import { merchantTimeToIso } from "@/components/schedule/schedule-utils"
 import { formatAddress } from "@/lib/address"
 import { AdminRoute } from "@/lib/routes/admin"
-import type { ApiEnvelope, ApiListResponse, DeliveryNoteExtraction, Location, Merchant, MerchantEnvironment, Run } from "@/lib/types"
+import type { ApiEnvelope, ApiListResponse, DeliveryNoteExtraction, Location, Merchant, Run } from "@/lib/types"
 
 const stepNames = ["Upload", "Reading", "Trip locations", "Shipments", "Confirm"]
 const title = (location?: Location | null) => location?.name || location?.company || location?.full_address || "Not selected"
 
-export function CreateRunDrawer({ token, userId, merchants, selectedMerchantId, isSuperAdmin = false }: { token: string; userId: string; merchants: Merchant[]; selectedMerchantId?: string; isSuperAdmin?: boolean }) {
+export function CreateRunDrawer({ token, userId, merchant, environmentId = "", isSuperAdmin = false }: { token: string; userId: string; merchant?: Merchant; environmentId?: string; isSuperAdmin?: boolean }) {
   const [open, setOpen] = React.useState(false)
   const [locked, setLocked] = React.useState(false)
-  const [merchantId, setMerchantId] = React.useState(selectedMerchantId ?? "")
-  const [environmentId, setEnvironmentId] = React.useState("")
-  const [environments, setEnvironments] = React.useState<MerchantEnvironment[]>([])
-  const [contextError, setContextError] = React.useState("")
-  const [contextLoading, setContextLoading] = React.useState(false)
-  const [contextAttempt, setContextAttempt] = React.useState(0)
-  React.useEffect(() => {
-    if (!open || !merchantId) return
-    let active = true
-    Promise.resolve().then(async () => {
-      if (!active) return
-      setContextLoading(true); setContextError("")
-      const response = await listMerchantEnvironments(merchantId, token)
-      if (!active) return
-      setContextLoading(false)
-      if (isApiErrorResponse(response)) { setContextError(response.message); return }
-      setEnvironments(response.data)
-    })
-    return () => { active = false }
-  }, [open, merchantId, token, contextAttempt])
-  const merchant = merchants.find(item => item.merchant_id === merchantId)
   const canCreate = !!merchant && (isSuperAdmin || merchant.access?.permissions.can_create_update_resources === true)
   return <>
     <Button className="min-h-11" onClick={() => setOpen(true)}><Plus className="size-4" />Create Run</Button>
     <Drawer open={open} onOpenChange={next => { if (!locked) setOpen(next) }}>
       <DrawerContent side="right" className="sm:w-[min(96vw,900px)]">
         <DrawerHeader><DrawerTitle>Create Run</DrawerTitle><DrawerDescription>Create a draft run from a delivery note or enter the details manually.</DrawerDescription></DrawerHeader>
-        <div className="grid shrink-0 gap-3 border-b p-4 sm:grid-cols-2">
-          <Field label="Merchant"><select aria-label="Merchant" className="h-11 w-full rounded-md border bg-background px-3" value={merchantId} disabled={locked || !!selectedMerchantId} onChange={event => { setMerchantId(event.target.value); setEnvironmentId(""); setEnvironments([]) }}><option value="">Select merchant</option>{merchants.map(item => <option key={item.merchant_id} value={item.merchant_id}>{item.name}</option>)}</select></Field>
-          <Field label="Environment"><select aria-label="Environment" className="h-11 w-full rounded-md border bg-background px-3" value={environmentId} disabled={locked || contextLoading} onChange={event => setEnvironmentId(event.target.value)}><option value="">No environment</option>{environments.map(item => <option key={item.environment_id} value={item.environment_id}>{item.name}</option>)}</select></Field>
-          {contextError && <p role="alert" className="text-sm text-destructive">{contextError} <Button variant="outline" onClick={() => setContextAttempt(value => value + 1)}>Retry</Button></p>}
-        </div>
-        {open && canCreate && !contextLoading && !contextError ? <RunCreation key={`${userId}:${merchantId}:${environmentId}`} token={token} userId={userId} merchant={merchant!} environmentId={environmentId} onLock={setLocked} onClose={() => setOpen(false)} /> : <p className="p-4 text-sm text-muted-foreground">{contextLoading ? "Loading merchant context…" : !merchantId ? "Select a merchant to continue." : !canCreate ? "You don’t have permission to create runs for this merchant." : "Retry loading the merchant context to continue."}</p>}
+        {open && canCreate ? <RunCreation key={`${userId}:${merchant!.merchant_id}:${environmentId}`} token={token} userId={userId} merchant={merchant!} environmentId={environmentId} onLock={setLocked} onClose={() => setOpen(false)} /> : <p className="p-4 text-sm text-muted-foreground">{!merchant ? "Select a merchant in the admin navigation to create a run." : "You don’t have permission to create runs for this merchant."}</p>}
       </DrawerContent>
     </Drawer>
   </>
@@ -102,7 +77,7 @@ function RunCreation({ token, userId, merchant, environmentId, onClose, onLock }
     origin_location_id: draft.origin?.location_id ?? null, destination_location_id: draft.destination?.location_id ?? null,
     driver_id: draft.driver_id || null, vehicle_id: draft.vehicle_id || null,
     planned_start_at: draft.planned_start_at ? merchantTimeToIso(draft.planned_start_at, timezone) : null,
-    service_area: draft.service_area || null, notes: draft.notes || null, delivery_note_number: draft.delivery_note_number || null,
+    notes: draft.notes || null, delivery_note_number: draft.delivery_note_number || null,
     line_items: draft.rows.map(row => ({ ...row, pickup: undefined, dropoff: undefined, quantity: row.quantity === "" ? null : Number(row.quantity) })),
   })
   async function resumeDocument() {
@@ -191,7 +166,6 @@ function RunCreation({ token, userId, merchant, environmentId, onClose, onLock }
   const fields = <>
     <div className="grid gap-4 sm:grid-cols-2"><Field label="Driver (optional)"><ResourcePicker kind="drivers" label="driver" token={token} context={context} selected={draft.driver_id} onSelect={id => patch({ driver_id: id })} /></Field><Field label="Vehicle (optional)"><ResourcePicker kind="vehicles" label="vehicle" token={token} context={context} selected={draft.vehicle_id} onSelect={id => patch({ vehicle_id: id })} /></Field></div>
     <Field label={`Planned start (optional · ${timezone})`}><Input aria-label="Planned start" type="datetime-local" value={draft.planned_start_at} onChange={event => patch({ planned_start_at: event.target.value })} /></Field>
-    <Field label="Service area (optional)"><Input aria-label="Service area" value={draft.service_area} onChange={event => patch({ service_area: event.target.value })} /></Field>
     <Field label="Notes (optional)"><Textarea aria-label="Notes" value={draft.notes} onChange={event => patch({ notes: event.target.value })} /></Field>
   </>
   const locations = <div className="grid gap-4 sm:grid-cols-2">{(["origin", "destination"] as const).map(key => <Field key={key} label={key === "origin" ? "Run starting point" : "Planned end location"}><LocationCombobox ariaLabel={key === "origin" ? "Run starting point" : "Planned end location"} token={token} merchantId={merchant.merchant_id} environmentId={environmentId || null} allowCreate={false} value={draft[key]} onChange={location => patch({ [key]: location })} />{draft[key] && <p className="text-sm text-muted-foreground">{formatAddress(draft[key]!)}</p>}</Field>)}</div>
@@ -253,6 +227,7 @@ function Choice({ icon, heading, description, onClick }: { icon: React.ReactNode
 
 type Resource = { driver_id?: string; vehicle_id?: string; shipment_id?: string; name?: string; plate_number?: string; ref_code?: string; merchant_order_ref?: string; status?: string; run_id?: string | null; run_status?: string | null; run_shipment_status?: string | null; merchant_id?: string; environment_id?: string | null }
 function ResourcePicker({ kind, label, token, context, selected, onSelect, multiple }: { kind: "drivers" | "vehicles" | "shipments"; label: string; token: string; context: { merchant_id: string; environment_id?: string }; selected: string | string[]; onSelect: (id: string) => void; multiple?: boolean }) {
+  const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
   const [options, setOptions] = React.useState<Resource[]>([])
   const [page, setPage] = React.useState(1)
@@ -275,7 +250,54 @@ function ResourcePicker({ kind, label, token, context, selected, onSelect, multi
     }, 250)
     return () => { clearTimeout(timer); controller.abort() }
   }, [kind, token, merchant_id, environment_id, query, page, attempt])
+  React.useEffect(() => {
+    if (multiple || typeof selected !== "string" || !selected || selectedLabels[selected]) return
+    const controller = new AbortController()
+    void apiFetch<ApiEnvelope<Resource>>(`/api/v1/${kind}/${selected}`, {
+      token, signal: controller.signal, params: { merchant_id, environment_id },
+    }).then(response => {
+      if (controller.signal.aborted || isApiErrorResponse(response)) return
+      const item = response.data
+      const name = item.name || item.plate_number || item.ref_code || selected
+      setSelectedLabels(current => ({ ...current, [selected]: name }))
+    })
+    return () => controller.abort()
+  }, [kind, token, merchant_id, environment_id, selected, multiple, selectedLabels])
   const ids = Array.isArray(selected) ? selected : selected ? [selected] : []
+  if (!multiple) {
+    const selectedId = typeof selected === "string" ? selected : ""
+    const selectedOption = options.find(item => (item.driver_id || item.vehicle_id) === selectedId)
+    const selectedLabel = selectedLabels[selectedId] || selectedOption?.name || selectedOption?.plate_number || selectedOption?.ref_code
+    return <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" role="combobox" aria-expanded={open} aria-label={`Select ${label}`} className="h-auto min-h-10 w-full justify-between whitespace-normal text-left font-normal">
+          <span className={`line-clamp-2 ${!selectedId ? "text-muted-foreground" : ""}`}>{selectedId ? selectedLabel || `Selected ${label}` : `Select ${label}`}</span>
+          <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start" onWheel={event => event.stopPropagation()} onTouchMove={event => event.stopPropagation()}>
+        <Command shouldFilter={false}>
+          <CommandInput aria-label={`Search ${label}`} placeholder={`Search ${label}…`} value={query} onValueChange={value => { setQuery(value); setPage(1); setOptions([]) }} />
+          <CommandList className="max-h-72 overflow-y-auto overscroll-contain">
+            <CommandItem value="unassigned" onSelect={() => { onSelect(""); setOpen(false) }} className="min-h-11">
+              <Check className={`size-4 ${selectedId ? "opacity-0" : "opacity-100"}`} />No {label} assigned
+            </CommandItem>
+            {options.map(item => {
+              const id = item.driver_id || item.vehicle_id || ""
+              const name = item.name || item.plate_number || item.ref_code || id
+              return <CommandItem key={id} value={id} onSelect={() => { setSelectedLabels(current => ({ ...current, [id]: name })); onSelect(id); setOpen(false) }} className="min-h-11">
+                <Check className={`size-4 shrink-0 ${selectedId === id ? "opacity-100" : "opacity-0"}`} /><span className="break-words">{name}</span>
+              </CommandItem>
+            })}
+            {loading && <p role="status" className="p-3 text-sm text-muted-foreground">Loading…</p>}
+            {!loading && !options.length && !error && <p className="p-3 text-sm text-muted-foreground">No matches found.</p>}
+            {error && <div role="alert" className="p-3 text-sm text-destructive">{error} <Button type="button" variant="outline" onClick={() => setAttempt(value => value + 1)}>Retry</Button></div>}
+            {page < lastPage && <CommandItem value="load-more" disabled={loading} onSelect={() => setPage(value => value + 1)} className="min-h-11 justify-center">Load more</CommandItem>}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  }
   return <div className="space-y-2 rounded-lg border p-3">
     <Input aria-label={`Search ${label}`} placeholder={`Search ${label}…`} value={query} onChange={event => { setQuery(event.target.value); setPage(1); setOptions([]) }} />
     {ids.map(id => <Button key={id} type="button" variant="secondary" className="h-auto min-h-11 whitespace-normal" onClick={() => onSelect(multiple ? id : "")}>{selectedLabels[id] || `Selected ${label}`} ×</Button>)}

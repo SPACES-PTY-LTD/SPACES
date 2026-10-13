@@ -1,5 +1,32 @@
 # Release Notes
 
+## 2026-10-13 | Version: admin-create-run-remove-service-area-v1
+
+- **Summary:** Remove Service area from the admin Create Run form.
+- **API Changes:** None; existing optional API field remains supported.
+- **Database Changes:** None.
+- **Behavior Changes:** Both manual creation and delivery-note confirmation omit the field. Remove it from draft defaults/type and request payload so older restored drafts cannot submit hidden values. Keep Notes. Update the canonical plan to 2.234 and desktop/mobile Figma handoff labels.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused Create Run/Runs page/helper ESLint pass. Git diff checks pass. Figma labels and mobile manual layout verified. Live browser verification remains pending.
+
+## 2026-10-13 | Version: admin-create-run-assignment-combobox-v1
+
+- **Summary:** Use searchable combobox dropdowns for optional Create Run driver and vehicle assignment.
+- **API Changes:** None; reuse scoped list/detail requests.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace expanded driver/vehicle search lists with compact dropdowns matching Run starting point. Show selected names, search inside the popup, retain pagination/loading/retry, keyboard selection and an unassigned option, and close on selection. Resolve restored draft IDs to display names. Existing shipment multi-selection stays unchanged. Canonical plan and Figma handoffs aligned.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused Create Run/Runs page ESLint and git diff checks pass. Live browser verification remains pending.
+
+## 2026-10-13 | Version: admin-create-run-current-context-v1
+
+- **Summary:** Remove Merchant and Environment options from the admin Create Run drawer.
+- **API Changes:** None; use existing context fields.
+- **Database Changes:** None.
+- **Behavior Changes:** Both creation paths inherit the selected admin merchant, including for super admins, and the current page environment when supplied. Without a page environment, retain the existing unscoped admin context. Remove the environment-options request; retain permission checks, context-scoped resource requests/drafts and remount on context changes. No selected merchant directs users to admin navigation. Canonical plan and Figma handoffs aligned.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused Create Run/Runs page ESLint and git diff checks pass. Live browser verification remains pending.
+
 ## 2026-10-13 | Version: admin-create-run-guided-import-v1
 
 - **Summary:** Add a responsive Create Run drawer to the admin Runs page with delivery-note guidance and manual creation with existing shipments.

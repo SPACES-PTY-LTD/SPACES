@@ -18,14 +18,14 @@ export type RunDraft = {
   extraction?: DeliveryNoteExtraction
   origin?: Location | null; destination?: Location | null
   delivery_note_number: string; rows: ImportRow[]
-  driver_id: string; vehicle_id: string; planned_start_at: string; service_area: string; notes: string
+  driver_id: string; vehicle_id: string; planned_start_at: string; notes: string
   shipment_ids: string[]
 }
 export type ImportReview = {
   rows: { index: number; reference: string; eligibility: "new" | "existing" | "excluded"; validation_warnings: string[]; collection_comparison: string }[]
   warnings: string[]; can_confirm: boolean
 }
-export const emptyRunDraft = (): RunDraft => ({ importId: "", filename: "", step: 1, analyzed: false, delivery_note_number: "", rows: [], driver_id: "", vehicle_id: "", planned_start_at: "", service_area: "", notes: "", shipment_ids: [] })
+export const emptyRunDraft = (): RunDraft => ({ importId: "", filename: "", step: 1, analyzed: false, delivery_note_number: "", rows: [], driver_id: "", vehicle_id: "", planned_start_at: "", notes: "", shipment_ids: [] })
 export function extractedRows(data: DeliveryNoteExtraction): ImportRow[] {
   return (data.line_items?.length ? data.line_items : [{}]).map(row => ({
     ...row, quantity: row.quantity ?? 1, quantity_unit: "units", collection_date: data.collection_date?.slice(0, 10) ?? "",
