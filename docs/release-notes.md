@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-13 | Version: expo-runs-reference-design-v1
+
+- **Summary:** Apply the supplied design to the Expo Runs list with rounded white cards and usable search, calendar and sorting controls.
+- **API Changes:** GET /driver/runs accepts optional search (up to 200 characters), date (YYYY-MM-DD) and sort (default/newest/oldest). Search run ID, vehicle plate/reference and scoped origin/destination names before pagination. Date filtering and explicit sorting use completion or actual/planned-start timestamps in merchant timezone; null dates sort last. Existing defaults and authorization remain.
+- **Database Changes:** None.
+- **Behavior Changes:** Use a grey-green canvas, large header, green selected tab/status, compact routes, tinted shipment totals, amber remaining/speeding metrics and date/chevron footer. Preserve full-address details, endpoint provenance, active/closed semantics, refresh/pagination and error states. Calendar has native/web implementations; Clear all filters resets search/date/sort. Dashboard plan 2.243 and Figma list handoffs updated.
+- **Breaking Changes:** None. Deploy the additive filter API with the Expo update; older servers can ignore these filters.
+- **Verification:** 14 DriverRunsApi tests pass (182 assertions), including search, sorting, pagination, merchant-day boundaries and driver isolation. Three run-card-route tests, mobile TypeScript and focused ESLint pass. Figma structure and completed-list layout reviewed. Native simulator remained on its boot screen; in-app browser timed out, so visual design QA is blocked and recorded in design-qa.md. Native iOS/Android, dark/large-text, picker and navigation verification remain pending.
+
+## 2026-10-13 | Version: dashboard-run-system-reference-v1
+
+- **Summary:** Display the selected run’s system reference at the highlighted dashboard timeline position.
+- **API Changes:** Driver dashboard `current_run` adds `reference`, formatted as `Run {database ID}` to match the existing driver Runs list.
+- **Database Changes:** None.
+- **Behavior Changes:** Show a bold run reference above timeline count/filter controls, below shipment totals and any closure notice. Preserve light/dark colours and natural wrapping. Older servers omit the label until deployed; no-current-run states remain unchanged. Dashboard plan 2.242 and expanded Figma handoff synchronized.
+- **Breaking Changes:** None; additive API field.
+- **Verification:** Targeted current-run-selection API test passes (7 assertions), including references for active and explicitly selected ready runs. Mobile TypeScript passes. Focused ESLint passes with the pre-existing dashboard `react-hooks/set-state-in-effect` errors excluded; normal lint reports those two existing errors. Expanded Figma timeline visually reviewed. Physical-device/large-text rendering remains unverified.
+
 ## 2026-10-13 | Version: schedule-shadcn-date-range-v1
 
 - **Summary:** Use the shared shadcn date range picker on Runs Schedule.

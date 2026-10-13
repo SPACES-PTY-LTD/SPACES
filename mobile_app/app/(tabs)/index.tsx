@@ -240,6 +240,7 @@ export default function HomeScreen() {
               setStarting(true); try { await documentImportApi.startRun(session.token, dashboard.current_run.run_id); await load(); } catch (e) { setError((e as Error).message); } finally { setStarting(false); }
             }} accessibilityRole="button"><Text style={styles.primaryText}>{starting ? 'Starting…' : 'Start run'}</Text></Pressable>}
             <View style={{ marginTop: 10 }}>
+              {dashboard.current_run.reference && <Text accessibilityRole="header" style={{ fontSize: 16, lineHeight: 22, fontWeight: '700', color: ink, marginBottom: 4 }}>{dashboard.current_run.reference}</Text>}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
               <Text style={{ fontSize: 12, fontWeight: '600', color: muted, flexShrink: 1 }}>{visibleStops.length + (showDestinationEntry ? 1 : 0)} {runFilter === 'speeding' ? (visibleStops.length === 1 ? 'speeding event' : 'speeding events') : (visibleStops.length + (showDestinationEntry ? 1 : 0) === 1 ? 'timeline entry' : 'timeline entries')}{runFilter === 'shipments' ? ' for deliveries' : ''}</Text>
               <Pressable onPress={openRunFilter} accessibilityRole="button" accessibilityLabel={`Current run view: ${runFilter === 'all' ? 'All stops' : runFilter === 'speeding' ? 'Speeding events' : 'Shipment deliveries'}`}

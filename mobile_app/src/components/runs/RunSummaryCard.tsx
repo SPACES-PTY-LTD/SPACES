@@ -211,6 +211,7 @@ export function RunSummaryCard({
                             {
                                 color: dark ? "#70D89C" : "#14814A",
                                 fontWeight: "600",
+                                flexShrink: 1,
                                 textAlign: "center",
                             },
                         ]}

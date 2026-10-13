@@ -290,7 +290,7 @@ export type DriverDashboard = {
   safety?: RunSafety | null;
   additional_costs?: { cost_id: string; title: string; amount: string; currency: string; location_name?: string | null }[];
   trip_endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
-  current_run: { run_id: string; status: string; started_at?: string | null; has_delivery_note?: boolean; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
+  current_run: { run_id: string; reference?: string; status: string; started_at?: string | null; has_delivery_note?: boolean; destination_location_id?: string | null; origin_location_id?: string | null; end_request?: RunEndRequest | null } | null;
   run_shipments: DriverShipment[];
   recorded_stops?: { location_id?: string | null; latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];
   planned_delivery_stops?: { location_id?: string | null; latitude?: number | null; longitude?: number | null; stop_id: string; kind?: string; speed_kph?: number | null; speed_limit_kph?: number | null; planned?: boolean; shipments?: { shipment_id: string; reference: string | null }[]; name: string; address: string | null; occurred_at: string | null; exited_at: string | null }[];

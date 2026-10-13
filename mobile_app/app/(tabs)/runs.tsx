@@ -216,6 +216,7 @@ export default function RunsScreen() {
                         placeholder="Search run, vehicle or depot"
                         placeholderTextColor={muted}
                         value={search}
+                        maxLength={200}
                         onChangeText={(value) => {
                             setSearch(value);
                             if (!value.trim()) setQuery("");

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
+import * as dateFns from 'date-fns';
 
 function compile(path, modules = {}, globals = {}) {
   const exports = {};
@@ -40,7 +41,7 @@ function harness() {
   };
   const jsx = (type, props) => ({ type, props });
   const write = (kind, args) => { writes.push({ kind, args }); return Promise.resolve({ data: {} }); };
-  const modules = { react: React, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' }, './schedule-utils': utils,
+  const modules = { 'date-fns': dateFns, react: React, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' }, './schedule-utils': utils,
     '@/lib/utils': { cn: (...args) => args.filter(Boolean).join(' ') },
     '@/lib/api/client': { isApiErrorResponse: value => !!value?.error, apiFetch: (...args) => write('api', args) },
     '@/lib/api/schedule': { getSchedule: (...args) => new Promise(resolve => requests.push({ args, resolve })), assignScheduledDriver: (...args) => write('driver', args), transferScheduledShipment: (...args) => write('shipment', args), createScheduledRun: (...args) => write('create', args) },
@@ -258,4 +259,28 @@ test('Schedule driver rows pass saved photos and names to shadcn DriverAvatar', 
   assert.equal(avatar.props.photoUrl, 'https://example.test/driver.jpg');
   assert.ok(app.nodes(row).some(n => n.props?.['aria-label'] === 'View driver details for Alex'));
   assert.ok(app.nodes(row).some(n => n.props?.['aria-label'] === 'Choose a run for Alex'));
+});
+
+
+test('schedule range picker preserves inclusive calendar dates, navigation and Today reset', async () => {
+  const app = harness(); await app.load();
+  const picker = () => app.find(n => n.type === 'DateRangePicker');
+  assert.equal(picker().props.allowClear, false);
+  assert.equal(picker().props.disabled, false);
+  picker().props.onChange({ from: new Date(2026, 9, 1), to: new Date(2026, 9, 7) });
+  app.render(); app.timersRun();
+  assert.equal(app.requests.at(-1).args[2].from, '2026-10-01');
+  assert.equal(app.requests.at(-1).args[2].to, '2026-10-07');
+  app.find(n => n.props?.['aria-label'] === 'Next day').props.onClick(); app.render(); app.timersRun();
+  assert.equal(app.requests.at(-1).args[2].from, '2026-10-02');
+  assert.equal(app.requests.at(-1).args[2].to, '2026-10-08');
+  assert.equal(picker().props.value.from.getDate(), 2);
+  assert.equal(picker().props.value.to.getDate(), 8);
+  picker().props.onChange({ from: new Date(2026, 9, 3) }); app.render(); app.timersRun();
+  assert.equal(app.requests.at(-1).args[2].from, '2026-10-03');
+  assert.equal(app.requests.at(-1).args[2].to, '2026-10-03');
+  app.find(n => n.type === 'Button' && app.text(n) === 'Today').props.onClick(); app.render(); app.timersRun();
+  const today = utils.dateInTimezone(new Date(), 'Africa/Johannesburg');
+  assert.equal(app.requests.at(-1).args[2].from, today);
+  assert.equal(app.requests.at(-1).args[2].to, today);
 });

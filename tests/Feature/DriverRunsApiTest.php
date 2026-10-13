@@ -420,7 +420,7 @@ class DriverRunsApiTest extends TestCase
         $closed = $this->makeRun($driver, 'completed', ['completed_at' => now()]);
         $headers = $this->headers($user);
         $this->getJson("/api/v1/driver/runs/{$closed->uuid}", $headers)->assertOk();
-        $this->getJson('/api/v1/driver/dashboard', $headers)->assertOk()->assertJsonPath('data.current_run.run_id', $active->uuid);
-        $this->getJson("/api/v1/driver/dashboard?run_id={$ready->uuid}", $headers)->assertOk()->assertJsonPath('data.current_run.run_id', $ready->uuid);
+        $this->getJson('/api/v1/driver/dashboard', $headers)->assertOk()->assertJsonPath('data.current_run.run_id', $active->uuid)->assertJsonPath('data.current_run.reference', 'Run '.$active->id);
+        $this->getJson("/api/v1/driver/dashboard?run_id={$ready->uuid}", $headers)->assertOk()->assertJsonPath('data.current_run.run_id', $ready->uuid)->assertJsonPath('data.current_run.reference', 'Run '.$ready->id);
     }
 }

@@ -1,12 +1,18 @@
-# Run KM details design QA — 2026-09-18
+# Runs reference design QA
 
-final result: passed
+- Source visual truth: `/var/folders/h7/lj5bmd8j4sqcf493s0xjt_180000gn/T/codex-clipboard-63e472af-3c8c-4aed-a241-cb9e5d05ba40.png`.
+- Source dimensions: 1290 × 2796 pixels; conversation display 945 × 2048. Native logical size/density is not specified; compare app-owned content after capture.
+- Implementation: Expo `mobile_app/app/(tabs)/runs.tsx`, completed list, light mode. Implementation screenshot: unavailable.
+- Target viewport/state: populated Completed tab with two cards, matching merchant/route data; dark/large-text/native interaction coverage also required.
+- Full-view comparison evidence: blocked. Simulator showed a black boot screen/spinner; the in-app browser preview timed out. Figma completed-list screenshots were reviewed but are not evidence of the rendered Expo app.
+- Focused region comparison: unavailable because no implementation screenshot could be captured.
+- Fonts/typography, spacing/layout rhythm, colour tokens, icon/rail fidelity and app copy: not visually verified in Expo. Code uses native typography, existing route assets and installed icon library; these do not constitute a visual pass.
+- Interaction checks: API search/sort/date/pagination regressions and existing route-provenance tests pass. Native calendar, sort sheet, keyboard search, detail navigation, refresh, themes and large text remain pending.
+- Console errors: browser inspection unavailable; no clean-console claim.
+- Comparison history: no source-to-rendered-implementation comparison completed. Figma overrides were repaired using compact variants and layout reviewed separately.
 
-Scope: approved stop-timeline layout in the existing Run KM details modal.
-Reference: /Users/leroygwirize/.codex/generated_images/01a0b09e-c647-7dc3-bb35-d163ea58a81f/exec-791c51f1-c221-4856-a09c-404d24a1dd9d.png
+## Required follow-up
 
-Compared reference and rendered component together in the browser tool output at 1396×1127. The local component preview used synthetic five-stop data, not the production run in the screenshot; data, counts and dates therefore differ deliberately. Existing app typography and distance formatting are retained. Summary, wide location column, grouped timestamps, distance columns, timeline markers and expandable shipment links follow the approved structure. No P0/P1/P2 layout issues observed. Modal is narrower than the illustrative mock while remaining readable.
+Capture the populated native list at the reference state, compare the full view and key regions, repair any P0/P1/P2 differences, and exercise filters/navigation on iOS and Android.
 
-Also checked 390×844: modal client width and scroll width both 358px, labels and addresses wrap, timing/distance groups stack, and header/summary stay outside the scroll region. First stop toggled closed and open; shipment link visibility changed false then true. No console errors captured. Native disclosure elements provide keyboard toggles; linked shipment routes remain separate links.
-
-Limits: live authenticated data and Google Maps provider loading were not tested. Existing table layout outside this modal is retained. Temporary preview route was removed after checks.
+final result: blocked

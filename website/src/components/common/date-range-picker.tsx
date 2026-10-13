@@ -18,11 +18,17 @@ export function DateRangePicker({
   onChange,
   placeholder = "Pick a date range",
   className,
+  disabled = false,
+  allowClear = true,
+  "aria-label": ariaLabel,
 }: {
   value?: DateRange
   onChange?: (range?: DateRange) => void
   placeholder?: string
   className?: string
+  disabled?: boolean
+  allowClear?: boolean
+  "aria-label"?: string
 }) {
   const [open, setOpen] = React.useState(false)
   const [draft, setDraft] = React.useState<DateRange | undefined>(value)
@@ -37,6 +43,7 @@ export function DateRangePicker({
   }, [valueFrom, valueTo])
 
   const handleOpenChange = (nextOpen: boolean) => {
+    if (nextOpen && disabled) return
     if (nextOpen) {
       setDraft({
         from: valueFrom === undefined ? undefined : new Date(valueFrom),
@@ -64,6 +71,8 @@ export function DateRangePicker({
         <Button
           type="button"
           variant="outline"
+          disabled={disabled}
+          aria-label={ariaLabel}
           className={cn(
             "w-[280px] justify-start text-left font-normal",
             !value?.from && "text-muted-foreground",
@@ -84,9 +93,11 @@ export function DateRangePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto p-0">
+      <PopoverContent align="start" className="w-auto max-w-[calc(100vw-2rem)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto p-0">
         <Calendar
           mode="range"
+          autoFocus
+          disabled={disabled}
           defaultMonth={draft?.from}
           selected={draft}
           onSelect={setDraft}
@@ -94,10 +105,10 @@ export function DateRangePicker({
           showOutsideDays={false}
         />
         <div className="flex items-center justify-end gap-2 border-t p-3">
-          <Button type="button" variant="ghost" size="sm" onClick={handleClear}>
+          {allowClear && <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={handleClear}>
             Clear
-          </Button>
-          <Button type="button" size="sm" disabled={!draft?.from} onClick={handleApply}>
+          </Button>}
+          <Button type="button" size="sm" disabled={disabled || !draft?.from} onClick={handleApply}>
             Apply
           </Button>
         </div>
