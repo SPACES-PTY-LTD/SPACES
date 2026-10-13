@@ -59,6 +59,7 @@ import {
   Search,
 } from "lucide-react"
 import { Button } from "../ui/button"
+import { DriverAvatar } from "@/components/drivers/driver-avatar"
 
 export type Column<T> = {
   key: keyof T | string
@@ -66,7 +67,8 @@ export type Column<T> = {
   /** Optional explanation shown beside the column title on hover or focus. */
   description?: string
   className?: string
-  type?: "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time" | "shipment_attention" | "run_distance"
+  type?: "driver" | "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time" | "shipment_attention" | "run_distance"
+  avatarKey?: keyof T | string
   size?: "sm" | "md" | "lg"
   format?: string
   customValue?: (row: T) => React.ReactNode
@@ -1481,16 +1483,25 @@ export function DataTable<T extends Record<string, unknown>>({
                           ) : (
                             (() => {
                               const value = getDisplayValue(row, column)
-                              if (!column.link) return renderValue(value)
+                              const photo = column.avatarKey ? getValue(row, column.avatarKey) : undefined
+                              const content = column.type === "driver" ? (
+                                <span className="inline-flex items-center gap-2">
+                                  {value && value !== "Unassigned" && value !== "-" ? (
+                                    <DriverAvatar name={String(value)} photoUrl={typeof photo === "string" ? photo : null} />
+                                  ) : null}
+                                  <span>{renderValue(value)}</span>
+                                </span>
+                              ) : renderValue(value)
+                              if (!column.link) return content
                               const href = getValue(row, column.link)
                               if (typeof href === "string" && href.length > 0) {
                                 return (
                                   <Link href={href} className="text-primary underline-offset-4 hover:underline">
-                                    {renderValue(value)}
+                                    {content}
                                   </Link>
                                 )
                               }
-                              return renderValue(value)
+                              return content
                             })()
                           )}
                         </TableCell>

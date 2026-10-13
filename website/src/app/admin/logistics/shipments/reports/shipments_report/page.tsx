@@ -465,7 +465,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           { key: "run_odometer_distance_display", label: "Run KM", type: "run_distance", className: "w-[120px]" },
           
           { key: "delivered_volume", label: "Delivered Volume" },
-          { key: "run_id", label: "Run ID", link: "run_href", className: "w-[300px]" },
+          { key: "system_run_id", label: "Run ID", link: "run_href", className: "w-[120px]" },
         ]}
       />
     </div>

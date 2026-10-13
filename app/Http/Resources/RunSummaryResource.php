@@ -7,6 +7,7 @@ use App\Models\Location;
 use App\Models\RunShipment;
 use App\Support\CostMoney;
 use App\Support\RunDistance;
+use App\Support\ProfilePhotoUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -44,7 +45,10 @@ class RunSummaryResource extends JsonResource
             'shipment_count' => $shipments->count(),
             'origin' => $this->locationSummary($this->originLocation ?? $shipments->first()?->shipment?->pickupLocation),
             'destination' => $this->locationSummary($this->destinationLocation ?? $shipments->last()?->shipment?->dropoffLocation),
-            'driver' => ['name' => $this->driver?->user?->name],
+            'driver' => [
+                'name' => $this->driver?->user?->name,
+                'profile_photo_url' => ProfilePhotoUrl::forPath($this->driver?->user?->profile_photo_path),
+            ],
             'vehicle' => ['plate_number' => $this->vehicle?->plate_number, 'ref_code' => $this->vehicle?->ref_code],
         ];
     }

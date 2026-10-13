@@ -46,6 +46,7 @@ export function LocationCombobox({
   token,
   environmentId,
   allowCreate = true,
+  ariaLabel,
 }: {
   value?: Location | null
   onChange: (location: Location) => void
@@ -56,6 +57,7 @@ export function LocationCombobox({
   token?: string
   environmentId?: string | null
   allowCreate?: boolean
+  ariaLabel?: string
 }) {
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
@@ -109,6 +111,7 @@ export function LocationCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-label={ariaLabel}
           disabled={disabled || !merchantId}
           className="h-auto min-h-10 w-full justify-between whitespace-normal text-left font-normal"
         >

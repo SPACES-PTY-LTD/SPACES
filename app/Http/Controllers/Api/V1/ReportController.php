@@ -385,6 +385,7 @@ class ReportController extends Controller
                     'truck_plate_number' => $run?->vehicle?->plate_number,
                     'vehicle_id' => $run?->vehicle?->uuid,
                     'run_id' => $run?->uuid,
+                    'system_run_id' => $run?->id,
                     'run_started_at' => optional($run?->started_at)?->toIso8601String(),
                     'run_completed_at' => optional($run?->completed_at)?->toIso8601String(),
                     'run_duration_seconds' => $runDurationSeconds,

@@ -15,6 +15,15 @@ Reusing the same UUID in the same upload context returns the existing import and
 
 The legacy driver upload/show routes remain supported; `async=1` plus `import_id` opts into queued processing. Legacy synchronous clients and run-specific analysis/confirmation/download endpoints remain compatible. New mobile and website admin callers use the shared endpoints. Confirmation remains an explicit, separate existing action; analysis creates no shipments or runs.
 
+## Admin new-run confirmation (2026-10-13)
+
+The Runs list can analyze a document without a run ID and use a five-step responsive drawer. The browser stores pending IDs and reviewed drafts by signed-in user, merchant and environment; reopening checks status and preserves reviewed edits. Cancellation stops local polling while the queued job continues.
+
+- `POST /api/v1/delivery-note-imports/{id}/preview`: reviewed `line_items` (individual references, descriptions, quantity/unit, collection date, saved pickup/drop-off IDs, exclusion and optional instructions/parcel measurements), run `origin_location_id`/`destination_location_id`, and optional driver/vehicle/planned start/service area/notes. Returns per-row eligibility (`new`, `existing`, `excluded`), validation warnings, collection comparison, overall warnings and `can_confirm`.
+- `POST /api/v1/delivery-note-imports/{id}/confirm`: same reviewed payload. Requires routable saved endpoints and at least one valid new row; existing references and exclusions are skipped. Returns `run_id`, run resource, `shipment_ids`, skipped references and `already_confirmed`. The merchant/import locks and transaction encompass all creations, attachment and saved confirmation state; a repeated successful request returns the same result.
+
+Both endpoints are admin-only, require merchant run/shipment creation permission, and enforce account/merchant/exact import environment scope (including the no-environment context). Supply `merchant_id` and optional `environment_id`. They do not accept an existing attached import for new-run creation. Confirmation rechecks duplicates, scoped saved locations, packaging/measured quantity bounds and the 500-parcel limit. Excluded malformed fields are ignored. Assignment and planned start are optional; the run stays an ordinary admin draft. Existing mobile and run-specific admin endpoints retain their contracts. No schema change is required.
+
 ## Background processing and rollout
 
 Use the existing `jobs` and `failed_jobs` tables. No new schema or backfill is required; `delivery_note_imports.status` is already a string. New values are `queued` and `processing`.

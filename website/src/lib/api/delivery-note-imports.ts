@@ -15,16 +15,19 @@ export type DeliveryNoteAnalysis = {
   import_id: string
   status: "queued" | "processing" | "analyzed" | "confirmed" | "failed"
   failure_message?: string | null
+  filename?: string
+  confirmation_result?: { run_id?: string }
+  existing_references?: string[]
   extracted_data?: DeliveryNoteExtraction
 }
 
 export async function analyzeDeliveryNote(
-  runId: string, file: File, token: string | null | undefined,
+  runId: string | null, file: File, token: string | null | undefined,
   context: { importId: string; merchantId: string; environmentId?: string | null; signal?: AbortSignal }
 ) {
   const body = new FormData()
   body.append("file", file)
-  body.append("run_id", runId)
+  if (runId) body.append("run_id", runId)
   body.append("import_id", context.importId)
   body.append("merchant_id", context.merchantId)
   if (context.environmentId) body.append("environment_id", context.environmentId)

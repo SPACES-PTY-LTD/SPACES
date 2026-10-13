@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Http\Resources\Concerns\FormatsMerchantTimestamps;
 use App\Models\VehicleActivity;
+use App\Support\ProfilePhotoUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -81,6 +82,7 @@ class ShipmentResource extends JsonResource
             'driver' => $driver ? [
                 'driver_id' => $driver->uuid,
                 'name' => $driverUser?->name,
+                'profile_photo_url' => ProfilePhotoUrl::forPath($driverUser?->profile_photo_path),
                 'email' => $driverUser?->email,
                 'telephone' => $driverUser?->telephone,
                 'intergration_id' => $driver->intergration_id,

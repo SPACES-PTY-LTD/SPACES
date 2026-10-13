@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ProfilePhotoUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -33,6 +34,7 @@ class VehicleResource extends JsonResource
             'last_driver' => $lastDriver ? [
                 'driver_id' => $lastDriver->uuid,
                 'name' => $lastDriverUser?->name,
+                'profile_photo_url' => ProfilePhotoUrl::forPath($lastDriverUser?->profile_photo_path),
                 'email' => $lastDriverUser?->email,
                 'telephone' => $lastDriverUser?->telephone,
                 'intergration_id' => $lastDriver->intergration_id,

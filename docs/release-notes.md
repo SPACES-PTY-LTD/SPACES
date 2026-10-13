@@ -1,5 +1,41 @@
 # Release Notes
 
+## 2026-10-13 | Version: admin-create-run-guided-import-v1
+
+- **Summary:** Add a responsive Create Run drawer to the admin Runs page with delivery-note guidance and manual creation with existing shipments.
+- **API Changes:** Add admin-only `POST /api/v1/delivery-note-imports/{id}/preview` and `/confirm`. Reviewed per-shipment fields, quantities/units, scoped saved locations, exclusions and optional run assignment/details are validated; confirmation transactionally creates the draft run and shipments and returns a stored result on retry. Website analysis accepts an omitted run ID. Existing Expo and run-specific admin interfaces remain compatible; driver parcel conversion is extracted into a shared helper.
+- **Database Changes:** None. Reuse import reviewed-data/confirmation-result storage and existing run/shipment fields.
+- **Behavior Changes:** Top-right Create Run offers delivery note or manual entry. Document upload automatically advances through reading, saved trip endpoints, editable shipment cards and final review. Assignment/planned start are optional; creation does not start or dispatch the run or opt into schedule-managed readiness. Existing references and exclusions are skipped; at least one valid new shipment is required. Manual selection supports eligible existing shipments. Draft recovery is scoped to user/merchant/environment; stale requests and duplicate submissions are guarded. Location controls add explicit accessible names. Canonical plan/API handoff and editable desktop/mobile Figma examples are synchronized.
+- **Breaking Changes:** None. Deploy backend endpoints before using the new website confirmation flow; the existing supervised analysis worker is still required.
+- **Verification:** 94 affected Laravel tests pass (1229 assertions), including nine new admin-import cases for retry safety, per-row measurements/dates/locations, duplicate/exclusion handling, permissions, environment isolation, parcel limits and atomic rollback. Website TypeScript, focused ESLint and four helper tests pass. Desktop/390px local browser fixtures verify manual shipment selection, automatic upload-to-review progression, saved endpoints, decimal tonnes, reopened draft edits and successful confirmation; no live operational data created. Figma choices/review visually checked after wrapping/contrast fixes. Real-document/provider, deployed API/worker and physical mobile keyboard/file-picker/retry checks remain pending.
+
+## 2026-10-13 | Version: admin-driver-avatars-v1
+
+- **Summary:** Show saved driver profile pictures using the existing shadcn Avatar in key admin identity views.
+- **API Changes:** Add nullable `profile_photo_url` to driver profiles, run details/summaries, shipment driver summaries and vehicle last-driver summaries. Reuse the existing profile-photo URL helper, including temporary private-storage URLs.
+- **Database Changes:** None; use existing user profile photos.
+- **Behavior Changes:** Driver list names, full/embedded driver profile headers, dashboard driver dialogs, run/shipment list names, run driver cards and vehicle last-driver links display circular avatars with initials when photos are absent or fail to load. Remove the unused driver Pic column; preserve names, links, sorting and text exports. Unassigned run/shipment rows remain text-only. Mobile dashboard behaviour and Figma plan are unchanged.
+- **Breaking Changes:** None. Deploy the additive API fields with the website to display saved photos; older responses show initials.
+- **Verification:** Website TypeScript and focused ESLint pass; 74 DriverIndex/RunApi/DriverShipmentApi tests pass (1081 assertions), including saved temporary photo URLs on driver list/detail and null when absent. Git diff checks pass. Local authenticated browser visual verification remains pending.
+
+## 2026-10-13 | Version: admin-run-cost-card-spacing-v1
+
+- **Summary:** Remove excess top spacing from the run-detail Additional costs card.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove the extra 24-point content padding stacked on the card's existing 24-point vertical padding; align the heading with the normal card inset.
+- **Breaking Changes:** None.
+- **Verification:** Focused run-detail ESLint and git diff checks pass. Authenticated browser visual verification remains pending.
+
+## 2026-10-13 | Version: admin-run-system-id-labels-v1
+
+- **Summary:** Display numeric system run IDs in run-detail titles/breadcrumbs and the Shipments Report.
+- **API Changes:** Shipment full report rows add nullable `system_run_id` from the selected associated run; retain UUID `run_id` for API/navigation. Run details use their existing `system_run_id`.
+- **Database Changes:** None.
+- **Behavior Changes:** Run detail headings display Run <system ID> and breadcrumbs display the numeric ID, including the shared embedded detail title. Report Run ID cells and exports use numeric IDs with a narrower column; links retain UUID routes. Missing IDs show the existing unavailable fallback.
+- **Breaking Changes:** None. Deploy the report backend addition for numeric IDs to appear in report rows.
+- **Verification:** All 11 Shipment full report API tests pass (331 assertions), including numeric ID/UUID parity and null IDs for unassigned shipments. Website TypeScript, focused detail/report/API ESLint and git diff checks pass. Authenticated browser title/breadcrumb/report navigation remains unverified.
+
 ## 2026-10-13 | Version: run-telemetry-window-parity-fix-v1
 
 - **Summary:** Fix missing Expo speeding events and inconsistent admin run-list totals by including unassigned vehicle telemetry within the run window.

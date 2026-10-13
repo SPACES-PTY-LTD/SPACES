@@ -126,8 +126,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
           },
         ]}
         columns={[
-          { key: "image", label: "Pic", link: "href", type: "image", size: "sm" },
-          { key: "name", label: "Driver", link: "href" },
+          { key: "name", label: "Driver", link: "href", type: "driver", avatarKey: "profile_photo_url" },
           { key: "email", label: "Email", link: "href" },
           {
             key: "is_active",

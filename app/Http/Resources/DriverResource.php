@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\ProfilePhotoUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -15,6 +16,7 @@ class DriverResource extends JsonResource
             'name' => $this->user->name,
             'email' => $this->user->email,
             'telephone' => $this->user?->telephone,
+            'profile_photo_url' => ProfilePhotoUrl::forPath($this->user?->profile_photo_path),
             'intergration_id' => $this->intergration_id,
             'carrier' => $this->carrier ? new CarrierResource($this->carrier) : null,
             'vehicle_type_id' => $this->vehicleType?->uuid,

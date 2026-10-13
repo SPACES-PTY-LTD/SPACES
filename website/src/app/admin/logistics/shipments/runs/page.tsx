@@ -1,3 +1,4 @@
+import { CreateRunDrawer } from "@/components/runs/create-run-drawer"
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/common/data-table"
 import { Input } from "@/components/ui/input"
@@ -89,7 +90,11 @@ export default async function RunsPage({
 
   return (
     <div className="space-y-6 [&_td:nth-child(8)]:whitespace-pre-line [&_td:nth-child(8)]:tabular-nums">
-      <PageHeader title="Runs" description="Review active and historical delivery runs." />
+      <PageHeader className="flex-row items-start [&>div:last-child]:shrink-0" title="Runs" description="Review active and historical delivery runs." actions={
+        <CreateRunDrawer key={`${session.user.uuid ?? session.user.email}:${session.selected_merchant?.merchant_id ?? ""}`} isSuperAdmin={session.user.role === "super_admin"} token={session.accessToken} userId={session.user.uuid ?? session.user.email}
+          merchants={session.merchants ?? (session.selected_merchant ? [session.selected_merchant] : [])}
+          selectedMerchantId={session.user.role === "super_admin" ? undefined : session.selected_merchant?.merchant_id} />
+      } />
       <form className="flex max-w-xl gap-2" action="/admin/logistics/shipments/runs">
         {status ? <input type="hidden" name="status" value={status} /> : null}
         {from ? <input type="hidden" name="from" value={from} /> : null}
@@ -159,7 +164,7 @@ export default async function RunsPage({
           { key: "shipment_count", label: "Shipments", link: "href", className: "w-[110px]" },
           { key: "originName", label: "Origin", link: "href", className: "w-[220px]" },
           { key: "destinationName", label: "Destination", link: "href", className: "w-[220px]" },
-          { key: "driverName", label: "Driver", link: "href", className: "w-[160px]" },
+          { key: "driverName", label: "Driver", type: "driver", avatarKey: "driver.profile_photo_url", link: "href", className: "w-[160px]" },
           { key: "vehicleName", label: "Vehicle", link: "href", className: "w-[140px]" },
         ]}
       />

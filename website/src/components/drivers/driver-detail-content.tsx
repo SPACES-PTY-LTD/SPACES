@@ -2,6 +2,7 @@ import Link from "next/link"
 import moment from "moment"
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
+import { DriverAvatar } from "@/components/drivers/driver-avatar"
 import { PageHeader } from "@/components/layout/page-header"
 import { StatusBadge } from "@/components/common/status-badge"
 import { ErrorMessage } from "@/components/common/error-message"
@@ -50,11 +51,15 @@ export async function DriverDetailContent({
           ]}
         />
       ) : null}
-      <PageHeader
-        title={driver.name}
-        description="Driver profile and vehicle assignments."
-        actions={<DriverDetailActions driver={driver} accessToken={accessToken} merchantId={merchantId ?? undefined} />}
-      />
+      <div className="flex items-center gap-3">
+        <DriverAvatar name={driver.name} photoUrl={driver.profile_photo_url} size="lg" />
+        <PageHeader
+          className="min-w-0 flex-1"
+          title={driver.name}
+          description="Driver profile and vehicle assignments."
+          actions={<DriverDetailActions driver={driver} accessToken={accessToken} merchantId={merchantId ?? undefined} />}
+        />
+      </div>
 
       <Card>
         <CardContent className="space-y-4 ">

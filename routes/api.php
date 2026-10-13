@@ -221,6 +221,8 @@ Route::prefix('v1')->group(function () {
         Route::post('runs/{run_uuid}/shipments', [RunController::class, 'attachShipments']);
         Route::post('delivery-note-imports/analyze', [\App\Http\Controllers\Api\V1\DeliveryNoteAnalysisController::class, 'analyze'])->middleware('merchant.context');
         Route::get('delivery-note-imports/{id}/status', [\App\Http\Controllers\Api\V1\DeliveryNoteAnalysisController::class, 'status'])->middleware('merchant.context');
+        Route::post('delivery-note-imports/{id}/preview', [\App\Http\Controllers\Api\V1\AdminRunImportController::class, 'preview'])->middleware('merchant.context');
+        Route::post('delivery-note-imports/{id}/confirm', [\App\Http\Controllers\Api\V1\AdminRunImportController::class, 'confirm'])->middleware('merchant.context');
 
         Route::post('runs/{run_uuid}/delivery-note-imports', [DeliveryNoteImportController::class, 'store']);
         Route::post('runs/{run_uuid}/delivery-note-imports/{import_uuid}/confirm', [DeliveryNoteImportController::class, 'confirm']);

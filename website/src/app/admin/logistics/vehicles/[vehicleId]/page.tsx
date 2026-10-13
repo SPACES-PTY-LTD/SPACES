@@ -1,3 +1,4 @@
+import { DriverAvatar } from "@/components/drivers/driver-avatar"
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { PageHeader } from "@/components/layout/page-header"
@@ -166,7 +167,7 @@ export default async function VehicleDetailPage({
                   <div className="font-medium">
                     {item.href ? (
                       <Link href={item.href} className="text-primary hover:underline">
-                        {String(item.value)}
+                        {item.label === "Last known driver" ? <span className="inline-flex items-center gap-2"><DriverAvatar name={vehicle.last_driver?.name} photoUrl={vehicle.last_driver?.profile_photo_url} />{String(item.value)}</span> : String(item.value)}
                       </Link>
                     ) : String(item.value)}
                   </div>

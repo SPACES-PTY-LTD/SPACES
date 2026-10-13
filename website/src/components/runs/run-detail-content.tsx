@@ -3,6 +3,7 @@ import { AdminRunActions } from "@/components/runs/admin-run-actions"
 import { RunEndReview } from "@/components/runs/run-end-review"
 import { AdditionalCosts } from "@/components/costs/additional-costs"
 import Link from "next/link"
+import { DriverAvatar } from "@/components/drivers/driver-avatar"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { ErrorMessage } from "@/components/common/error-message"
 import { PageHeader } from "@/components/layout/page-header"
@@ -89,6 +90,7 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
     return <ErrorMessage title="Run" description="Run details and recorded telemetry." message={run.message} />
   }
 
+  const runLabel = String(run.system_run_id ?? "—")
   const initialNow = new Date().toISOString()
   const stats = run.stats
   const safety = run.safety
@@ -96,9 +98,9 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
 
   return (
     <div className="space-y-6">
-      {!embedded && <Breadcrumbs items={[{ label: "Runs", href: AdminLinks.runs }, { label: run.run_id }]} />}
+      {!embedded && <Breadcrumbs items={[{ label: "Runs", href: AdminLinks.runs }, { label: runLabel }]} />}
       <PageHeader
-        title={`Run ${run.run_id}`}
+        title={`Run ${runLabel}`}
         description={`${runLocationLabel(run.origin, "Unknown origin")} → ${runLocationLabel(run.destination, "Unknown destination")}`}
         actions={<div className="flex items-center gap-2"><StatusBadge status={run.status ?? "unknown"} /><AdminRunActions key={run.run_id + session.user.uuid} run={run} token={session.accessToken} /></div>}
       />
@@ -122,7 +124,7 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
         <Card>
           <CardHeader><CardTitle>Driver</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2 text-sm">
-            <div><div className="text-xs text-muted-foreground">Name</div><div className="font-medium">{run.driver?.driver_id ? <Link className="underline-offset-4 hover:underline" href={AdminRoute.driverDetails(run.driver.driver_id)}>{run.driver.name || "Driver"}</Link> : "Unassigned"}</div></div>
+            <div><div className="text-xs text-muted-foreground">Name</div><div className="font-medium">{run.driver?.driver_id ? <Link className="underline-offset-4 hover:underline" href={AdminRoute.driverDetails(run.driver.driver_id)}><span className="inline-flex items-center gap-2"><DriverAvatar name={run.driver.name} photoUrl={run.driver.profile_photo_url} />{run.driver.name || "Driver"}</span></Link> : "Unassigned"}</div></div>
             <div><div className="text-xs text-muted-foreground">Status</div><div className="font-medium">{run.driver?.is_active == null ? "-" : run.driver.is_active ? "Active" : "Inactive"}</div></div>
             <div><div className="text-xs text-muted-foreground">Email</div><div className="font-medium">{run.driver?.email ?? "-"}</div></div>
             <div><div className="text-xs text-muted-foreground">Telephone</div><div className="font-medium">{run.driver?.telephone ?? "-"}</div></div>
@@ -169,7 +171,7 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
         </CardContent>
       </Card>
 
-      <Card><CardContent className="pt-6"><AdditionalCosts kind="runs" id={run.run_id} accessToken={session.accessToken} merchantId={run.merchant_id} environmentId={run.environment_id} /></CardContent></Card>
+      <Card><CardContent><AdditionalCosts kind="runs" id={run.run_id} accessToken={session.accessToken} merchantId={run.merchant_id} environmentId={run.environment_id} /></CardContent></Card>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card>

@@ -15,6 +15,39 @@ class DriverIndexTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_driver_profiles_expose_saved_photo_urls_and_null_when_missing(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        config(['filesystems.default' => 'public']);
+        \Illuminate\Support\Facades\Storage::disk()->buildTemporaryUrlsUsing(
+            fn (string $path) => 'https://photos.example.test/' . $path
+        );
+        [$user, $merchant] = $this->createUserMerchant();
+        $driverUser = User::withoutEvents(fn () => User::factory()->create([
+            'role' => 'driver',
+            'account_id' => $merchant->account_id,
+            'profile_photo_path' => 'profile-photos/driver.jpg',
+            'uuid' => (string) Str::uuid(),
+        ]));
+        $driver = Driver::create([
+            'account_id' => $merchant->account_id,
+            'merchant_id' => $merchant->id,
+            'user_id' => $driverUser->id,
+            'is_active' => true,
+        ]);
+        $photoUrl = 'https://photos.example.test/profile-photos/driver.jpg';
+        $this->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/drivers?merchant_id=' . $merchant->uuid)
+            ->assertOk()->assertJsonPath('data.0.profile_photo_url', $photoUrl);
+        $this->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/drivers/' . $driver->uuid . '?merchant_id=' . $merchant->uuid)
+            ->assertOk()->assertJsonPath('data.profile_photo_url', $photoUrl);
+        $driverUser->update(['profile_photo_path' => null]);
+        $this->withHeaders($this->authHeaders($user))
+            ->getJson('/api/v1/drivers/' . $driver->uuid . '?merchant_id=' . $merchant->uuid)
+            ->assertOk()->assertJsonPath('data.profile_photo_url', null);
+    }
+
     public function test_it_can_search_drivers_by_name_or_email(): void
     {
         [$user, $merchant] = $this->createUserMerchant();

@@ -257,6 +257,7 @@ export interface Shipment {
     dropoff?: ShipmentLocationVisitInterval | null
   }
   driver?: {
+    profile_photo_url?: string | null
     driver_id: UUID
     name: string
     email?: string | null
@@ -314,6 +315,7 @@ export interface ShipmentStop {
     last_driver_id?: UUID | null
     driver_logged_at?: string | null
     last_driver?: {
+      profile_photo_url?: string | null
       driver_id?: UUID
       name?: string | null
       email?: string | null
@@ -342,6 +344,7 @@ export interface ShipmentStop {
   } | null
   run_id?: UUID | null
   driver?: {
+    profile_photo_url?: string | null
     driver_id?: UUID
     name?: string | null
     email?: string | null
@@ -442,6 +445,7 @@ export interface Booking {
   carrier_job_id?: string | null
   label_url?: string | null
   driver?: {
+    profile_photo_url?: string | null
     driver_id: UUID
     name: string
     email: string
@@ -560,6 +564,7 @@ export interface Run {
   auto_created?: boolean
   destination?: Location | null
   driver?: {
+    profile_photo_url?: string | null
     driver_id: UUID
     name: string
     email?: string | null
@@ -721,6 +726,7 @@ export interface VehicleLocation {
 export interface Vehicle {
   last_driver_id?: UUID | null
   last_driver?: {
+    profile_photo_url?: string | null
     driver_id?: UUID
     name?: string | null
     email?: string | null
@@ -990,6 +996,7 @@ export interface TrackingProviderLocationPreview {
 }
 
 export interface Driver {
+  profile_photo_url?: string | null
   merchant_id?: UUID | null
   driver_id: UUID
   uuid?: UUID
@@ -1215,6 +1222,7 @@ export interface VehicleActivity {
     fleet_status?: "active" | "maintenance" | "standby"
     driver_logged_at?: string | null
     last_driver?: {
+      profile_photo_url?: string | null
       driver_id?: UUID
       name?: string | null
       email?: string | null
@@ -1264,6 +1272,7 @@ export interface VehicleActivity {
   } | null
   run_id?: UUID | null
   driver?: {
+    profile_photo_url?: string | null
     driver_id?: UUID
     name?: string | null
     email?: string | null

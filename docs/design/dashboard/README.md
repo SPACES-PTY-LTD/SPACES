@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.230
+Version: 2.231
 Last updated: 2026-10-13
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -25,6 +25,26 @@ This is the canonical behaviour plan for the Spaces driver dashboard and deliver
 - [Step 4: confirm shipments found](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=28-1456)
 
 Figma simulates file selection, AI reading, GPS, searches and server responses. Its example locations and roads are illustrative. The location picker currently demonstrates saved-location choices; real address search, geocoding and routing must be implemented and verified in the app. Native document management, keyboard entry and telephone calls are implementation handoffs.
+
+## Admin Create Run (2.231 — implemented locally)
+
+The admin Runs page `/admin/logistics/shipments/runs` has a top-right **Create Run** action. It opens a right-side drawer, bounded to 900px on desktop and full screen on mobile, with fixed header/context, five-step progress and footer around scrollable content. The initial choices are **Create from a delivery note**, with “We’ll extract as much information about the delivery as possible. You’ll review and confirm it before creating the run.”, and **Create manually from scratch**.
+
+The delivery-note path mirrors Expo’s guidance: (1) choose PDF/JPG/PNG/WebP up to 20 MB and automatically upload, (2) asynchronously read with bounded polling, Check processing status, Check later, retry/replacement and cancellation recovery, (3) confirm saved, routable run starting/end locations without accepting extracted addresses as confirmed selections, (4) edit individual shipment references/descriptions, quantities/units, dates, saved collection/delivery locations, instructions and optional dimensions/weight, (5) review the trip/shipments and optional assignment/planning details, then **Create Run**. New shipment type is Standard. Existing references are unavailable and skipped; excluded rows may be incomplete. Collection/start mismatches are informational inside the affected card and offer Change run start. Errors keep the draft. Back preserves edits; reopening an analyzed draft returns to trip locations with those edits, then recomputes review. A scoped status check recovers previously confirmed results.
+
+Driver, vehicle and planned start are optional. This creates an ordinary draft run using the existing admin lifecycle, without dispatching or starting it. A planned timestamp uses the merchant timezone and does not opt into the Schedule board’s schedule-managed lifecycle. Manual creation additionally selects eligible existing shipments; terminal shipments and active-run assignments are unavailable, and attachment rules are rechecked by the existing API. Manual shipments/endpoints are optional, matching ordinary run creation. Manual success navigates to run details; document success shows **View run**.
+
+Analysis creates no run or shipment. New admin-only preview/confirmation endpoints require run-create and shipment-create permissions plus account/merchant/environment scope. Confirmation locks the merchant/import, recomputes validation, requires at least one new shipment, creates the run and shipments and links the import in one transaction. Failures roll back all operational records; retries return the saved result. Per-line measurements share the existing driver parcel semantics: packaging quantities 1–100, 500 parcels per import, measured quantities create one parcel, tonnes convert to kilograms, and quantity/unit metadata is retained. Existing driver and run-specific admin import interfaces remain compatible; no migration.
+
+[Desktop handoff](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0?node-id=596-2184) and [mobile handoff](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0?node-id=596-2343) include choice, five document steps and manual examples. They are editable static fixtures using existing component instances/tokens and the website’s Space Grotesk typography. Examples are illustrative; native file dialogs, server extraction and persistence operate in code.
+
+- [x] Top-right action, choices and responsive guided drawer with optional assignment; manual existing-shipment selection.
+- [x] Atomic, retry-safe document confirmation, duplicate/exclusion handling, scoped validation and shared driver quantity semantics.
+- [x] User/merchant/environment-scoped browser draft and pending-analysis recovery; cancellation/context changes ignore obsolete responses.
+- [x] Desktop and 390px browser fixtures verify choices, manual shipment selection, automatic upload/reading progression, endpoint selection, individual locations/decimal quantity, confirmation success and reopened draft edits. No live operational data created.
+- [x] Editable desktop/mobile Figma handoffs and scenario notes synchronized and visually reviewed.
+- [x] 94 focused Laravel tests pass (1229 assertions), including nine new admin-import cases; website TypeScript, focused ESLint and four client helper tests pass. Existing shared-poll recovery coverage is retained.
+- [ ] Verify deployed integration with a real delivery note/managed worker and mobile-device browser/file-picker/keyboard/retry behaviour. No production deployment is claimed.
 
 ## 1. Dashboard layout
 
@@ -1485,6 +1505,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-13 | 2.231 | Add responsive admin Create Run choices, five-step reviewed delivery-note creation and manual existing-shipment selection; atomic scoped confirmation, optional assignment and saved-draft recovery. Desktop/390px sample flow and editable Figma handoffs verified; deployed/live-document checks remain pending. |
 | 2026-10-13 | 2.230 | Correct Expo safety/timeline/card totals to include scoped unassigned vehicle telemetry inside actual run times; share scope with admin summary speeding counts/detail and exclude other-run assignments. Live 8-versus-0 mismatch identified; 79 API tests/1190 assertions and mobile filter test pass. Figma handoff aligned; backend deployment/native parity pending. |
 | 2026-10-13 | 2.229 | Add recorded-stop and speeding-event totals to shared Expo run cards and scoped aggregate counts to driver list/detail APIs; align Figma variants/eight references. 53 API tests/508 assertions, TypeScript and focused lint pass; native/deployed verification pending. |
 | 2026-10-12 | 2.228 | Implement selected Schedule Dispatch board: viewport columns, compact drivers/filter/search, truck/run rows, Options and inline shipment/plus strips; add scoped page-independent counts and complete open driver assignments. 18 API tests/154 assertions, 13 UI tests, TypeScript/focused lint and desktop/mobile fixture checks pass; authenticated/live rollout checks remain pending. |

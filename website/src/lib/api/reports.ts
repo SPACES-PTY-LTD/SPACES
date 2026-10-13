@@ -103,6 +103,7 @@ export type ShipmentFullReportRow = {
   shipment_id?: string
   vehicle_id?: string
   run_id?: string
+  system_run_id?: number | null
   date_created?: string
   collection_date?: string
   shipment_number?: string

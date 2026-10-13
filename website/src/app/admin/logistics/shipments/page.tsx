@@ -288,7 +288,7 @@ export default async function ShipmentsPage({
           { key: "created_at", label: "Created", type: "date_time", format: "YYYY-MM-DD", link: "href", className:"w-[150px]" },
           { key: "truckRegistration", label: "Truck Reg Number", link: "href", className: "w-[150px]" },
           { key: "shipmentKm", label: "Shipment KM", link: "href", className: "w-[140px]" },
-          { key: "driverName", label: "Driver", link: "driverHref", className: "w-[150px]" },
+          { key: "driverName", label: "Driver", type: "driver", avatarKey: "driver.profile_photo_url", link: "driverHref", className: "w-[150px]" },
           ...(isSuperAdmin
             ? [
                 {

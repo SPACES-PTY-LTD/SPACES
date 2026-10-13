@@ -348,20 +348,7 @@ class DriverDocumentImportController extends Controller
                 }
                 $parcels = [];
                 foreach ($row['items'] as $item) {
-                    $parcel = array_filter([
-                        'type' => 'standard', 'contents_description' => $item['description'],
-                        'weight' => match ($item['quantity_unit'] ?? 'units') {
-                            'kilograms' => $item['quantity'],
-                            'tonnes' => $item['quantity'] * 1000,
-                            default => $item['weight'] ?? null,
-                        }, 'weight_measurement' => 'kg',
-                        'length_cm' => $item['length_cm'] ?? null, 'width_cm' => $item['width_cm'] ?? null, 'height_cm' => $item['height_cm'] ?? null,
-                    ], fn ($value) => $value !== null && $value !== '');
-                    // Measured quantity is shipment metadata, not a count of individual parcels.
-                    $parcelCount = in_array($item['quantity_unit'] ?? 'units', ['liters', 'kilograms', 'tonnes', 'cubic_metres'], true) ? 1 : ($item['quantity'] ?? 1);
-                    for ($i = 0; $i < $parcelCount; $i++) {
-                        $parcels[] = $parcel;
-                    }
+                    array_push($parcels, ...\App\Services\DeliveryNoteQuantity::parcels($item));
                 }
                 $created = $shipments->createShipment([
                     'merchant_id' => $driver->merchant->uuid, 'environment_id' => $run?->environment?->uuid,

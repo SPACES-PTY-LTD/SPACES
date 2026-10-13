@@ -27,7 +27,8 @@ class ShipmentsFullReportTest extends TestCase
         try {
             $this->withHeaders($headers)
                 ->getJson('/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid)
-                ->assertOk()->assertJsonPath('meta.total', 1);
+                ->assertOk()->assertJsonPath('meta.total', 1)
+                ->assertJsonPath('data.0.system_run_id', null)->assertJsonPath('data.0.run_id', null);
             $queries = collect(DB::getQueryLog())->pluck('query')->filter(
                 fn ($sql) => str_contains($sql, 'from "shipments"')
             );
@@ -159,6 +160,8 @@ class ShipmentsFullReportTest extends TestCase
         $this->withHeaders($this->authHeaders($user))
             ->getJson('/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid)
             ->assertOk()
+            ->assertJsonPath('data.0.system_run_id', $runId)
+            ->assertJsonPath('data.0.run_id', DB::table('runs')->where('id', $runId)->value('uuid'))
             ->assertJsonPath('data.0.run_duration_seconds', 9000)
             ->assertJsonPath('data.0.run_odometer_distance_km', 125);
     }
