@@ -56,8 +56,8 @@ function harness() {
   const tick = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); render(); };
   const timersRun = () => { const pending = [...timers.values()]; timers.clear(); pending.forEach(fn => fn()); };
   render(); timersRun();
-  const data = { timezone: 'Africa/Johannesburg', environments: [], can_manage: true, drivers: [driver], shipments: [shipment], trucks: [
-    { vehicle_id: 'truck', plate_number: 'TRUCK', can_create: true, available: false, runs: [active, planned] },
+  const data = { timezone: 'Africa/Johannesburg', environments: [], can_manage: true, drivers: [structuredClone(driver)], shipments: [structuredClone(shipment)], trucks: [
+    { vehicle_id: 'truck', plate_number: 'TRUCK', can_create: true, available: false, runs: [structuredClone(active), structuredClone(planned)] },
     { vehicle_id: 'empty', plate_number: 'EMPTY', can_create: true, available: true, runs: [] },
   ], pagination: Object.fromEntries(['drivers', 'trucks', 'shipments'].map(key => [key, { current_page: 1, last_page: 1, total: 1 }])) };
   return { data, requests, writes, nodes, text, render, tick, timersRun, find: predicate => nodes().find(predicate), async load() { requests[0].resolve({ data }); await tick(); } };
@@ -132,7 +132,7 @@ test('compact driver row exposes complete assignments and opens the existing run
   const row = app.find(n => n.props?.['data-schedule-driver-row']);
   assert.ok(app.text(row).includes('Run outside- · Planned'));
   assert.ok(app.text(row).includes('Run active · Active'));
-  row.props.onClick(); app.render();
+  app.nodes(row).find(n => n.props?.['aria-label'] === 'Choose a run for Alex').props.onClick(); app.render();
   assert.ok(app.find(n => n.type === 'Drawer' && n.props.open && app.text(n).includes('Choose a run')));
   assert.equal(app.writes.length, 0);
 });
@@ -165,8 +165,7 @@ test('read-only board retains details but hides mutations and terminal shipment 
   await app.load();
   assert.equal(app.nodes().some(n => n.type === 'DropdownMenuItem' && ['Assign driver', 'Edit plan', 'Remove driver', 'Replace driver'].includes(app.text(n))), false);
   assert.equal(app.nodes().some(n => n.type === 'ShipmentQuoteDialog' && n.props.trigger.props['aria-label']?.startsWith('Add shipment')), false);
-  const row = app.find(n => n.props?.['data-schedule-driver-row']); row.props.onClick(); app.render();
-  assert.equal(app.nodes().some(n => n.type === 'Drawer' && n.props.open), false);
+  assert.equal(app.find(n => n.props?.['aria-label'] === 'Choose a run for Alex'), undefined);
   assert.equal(app.writes.length, 0);
 });
 test('driver filter preserves the server-selected value and resets pagination', async () => {
@@ -174,4 +173,89 @@ test('driver filter preserves the server-selected value and resets pagination', 
   app.find(n => n.type === 'DropdownMenuRadioGroup').props.onValueChange('assigned'); app.render(); app.timersRun();
   assert.equal(app.requests.at(-1).args[2].driver_filter, 'assigned');
   assert.equal(app.requests.at(-1).args[2].driver_page, 1);
+});
+
+
+test('complete truck fleet renders without paging in the board or assignment chooser', async () => {
+  const app = harness();
+  for (let i = 0; i < 25; i++) app.data.trucks.push({ vehicle_id: `extra-${i}`, plate_number: `EXTRA-${i}`, can_create: true, available: true, runs: [] });
+  await app.load();
+  assert.equal(app.nodes().filter(n => n.props?.['data-schedule-truck-row']).length, 27);
+  assert.equal('truck_page' in app.requests[0].args[2], false);
+  const panel = app.find(n => n.props?.id === 'schedule-panel-runs');
+  assert.equal(app.nodes(panel).some(n => typeof n.type === 'function' && n.type.name === 'Pagination'), false);
+  app.find(n => n.props?.['aria-label'] === 'Choose a run for Alex').props.onClick(); app.render();
+  const chooser = app.find(n => n.type === 'Drawer' && n.props.open && app.text(n).includes('Choose a run'));
+  assert.ok(app.text(chooser).includes('EXTRA-24'));
+  assert.equal(app.nodes(chooser).some(n => typeof n.type === 'function' && n.type.name === 'Pagination'), false);
+  for (const id of ['schedule-panel-drivers', 'schedule-panel-shipments']) {
+    assert.ok(app.nodes(app.find(n => n.props?.id === id)).some(n => typeof n.type === 'function' && n.type.name === 'Pagination'));
+  }
+});
+
+
+test('Schedule page ignores named-environment URL parameters', async () => {
+  const jsx = (type, props) => ({ type, props });
+  const { default: Page } = compile('../src/app/admin/logistics/schedule/page.tsx', {
+    'react/jsx-runtime': { jsx, jsxs: jsx },
+    '@/components/schedule/schedule-board': { ScheduleBoard: 'ScheduleBoard' },
+    '@/components/layout/page-header': { PageHeader: 'PageHeader' },
+    '@/lib/auth': { requireAuth: async () => ({ selected_merchant: { merchant_id: 'merchant', timezone: 'Africa/Johannesburg' }, accessToken: 'token' }) },
+  });
+  const page = await Page({ searchParams: Promise.resolve({ environment_id: 'test-environment' }) });
+  assert.equal(page.type, 'ScheduleBoard');
+  assert.equal(page.props.merchantId, 'merchant');
+  assert.equal('environmentId' in page.props, false);
+});
+
+test('Schedule board keeps reads, shipment transfers and creation selectors in General', async () => {
+  const app = harness(); app.data.environments = [{ environment_id: 'test', name: 'Test' }];
+  app.data.shipments[0] = { ...shipment, status: 'draft', source_run_id: null };
+  await app.load();
+  assert.equal(app.requests[0].args[1], undefined);
+  assert.equal(app.find(n => n.props?.['aria-label'] === 'Shipment environment'), undefined);
+  assert.ok(app.nodes().filter(n => n.type === 'ShipmentQuoteDialog').every(n => n.props.environmentId === ''));
+  app.find(n => n.type === 'Button' && app.text(n) === 'Assign to run').props.onClick(); app.render();
+  await app.find(n => n.type === 'Button' && app.text(n).startsWith('Active ·')).props.onClick(); await app.tick();
+  assert.equal(app.writes[0].args[1], undefined);
+  app.find(n => n.props?.['aria-label'] === 'Choose a run for Alex').props.onClick(); app.render();
+  app.find(n => n.type === 'Button' && app.text(n) === 'Create run').props.onClick(); app.render();
+  assert.ok(app.nodes().filter(n => n.type === 'LocationCombobox').every(n => n.props.environmentId === null));
+});
+
+
+test('Schedule details open scoped drawers without assignment writes, including locked runs', async () => {
+  const app = harness(); app.data.can_manage = false;
+  const run = app.data.trucks[0].runs[0];
+  run.origin = { location_id: 'depot', name: 'Depot' }; run.destination = null;
+  run.shipments[0].dropoff = { location_id: 'mine', name: 'Mine' };
+  await app.load();
+  const article = app.find(n => n.type === 'article' && n.props['aria-label'] === 'Run active');
+  const location = app.nodes(article).find(n => n.type === 'LocationDetailsDrawer' && n.props.locationId === 'depot');
+  assert.equal(location.props.merchantId, 'merchant'); assert.equal(location.props.accessToken, 'token');
+  assert.ok(app.text(article).includes('End not set'));
+  app.nodes(article).find(n => n.props?.['aria-label'] === 'View driver details for Alex').props.onClick(); app.render();
+  const profile = app.find(n => n.type === 'DriverDialogContent');
+  assert.equal(profile.props.driverId, 'driver'); assert.equal(profile.props.merchantId, 'merchant');
+  const drawer = app.find(n => n.type === 'Drawer' && n.props.open && app.text(n).includes('Driver details'));
+  drawer.props.onOpenChange(false); app.render();
+  assert.equal(app.find(n => n.type === 'DriverDialogContent'), undefined);
+  const tile = app.find(n => n.props?.['data-schedule-shipment-tile']);
+  app.nodes(tile).find(n => n.props?.['aria-label'] === 'View shipment details for DN-1').props.onClick(); app.render();
+  const shipmentDetails = app.find(n => n.type === 'ShipmentMapDialog');
+  assert.equal(shipmentDetails.props.shipmentId, 'shipment'); assert.equal(shipmentDetails.props.merchantId, 'merchant');
+  assert.ok(app.nodes(tile).some(n => n.type === 'LocationDetailsDrawer' && n.props.locationId === 'mine'));
+  assert.equal(app.writes.length, 0);
+});
+
+
+test('Schedule driver rows pass saved photos and names to shadcn DriverAvatar', async () => {
+  const app = harness(); app.data.drivers[0].profile_photo_url = 'https://example.test/driver.jpg';
+  await app.load();
+  const row = app.find(n => n.props?.['data-schedule-driver-row']);
+  const avatar = app.nodes(row).find(n => n.type === 'DriverAvatar');
+  assert.equal(avatar.props.name, 'Alex');
+  assert.equal(avatar.props.photoUrl, 'https://example.test/driver.jpg');
+  assert.ok(app.nodes(row).some(n => n.props?.['aria-label'] === 'View driver details for Alex'));
+  assert.ok(app.nodes(row).some(n => n.props?.['aria-label'] === 'Choose a run for Alex'));
 });

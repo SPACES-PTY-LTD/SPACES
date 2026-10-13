@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ListFilter, ChevronDown, ChevronLeft, ChevronRight, Ellipsis, GripVertical, Package, Plus, RefreshCw, Search, Truck, UserRound } from "lucide-react"
+import { ListFilter, ChevronDown, ChevronLeft, ChevronRight, Ellipsis, GripVertical, Package, Plus, RefreshCw, Search, Truck } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -11,18 +11,22 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter } from "@/components/ui/drawer"
+import { DriverAvatar } from "@/components/drivers/driver-avatar"
+import { LocationDetailsDrawer } from "@/components/locations/location-details-drawer"
+import { ShipmentMapDialog } from "@/components/dashboard/shipment-map-dialog"
+import { DriverDialogContent } from "@/components/dashboard/driver-dialog-content"
 import { LocationCombobox } from "@/components/locations/location-combobox"
 import { ShipmentQuoteDialog, type ShipmentQuoteFormValues } from "@/components/shipments/shipment-quote-dialog"
 import { apiFetch, isApiErrorResponse } from "@/lib/api/client"
 import { assignScheduledDriver, createScheduledRun, getSchedule, transferScheduledShipment } from "@/lib/api/schedule"
-import type { ScheduleData, ScheduleDriver, ScheduleFilters, ScheduleItem, SchedulePage, ScheduleRun, ScheduleShipment, ScheduleTruck } from "@/lib/api/schedule"
+import type { ScheduleData, ScheduleDriver, ScheduleFilters, ScheduleItem, ScheduleLocation, SchedulePage, ScheduleRun, ScheduleShipment, ScheduleTruck } from "@/lib/api/schedule"
 import type { Location } from "@/lib/types"
 import { AdminRoute } from "@/lib/routes/admin"
 import { shipmentCreatePayload } from "@/lib/shipment-create-payload"
 import { cn } from "@/lib/utils"
 import { dateInTimezone, eligibleRun, merchantTimeToIso, shiftDay } from "./schedule-utils"
 
-type Props = { merchantId: string; environmentId?: string; token: string; timezone: string }
+type Props = { merchantId: string; token: string; timezone: string }
 type RunForm = { requestId: string; truck: ScheduleTruck; item?: ScheduleItem; run?: ScheduleRun }
 type SearchColumn = "drivers" | "runs" | "shipments"
 const shipmentStatuses = ["draft", "ready", "quoted", "booked", "offer_failed", "in_transit", "at_delivery_location", "delivered", "exception", "failed", "cancelled", "returned"]
@@ -40,11 +44,10 @@ function Pagination({ page, onChange, disabled }: { page?: SchedulePage; onChang
   </div>
 }
 
-export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId, token, timezone: initialTimezone }: Props) {
-  const [environmentId, setEnvironmentId] = React.useState(initialEnvironmentId)
+export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: Props) {
   const [filters, setFilters] = React.useState<ScheduleFilters>(() => {
     const today = dateInTimezone(new Date(), initialTimezone)
-    return { from: today, to: today, driver_search: "", truck_search: "", shipment_search: "", shipment_statuses: defaultShipmentStatuses.join(","), driver_filter: "all", fleet_status: "active", availability: "all", truck_page: 1, driver_page: 1, shipment_page: 1 }
+    return { from: today, to: today, driver_search: "", truck_search: "", shipment_search: "", shipment_statuses: defaultShipmentStatuses.join(","), driver_filter: "all", fleet_status: "active", availability: "all", driver_page: 1, shipment_page: 1 }
   })
   const [data, setData] = React.useState<ScheduleData | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -63,6 +66,7 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
   const [formError, setFormError] = React.useState<string | null>(null)
   const [searchOpen, setSearchOpen] = React.useState<Record<SearchColumn, boolean>>({ drivers: false, runs: false, shipments: false })
   const [rangeOpen, setRangeOpen] = React.useState(false)
+  const [detail, setDetail] = React.useState<{ kind: "driver" | "shipment"; id: string } | null>(null)
   const [driverTarget, setDriverTarget] = React.useState<ScheduleRun | null>(null)
   const searchButtons = React.useRef<Partial<Record<SearchColumn, HTMLButtonElement | null>>>({})
   const operation = React.useRef(false)
@@ -77,7 +81,7 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
     const timer = window.setTimeout(async () => {
       setLoading(true)
       try {
-        const response = await getSchedule(merchantId, environmentId, filters, token, controller.signal)
+        const response = await getSchedule(merchantId, undefined, filters, token, controller.signal)
         if (controller.signal.aborted) return
         if (isApiErrorResponse(response)) { setError(response.message); return }
         setData(response.data); setError(null)
@@ -86,11 +90,11 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
       } finally { if (!controller.signal.aborted) setLoading(false) }
     }, 200)
     return () => { window.clearTimeout(timer); controller.abort() }
-  }, [merchantId, environmentId, filters, token, refresh])
+  }, [merchantId, filters, token, refresh])
 
   function changeFilters(patch: Partial<ScheduleFilters>) {
     setSelected(null)
-    setFilters(previous => ({ ...previous, truck_page: 1, driver_page: 1, shipment_page: 1, ...patch }))
+    setFilters(previous => ({ ...previous, driver_page: 1, shipment_page: 1, ...patch }))
   }
   function refreshBoard() { setRefresh(value => value + 1) }
   async function perform(action: () => Promise<unknown>) {
@@ -108,7 +112,7 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
     if (item.kind === "driver" && run.driver && run.driver.driver_id !== item.driver.driver_id && !window.confirm(`Replace ${run.driver.name} with ${item.driver.name}?`)) return false
     try {
       await perform(() => item.kind === "driver" ? assignScheduledDriver(run.run_id, item.driver.driver_id, run.driver?.driver_id ?? null, token)
-        : transferScheduledShipment(merchantId, environmentId, item.shipment, run.run_id, token))
+        : transferScheduledShipment(merchantId, undefined, item.shipment, run.run_id, token))
       toast.success(item.kind === "driver" ? "Driver assigned" : "Shipment assigned")
       return true
     } catch (err) { toast.error(err instanceof Error ? err.message : "Assignment failed. Refresh and retry."); return false }
@@ -133,7 +137,7 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
     event.preventDefault()
     if (!form || !origin?.location_id || !destination?.location_id) { setFormError("Choose saved start and end locations."); return }
     try {
-      const payload = { merchant_id: merchantId, environment_id: environmentId, vehicle_id: form.truck.vehicle_id,
+      const payload = { merchant_id: merchantId, vehicle_id: form.truck.vehicle_id,
         schedule_managed: true as const, schedule_request_id: form.requestId, origin_location_id: origin.location_id, destination_location_id: destination.location_id,
         planned_start_at: merchantTimeToIso(plannedTime, timezone),
         driver_id: form.item?.kind === "driver" ? form.item.driver.driver_id : undefined,
@@ -148,7 +152,7 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
     } catch (err) { setFormError(err instanceof Error ? err.message : "Unable to save this run.") }
   }
   async function returnShipment(shipment: ScheduleShipment) {
-    try { await perform(() => transferScheduledShipment(merchantId, environmentId, shipment, null, token)); toast.success("Shipment returned to Unassigned") }
+    try { await perform(() => transferScheduledShipment(merchantId, undefined, shipment, null, token)); toast.success("Shipment returned to Unassigned") }
     catch (err) { toast.error(err instanceof Error ? err.message : "Unable to remove shipment.") }
   }
   async function removeDriver(run: ScheduleRun) {
@@ -157,11 +161,11 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
   }
   async function createShipment(values: ShipmentQuoteFormValues, runId?: string) {
     return perform(() => apiFetch(runId ? `/api/v1/runs/${runId}/shipments/create` : "/api/v1/shipments", {
-      method: "POST", token, body: shipmentCreatePayload(values, environmentId, false),
+      method: "POST", token, body: shipmentCreatePayload(values, undefined, false),
     }))
   }
   function shipmentDrawer(runId?: string) {
-    return <ShipmentQuoteDialog merchantId={merchantId} environmentId={environmentId ?? ""} token={token} title="Create shipment"
+    return <ShipmentQuoteDialog merchantId={merchantId} environmentId="" token={token} title="Create shipment"
       triggerLabel={runId ? "Add new shipment" : "Create shipment"} description="Capture pickup, destination and parcel details."
       includeOrderRef includeInvoicedAt={false} trigger={runId
         ? <Button variant="outline" className="size-11 shrink-0 border-dashed p-0 shadow-none" aria-label={`Add shipment to run ${runId}`} disabled={!canManage || busy}><Plus className="size-5 text-muted-foreground" /></Button>
@@ -177,16 +181,23 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
     if (!dragging || !selected || !eligible || busy) return
     event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = "move"; setHover(id)
   }
+  function locationName(location: ScheduleLocation | null, fallback: string) {
+    return location?.location_id ? <LocationDetailsDrawer key={location.location_id} locationId={location.location_id} label={location.name} accessToken={token} merchantId={merchantId} /> : location?.name || fallback
+  }
+  function driverName(driver: Pick<ScheduleDriver, "driver_id" | "name"> | null) {
+    return driver ? <button type="button" className="rounded-sm text-left hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" aria-label={`View driver details for ${driver.name}`} onClick={() => setDetail({ kind: "driver", id: driver.driver_id })}>{driver.name}</button> : "Driver not assigned"
+  }
+  function closeDetails(open: boolean) { if (!open) { setDetail(null); refreshBoard() } }
   function shipmentCard(shipment: ScheduleShipment, movable: boolean) {
     movable = movable && !["delivered", "failed", "cancelled", "returned"].includes(shipment.status)
     const item: ScheduleItem = { kind: "shipment", shipment }
     const chosen = selected?.kind === "shipment" && selected.shipment.shipment_id === shipment.shipment_id
     return <div key={shipment.shipment_id} draggable={movable && canManage && !busy} onDragStart={event => beginDrag(event, item)} onDragEnd={dragEnd}
       className={cn("rounded-lg border bg-background p-3 text-sm", movable && canManage && "cursor-grab", chosen && "border-primary bg-primary/5")}>
-      <div className="flex items-center gap-2"><Package className="size-4 shrink-0 text-muted-foreground" /><Link className="min-w-0 flex-1 truncate font-medium hover:underline" href={AdminRoute.shipmentDetails(shipment.shipment_id)}>{shipment.reference || shipment.delivery_note_number || "Shipment"}</Link>{movable && canManage && <GripVertical className="size-4 text-muted-foreground" />}</div>
+      <div className="flex items-center gap-2"><Package className="size-4 shrink-0 text-muted-foreground" /><button type="button" className="min-w-0 flex-1 truncate text-left font-medium hover:underline" aria-label={`View shipment details for ${shipment.reference || shipment.shipment_id}`} onClick={() => setDetail({ kind: "shipment", id: shipment.shipment_id })}>{shipment.reference || shipment.delivery_note_number || "Shipment"}</button>{movable && canManage && <GripVertical className="size-4 text-muted-foreground" />}</div>
       <p className="mt-1 text-xs text-muted-foreground">{shipmentStatusLabel(shipment.status)}</p>
-      <p className="mt-2 text-xs">{shipment.pickup?.name || "Pickup not set"}</p>
-      <p className="mt-1 text-xs text-muted-foreground">To {shipment.dropoff?.name || "Destination not set"}</p>
+      <p className="mt-2 text-xs">{locationName(shipment.pickup, "Pickup not set")}</p>
+      <p className="mt-1 text-xs text-muted-foreground">To {locationName(shipment.dropoff, "Destination not set")}</p>
       <p className="mt-1 text-xs text-muted-foreground">Collection: {shipment.collection_date ? formatTime(shipment.collection_date) : "Not set"}</p>
       {movable && canManage && <div className="mt-2 flex flex-wrap gap-1"><Button size="sm" variant="outline" className="shadow-none" disabled={busy} onClick={() => { setSelected(item); setPicker({ item }) }}>{shipment.source_run_id ? "Move" : "Assign to run"}</Button>
         {shipment.source_run_id && <Button size="sm" variant="ghost" disabled={busy} onClick={() => returnShipment(shipment)}>Unassign</Button>}</div>}
@@ -228,11 +239,11 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
     return <div key={shipment.shipment_id} data-schedule-shipment-tile draggable={movable && !busy}
       onDragStart={event => beginDrag(event, item)} onDragEnd={dragEnd}
       className={cn("relative min-h-11 w-[200px] shrink-0 rounded-md bg-muted px-2 py-1", movable && "cursor-grab pr-6", chosen && "ring-1 ring-primary")}>
-      <Link href={AdminRoute.shipmentDetails(shipment.shipment_id)} className="block rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
+      <button type="button" aria-label={`View shipment details for ${shipment.reference || shipment.shipment_id}`} onClick={() => setDetail({ kind: "shipment", id: shipment.shipment_id })} className="block w-full rounded-sm text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
         <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5"><span className="flex min-w-0 items-start gap-1 text-[11px] font-medium"><Package className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" /><span className="break-words">{shipment.reference || shipment.delivery_note_number || "Shipment"}</span></span>
           <span className={cn("text-[10px] text-muted-foreground", shipment.status === "in_transit" && "text-emerald-700 dark:text-emerald-400")}>{shipmentStatusLabel(shipment.status)}</span></div>
-        <p className="mt-0.5 break-words text-xs text-muted-foreground">{shipment.dropoff?.name || "Destination not set"}</p>
-      </Link>
+      </button>
+      <div className="mt-0.5 break-words text-xs text-muted-foreground">{locationName(shipment.dropoff, "Destination not set")}</div>
       {movable && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon-xs" className="absolute right-0 top-0" aria-label={`Shipment options for ${shipment.reference || shipment.shipment_id}`} disabled={busy}><Ellipsis className="size-3" /></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { setSelected(item); setPicker({ item }) }}>Move shipment</DropdownMenuItem><DropdownMenuItem onSelect={() => void returnShipment(shipment)}>Return to unassigned</DropdownMenuItem></DropdownMenuContent>
       </DropdownMenu>}
@@ -255,8 +266,8 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="flex flex-col items-start justify-between gap-x-4 gap-y-1 sm:flex-row sm:flex-wrap"><p className="min-w-0 flex-1 break-words text-xs font-medium">{run.origin?.name || "Start not set"} <span className="font-normal text-muted-foreground">→</span> {run.destination?.name || "End not set"}</p>
-        <p className="max-w-full break-words text-[11px] text-muted-foreground sm:text-right">{run.driver?.name || "Driver not assigned"} · {run.shipments.length} shipment{run.shipments.length === 1 ? "" : "s"}</p></div>
+      <div className="flex flex-col items-start justify-between gap-x-4 gap-y-1 sm:flex-row sm:flex-wrap"><p className="min-w-0 flex-1 break-words text-xs font-medium">{locationName(run.origin, "Start not set")} <span className="font-normal text-muted-foreground">→</span> {locationName(run.destination, "End not set")}</p>
+        <p className="max-w-full break-words text-[11px] text-muted-foreground sm:text-right">{driverName(run.driver)} · {run.shipments.length} shipment{run.shipments.length === 1 ? "" : "s"}</p></div>
       {run.waiting_reason && <p className="break-words text-[11px] text-amber-700 dark:text-amber-400">{run.waiting_reason}</p>}
       {active && <p className="text-[11px] text-muted-foreground">Driver &amp; existing shipments locked</p>}
       <div aria-label={`Shipments for run ${run.run_id}`} className="flex min-w-0 items-start gap-2 overflow-x-auto pb-1">
@@ -274,12 +285,12 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
       <div className="flex items-center gap-2"><Button variant="outline" className="shadow-none" disabled={busy || loading} onClick={refreshBoard}><RefreshCw className={cn("size-4", loading && "animate-spin")} />Refresh</Button>{shipmentDrawer()}</div></div>
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-y px-3 py-3">
       <Button variant="outline" size="icon" aria-label="Previous day" disabled={busy} onClick={() => changeFilters({ from: shiftDay(filters.from, -1), to: shiftDay(filters.to, -1) })}><ChevronLeft className="size-4" /></Button>
-      <div className="relative"><Input aria-label="Schedule date" type="date" className="w-40" value={filters.from} disabled={busy} onChange={event => { if (event.target.value) changeFilters({ from: event.target.value, to: rangeOpen && filters.to >= event.target.value ? filters.to : event.target.value }) }} /></div>
+      <div className="relative"><Input aria-label="Schedule date" title="Filter runs by creation date" type="date" className="w-40" value={filters.from} disabled={busy} onChange={event => { if (event.target.value) changeFilters({ from: event.target.value, to: rangeOpen && filters.to >= event.target.value ? filters.to : event.target.value }) }} /></div>
       <Button variant="outline" size="icon" aria-label="Next day" disabled={busy} onClick={() => changeFilters({ from: shiftDay(filters.from, 1), to: shiftDay(filters.to, 1) })}><ChevronRight className="size-4" /></Button>
       <Button variant="ghost" disabled={busy} onClick={() => { const today = dateInTimezone(new Date(), timezone); setRangeOpen(false); changeFilters({ from: today, to: today }) }}>Today</Button>
       <Button variant="ghost" disabled={busy} aria-expanded={rangeOpen} aria-controls="schedule-date-range" onClick={() => { setRangeOpen(old => !old); if (rangeOpen) changeFilters({ to: filters.from }) }}>Date range</Button>
       {rangeOpen && <div id="schedule-date-range" className="flex items-center gap-2"><Label htmlFor="schedule-to">To</Label><Input id="schedule-to" className="w-40" type="date" value={filters.to} min={filters.from} disabled={busy} onChange={event => { if (event.target.value) changeFilters({ to: event.target.value }) }} /></div>}
-      <select aria-label="Shipment environment" className={cn(selectClass, "ml-auto max-w-full")} value={environmentId ?? ""} disabled={busy || loading} onChange={event => { setEnvironmentId(event.target.value || undefined); setData(null); setSelected(null); setPicker(null); setForm(null); setDriverTarget(null); changeFilters({}) }}><option value="">General shipments</option>{data?.environments.map(environment => <option key={environment.environment_id} value={environment.environment_id}>{environment.name}</option>)}</select><span className="text-xs text-muted-foreground">{timezone}</span>
+      <span className="ml-auto text-xs text-muted-foreground">{timezone}</span>
     </div>
     <dl aria-label="Schedule summary" className="grid shrink-0 grid-cols-3 gap-x-3 gap-y-2 border-b px-3 py-3 text-xs @min-[700px]:grid-cols-5">
       {([['Drivers unassigned', summary?.unassigned_drivers], ['Trucks available', summary?.available_trucks], ['Active runs', summary?.active_runs], ['Overdue plans', summary?.overdue_plans], ['Unassigned shipments', summary?.unassigned_shipments]] as const).map(([label, count]) => <div key={label}><dt className="text-[11px] text-muted-foreground">{label}</dt><dd className="mt-1 font-medium tabular-nums">{loading && !data ? <Skeleton aria-hidden="true" className="h-4 w-8 motion-reduce:animate-none" /> : count ?? "—"}</dd></div>)}
@@ -292,10 +303,10 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
         <div className="shrink-0 p-4"><div className="flex items-center justify-between gap-2"><h2 className="text-lg font-semibold">Drivers <span className="ml-1 text-xs font-normal text-muted-foreground">{data?.pagination.drivers.total ?? ""}</span></h2><div className="flex items-center gap-2">
           <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" size="icon" className="relative size-9 shadow-none" aria-label="Filter driver assignments" disabled={busy}><ListFilter className="size-4" />{filters.driver_filter !== "all" && <span className="absolute right-1 top-1 size-1.5 rounded-full bg-primary" />}</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuLabel>Driver assignment</DropdownMenuLabel><DropdownMenuRadioGroup value={filters.driver_filter} onValueChange={driver_filter => changeFilters({ driver_filter })}>{["all", "unassigned", "assigned"].map(value => <DropdownMenuRadioItem key={value} value={value} className="capitalize">{value}</DropdownMenuRadioItem>)}</DropdownMenuRadioGroup></DropdownMenuContent></DropdownMenu>
           {searchButton("drivers", filters.driver_search)}</div></div>{searchInput("drivers", "driver_search")}</div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4">{loading && !data ? <ScheduleColumnSkeleton column="drivers" /> : data?.drivers.map(driver => <button key={driver.driver_id} type="button" data-schedule-driver-row draggable={canManage && !busy} disabled={busy}
-          onDragStart={event => beginDrag(event, { kind: "driver", driver })} onDragEnd={dragEnd} onClick={() => chooseDriver(driver)} aria-label={`${driver.name}. ${driverAssignment(driver)}${canManage ? ". Choose a run" : ""}`}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4">{loading && !data ? <ScheduleColumnSkeleton column="drivers" /> : data?.drivers.map(driver => <div key={driver.driver_id} data-schedule-driver-row draggable={canManage && !busy}
+          onDragStart={event => beginDrag(event, { kind: "driver", driver })} onDragEnd={dragEnd}
           className={cn("flex min-h-16 w-full items-center gap-2 border-b py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring", canManage && "cursor-grab hover:bg-muted/40")}>
-          <UserRound className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0"><span className="block break-words text-sm font-medium">{driver.name}</span><span className="mt-1 block break-words text-xs text-muted-foreground">{driverAssignment(driver)}</span></span></button>)}{!loading && data?.drivers.length === 0 && <p className="py-3 text-sm text-muted-foreground">No matching drivers.</p>}</div>
+          <DriverAvatar name={driver.name} photoUrl={driver.profile_photo_url} /><span className="min-w-0"><span className="block break-words text-sm font-medium">{driverName(driver)}</span><span className="mt-1 block break-words text-xs text-muted-foreground">{driverAssignment(driver)}</span>{canManage && <Button variant="ghost" size="xs" className="mt-1" disabled={busy} aria-label={`Choose a run for ${driver.name}`} onClick={() => chooseDriver(driver)}>Choose run</Button>}</span></div>)}{!loading && data?.drivers.length === 0 && <p className="py-3 text-sm text-muted-foreground">No matching drivers.</p>}</div>
         <p className="shrink-0 px-4 py-2 text-[11px] text-muted-foreground">Assigned = an open run</p><Pagination page={data?.pagination.drivers} disabled={loading || busy} onChange={driver_page => setFilters(old => ({ ...old, driver_page }))} />
       </section>
       <section id="schedule-panel-runs" aria-label="Truck runs" className={cn("flex min-h-0 min-w-0 flex-col border-x bg-background", tab !== "runs" && "hidden @min-[1100px]:flex")}>
@@ -310,7 +321,6 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
           <div className="min-w-0 space-y-2 p-2">{[...truck.runs.filter(run => run.status === "in_progress"), ...truck.runs.filter(run => run.status !== "in_progress" && run.overdue), ...truck.runs.filter(run => run.status !== "in_progress" && !run.overdue)].map(run => runCard(run, truck))}
             {!truck.runs.length && <div className="flex flex-wrap items-center gap-2 py-2 text-xs text-muted-foreground"><span>No runs planned</span>{truck.can_create && <Button variant="outline" size="sm" className="text-xs shadow-none" disabled={busy} onClick={() => selected ? truckTarget(truck, selected) : openForm(truck)}>New run</Button>}</div>}</div>
         </div>)}{!loading && data?.trucks.length === 0 && <p className="p-3 text-sm text-muted-foreground">No matching trucks.</p>}</div>
-        <Pagination page={data?.pagination.trucks} disabled={loading || busy} onChange={truck_page => setFilters(old => ({ ...old, truck_page }))} />
       </section>
       <section id="schedule-panel-shipments" aria-label="Unassigned shipments" onDragOver={event => over(event, "unassigned", selected?.kind === "shipment" && !!selected.shipment.source_run_id)} onDrop={event => { if (!dragging) return; event.preventDefault(); setDragging(false); if (selected?.kind === "shipment" && selected.shipment.source_run_id) void returnShipment(selected.shipment) }}
         className={cn("flex min-h-0 min-w-0 flex-col bg-background", tab !== "shipments" && "hidden @min-[1100px]:flex", hover === "unassigned" && "ring-2 ring-inset ring-primary")}>
@@ -324,20 +334,21 @@ export function ScheduleBoard({ merchantId, environmentId: initialEnvironmentId,
         <Pagination page={data?.pagination.shipments} disabled={loading || busy} onChange={shipment_page => setFilters(old => ({ ...old, shipment_page }))} />
       </section>
     </div>
-    <p role="status" aria-live="polite" className="shrink-0 border-t px-4 py-1 text-[11px] text-muted-foreground">{busy ? "Saving assignment…" : loading ? data ? "Refreshing schedule…" : "Loading schedule…" : "Active runs stay visible. Drag to a run or use Assign to run."}</p>
+    <p role="status" aria-live="polite" className="shrink-0 border-t px-4 py-1 text-[11px] text-muted-foreground">{busy ? "Saving assignment…" : loading ? data ? "Refreshing schedule…" : "Loading schedule…" : "Runs created in the selected dates. Drag to a run or use Assign to run."}</p>
+    {detail?.kind === "shipment" && <ShipmentMapDialog key={detail.id} open shipmentId={detail.id} accessToken={token} merchantId={merchantId} onOpenChange={closeDetails} />}
+    <Drawer open={detail?.kind === "driver"} onOpenChange={closeDetails}><DrawerContent side="right" className="sm:w-[min(96vw,1000px)]"><DrawerHeader className="sr-only"><DrawerTitle>Driver details</DrawerTitle><DrawerDescription>Driver profile and vehicle assignments.</DrawerDescription></DrawerHeader><div className="flex-1 overflow-y-auto p-4 pt-10">{detail?.kind === "driver" && <DriverDialogContent key={detail.id} driverId={detail.id} accessToken={token} merchantId={merchantId} />}</div></DrawerContent></Drawer>
     <Drawer open={!!driverTarget} onOpenChange={open => { if (!open && !busy) setDriverTarget(null) }}><DrawerContent side="right" className="sm:w-[480px]"><DrawerHeader><DrawerTitle>Choose a driver</DrawerTitle><DrawerDescription>Choose an active driver for this run. Replacing its driver requires confirmation.</DrawerDescription></DrawerHeader>
       <div className="min-h-0 flex-1 overflow-y-auto p-4"><Input aria-label="Search assignment drivers" placeholder="Search drivers…" value={filters.driver_search} disabled={busy} onChange={event => changeFilters({ driver_search: event.target.value })} />{data?.drivers.map(driver => <Button key={driver.driver_id} variant="ghost" className="h-auto w-full justify-start whitespace-normal border-b py-3 text-left" disabled={busy} onClick={() => chooseDriver(driver)}>{driver.name} · {driverAssignment(driver)}</Button>)}</div><Pagination page={data?.pagination.drivers} disabled={loading || busy} onChange={driver_page => setFilters(old => ({ ...old, driver_page }))} />
     </DrawerContent></Drawer>
     <Drawer open={!!picker} onOpenChange={open => { if (!open && !busy) setPicker(null) }}><DrawerContent side="right" className="sm:w-[480px]"><DrawerHeader><DrawerTitle>Choose a run</DrawerTitle><DrawerDescription>Assign {picker?.item.kind === "driver" ? picker.item.driver.name : picker?.item.shipment.reference} to a run, or create a new plan.</DrawerDescription></DrawerHeader>
       <div className="flex-1 space-y-4 overflow-y-auto p-4">{truckChoices.map(truck => <div key={truck.vehicle_id} className="rounded-lg border p-3"><h3 className="mb-2 font-medium">{truck.plate_number}</h3><div className="grid gap-2">{truck.runs.filter(run => picker && eligibleRun(picker.item, run)).map(run => <Button key={run.run_id} className="h-auto justify-start whitespace-normal py-3 text-left" variant="outline" disabled={busy} onClick={() => picker && assign(picker.item, run)}>{statusName(run.status)} · {run.origin?.name || "Start not set"} → {run.destination?.name || "End not set"}</Button>)}
         {truck.can_create && <Button variant="secondary" disabled={busy} onClick={() => picker && openForm(truck, picker.item)}><Plus className="size-4" />Create run</Button>}</div></div>)}{!truckChoices.length && <p className="text-sm text-muted-foreground">No trucks match your filters.</p>}</div>
-      {!picker?.truck && <Pagination page={data?.pagination.trucks} disabled={loading || busy} onChange={truck_page => setFilters(old => ({ ...old, truck_page }))} />}
     </DrawerContent></Drawer>
     <Drawer open={!!form} onOpenChange={open => { if (!open && !busy) setForm(null) }}><DrawerContent side="right" className="sm:w-[480px]" showCloseButton={!busy}><DrawerHeader><DrawerTitle>{form?.run ? "Edit planned run" : "Create run"}</DrawerTitle><DrawerDescription>{form?.truck.plate_number} · {timezone}</DrawerDescription></DrawerHeader>
       <form onSubmit={submitRun} className="flex min-h-0 flex-1 flex-col"><div className="flex-1 space-y-5 overflow-y-auto p-4">
         {form?.item && <p className="rounded-lg bg-muted p-3 text-sm">{form.item.kind === "driver" ? `Driver: ${form.item.driver.name}` : `Shipment: ${form.item.shipment.reference}`}</p>}
-        <div className="grid gap-2"><Label>Start location</Label><LocationCombobox merchantId={merchantId} environmentId={environmentId ?? null} token={token} value={origin} onChange={location => { setOrigin(location); setForm(old => old && { ...old, requestId: crypto.randomUUID() }) }} disabled={busy} /></div>
-        <div className="grid gap-2"><Label>End location</Label><LocationCombobox merchantId={merchantId} environmentId={environmentId ?? null} token={token} value={destination} onChange={location => { setDestination(location); setForm(old => old && { ...old, requestId: crypto.randomUUID() }) }} disabled={busy} /></div>
+        <div className="grid gap-2"><Label>Start location</Label><LocationCombobox merchantId={merchantId} environmentId={null} token={token} value={origin} onChange={location => { setOrigin(location); setForm(old => old && { ...old, requestId: crypto.randomUUID() }) }} disabled={busy} /></div>
+        <div className="grid gap-2"><Label>End location</Label><LocationCombobox merchantId={merchantId} environmentId={null} token={token} value={destination} onChange={location => { setDestination(location); setForm(old => old && { ...old, requestId: crypto.randomUUID() }) }} disabled={busy} /></div>
         <div className="grid gap-2"><Label htmlFor="planned-start">Planned start ({timezone})</Label><Input id="planned-start" required type="datetime-local" value={plannedTime} onChange={event => { setPlannedTime(event.target.value); setForm(old => old && { ...old, requestId: crypto.randomUUID() }) }} disabled={busy} /></div>
         <p className="text-sm text-muted-foreground">Runs become ready on their planned day when a driver, available truck and shipment are assigned. Earlier runs must close first.</p>
         {formError && <p role="alert" className="text-sm text-destructive">{formError}</p>}

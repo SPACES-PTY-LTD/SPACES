@@ -15,6 +15,7 @@ use App\Services\ActivityLogService;
 use App\Services\RunReadinessService;
 use App\Services\RunService;
 use App\Support\ApiResponse;
+use App\Support\ProfilePhotoUrl;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -75,12 +76,12 @@ class ScheduleController extends Controller
         if (($filters['availability'] ?? 'all') === 'available') {
             $vehicles->where('is_active', true)->whereNull('maintenance_mode_at')->whereDoesntHave('runs', $busy);
         }
-        $trucks = (clone $vehicles)->with(['runs' => function ($q) use ($open, $from, $to, $todayStart) {
+        $trucks = (clone $vehicles)->with(['runs' => function ($q) use ($open, $from, $to) {
             $open($q);
-            $q->where(fn ($q) => $q->where('status', 'in_progress')->orWhereNull('planned_start_at')->orWhereBetween('planned_start_at', [$from, $to])->orWhere('planned_start_at', '<', $todayStart))
+            $q->whereBetween('created_at', [$from, $to])
                 ->with(['merchant', 'driver.user', 'vehicle', 'originLocation', 'destinationLocation', 'runShipments.shipment.pickupLocation', 'runShipments.shipment.dropoffLocation'])
                 ->orderBy('planned_start_at')->orderBy('id');
-        }])->withCount(['runs as occupied_count' => $busy])->orderBy('plate_number')->paginate(20, ['*'], 'truck_page');
+        }])->withCount(['runs as occupied_count' => $busy])->orderBy('plate_number')->orderBy('id')->get();
         $drivers = Driver::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id)->where('is_active', true)->with('user');
         if ($search = $filters['driver_search'] ?? null) {
             $drivers->whereHas('user', fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', "%$search%")->orWhere('telephone', 'like', "%$search%")));
@@ -114,6 +115,7 @@ class ScheduleController extends Controller
         $canManage = $request->user()->can('create', [Run::class, $merchant]);
         $summaryRuns = Run::whereIn('vehicle_id', (clone $vehicles)->select('vehicles.id'));
         $open($summaryRuns);
+        $summaryRuns->whereBetween('created_at', [$from, $to]);
 
         return ApiResponse::success([
             'timezone' => $timezone, 'can_manage' => $canManage,
@@ -142,12 +144,13 @@ class ScheduleController extends Controller
             ])->values(),
             'drivers' => $drivers->map(fn ($driver) => [
                 'driver_id' => $driver->uuid, 'name' => $driver->user?->name, 'phone' => $driver->user?->telephone,
+                'profile_photo_url' => ProfilePhotoUrl::forPath($driver->user?->profile_photo_path),
                 'assigned' => $driver->assigned_count > 0,
                 'assigned_runs' => $driver->runs->map(fn ($run) => ['run_id' => $run->uuid, 'status' => $run->status,
                     'planned_start_at' => $run->planned_start_at?->toIso8601String()])->values(),
             ])->values(),
             'shipments' => $shipments->map(fn ($shipment) => $this->shipment($shipment))->values(),
-            'pagination' => ['trucks' => $this->page($trucks), 'drivers' => $this->page($drivers), 'shipments' => $this->page($shipments)],
+            'pagination' => ['trucks' => ['current_page' => 1, 'last_page' => 1, 'total' => $trucks->count()], 'drivers' => $this->page($drivers), 'shipments' => $this->page($shipments)],
         ]);
     }
 

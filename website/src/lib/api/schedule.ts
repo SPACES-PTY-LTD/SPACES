@@ -8,7 +8,7 @@ export type ScheduleShipment = {
   pickup: ScheduleLocation | null; dropoff: ScheduleLocation | null
 }
 export type ScheduleDriver = {
-  driver_id: string; name: string; phone?: string | null; assigned: boolean
+  driver_id: string; name: string; phone?: string | null; profile_photo_url?: string | null; assigned: boolean
   assigned_runs?: { run_id: string; status: string; planned_start_at: string | null }[]
 }
 export type ScheduleRun = {
@@ -32,7 +32,7 @@ export type ScheduleData = {
 export type ScheduleFilters = {
   from: string; to: string; truck_search: string; driver_search: string; shipment_search: string
   availability: string; fleet_status: string; driver_filter: string; shipment_statuses?: string
-  truck_page: number; driver_page: number; shipment_page: number
+  driver_page: number; shipment_page: number
 }
 export type ScheduleItem = { kind: "driver"; driver: ScheduleDriver } | { kind: "shipment"; shipment: ScheduleShipment }
 export type CreateScheduledRun = {

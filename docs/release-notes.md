@@ -1,5 +1,50 @@
 # Release Notes
 
+## 2026-10-13 | Version: admin-schedule-driver-avatars-v1
+
+- **Summary:** Use shadcn avatars in the Schedule Drivers list.
+- **API Changes:** Add nullable drivers[].profile_photo_url to the Schedule response, using the shared profile-photo URL helper and temporary private-storage URLs when supported.
+- **Database Changes:** None; reuse saved user profile photos.
+- **Behavior Changes:** Replace the person icon with the existing 32px DriverAvatar, displaying saved photos with initials fallback for missing/failed images. Preserve driver details, Choose run and drag assignment. Canonical plan 2.239 and Figma handoff aligned.
+- **Breaking Changes:** None. Older API responses display initials; deploy the backend addition to show saved photos.
+- **Verification:** All 20 Schedule API tests pass (174 assertions), including saved profile URL and null fallback. All 18 Schedule UI tests, website TypeScript, focused board/API ESLint and git diff checks pass. Authenticated live visual verification remains pending.
+
+## 2026-10-13 | Version: admin-schedule-created-date-filter-v1
+
+- **Summary:** Filter Schedule runs by the date they were created.
+- **API Changes:** Schedule from/to now constrain open-run created_at using inclusive merchant-timezone days converted to UTC. Active/overdue run summary counts use those same bounds.
+- **Database Changes:** None.
+- **Behavior Changes:** Today, day navigation and Date range show runs created in the selected dates, regardless of planned start. Remove exceptions for older ongoing/overdue/undated plans. Retain complete truck results, empty trucks, actual resource occupancy, all-open driver assignments and readiness/lifecycle guards. Update toolbar guidance, canonical plan 2.238 and Figma handoffs.
+- **Breaking Changes:** Date filtering now means creation date; active/overdue runs created outside the range are excluded. Deploy backend with the website.
+- **Verification:** All 19 Schedule API tests pass (170 assertions), including timezone midnight/end-of-day boundaries, single/multi-day selection, excluded outside active runs, matching active totals and planned-date-independent grouping. All 17 Schedule UI tests, website TypeScript, focused board ESLint and git diff checks pass. Authenticated browser integration remains pending.
+
+## 2026-10-13 | Version: admin-schedule-detail-drawers-v1
+
+- **Summary:** Open location, shipment and driver information in drawers from Schedule.
+- **API Changes:** None; reuse existing scoped detail endpoints.
+- **Database Changes:** None.
+- **Behavior Changes:** Run endpoints and shipment pickup/destination names open the existing location/geofence drawer. Shipment references/tiles open the existing shipment drawer; driver names in run cards and driver rows open a right-side drawer containing the existing driver profile/vehicle assignments. Missing locations/unassigned drivers keep plain fallback text. Left driver rows retain drag assignment and expose a separate Choose run button. Detail viewing works for locked/finished/read-only records; assignment guards remain. Key shipment/driver content by selected ID, mount only while open, and refresh Schedule on closing. Canonical plan 2.237 and Figma handoff notes aligned.
+- **Breaking Changes:** Clicking driver names now views details; use Choose run or drag for assignment. Shipment references open drawers instead of navigating away.
+- **Verification:** All 17 Schedule UI tests pass, including scoped location/driver/shipment handoffs, locked/read-only viewing, missing endpoint text, no assignment writes on view and unmount on close. Website TypeScript, focused board ESLint and git diff checks pass. Authenticated browser keyboard/drawer/detail integration remains pending.
+
+## 2026-10-13 | Version: admin-schedule-general-only-v1
+
+- **Summary:** Always use General shipments on the website Schedule page and remove its environment dropdown.
+- **API Changes:** None in this change; shared Schedule endpoints retain named-environment support for other clients.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove environment state/selection and ignore environment_id URL values. Board reads, shipment transfers, new-run/shipment creation and saved-location controls use General (null environment). Retain merchant timezone, fleet/status filters, complete truck list and driver/shipment pagination. Update canonical plan 2.236 and all Figma Schedule toolbar states/handoffs.
+- **Breaking Changes:** Named-environment Schedule views are no longer selectable on this website page. Existing records remain in their original environments.
+- **Verification:** All 16 Schedule UI tests pass, including URL environment exclusion, General reads/transfers/creation selectors and complete truck results. Isolate mutable UI fixtures per test. Website TypeScript and focused Schedule page/board ESLint pass; git diff checks pass. Figma selected toolbar visually verified. Authenticated browser integration remains pending.
+
+## 2026-10-13 | Version: admin-schedule-all-trucks-v1
+
+- **Summary:** Show all matching trucks without pagination on the Schedule page.
+- **API Changes:** `GET /api/v1/schedule` returns the complete filtered merchant fleet with its visible runs instead of a 20-truck page. Retain `pagination.trucks` as single-page metadata with the full matching total; legacy `truck_page` is accepted but does not limit results. Driver/shipment pagination remains supported.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove truck paging controls from the board and eligible-run chooser, and stop sending truck page filters. Preserve server search, fleet/availability filters, merchant/environment scope, independent scrolling and assignment guards. Canonical plan 2.235 and Figma Schedule handoffs aligned.
+- **Breaking Changes:** None in response shape. Deploy backend with website so fleets beyond 20 are fully visible; truck responses are now larger.
+- **Verification:** 18 Schedule API tests pass (163 assertions), including all 21 matching trucks, foreign-merchant exclusion, ignored legacy pages and filtered/empty results. All 14 Schedule UI tests pass, including 27 truck rows, full chooser availability and preserved driver/shipment paging. Website TypeScript, focused ESLint and git diff checks pass. Live large-fleet browser interaction and production load remain unverified.
+
 ## 2026-10-13 | Version: admin-create-run-remove-service-area-v1
 
 - **Summary:** Remove Service area from the admin Create Run form.
