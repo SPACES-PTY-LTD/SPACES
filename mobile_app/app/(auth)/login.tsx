@@ -1,12 +1,14 @@
 import { Feather } from '@expo/vector-icons';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import { Redirect } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { useRef, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BottomSheet } from '@/component/ui/BottomSheet';
 import { BrandLoadingScreen } from '@/src/components/BrandLoadingScreen';
 import { ApiRequestError, authApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
@@ -99,7 +101,7 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.fill}>
         <ScrollView style={styles.fill} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" automaticallyAdjustContentInsets={false}>
-          <View style={[styles.mapHero, { height: (width - insets.left - insets.right) * 273 / 390 + insets.top }]} accessible={false} importantForAccessibility="no-hide-descendants">
+          <View style={[styles.mapHero, { height: (width - insets.left - insets.right) * 180 / 390 + insets.top }]} accessible={false} importantForAccessibility="no-hide-descendants">
             <Image source={require('@/assets/images/login/on-the-move-map.svg')} style={styles.mapArtwork} contentFit="cover" />
             <View style={[styles.brandChip, { top: insets.top + 18 }]}>
               <Image source={require('@/assets/branding/destination.svg')} style={styles.brandMark} contentFit="contain" />
@@ -118,24 +120,13 @@ export default function LoginScreen() {
             {merchants && merchants.length > 1 ? (
               <View>
                 <Text style={[styles.label, { color: ink }]}>Merchant</Text>
-                <Pressable disabled={isSubmitting} onPress={() => setIsMerchantOpen((open) => !open)}
+                <Pressable disabled={isSubmitting} onPress={() => { Keyboard.dismiss(); setIsMerchantOpen(true); }}
                   accessibilityRole="button" accessibilityLabel="Select merchant" accessibilityState={{ expanded: isMerchantOpen, disabled: isSubmitting }}
+                  accessibilityValue={{ text: merchants.find((merchant) => merchant.merchant_id === merchantId)?.name || 'Select a merchant' }}
                   style={[inputStyle, styles.merchantTrigger]}>
                   <Text style={{ color: ink, flex: 1 }}>{merchants.find((merchant) => merchant.merchant_id === merchantId)?.name || 'Select a merchant'}</Text>
                   <Feather name={isMerchantOpen ? 'chevron-up' : 'chevron-down'} size={20} color={muted} />
                 </Pressable>
-                {isMerchantOpen ? (
-                  <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={[styles.merchantOptions, { borderColor: isDarkMode ? '#27272a' : '#dadcd8' }]}>
-                    {merchants.map((merchant) => (
-                      <Pressable key={merchant.merchant_id} accessibilityRole="button" accessibilityState={{ selected: merchantId === merchant.merchant_id }}
-                        onPress={() => { setMerchantId(merchant.merchant_id); setIsMerchantOpen(false); setPassword(''); setIsPasswordVisible(false); setErrorMessages([]); }}
-                        style={styles.merchantOption}>
-                        <Text style={{ color: ink, flex: 1 }}>{merchant.name}</Text>
-                        {merchantId === merchant.merchant_id ? <Feather name="check" size={20} color={muted} /> : null}
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                ) : null}
               </View>
             ) : null}
             {merchantId ? <View>
@@ -169,8 +160,44 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      {isMerchantOpen && merchants ? <MerchantSelectionSheet merchants={merchants} selectedId={merchantId}
+        onDismiss={() => setIsMerchantOpen(false)}
+        onSelect={(id) => { setMerchantId(id); setPassword(''); setIsPasswordVisible(false); setErrorMessages([]); }} /> : null}
     </SafeAreaView>
   );
+}
+
+function MerchantSelectionSheet({ merchants, selectedId, onSelect, onDismiss }: {
+  merchants: { merchant_id: string; name: string }[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  onDismiss: () => void;
+}) {
+  const modal = useRef<BottomSheetModal>(null);
+  const pending = useRef<string | null>(null);
+  const { colorScheme } = useColorScheme();
+  const dark = colorScheme === 'dark';
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => modal.current?.present());
+    const selection = pending;
+    return () => { cancelAnimationFrame(frame); selection.current = null; };
+  }, []);
+
+  return <BottomSheet modalRef={modal} title="Select a merchant" scrollable contentPanning={false}
+    onDismiss={() => {
+      const id = pending.current;
+      pending.current = null;
+      onDismiss();
+      if (id && merchants.some((merchant) => merchant.merchant_id === id)) onSelect(id);
+    }}>
+    {merchants.map((merchant) => <Pressable key={merchant.merchant_id}
+      accessibilityRole="radio" accessibilityLabel={merchant.name} accessibilityState={{ checked: selectedId === merchant.merchant_id }}
+      onPress={() => { if (pending.current) return; pending.current = merchant.merchant_id; modal.current?.dismiss(); }}
+      style={[styles.merchantOption, { backgroundColor: dark ? '#27272a' : '#f5f5f8' }]}>
+      <Text style={{ color: dark ? '#fafafa' : '#102b42', flex: 1, fontSize: 16 }}>{merchant.name}</Text>
+      {selectedId === merchant.merchant_id ? <Feather name="check" size={20} color={dark ? '#86efac' : '#15803d'} /> : null}
+    </Pressable>)}
+  </BottomSheet>;
 }
 
 function getLoginErrors(error: unknown) {
@@ -205,8 +232,7 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, minHeight: 56, fontSize: 16 },
   passwordField: { position: 'relative' },
   merchantTrigger: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  merchantOptions: { maxHeight: 224, borderWidth: 1, borderRadius: 16, marginTop: 8 },
-  merchantOption: { minHeight: 56, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  merchantOption: { minHeight: 56, padding: 16, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   passwordInput: { paddingRight: 64 },
   passwordToggle: { position: 'absolute', right: 8, top: 0, bottom: 0, width: 48, alignItems: 'center', justifyContent: 'center' },
   error: { borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 },

@@ -1,3 +1,4 @@
+import { runSpeedingCount } from "@/lib/run-speeding-count"
 import { apiFetch } from "@/lib/api/client"
 import { isApiErrorResponse } from "@/lib/api/client"
 import type { ApiEnvelope, ApiListResponse, Run } from "@/lib/types"
@@ -19,7 +20,25 @@ export async function listRuns(
     summary?: boolean
   }
 ) {
-  return apiFetch<ApiListResponse<Run>>("/api/v1/runs", { token, params })
+  const response = await apiFetch<ApiListResponse<Run>>("/api/v1/runs", { token, params })
+  if (isApiErrorResponse(response) || !params?.summary || !response.data.some(run => runSpeedingCount(run) === null)) {
+    return response
+  }
+
+  // Older API summaries omit the count even though full run safety records exist.
+  // Fetch the same page once for compatibility; current APIs keep the lightweight path.
+  const details = await apiFetch<ApiListResponse<Run>>("/api/v1/runs", {
+    token, params: { ...params, summary: false },
+  })
+  if (isApiErrorResponse(details)) return response
+  const counts = new Map(details.data.map(run => [run.run_id, runSpeedingCount(run)]))
+  return {
+    ...response,
+    data: response.data.map(run => {
+      const count = runSpeedingCount(run) ?? counts.get(run.run_id)
+      return count == null ? run : { ...run, speeding_alert_count: count }
+    }),
+  }
 }
 
 export async function getRun(runId: string, token?: string | null) {

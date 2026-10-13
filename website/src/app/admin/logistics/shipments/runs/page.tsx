@@ -6,6 +6,7 @@ import { isApiErrorResponse } from "@/lib/api/client"
 import { listRuns } from "@/lib/api/runs"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 import { AdminRoute } from "@/lib/routes/admin"
+import { runSpeedingCount } from "@/lib/run-speeding-count"
 import { normalizeTableMeta } from "@/lib/table"
 import type { Location, Run } from "@/lib/types"
 
@@ -71,6 +72,7 @@ export default async function RunsPage({
 
   const rows = runs.map((run) => ({
     ...run,
+    speeding_alert_count: runSpeedingCount(run),
     href: AdminRoute.runDetails(run.run_id),
     endRequestStatus: run.end_request?.status === "pending" ? "pending_approval" : "",
     additionalCostsLabel: run.additional_cost_totals?.length
@@ -101,7 +103,7 @@ export default async function RunsPage({
       <DataTable
         data={rows}
         enableSorting
-        stickyColumns={{ leading: 2 }}
+        stickyColumns={{ leading: 3 }}
         sortableColumns={[
           "system_run_id", "status", "effectiveStart", "runDuration", "runDistance",
           "additionalCostsLabel", "shipment_count", "originName", "destinationName",

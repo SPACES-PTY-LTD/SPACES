@@ -172,6 +172,44 @@ class DriverRunsApiTest extends TestCase
             ->assertJsonPath('data.0.stop_count', 4)->assertJsonPath('data.0.speeding_event_count', 2);
     }
 
+    public function test_dashboard_and_run_timelines_include_each_scoped_speeding_event(): void
+    {
+        [$user, $driver] = $this->context();
+        [, , $foreign] = $this->context();
+        $vehicle = Vehicle::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'plate_number' => 'SPEED001', 'is_active' => true]);
+        $run = $this->makeRun($driver, 'in_progress', ['vehicle_id' => $vehicle->id]);
+        $otherRun = $this->makeRun($driver, 'completed');
+        $base = ['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'vehicle_id' => $vehicle->id, 'run_id' => $run->id];
+        $time = now()->subMinutes(10)->startOfSecond();
+        // Insert out of order; equal-time events must not collapse into one visit.
+        $missing = VehicleActivity::create($base + ['event_type' => 'speeding', 'occurred_at' => $time->copy()->addMinutes(2)]);
+        $speeding = VehicleActivity::create($base + ['event_type' => 'speeding', 'occurred_at' => $time, 'speed_kph' => 105, 'speed_limit_kph' => 80, 'latitude' => 0, 'longitude' => 0]);
+        $zero = VehicleActivity::create($base + ['event_type' => 'speeding', 'occurred_at' => $time, 'speed_kph' => 0, 'speed_limit_kph' => 0]);
+        $stop = VehicleActivity::create($base + ['event_type' => 'stopped', 'occurred_at' => $time->copy()->addMinute()]);
+        foreach ([['account_id' => $foreign->account_id], ['merchant_id' => $foreign->id], ['run_id' => $otherRun->id]] as $override) {
+            VehicleActivity::create(array_merge($base, ['event_type' => 'speeding', 'occurred_at' => $time], $override));
+        }
+        $headers = $this->headers($user);
+        $detail = $this->getJson("/api/v1/driver/runs/{$run->uuid}", $headers)->assertOk()->assertJsonCount(4, 'data.recorded_stops');
+        $timeline = collect($detail->json('data.recorded_stops'));
+        $this->assertEqualsCanonicalizing([$speeding->uuid, $zero->uuid, $stop->uuid, $missing->uuid], $timeline->pluck('stop_id')->all());
+        $this->assertSame($timeline->sortBy('occurred_at')->pluck('occurred_at')->values()->all(), $timeline->pluck('occurred_at')->all());
+        $this->assertCount(3, $timeline->where('kind', 'Speeding'));
+        $row = $timeline->firstWhere('stop_id', $speeding->uuid);
+        $this->assertEquals(105, $row['speed_kph']);
+        $this->assertEquals(80, $row['speed_limit_kph']);
+        $this->assertEquals(0, $row['latitude']);
+        $this->assertEquals(0, $row['longitude']);
+        $this->assertSame([], $row['shipments']);
+        $this->assertEquals(0, $timeline->firstWhere('stop_id', $zero->uuid)['speed_kph']);
+        $this->assertNull($timeline->firstWhere('stop_id', $missing->uuid)['speed_kph']);
+        $this->assertNull($timeline->firstWhere('stop_id', $missing->uuid)['latitude']);
+        $dashboard = $this->getJson('/api/v1/driver/dashboard', $headers)->assertOk();
+        $this->assertSame($detail->json('data.recorded_stops'), $dashboard->json('data.recorded_stops'));
+        $run->update(['status' => 'completed', 'completed_at' => now()]);
+        $this->getJson("/api/v1/driver/runs/{$run->uuid}", $headers)->assertOk()->assertJsonCount(4, 'data.recorded_stops');
+    }
+
     public function test_completed_shipment_history_survives_reassignment_without_granting_mutation_access(): void
     {
         [$user, $driver] = $this->context();

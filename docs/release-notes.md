@@ -1,5 +1,51 @@
 # Release Notes
 
+## 2026-10-13 | Version: admin-runs-frozen-attention-speeding-fix-v1
+
+- **Summary:** Freeze the admin Runs Attention column and make speeding indicators compatible with older API responses.
+- **API Changes:** No endpoint changes. The website normalizes numeric/string summary counts and existing full-run safety counts. When a summary page omits counts, read the equivalent full page once and merge counts by run UUID while retaining summary rows/pagination. Current API summaries retain the single lightweight request.
+- **Database Changes:** None.
+- **Behavior Changes:** Run ID, Status and Attention remain visible during horizontal scrolling. Positive recorded speeding totals produce the existing red speeding icon, count tooltip and run-detail link. Preserve explicit zero; unavailable telemetry remains unknown. Failed compatibility reads preserve the loaded summaries.
+- **Breaking Changes:** None.
+- **Verification:** Seven website regressions cover count normalization, legacy safety data, missing/malformed readings, UUID matching, pagination, fallback failures, lightweight current summaries and Attention sticky configuration. Website TypeScript and focused ESLint pass; 24 existing Run API tests pass (644 assertions); git diff checks pass. Live browser connection failed, so authenticated horizontal scrolling/icon navigation remains unverified. Older APIs incur one additional full-page read until backend summary support is deployed.
+
+## 2026-10-13 | Version: admin-run-active-duration-v1
+
+- **Summary:** Add Run active for to admin run-detail metrics and show five columns on wide screens.
+- **API Changes:** None; use existing status, actual `started_at` and `completed_at`.
+- **Database Changes:** None.
+- **Behavior Changes:** Display whole hours/minutes since the actual start for in-progress runs, recomputing every second and on focus/visibility changes. Completed runs retain their recorded start-to-completion duration. Missing/invalid timing shows the existing metric fallback (-); planned starts do not count as actual activity. Clamp future active starts to zero and retain hours beyond 24. Preserve Total duration and the other metrics; desktop uses five columns, smaller screens retain one/two columns. Mobile dashboard and Figma designs are unaffected.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused duration/detail ESLint, four elapsed-time regressions and git diff checks pass. Authenticated browser layout/live-clock verification remains pending.
+
+## 2026-10-13 | Version: driver-timeline-speeding-verification-v1
+
+- **Summary:** Verify speeding events in Expo dashboard and active/completed run-detail timelines.
+- **API Changes:** None; existing `recorded_stops` includes separate `Speeding` entries with timestamp, speed, limit and recorded coordinates.
+- **Database Changes:** None.
+- **Behavior Changes:** None; the shared mobile timeline already renders amber speeding markers and speed/limit details. Dashboard All stops includes speeding, Speeding events filters to it, and Shipment deliveries excludes it intentionally.
+- **Internal Changes:** Add API regression coverage for chronological mixed timelines, separate equal-time speeding entries, null readings/coordinates, valid zero values, account/merchant/run isolation, dashboard/detail parity and completed history. Existing Figma timeline/filter designs remain applicable; no design-plan change.
+- **Breaking Changes:** None.
+- **Verification:** DriverRuns API suite passes (12 tests, 144 assertions). Existing mobile timeline-filter regression passes using Node's TypeScript stripping; git diff checks pass. Native populated-speeding and deployed-data checks remain pending.
+
+## 2026-10-13 | Version: mobile-login-merchant-sheet-v1
+
+- **Summary:** Choose a driver login merchant in the shared bottom sheet.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Tapping Merchant dismisses the keyboard and opens a themed, scrollable bottom sheet with merchant options and a selected checkmark. Selecting an option closes the sheet before revealing Password; closing, backdrop tapping or swiping down preserves the current selection. The single-merchant shortcut remains automatic.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, focused login ESLint and git diff checks pass. Native sheet selection/dismissal and Android/large-text verification remain pending; the available iOS simulator is currently signed in.
+
+## 2026-10-13 | Version: mobile-login-compact-header-v1
+
+- **Summary:** Reduce the login map header height to give the form more room.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Reduce the responsive artwork height from 273 to 180 points per 390 points of screen width, retaining top safe-area space and the Spaces Digital brand chip.
+- **Breaking Changes:** None.
+- **Verification:** Focused login ESLint and git diff checks pass. iPhone 17 Pro Max simulator visually confirms the compact header with the merchant dropdown and Continue visible. Android and large-text verification remain pending.
+
 ## 2026-10-13 | Version: driver-email-first-login-v1
 
 - **Summary:** Start Expo driver login with email and Continue, then resolve the driver's merchant before asking for a password.

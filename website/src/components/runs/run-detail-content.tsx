@@ -19,6 +19,7 @@ import { LocationDetailsDrawer } from "@/components/locations/location-details-d
 import { Badge } from "@/components/ui/badge"
 import { ShipmentLocationTimeCell } from "@/components/runs/shipment-location-time-cell"
 import { RunStopDuration } from "@/components/runs/run-stop-duration"
+import { RunActiveDurationCard } from "@/components/runs/run-active-duration-card"
 import { RecordedStopDrawer } from "@/components/runs/recorded-stop-drawer"
 import type { Location, ShipmentStop } from "@/lib/types"
 
@@ -105,7 +106,8 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
       {run.end_request && <RunEndReview key={run.end_request.request_id + run.end_request.status} runId={run.run_id} active={run.status === "in_progress"} request={run.end_request} canReview={run.can_review_end_request === true} accessToken={session.accessToken} unfinished={Math.max(0, (stats?.shipment_count ?? run.shipment_count ?? 0) - (stats?.completed_shipments ?? 0) - (stats?.failed_shipments ?? 0))} />}
       <RunActualMap tripStart={run.started_at} tripEnd={run.completed_at} runId={run.run_id} accessToken={session.accessToken} stops={run.actual_stops ?? []} activities={run.stops} />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <RunActiveDurationCard key={run.run_id + (run.started_at ?? "")} status={run.status} startedAt={run.started_at} completedAt={run.completed_at} initialNow={initialNow} />
         <Stat label="Total duration" value={duration(stats?.duration_seconds)} />
         <Stat label="Distance travelled" value={km(stats?.distance_km)} note={distanceSource} />
         <Stat label="Shipments" value={stats?.shipment_count ?? run.shipment_count ?? 0} note={`${stats?.completed_shipments ?? 0} completed · ${stats?.failed_shipments ?? 0} failed`} />
