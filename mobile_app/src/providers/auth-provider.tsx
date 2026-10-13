@@ -7,6 +7,7 @@ import { clearSession, readSession, writeSession } from '@/src/lib/auth-storage'
 type LoginInput = {
   email: string;
   password: string;
+  merchant_id: string;
 };
 
 type AuthContextValue = {
@@ -122,8 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signIn = async ({ email, password }: LoginInput) => {
-    const payload = await authApi.login({ email, password });
+  const signIn = async ({ email, password, merchant_id }: LoginInput) => {
+    const payload = await authApi.login({ email, password, merchant_id });
 
     if (payload.user.role !== 'driver') {
       throw new Error('This app is only available to driver accounts.');

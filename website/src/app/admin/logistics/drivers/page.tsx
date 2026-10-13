@@ -11,6 +11,11 @@ import { normalizeTableMeta } from "@/lib/table"
 type DriversPageProps = {
   searchParams?: Promise<{
     page?: string | string[]
+    per_page?: string | string[]
+    search?: string | string[]
+    is_active?: string | string[]
+    has_vehicle?: string | string[]
+    source?: string | string[]
     sort_by?: string | string[]
     sort_dir?: string | string[]
   }>
@@ -18,12 +23,24 @@ type DriversPageProps = {
 
 export default async function DriversPage({ searchParams }: DriversPageProps) {
   const params = (await searchParams) ?? {}
+  const first = (value?: string | string[]) => Array.isArray(value) ? value[0] : value
+  const parsedPerPage = Number(first(params.per_page) ?? 15)
+  const perPage = Number.isInteger(parsedPerPage) && parsedPerPage > 0 && parsedPerPage <= 100
+    ? parsedPerPage : 15
+  const search = first(params.search)?.trim().slice(0, 255) || undefined
+  const rawActive = first(params.is_active)
+  const isActive = rawActive === "1" ? 1 : rawActive === "0" ? 0 : undefined
+  const rawHasVehicle = first(params.has_vehicle)
+  const hasVehicle = rawHasVehicle === "1" ? 1 : rawHasVehicle === "0" ? 0 : undefined
+  const rawSource = first(params.source)
+  const source = rawSource === "imported" || rawSource === "manual" ? rawSource : undefined
   const rawPage = Array.isArray(params.page) ? params.page[0] : params.page
   const rawSortBy = Array.isArray(params.sort_by) ? params.sort_by[0] : params.sort_by
   const rawSortDir = Array.isArray(params.sort_dir) ? params.sort_dir[0] : params.sort_dir
   const parsedPage = rawPage ? Number.parseInt(rawPage, 10) : 1
   const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1
-  const sortBy = rawSortBy?.trim() ? rawSortBy.trim() : undefined
+  const allowedSorts = ["created_at", "name", "email", "telephone", "intergration_id", "is_active", "imported_at", "vehicles"]
+  const sortBy = allowedSorts.includes(rawSortBy ?? "") ? rawSortBy : undefined
   const sortDir = rawSortDir === "asc" || rawSortDir === "desc" ? rawSortDir : undefined
   const session = await requireAuth()
   const merchantId = getScopedMerchantId(session)
@@ -33,8 +50,13 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
     ? await listDrivers(session.accessToken, {
         merchant_id: merchantId,
         page,
+        per_page: perPage,
+        search,
+        is_active: isActive,
+        has_vehicle: hasVehicle,
+        source,
         sort_by: sortBy,
-        sort_dir: sortDir,
+        sort_direction: sortDir,
       })
     : null
   const isError = response ? isApiErrorResponse(response) : false
@@ -56,7 +78,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
   const tableMeta =
     response && !isApiErrorResponse(response)
       ? normalizeTableMeta(response.meta)
-      : undefined    
+      : undefined
 
   return (
     <div className="space-y-6">
@@ -88,7 +110,21 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
         loading_error={loading_error}
         enableSorting
         sortableColumns={["name", "email", "is_active", "vehicles"]}
-        searchKeys={["name", "email"]}
+        serverSearchParam="search"
+        filters={[
+          {
+            key: "is_active", label: "Status", url_param_name: "is_active",
+            options: [{ label: "Active", value: "1" }, { label: "Inactive", value: "0" }],
+          },
+          {
+            key: "vehicles", label: "Vehicle assignment", url_param_name: "has_vehicle",
+            options: [{ label: "Assigned", value: "1" }, { label: "Unassigned", value: "0" }],
+          },
+          {
+            key: "source", label: "Source", url_param_name: "source",
+            options: [{ label: "Imported", value: "imported" }, { label: "Manual", value: "manual" }],
+          },
+        ]}
         columns={[
           { key: "image", label: "Pic", link: "href", type: "image", size: "sm" },
           { key: "name", label: "Driver", link: "href" },

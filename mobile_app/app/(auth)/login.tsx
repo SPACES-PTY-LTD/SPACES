@@ -2,13 +2,13 @@ import { Feather } from '@expo/vector-icons';
 import { Redirect } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BrandLoadingScreen } from '@/src/components/BrandLoadingScreen';
-import { ApiRequestError } from '@/src/lib/api';
+import { ApiRequestError, authApi } from '@/src/lib/api';
 import { useAuth } from '@/src/providers/auth-provider';
 
 export default function LoginScreen() {
@@ -26,6 +26,22 @@ export default function LoginScreen() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [errorMessages, setErrorMessages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [merchants, setMerchants] = useState<{ merchant_id: string; name: string }[] | null>(null);
+  const [merchantId, setMerchantId] = useState('');
+  const [isMerchantOpen, setIsMerchantOpen] = useState(false);
+  const requestVersion = useRef(0);
+  const submitting = useRef(false);
+
+  const changeEmail = (value: string) => {
+    requestVersion.current += 1;
+    setEmail(value);
+    setMerchants(null);
+    setMerchantId('');
+    setIsMerchantOpen(false);
+    setPassword('');
+    setIsPasswordVisible(false);
+    setErrorMessages([]);
+  };
 
   if (isHydrating) {
     return <BrandLoadingScreen />;
@@ -36,17 +52,42 @@ export default function LoginScreen() {
   }
 
   const handleSubmit = async () => {
+    if (submitting.current) return;
+    const version = requestVersion.current;
+    const normalizedEmail = email.trim();
     setErrorMessages([]);
+    if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setErrorMessages(['Enter a valid email address.']);
+      return;
+    }
+    if (merchants && !merchantId) {
+      setErrorMessages(['Select a merchant to continue.']);
+      return;
+    }
+    if (merchants && !password) {
+      setErrorMessages(['Enter your password.']);
+      return;
+    }
+    submitting.current = true;
     setIsSubmitting(true);
 
     try {
-      await signIn({
-        email: email.trim(),
-        password,
-      });
+      if (!merchants) {
+        const result = await authApi.driverMerchants(normalizedEmail);
+        if (version !== requestVersion.current) return;
+        if (!result.merchants.length) {
+          setErrorMessages(['No active driver merchants found. Contact your dispatcher for access.']);
+          return;
+        }
+        setMerchants(result.merchants);
+        setMerchantId(result.merchants.length === 1 ? result.merchants[0].merchant_id : '');
+      } else {
+        await signIn({ email: normalizedEmail, password, merchant_id: merchantId });
+      }
     } catch (error) {
-      setErrorMessages(getLoginErrors(error));
+      if (version === requestVersion.current) setErrorMessages(getLoginErrors(error));
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
@@ -71,20 +112,45 @@ export default function LoginScreen() {
             <View>
               <Text style={[styles.label, { color: ink }]}>Email</Text>
               <TextInput autoCapitalize="none" autoCorrect={false} keyboardType="email-address"
-                accessibilityLabel="Email" autoComplete="email" onChangeText={setEmail} value={email} style={inputStyle} />
+                accessibilityLabel="Email" autoComplete="email" onChangeText={changeEmail} value={email} style={inputStyle}
+                editable={!isSubmitting} returnKeyType="next" onSubmitEditing={merchants ? undefined : handleSubmit} />
             </View>
-            <View>
+            {merchants && merchants.length > 1 ? (
+              <View>
+                <Text style={[styles.label, { color: ink }]}>Merchant</Text>
+                <Pressable disabled={isSubmitting} onPress={() => setIsMerchantOpen((open) => !open)}
+                  accessibilityRole="button" accessibilityLabel="Select merchant" accessibilityState={{ expanded: isMerchantOpen, disabled: isSubmitting }}
+                  style={[inputStyle, styles.merchantTrigger]}>
+                  <Text style={{ color: ink, flex: 1 }}>{merchants.find((merchant) => merchant.merchant_id === merchantId)?.name || 'Select a merchant'}</Text>
+                  <Feather name={isMerchantOpen ? 'chevron-up' : 'chevron-down'} size={20} color={muted} />
+                </Pressable>
+                {isMerchantOpen ? (
+                  <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={[styles.merchantOptions, { borderColor: isDarkMode ? '#27272a' : '#dadcd8' }]}>
+                    {merchants.map((merchant) => (
+                      <Pressable key={merchant.merchant_id} accessibilityRole="button" accessibilityState={{ selected: merchantId === merchant.merchant_id }}
+                        onPress={() => { setMerchantId(merchant.merchant_id); setIsMerchantOpen(false); setPassword(''); setIsPasswordVisible(false); setErrorMessages([]); }}
+                        style={styles.merchantOption}>
+                        <Text style={{ color: ink, flex: 1 }}>{merchant.name}</Text>
+                        {merchantId === merchant.merchant_id ? <Feather name="check" size={20} color={muted} /> : null}
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                ) : null}
+              </View>
+            ) : null}
+            {merchantId ? <View>
               <Text style={[styles.label, { color: ink }]}>Password</Text>
               <View style={styles.passwordField}>
                 <TextInput autoCapitalize="none" autoCorrect={false} onChangeText={setPassword}
                   accessibilityLabel="Password" autoComplete="current-password" secureTextEntry={!isPasswordVisible}
-                  value={password} style={[inputStyle, styles.passwordInput]} />
+                  value={password} style={[inputStyle, styles.passwordInput]} editable={!isSubmitting}
+                  returnKeyType="go" onSubmitEditing={handleSubmit} />
                 <Pressable onPress={() => setIsPasswordVisible((visible) => !visible)} accessibilityRole="button"
                   accessibilityLabel={isPasswordVisible ? 'Hide password' : 'Show password'} style={styles.passwordToggle}>
                   <Feather name={isPasswordVisible ? 'eye-off' : 'eye'} size={20} color={muted} />
                 </Pressable>
               </View>
-            </View>
+            </View> : null}
             {errorMessages.length > 0 ? (
               <View accessibilityLiveRegion="polite" style={[styles.error, { backgroundColor: isDarkMode ? '#451a03' : '#fef3c7' }]}>
                 {errorMessages.map((message) => <Text key={message} style={{ color: isDarkMode ? '#fde68a' : '#92400e', fontSize: 14 }}>{message}</Text>)}
@@ -94,10 +160,10 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.footer}>
-            <Pressable disabled={isSubmitting} onPress={handleSubmit} accessibilityRole="button"
-              accessibilityState={{ disabled: isSubmitting, busy: isSubmitting }}
-              style={[styles.submit, { opacity: isSubmitting ? 0.6 : 1 }]}>
-              {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Log in</Text>}
+            <Pressable disabled={isSubmitting || (!!merchants && !merchantId)} onPress={handleSubmit} accessibilityRole="button"
+              accessibilityState={{ disabled: isSubmitting || (!!merchants && !merchantId), busy: isSubmitting }}
+              style={[styles.submit, { opacity: isSubmitting || (!!merchants && !merchantId) ? 0.6 : 1 }]}>
+              {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>{merchantId ? 'Log in' : 'Continue'}</Text>}
             </Pressable>
             <Text style={[styles.support, { color: muted }]}>Need access? Contact your dispatcher.</Text>
           </View>
@@ -138,6 +204,9 @@ const styles = StyleSheet.create({
   label: { marginBottom: 8, fontSize: 14, lineHeight: 17, fontWeight: '600' },
   input: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16, minHeight: 56, fontSize: 16 },
   passwordField: { position: 'relative' },
+  merchantTrigger: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  merchantOptions: { maxHeight: 224, borderWidth: 1, borderRadius: 16, marginTop: 8 },
+  merchantOption: { minHeight: 56, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   passwordInput: { paddingRight: 64 },
   passwordToggle: { position: 'absolute', right: 8, top: 0, bottom: 0, width: 48, alignItems: 'center', justifyContent: 'center' },
   error: { borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 },

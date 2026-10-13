@@ -45,8 +45,20 @@ async function fetchPage(
       return listLocations(token, { ...common, search: param(query, "search"), location_type_id: param(query, "location_type_id"), tag_id: param(query, "tag_id"), sort_by: param(query, "sort_by"), sort_dir: param(query, "sort_dir") as "asc" | "desc" | undefined })
     case "shipments":
       return listShipments(token, { ...common, status: param(query, "status"), priority: param(query, "priority"), auto_assign: boolParam(query, "auto_assign"), invoiced: boolParam(query, "invoiced"), from: param(query, "from"), to: param(query, "to"), location_tag_id: param(query, "location_tag_id"), vehicle_tag_id: param(query, "vehicle_tag_id"), sort_by: param(query, "sort_by"), sort_dir: param(query, "sort_dir") as "asc" | "desc" | undefined })
-    case "drivers":
-      return listDrivers(token, { ...common, search: param(query, "search"), sort_by: param(query, "sort_by"), sort_dir: param(query, "sort_dir") as "asc" | "desc" | undefined })
+    case "drivers": {
+      const binaryParam = (key: string) => {
+        const value = param(query, key)
+        return value === "1" ? 1 : value === "0" ? 0 : undefined
+      }
+      const source = param(query, "source")
+      return listDrivers(token, {
+        ...common, search: param(query, "search"),
+        is_active: binaryParam("is_active"), has_vehicle: binaryParam("has_vehicle"),
+        source: source === "imported" || source === "manual" ? source : undefined,
+        sort_by: param(query, "sort_by"),
+        sort_direction: param(query, "sort_dir") as "asc" | "desc" | undefined,
+      })
+    }
     case "routes":
       return listRoutes(token, { ...common, search: param(query, "search"), sort_by: param(query, "sort_by"), sort_dir: param(query, "sort_dir") as "asc" | "desc" | undefined })
     case "vehicle-activities":

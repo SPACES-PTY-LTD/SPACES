@@ -262,6 +262,8 @@ export type DriverRunSummary = {
   planned_start_at: string | null;
   started_at: string | null;
   completed_at: string | null;
+  stop_count?: number;
+  speeding_event_count?: number;
   shipment_count: number;
   delivered_count: number;
   remaining_count: number;
@@ -568,10 +570,14 @@ export async function appendUploadFile(body: FormData, file: { uri: string; name
 
 export const authApi = {
   apiBaseUrl,
-  async login(credentials: { email: string; password: string }) {
-    console.log("Attempting login with credentials", credentials, '/auth/login');
+  async driverMerchants(email: string) {
+    return request<{ merchants: { merchant_id: string; name: string }[] }>('/auth/driver-merchants', {
+      body: { email }, method: 'POST',
+    });
+  },
+  async login(credentials: { email: string; password: string; merchant_id: string }) {
     return request<AuthPayload>('/auth/login', {
-      body: credentials,
+      body: { ...credentials, login_context: 'driver' },
       method: 'POST',
     });
   },

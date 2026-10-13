@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Account;
+use App\Models\Driver;
 use App\Models\RefreshToken;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -81,7 +82,7 @@ class AuthService
 
     public function login(array $data): ?array
     {
-        $user = User::where('email', $data['email'])->first();
+        $user = User::whereRaw('LOWER(email) = ?', [Str::lower(trim($data['email']))])->first();
         if (! $user || ! Hash::check($data['password'], $user->password)) {
             return null;
         }
@@ -95,9 +96,18 @@ class AuthService
             return null;
         }
 
+        $merchantUuid = null;
+        if ($loginContext === 'driver') {
+            $merchants = $this->driverMerchants($data['email']);
+            $merchantUuid = $data['merchant_id'] ?? (count($merchants) === 1 ? $merchants[0]['merchant_id'] : null);
+            if (! $merchantUuid || ! in_array($merchantUuid, array_column($merchants, 'merchant_id'), true)) {
+                return null;
+            }
+        }
+
         $user->forceFill(['last_login_at' => now()])->save();
-        $token = $this->createAccessToken($user);
-        $refreshToken = $this->createRefreshToken($user, ['type' => 'login']);
+        $token = $this->createAccessToken($user, $merchantUuid);
+        $refreshToken = $this->createRefreshToken($user, ['type' => 'login', 'driver_merchant_uuid' => $merchantUuid]);
 
         return [
             'user' => $user,
@@ -105,6 +115,21 @@ class AuthService
             'refresh_token' => $refreshToken,
             'expires_in' => self::ACCESS_TTL_SECONDS,
         ];
+    }
+
+    public function driverMerchants(string $email): array
+    {
+        $user = User::whereRaw('LOWER(email) = ?', [Str::lower(trim($email))])->where('role', 'driver')->first();
+        if (! $user) {
+            return [];
+        }
+
+        return Driver::where('user_id', $user->id)->where('account_id', $user->account_id)
+            ->where('is_active', true)->whereHas('merchant', fn ($query) => $query->where('account_id', $user->account_id))
+            ->with('merchant')->get()->map(fn ($driver) => [
+                'merchant_id' => $driver->merchant->uuid,
+                'name' => $driver->merchant->name,
+            ])->unique('merchant_id')->sortBy('name')->values()->all();
     }
 
     public function logout(User $user, string $tokenId): void
@@ -129,8 +154,12 @@ class AuthService
         ]);
 
         $user = $record->user;
-        $accessToken = $this->createAccessToken($user);
-        $newRefresh = $this->createRefreshToken($user, ['type' => 'refresh']);
+        $merchantUuid = $record->meta['driver_merchant_uuid'] ?? null;
+        if ($merchantUuid && ! in_array($merchantUuid, array_column($this->driverMerchants($user->email), 'merchant_id'), true)) {
+            return null;
+        }
+        $accessToken = $this->createAccessToken($user, $merchantUuid);
+        $newRefresh = $this->createRefreshToken($user, ['type' => 'refresh', 'driver_merchant_uuid' => $merchantUuid]);
 
         return [
             'user' => $user,
@@ -140,13 +169,16 @@ class AuthService
         ];
     }
 
-    private function createAccessToken(User $user): string
+    private function createAccessToken(User $user, ?string $merchantUuid = null): string
     {
-        return $user->createToken(
+        $token = $user->createToken(
             'api',
-            ['*'],
+            $merchantUuid ? ['*', 'driver-merchant:'.$merchantUuid] : ['*'],
             now()->addSeconds(self::ACCESS_TTL_SECONDS)
-        )->plainTextToken;
+        );
+        $user->withAccessToken($token->accessToken);
+
+        return $token->plainTextToken;
     }
 
     private function createRefreshToken(User $user, array $meta = []): string

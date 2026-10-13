@@ -51,15 +51,35 @@ class DriverService
             }
         }
 
-        if (array_key_exists('is_active', $filters)) {
-            $query->where('is_active', (bool) $filters['is_active']);
+        if (isset($filters['is_active'])) {
+            $query->where('drivers.is_active', (bool) $filters['is_active']);
         }
 
-        if (!empty($filters['search'])) {
-            $searchTerm = '%' . str_replace(' ', '%', trim((string) $filters['search'])) . '%';
+        if (isset($filters['has_vehicle'])) {
+            if ((bool) $filters['has_vehicle']) {
+                $query->whereHas('vehicles');
+            } else {
+                $query->whereDoesntHave('vehicles');
+            }
+        }
+
+        if (($filters['source'] ?? null) === 'imported') {
+            $query->whereNotNull('drivers.imported_at');
+        } elseif (($filters['source'] ?? null) === 'manual') {
+            $query->whereNull('drivers.imported_at');
+        }
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        if ($search !== '') {
+            $searchTerm = '%' . str_replace(' ', '%', $search) . '%';
             $query->where(function (Builder $builder) use ($searchTerm) {
                 $builder->where('users.name', 'like', $searchTerm)
-                    ->orWhere('users.email', 'like', $searchTerm);
+                    ->orWhere('users.email', 'like', $searchTerm)
+                    ->orWhere('users.telephone', 'like', $searchTerm)
+                    ->orWhere('drivers.intergration_id', 'like', $searchTerm)
+                    ->orWhereHas('vehicles', function (Builder $vehicles) use ($searchTerm) {
+                        $vehicles->where('plate_number', 'like', $searchTerm);
+                    });
             });
         }
 
@@ -115,6 +135,13 @@ class DriverService
             'is_active' => 'drivers.is_active',
             'imported_at' => 'drivers.imported_at',
         ];
+
+        if ($sortBy === 'vehicles') {
+            $query->withCount('vehicles')->orderBy('vehicles_count', $sortDirection)
+                ->orderByDesc('drivers.id');
+
+            return;
+        }
 
         $sortColumn = $sortableColumns[$sortBy] ?? 'drivers.created_at';
 

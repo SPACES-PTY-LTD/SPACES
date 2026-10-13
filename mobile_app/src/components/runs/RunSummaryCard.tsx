@@ -202,6 +202,21 @@ export function RunSummaryCard({ run }: { run: DriverRunSummary }) {
                     </View>
                 ))}
             </View>
+            <View style={styles.stats}>
+                {[
+                    { value: run.stop_count, label: "total stops" },
+                    { value: run.speeding_event_count, label: "speeding events" },
+                ].map((stat) => (
+                    <View key={stat.label} style={styles.stat} accessible>
+                        <Text style={[styles.locationName, { color: ink }]}>
+                            {stat.value ?? "—"}
+                        </Text>
+                        <Text style={[styles.caption, { color: muted }]}>
+                            {stat.label}
+                        </Text>
+                    </View>
+                ))}
+            </View>
             <Text style={[styles.caption, { color: muted }]}>
                 {dateLabel} {formattedDate}
             </Text>

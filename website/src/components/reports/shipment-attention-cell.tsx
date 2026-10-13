@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { ClockAlert, Gauge, PackageCheck, PackageOpen } from "lucide-react"
 import {
   Tooltip,
@@ -17,12 +18,14 @@ import {
 import { cn } from "@/lib/utils"
 import type { ShipmentSpeedingAlert } from "@/lib/api/reports"
 import { ShipmentSpeedingAlertsDialog } from "@/components/reports/shipment-speeding-alerts-dialog"
+import { AdminRoute } from "@/lib/routes/admin"
 
 type ShipmentAttentionCellProps = Omit<ShipmentAttentionInput, "now"> & {
   initialNow: string
   speedingAlerts?: ShipmentSpeedingAlert[] | null
   shipmentNumber?: string | null
   vehiclePlateNumber?: string | null
+  runId?: string | null
 }
 
 const icons: Record<ShipmentAttentionCode, React.ComponentType<{ className?: string }>> = {
@@ -37,6 +40,7 @@ export function ShipmentAttentionCell({
   speedingAlerts,
   shipmentNumber,
   vehiclePlateNumber,
+  runId,
   ...input
 }: ShipmentAttentionCellProps) {
   const [now, setNow] = React.useState(initialNow)
@@ -62,11 +66,21 @@ export function ShipmentAttentionCell({
         <div className="flex items-center gap-0.5">
           {alerts.map((alert) => {
             const Icon = icons[alert.code]
-            const opensSpeedingDialog = alert.code === "speeding"
+            const runHref = alert.code === "speeding" && runId ? AdminRoute.runDetails(runId) : undefined
+            const opensSpeedingDialog = alert.code === "speeding" && !runHref
+            const iconClassName = cn(
+              "inline-flex size-8 shrink-0 items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2",
+              runHref || opensSpeedingDialog ? "cursor-pointer" : "cursor-help",
+              alert.tone === "danger"
+                ? "text-red-600 hover:text-red-700 focus-visible:ring-red-600"
+                : "text-amber-600 hover:text-amber-700 focus-visible:ring-amber-600"
+            )
             return (
               <Tooltip key={alert.code}>
                 <TooltipTrigger asChild>
-                  <button
+                  {runHref ? <Link href={runHref} aria-label={`${alert.tooltip} View run details.`} className={iconClassName}>
+                    <Icon className="size-[18px]" aria-hidden="true" />
+                  </Link> : <button
                     type="button"
                     aria-label={alert.tooltip}
                     aria-haspopup={opensSpeedingDialog ? "dialog" : undefined}
@@ -75,20 +89,14 @@ export function ShipmentAttentionCell({
                         ? () => setSpeedingDialogOpen(true)
                         : undefined
                     }
-                    className={cn(
-                      "inline-flex size-8 shrink-0 items-center justify-center rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2",
-                      opensSpeedingDialog ? "cursor-pointer" : "cursor-help",
-                      alert.tone === "danger"
-                        ? "text-red-600 hover:text-red-700 focus-visible:ring-red-600"
-                        : "text-amber-600 hover:text-amber-700 focus-visible:ring-amber-600"
-                    )}
+                    className={iconClassName}
                   >
                     <Icon className="size-[18px]" aria-hidden="true" />
-                  </button>
+                  </button>}
                 </TooltipTrigger>
                 <TooltipContent sideOffset={8} className="max-w-72 text-left leading-relaxed">
                   {alert.tooltip}
-                  {opensSpeedingDialog ? " Click to view all alerts." : ""}
+                  {runHref ? " Click to view run details." : opensSpeedingDialog ? " Click to view all alerts." : ""}
                 </TooltipContent>
               </Tooltip>
             )

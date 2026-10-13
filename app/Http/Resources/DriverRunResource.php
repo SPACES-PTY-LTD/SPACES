@@ -33,6 +33,8 @@ class DriverRunResource extends JsonResource
             'planned_start_at' => $this->formatDateForMerchantTimezone($this->planned_start_at, $request),
             'started_at' => $this->formatDateForMerchantTimezone($this->started_at, $request),
             'completed_at' => $this->formatDateForMerchantTimezone($this->completed_at, $request),
+            'stop_count' => (int) $this->stop_count,
+            'speeding_event_count' => (int) $this->speeding_event_count,
             'shipment_count' => (int) $this->shipment_count,
             'delivered_count' => (int) $this->delivered_count,
             'remaining_count' => max(0, $this->shipment_count - $this->resolved_count),

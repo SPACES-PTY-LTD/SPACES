@@ -16,6 +16,13 @@ use Throwable;
 
 class AuthController extends Controller
 {
+    public function driverMerchants(Request $request, AuthService $authService)
+    {
+        $data = $request->validate(['email' => ['required', 'email']]);
+
+        return ApiResponse::success(['merchants' => $authService->driverMerchants($data['email'])]);
+    }
+
     public function register(RegisterRequest $request, AuthService $authService)
     {
         $requestId = ApiResponse::requestId();

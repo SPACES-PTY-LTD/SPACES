@@ -13,6 +13,9 @@ export async function listDrivers(
     merchant_id?: string
     page?: number
     per_page?: number
+    is_active?: 0 | 1
+    has_vehicle?: 0 | 1
+    source?: "imported" | "manual"
     search?: string
     sort_by?: string
     sort_dir?: "asc" | "desc"

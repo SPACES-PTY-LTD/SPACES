@@ -34,13 +34,16 @@ class DriverRunController extends Controller
                 'recordedEndStop' => $location, 'recordedEndStop.location' => $location,
             ])
             ->withCount([
+                'vehicleActivities as speeding_event_count' => fn ($q) => $q
+                    ->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)
+                    ->where('event_type', 'speeding'),
                 'runShipments as shipment_count' => $assignments,
                 'runShipments as delivered_count' => $countStatus(['delivered']),
                 'runShipments as resolved_count' => $countStatus(['delivered', 'failed', 'cancelled', 'returned']),
             ]);
     }
 
-    public function index(Request $request)
+    public function index(Request $request, DriverRunDataService $dataService)
     {
         $data = $request->validate(['status' => ['sometimes', 'in:active,completed'], 'page' => ['sometimes', 'integer', 'min:1'], 'per_page' => ['sometimes', 'integer', 'min:1', 'max:100']]);
         $query = $this->query($request);
@@ -52,6 +55,7 @@ class DriverRunController extends Controller
                 ->orderBy('started_at')->orderBy('planned_start_at')->orderBy('id');
         }
         $runs = $query->paginate($data['per_page'] ?? 20);
+        $dataService->addStopCounts($runs->getCollection(), $request->user()->driver);
 
         return ApiResponse::paginated($runs, DriverRunResource::collection($runs));
     }
@@ -60,6 +64,7 @@ class DriverRunController extends Controller
     {
         $run = $this->query($request)->where('uuid', $run_uuid)->where('status', '!=', Run::STATUS_CANCELLED)->firstOrFail();
         $driver = $request->user()->driver;
+        $data->addStopCounts(new \Illuminate\Database\Eloquent\Collection([$run]), $driver);
         $shipments = $data->shipments($run, $driver);
         $timeline = $data->timeline($run, $driver, $shipments);
 

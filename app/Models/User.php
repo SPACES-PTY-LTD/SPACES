@@ -87,7 +87,17 @@ class User extends Authenticatable
 
     public function driver()
     {
-        return $this->hasOne(Driver::class);
+        $relation = $this->hasOne(Driver::class);
+        foreach ($this->currentAccessToken()?->abilities ?? [] as $ability) {
+            if (str_starts_with($ability, 'driver-merchant:')) {
+                $relation->where('drivers.account_id', $this->account_id)->where('is_active', true)
+                    ->whereHas('merchant', fn ($query) => $query->where('uuid', substr($ability, strlen('driver-merchant:')))
+                        ->where('account_id', $this->account_id));
+                break;
+            }
+        }
+
+        return $relation;
     }
 
     public function refreshTokens()

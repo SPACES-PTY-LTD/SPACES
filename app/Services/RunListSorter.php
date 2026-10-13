@@ -15,7 +15,7 @@ class RunListSorter
     {
         $key = is_string($filters['sort_by'] ?? null) ? $filters['sort_by'] : '';
         $direction = ($filters['sort_dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
-        $columns = ['run_id' => 'uuid', 'status' => 'status', 'start' => 'COALESCE(started_at, planned_start_at, created_at)'];
+        $columns = ['run_id' => 'uuid', 'system_run_id' => 'runs.id', 'status' => 'status', 'start' => 'COALESCE(started_at, planned_start_at, created_at)'];
         if (isset($columns[$key])) {
             return $query->orderByRaw($columns[$key].' '.$direction)->orderBy('uuid')->paginate($perPage);
         }

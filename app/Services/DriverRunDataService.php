@@ -5,10 +5,36 @@ namespace App\Services;
 use App\Models\Driver;
 use App\Models\Run;
 use App\Models\RunShipment;
+use App\Models\VehicleActivity;
+use Illuminate\Database\Eloquent\Collection as ModelCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class DriverRunDataService
 {
+    /** Count recorded physical visits without loading activity histories for list cards. */
+    public function addStopCounts(ModelCollection $runs, Driver $driver): void
+    {
+        if ($runs->isEmpty()) {
+            return;
+        }
+
+        $arrival = 'COALESCE(entered_at, occurred_at)';
+        $unlocated = "CASE WHEN location_id IS NULL OR {$arrival} IS NULL THEN uuid ELSE NULL END";
+        $visits = VehicleActivity::query()
+            ->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)
+            ->whereIn('run_id', $runs->modelKeys())
+            ->whereIn('event_type', ['stopped', 'entered_location', 'shipment_collection', 'shipment_delivery'])
+            ->select('run_id', 'location_id')->selectRaw("{$arrival} as arrival, {$unlocated} as unique_activity")
+            ->groupBy('run_id', 'location_id')->groupByRaw("{$arrival}, {$unlocated}");
+        $counts = DB::query()->fromSub($visits, 'recorded_visits')
+            ->select('run_id')->selectRaw('COUNT(*) as stop_count')->groupBy('run_id')->pluck('stop_count', 'run_id');
+
+        foreach ($runs as $run) {
+            $run->setAttribute('stop_count', (int) ($counts[$run->id] ?? 0));
+        }
+    }
+
     public function shipments(?Run $run, Driver $driver): Collection
     {
         $assignments = $run ? $run->runShipments()

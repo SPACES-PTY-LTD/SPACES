@@ -17,6 +17,7 @@ class LoginRequest extends BaseRequest
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
             'login_context' => ['nullable', 'string', 'in:admin,driver'],
+            'merchant_id' => ['nullable', 'uuid'],
         ];
     }
 }

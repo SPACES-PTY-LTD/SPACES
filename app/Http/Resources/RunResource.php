@@ -64,6 +64,8 @@ class RunResource extends JsonResource
         $canEdit = $canManage && in_array($this->status, [\App\Models\Run::STATUS_DRAFT, \App\Models\Run::STATUS_DISPATCHED, \App\Models\Run::STATUS_IN_PROGRESS], true);
         return [
             'run_id' => $this->uuid,
+            'system_run_id' => $this->id,
+            'speeding_alert_count' => $speedingEvents->count(),
             'schedule_managed' => (bool) $this->schedule_managed,
             'can_edit_endpoints' => $canEdit,
             'can_update_delivery_order' => $canEdit,

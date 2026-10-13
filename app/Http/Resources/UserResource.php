@@ -10,7 +10,7 @@ class UserResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $driver = $this->role === 'driver' ? $this->resource->loadMissing('driver.merchant')->driver : null;
+        $driver = $this->role === 'driver' ? $this->resource->driver()->with('merchant')->first() : null;
         $merchant = $driver && (int) $driver->account_id === (int) $this->account_id
             && (int) $driver->merchant?->account_id === (int) $this->account_id ? $driver->merchant : null;
 

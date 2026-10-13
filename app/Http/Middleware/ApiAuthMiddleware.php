@@ -25,6 +25,7 @@ class ApiAuthMiddleware
         $personalToken = PersonalAccessToken::findToken($token);
         if ($personalToken && $personalToken->tokenable) {
             $user = $personalToken->tokenable;
+            $user->withAccessToken($personalToken);
             Auth::setUser($user);
             $request->setUserResolver(fn () => $user);
 

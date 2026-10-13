@@ -444,6 +444,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
       return (
         <ShipmentAttentionCell
+          runId={stringValue("run_id")}
           shipmentStatus={stringValue("shipment_status")}
           collectedAt={stringValue("collected_at")}
           deliveredAt={stringValue("delivered_at")}
@@ -1088,8 +1089,8 @@ export function DataTable<T extends Record<string, unknown>>({
 
             {show_filters && (searchKeys?.length || serverSearchParam) ? (
               <Input
-                placeholder={serverSearchParam ? "Search all report results" : "Search"}
-                aria-label={serverSearchParam ? "Search all report results" : "Search table"}
+                placeholder={serverSearchParam ? "Search all results" : "Search"}
+                aria-label={serverSearchParam ? "Search all results" : "Search table"}
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 className="max-w-sm"

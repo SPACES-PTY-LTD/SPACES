@@ -1,7 +1,7 @@
 # Driver dashboard plan
 
-Version: 2.228
-Last updated: 2026-10-12
+Version: 2.229
+Last updated: 2026-10-13
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
 ## Purpose and maintenance
@@ -300,7 +300,15 @@ Verification: 61 focused Laravel tests (430 assertions), mobile TypeScript, five
 
 ### Run-card route spine (1.89 — selected option 2, implemented locally)
 
-[Option 2 — Bold route spine](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0?node-id=194-2029) is selected and implemented locally in the shared list/detail `RunSummaryCard`. Retain the other four directions as references. Use 20-point outer corners/padding, 16-point section gaps, a white/dark inset route panel, green start/current markers and solid route connector, a tinted current-location panel, dashed grey unknown future segment, three shipment-count columns and merchant-timezone date. Text and rows can grow without clipping; decorative rails stay 24 points wide and extend with growing rows. Bundle the eight exact light/dark Figma SVG assets locally.
+Run-card activity totals (2.229, implemented locally): below the existing shipment/delivered/remaining row, show a second row with **total stops** and **speeding events** on every shared list/detail card, including active and completed history and message run-detail sheets. Use two equal-width columns, themed number/label styles and natural wrapping. Display recorded zero as 0; older API responses without either count show — for the unavailable total.
+
+Driver run list/detail responses add `stop_count` and `speeding_event_count`. Total stops counts recorded physical visits from stopped, entered-location, collection and delivery events, grouped by location and arrival (`entered_at` falling back to `occurred_at`), matching the existing recorded timeline. Events without a location/arrival remain separate visits. Exclude planned stops, speeding, movement, exit and lifecycle events from the stop total. Speeding counts every recorded speeding event regardless of missing coordinates or speed readings. Scope both totals to the run/account/merchant and omit invalidated geofence activities. Aggregate visits across the current page in SQL without loading activity histories. No migration or lifecycle change. Selected Figma variants and eight light/dark/list/detail references inherit the totals; sample 4 stops / 2 speeding events is illustrative.
+
+- [x] Shared cards show both full-run totals, including zero and unavailable older-response states.
+- [x] API regressions cover grouped stage events, repeat visits, unlocated stops, separate speeding events, account/merchant/run isolation, zero totals, pagination and completed history; 53 driver run/dashboard/shipment tests pass (508 assertions). Mobile TypeScript and focused lint pass. Figma light/dark cards visually reviewed.
+- [ ] Verify native iOS/Android cards, large totals/text and list/detail layouts against deployed API responses.
+
+[Option 2 — Bold route spine](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0?node-id=194-2029) is selected and implemented locally in the shared list/detail `RunSummaryCard`. Retain the other four directions as references. Use 20-point outer corners/padding, 16-point section gaps, a white/dark inset route panel, green start/current markers and solid route connector, a tinted current-location panel, dashed grey unknown future segment, three shipment-count columns, a second two-column recorded-stop/speeding total row and merchant-timezone date. Text and rows can grow without clipping; decorative rails stay 24 points wide and extend with growing rows. Bundle the eight exact light/dark Figma SVG assets locally.
 
 When an incomplete run has no planned end, show **Starting point → Current location → Planned end / Unknown**. Known planned destinations retain the two-endpoint route. Current location uses the scoped run vehicle's last report only for an in-progress run, at/after its start and within the last 15 minutes, not in the future or logged in by another driver. Use supplied name/address or valid coordinates; missing/stale/unstarted data shows Unknown. Completed runs use **End point** only for an account/merchant-scoped `run_ended` event on that run/vehicle at its completion timestamp with an accessible location. Otherwise retain **Planned end** when known, or **End point / Unknown**. Never use a completed run's truck's present location, an unrelated last visit or a planned destination as actual finish evidence. The connector does not imply intermediate stops, distance, ETA or delivery completion.
 
@@ -1477,6 +1485,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-13 | 2.229 | Add recorded-stop and speeding-event totals to shared Expo run cards and scoped aggregate counts to driver list/detail APIs; align Figma variants/eight references. 53 API tests/508 assertions, TypeScript and focused lint pass; native/deployed verification pending. |
 | 2026-10-12 | 2.228 | Implement selected Schedule Dispatch board: viewport columns, compact drivers/filter/search, truck/run rows, Options and inline shipment/plus strips; add scoped page-independent counts and complete open driver assignments. 18 API tests/154 assertions, 13 UI tests, TypeScript/focused lint and desktop/mobile fixture checks pass; authenticated/live rollout checks remain pending. |
 | 2026-10-12 | 2.227 | Replace selected Figma View run buttons with compact top-right Options dropdowns; move permitted view/edit/driver actions inside and add menu previews. Preserve shipment plus tiles and active-run locks; runtime implementation pending. |
 | 2026-10-12 | 2.226 | Remove redundant TRUCK / RUNS subcolumn headings in selected Figma states; retain grouped rows, title controls and divider. Runtime implementation pending. |

@@ -128,6 +128,50 @@ class DriverRunsApiTest extends TestCase
         $this->assertEquals($dashboard->json('data.recorded_stops'), $detail->json('data.recorded_stops'));
     }
 
+    public function test_card_totals_count_recorded_visits_and_all_scoped_speeding_events(): void
+    {
+        [$user, $driver] = $this->context();
+        [, , $foreign] = $this->context();
+        $location = Location::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'name' => 'Depot', 'address_line_1' => '1 Test Road', 'city' => 'Johannesburg', 'province' => 'Gauteng', 'post_code' => '2000']);
+        $vehicle = Vehicle::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'plate_number' => 'COUNT001', 'is_active' => true]);
+        $run = $this->makeRun($driver, 'in_progress', ['vehicle_id' => $vehicle->id, 'destination_location_id' => $location->id]);
+        $empty = $this->makeRun($driver, 'draft');
+        $other = $this->makeRun($driver, 'completed', ['completed_at' => now()]);
+        $base = ['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'vehicle_id' => $vehicle->id, 'run_id' => $run->id];
+        $arrival = now()->subHour();
+        // Three stage events describe one visit; a later arrival is another visit.
+        foreach (['entered_location', 'shipment_collection', 'shipment_delivery'] as $type) {
+            VehicleActivity::create($base + ['event_type' => $type, 'location_id' => $location->id, 'entered_at' => $arrival, 'occurred_at' => $arrival]);
+        }
+        VehicleActivity::create($base + ['event_type' => 'stopped', 'location_id' => $location->id, 'occurred_at' => now()]);
+        foreach (['stopped', 'stopped', 'speeding', 'speeding', 'moving', 'exited_location', 'run_ended'] as $type) {
+            VehicleActivity::create($base + ['event_type' => $type, 'occurred_at' => now()]);
+        }
+        // Events without coordinates/readings still count; foreign scopes and other runs do not.
+        foreach (['stopped', 'speeding'] as $type) {
+            foreach ([['account_id' => $foreign->account_id], ['merchant_id' => $foreign->id], ['run_id' => $other->id]] as $override) {
+                VehicleActivity::create(array_merge($base, ['event_type' => $type, 'occurred_at' => now()], $override));
+            }
+        }
+        foreach (['stopped', 'speeding'] as $type) {
+            $invalidated = VehicleActivity::create($base + ['event_type' => $type, 'occurred_at' => now()]);
+            \Illuminate\Support\Facades\DB::table('vehicle_activity')->where('id', $invalidated->id)
+                ->update(['geofence_cleanup_batch_uuid' => (string) \Illuminate\Support\Str::uuid()]);
+        }
+        $headers = $this->headers($user);
+        $this->getJson('/api/v1/driver/runs?per_page=1', $headers)->assertOk()
+            ->assertJsonPath('data.0.stop_count', 4)->assertJsonPath('data.0.speeding_event_count', 2)
+            ->assertJsonMissingPath('data.0.recorded_stops');
+        $detail = $this->getJson("/api/v1/driver/runs/{$run->uuid}", $headers)->assertOk()
+            ->assertJsonPath('data.stop_count', 4)->assertJsonPath('data.speeding_event_count', 2);
+        $this->assertCount(4, array_filter($detail->json('data.recorded_stops'), fn ($stop) => $stop['kind'] !== 'Speeding'));
+        $this->getJson("/api/v1/driver/runs/{$empty->uuid}", $headers)->assertOk()
+            ->assertJsonPath('data.stop_count', 0)->assertJsonPath('data.speeding_event_count', 0);
+        $run->update(['status' => 'completed', 'completed_at' => now()->addMinute()]);
+        $this->getJson('/api/v1/driver/runs?status=completed&per_page=1', $headers)->assertOk()
+            ->assertJsonPath('data.0.stop_count', 4)->assertJsonPath('data.0.speeding_event_count', 2);
+    }
+
     public function test_completed_shipment_history_survives_reassignment_without_granting_mutation_access(): void
     {
         [$user, $driver] = $this->context();

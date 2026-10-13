@@ -55,6 +55,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('register', [AuthController::class, 'register']);
         Route::post('login', [AuthController::class, 'login']);
+        Route::post('driver-merchants', [AuthController::class, 'driverMerchants'])->middleware('throttle:10,1');
         Route::post('refresh', [AuthController::class, 'refresh']);
         Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
     });

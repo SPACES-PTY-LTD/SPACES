@@ -527,6 +527,8 @@ export interface Run {
   additional_costs?: AdditionalCost[]
   additional_cost_totals?: CostTotal[]
   run_id: UUID
+  system_run_id?: number
+  speeding_alert_count?: number
   schedule_managed?: boolean
   merchant_id?: UUID
   environment_id?: UUID | null

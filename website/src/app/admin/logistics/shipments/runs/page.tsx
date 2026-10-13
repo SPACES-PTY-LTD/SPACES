@@ -86,7 +86,7 @@ export default async function RunsPage({
   }))
 
   return (
-    <div className="space-y-6 [&_td:nth-child(6)]:whitespace-pre-line [&_td:nth-child(6)]:tabular-nums">
+    <div className="space-y-6 [&_td:nth-child(8)]:whitespace-pre-line [&_td:nth-child(8)]:tabular-nums">
       <PageHeader title="Runs" description="Review active and historical delivery runs." />
       <form className="flex max-w-xl gap-2" action="/admin/logistics/shipments/runs">
         {status ? <input type="hidden" name="status" value={status} /> : null}
@@ -101,6 +101,12 @@ export default async function RunsPage({
       <DataTable
         data={rows}
         enableSorting
+        stickyColumns={{ leading: 2 }}
+        sortableColumns={[
+          "system_run_id", "status", "effectiveStart", "runDuration", "runDistance",
+          "additionalCostsLabel", "shipment_count", "originName", "destinationName",
+          "driverName", "vehicleName",
+        ]}
         sortKeyMap={{
           effectiveStart: "start",
           runDuration: "duration",
@@ -114,7 +120,7 @@ export default async function RunsPage({
         meta={response && !isApiErrorResponse(response) ? normalizeTableMeta(response.meta) : undefined}
         loading_error={error}
         emptyMessage="No runs match the selected filters."
-        width="1850px"
+        width="1810px"
         filters={[
           {
             key: "status",
@@ -140,8 +146,9 @@ export default async function RunsPage({
           },
         ]}
         columns={[
-          { key: "run_id", label: "Run ID", link: "href", className: "w-[260px]" },
+          { key: "system_run_id", label: "Run ID", link: "href", className: "w-[100px]" },
           { key: "status", label: "Status", type: "status", link: "href", className: "w-[130px]" },
+          { key: "attention", label: "Attention", type: "shipment_attention", className: "w-[120px]" },
           { key: "endRequestStatus", label: "End request", type: "status", link: "href", className: "w-[170px]" },
           { key: "effectiveStart", label: "Start", type: "date_time", link: "href", className: "w-[170px]" },
           { key: "runDuration", label: "Duration", link: "href", className: "w-[120px]" },

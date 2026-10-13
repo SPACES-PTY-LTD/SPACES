@@ -678,7 +678,7 @@ class RunApiTest extends TestCase
             }
             $full = $this->withHeaders($this->authHeaders($token, $merchant->uuid))->getJson('/api/v1/runs')->assertOk();
             $summary = $this->withHeaders($this->authHeaders($token, $merchant->uuid))->getJson('/api/v1/runs?summary=true')->assertOk();
-            foreach (['run_id', 'status', 'planned_start_at', 'started_at', 'created_at', 'duration_seconds', 'odometer_distance_km', 'distance_km', 'distance_source', 'shipment_count', 'additional_cost_totals'] as $field) {
+            foreach (['run_id', 'system_run_id', 'speeding_alert_count', 'status', 'planned_start_at', 'started_at', 'created_at', 'duration_seconds', 'odometer_distance_km', 'distance_km', 'distance_source', 'shipment_count', 'additional_cost_totals'] as $field) {
                 $this->assertSame($full->json('data.0.'.$field), $summary->json('data.0.'.$field), $field);
             }
             foreach (['origin', 'destination'] as $field) {
@@ -699,6 +699,52 @@ class RunApiTest extends TestCase
             $this->assertFalse($loaded->runShipments->first()->shipment->relationLoaded('booking'));
             $this->assertFalse($loaded->runShipments->first()->shipment->relationLoaded('parcels'));
             $this->assertCount($hasOdometer ? 0 : 30, $loaded->vehicleActivities);
+        }
+    }
+
+    public function test_run_list_returns_system_ids_and_run_scoped_speeding_counts(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        $vehicle = $this->createVehicle($merchant);
+        $runs = collect([false, true])->map(fn ($hasOdometer) => Run::create([
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id, 'status' => Run::STATUS_COMPLETED,
+            'odometer_start_km' => $hasOdometer ? 1000 : null,
+            'odometer_end_km' => $hasOdometer ? 1075 : null,
+        ]));
+        foreach ($runs as $run) {
+            foreach ([VehicleActivity::EVENT_SPEEDING, VehicleActivity::EVENT_SPEEDING, VehicleActivity::EVENT_STOPPED] as $eventType) {
+                VehicleActivity::create([
+                    'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+                    'vehicle_id' => $vehicle->id, 'run_id' => $run->id,
+                    'event_type' => $eventType, 'occurred_at' => now(),
+                    'latitude' => null, 'longitude' => null,
+                ]);
+            }
+        }
+        $emptyRun = Run::create([
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id, 'status' => Run::STATUS_DRAFT,
+        ]);
+        [, $otherMerchant] = $this->createMerchantContext();
+        Run::create([
+            'account_id' => $otherMerchant->account_id, 'merchant_id' => $otherMerchant->id,
+            'status' => Run::STATUS_DRAFT,
+        ]);
+        $expected = $runs->push($emptyRun);
+        foreach (['false', 'true'] as $summary) {
+            foreach (['asc', 'desc'] as $direction) {
+                $ordered = $direction === 'asc' ? $expected : $expected->reverse()->values();
+                foreach ($ordered as $index => $run) {
+                    $this->withHeaders($this->authHeaders($token, $merchant->uuid))
+                        ->getJson('/api/v1/runs?summary='.$summary.'&sort_by=system_run_id&sort_dir='.$direction.'&per_page=1&page='.($index + 1))
+                        ->assertOk()
+                        ->assertJsonPath('meta.total', 3)
+                        ->assertJsonPath('data.0.run_id', $run->uuid)
+                        ->assertJsonPath('data.0.system_run_id', $run->id)
+                        ->assertJsonPath('data.0.speeding_alert_count', $run->is($emptyRun) ? 0 : 2);
+                }
+            }
         }
     }
 

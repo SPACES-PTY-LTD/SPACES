@@ -54,7 +54,8 @@ class RunService
             ]);
 
         if (filter_var($filters['summary'] ?? false, FILTER_VALIDATE_BOOL)) {
-            $query->withoutEagerLoads()->with([
+            $query->withCount(['vehicleActivities as speeding_alert_count' => fn ($activities) => $activities
+                ->where('event_type', VehicleActivity::EVENT_SPEEDING)])->withoutEagerLoads()->with([
                 'merchant',
                 'driver.user',
                 'vehicle',

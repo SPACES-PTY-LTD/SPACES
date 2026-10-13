@@ -1,5 +1,59 @@
 # Release Notes
 
+## 2026-10-13 | Version: driver-email-first-login-v1
+
+- **Summary:** Start Expo driver login with email and Continue, then resolve the driver's merchant before asking for a password.
+- **API Changes:** Add rate-limited POST `/api/v1/auth/driver-merchants` with email, returning only merchant UUID/name pairs for active, non-deleted driver assignments within the user's account. Unknown/non-driver emails return an empty list. Driver-context login accepts `merchant_id`, validates membership and requires a selection when multiple merchants exist. Access tokens retain the selected merchant and refresh tokens preserve/revalidate it; API authentication attaches the token so driver queries and user responses resolve the selected assignment.
+- **Database Changes:** None; selection uses existing token abilities and refresh-token metadata.
+- **Behavior Changes:** One merchant automatically reveals Password; multiple merchants show a dropdown and reveal Password only after selection. Changing email clears merchant/password state; changing merchant clears the password. Empty lookup, invalid email, server errors and duplicate submissions are handled. Separate sessions retain their own merchant selection. Remove mobile credential logging.
+- **Breaking Changes:** None for existing clients. Deploy the backend additions with the updated mobile login; legacy sessions retain their existing assignment behavior until a new login.
+- **Verification:** 56 focused Laravel authentication, driver-login, driver-run and document-import tests pass (522 assertions), including concurrent merchant sessions, refresh, invalid credentials/selections, inactive/deleted memberships and run isolation. Mobile TypeScript, focused login/API/provider ESLint and git diff checks pass. Native iOS/Android keyboard, dropdown and visual checks remain pending.
+
+## 2026-10-13 | Version: mobile-run-card-activity-totals-v1
+
+- **Summary:** Show total recorded stops and total speeding events on shared Expo run cards.
+- **API Changes:** Driver run list/detail responses add `stop_count` and `speeding_event_count`, scoped by run/account/merchant. Stops group recorded location/arrival visits without planned or speeding entries; speeding includes events without coordinates or readings. Aggregate counts preserve lightweight paginated lists and exclude invalidated activities.
+- **Database Changes:** None.
+- **Behavior Changes:** Active/completed list, run detail and message run-detail cards show an additional two-column totals row. Zero counts remain visible; older responses show — for unavailable counts. Match existing theme/text styles and allow labels to wrap. Align canonical dashboard plan and selected Figma run-card variants/references.
+- **Breaking Changes:** None. Deploy backend additions for the Expo app to receive totals.
+- **Verification:** 53 driver run/dashboard/shipment API tests pass (508 assertions), mobile TypeScript and focused card/API ESLint pass. Figma light/dark cards visually reviewed. Native iOS/Android, large-text and deployed-data verification remain pending.
+
+## 2026-10-13 | Version: admin-schedule-loading-skeletons-v1
+
+- **Summary:** Add layout-matched loading skeletons to the admin Schedule page.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Page navigation and initial schedule/environment fetches show responsive driver-row, truck/run and shipment-card placeholders, with summary placeholders during initial data loading. Keep existing data visible during refreshes. Decorative skeletons are hidden from assistive technology, loading is announced by a status region, and reduced-motion preferences disable pulsing.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused schedule ESLint, all 13 existing schedule regressions and git diff checks pass. Authenticated browser visual verification remains pending.
+
+## 2026-10-13 | Version: admin-drivers-server-filters-v1
+
+- **Summary:** Fix drivers rows-per-page and search controls and add useful server-side filters.
+- **API Changes:** GET `/api/v1/drivers` adds optional `has_vehicle` (0/1) and `source` (imported/manual) filters and vehicle-count sorting. Keyword search also matches telephone, integration ID and assigned vehicle plate. Existing `per_page`, `is_active` and `sort_direction` parameters remain supported.
+- **Database Changes:** None.
+- **Behavior Changes:** `/admin/logistics/drivers` forwards rows-per-page and debounced keyword search to the endpoint, searches all matching drivers, and exposes Active/Inactive, Assigned/Unassigned vehicle and Imported/Manual filters. Source uses whether `imported_at` is set. Filter/search/page-size changes reset pagination through the existing table controls. Fix sort direction forwarding; CSV exports preserve the new filters and sorting. Server-search input text now says “Search all results”.
+- **Breaking Changes:** None.
+- **Verification:** DriverIndex API suite passes (7 tests, 50 assertions), covering pagination, cross-page search, combined filters including false values, merchant scoping, extended search, vehicle sorting, deleted vehicles and invalid filters. Website TypeScript and focused ESLint pass. Authenticated browser interactions remain unverified.
+
+## 2026-10-13 | Version: admin-runs-frozen-id-attention-v1
+
+- **Summary:** Freeze Run ID and Status in the admin Runs table, show numeric system IDs and add speeding attention indicators.
+- **API Changes:** Run summaries and full run responses add `system_run_id` (`runs.id`) and `speeding_alert_count`; UUID `run_id` remains the navigation/API identifier. Run lists support numeric ID sorting. Summary counts include speeding events without coordinates and with odometer readings, without loading detail events.
+- **Database Changes:** None.
+- **Behavior Changes:** Run ID and Status stay visible during horizontal scrolling. Attention shows the report’s red speeding icon with event-count tooltip and a link to run details, or a dash when no events are recorded.
+- **Breaking Changes:** None. Deploy backend additions with the website to populate numeric IDs and indicators.
+- **Verification:** 24 Run API tests pass (644 assertions), including numeric IDs/sorting, zero and run-scoped speeding counts, coordinate-less events and odometer summaries. Website TypeScript, focused ESLint and diff checks pass; authenticated browser scrolling/navigation remains unverified.
+
+## 2026-10-13 | Version: shipment-report-speeding-run-link-v1
+
+- **Summary:** Open the associated run detail page from the Shipments Report speeding icon.
+- **API Changes:** None; use the existing report row `run_id`.
+- **Database Changes:** None.
+- **Behavior Changes:** Speeding icons link directly to run details with updated tooltip and accessible text. Rows without an associated run retain the speeding-alert dialog fallback.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint and git diff checks pass; authenticated report navigation remains unverified.
+
 ## 2026-10-12 | Version: admin-mobile-sticky-header-v1
 
 - **Summary:** Keep the mobile admin main bar visible while scrolling.
