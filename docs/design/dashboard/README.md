@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.239
+Version: 2.241
 Last updated: 2026-10-13
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -50,6 +50,24 @@ Analysis creates no run or shipment. New admin-only preview/confirmation endpoin
 - [x] Editable desktop/mobile Figma handoffs and scenario notes synchronized and visually reviewed.
 - [x] 94 focused Laravel tests pass (1229 assertions), including nine new admin-import cases; website TypeScript, focused ESLint and four client helper tests pass. Existing shared-poll recovery coverage is retained.
 - [ ] Verify deployed integration with a real delivery note/managed worker and mobile-device browser/file-picker/keyboard/retry behaviour. No production deployment is claimed.
+
+## Admin Runs Schedule run details (2.241 — implemented locally)
+
+**Options → View run** opens the selected run in a right-side drawer while preserving the schedule board, filters and date. Desktop width is bounded to 1200px; mobile uses the full screen. The drawer embeds the existing authenticated run-detail page without admin navigation or duplicate breadcrumbs. Its own document contains run actions, nested edit/order dialogs and location comboboxes, map filters/time controls, cost selects and nested location/stop drawers so their portals, focus, scrolling and Escape handling remain within that document. Preserve API authorization and run lifecycle rules. Closing the drawer refreshes the schedule board to reflect any changes; normal run-detail pages and message attachment previews remain available.
+
+- [x] Schedule View run opens the existing embedded detail page in a responsive drawer; closing refreshes the board.
+- [x] Keep existing menus/dialogs/comboboxes in their page document without changing shared overlay styles.
+- [ ] Verify authenticated live run actions, all nested controls, keyboard/Escape, mobile scrolling and close/refresh behaviour. Static TypeScript/lint verification is recorded in release notes; no live-data mutations are claimed.
+
+## Driver logout notification cleanup (2.240 — implemented locally)
+
+Successful logout clears push tokens and soft-deletes the user's active device registrations in the same transaction as access-token deletion and refresh-token revocation. Retain the existing all-device cleanup scope for that user; other users' devices are untouched. Soft deletion preserves presence/offer history and excludes registrations from notification queries. A later authenticated login can create a fresh registration.
+
+Serialize logout with registration using the existing user-row lock. Registration rechecks persisted access-token existence/expiry after acquiring that lock, rejecting a request authenticated before logout that finishes afterward. Expo waits for server logout before clearing local session/storage. Offline/server failures reach the existing Unable to log out feedback and retain the session for retry; do not claim successful cleanup when the server cannot be reached. Existing native notification permission remains unchanged.
+
+- [x] Transactional device removal/token clearing, stale-registration rejection and fresh-login registration; targeted API regressions pass.
+- [x] Await server cleanup before local logout and surface failures for retry; mocked provider checks, mobile TypeScript and focused lint pass.
+- [ ] Verify physical-device logout, offline/retry and notification suppression with the deployed API. Already submitted push notifications cannot be recalled.
 
 ## 1. Dashboard layout
 
@@ -1515,6 +1533,8 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-13 | 2.241 | Open Runs Schedule View run in a responsive drawer using the authenticated embedded run-detail page; isolate its nested overlay controls in their document and refresh the board on close. TypeScript/lint pass; live interaction verification pending. Mobile dashboard/Figma behaviour unchanged. |
+| 2026-10-13 | 2.240 | Soft-delete user device registrations and clear push tokens transactionally on logout; serialize with registration and reject revoked/expired tokens. Expo waits for server success and retains failures for retry. Targeted verification in release notes; physical/deployed checks pending. |
 | 2026-10-13 | 2.239 | Use existing shadcn DriverAvatar in Schedule driver rows; add nullable profile_photo_url from shared storage URL helper. Preserve assignment/details/drag behavior. Targeted verification in release notes; live visual review pending. |
 | 2026-10-13 | 2.238 | Filter Schedule run cards and active/overdue totals by created_at in inclusive merchant-local date bounds; remove out-of-range ongoing/overdue exceptions. Preserve actual resource occupancy/readiness. Targeted verification in release notes; live integration pending. |
 | 2026-10-13 | 2.237 | Open saved-location, shipment and driver details in scoped right-side drawers from Schedule run cards/resource rows. Keep driver assignment on a separate Choose run button and preserve locks/drag actions. Reuse existing detail views; targeted verification in release notes, authenticated interaction pending. |

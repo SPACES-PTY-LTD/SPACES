@@ -31,6 +31,7 @@ use App\Services\ShipmentVisitIntervalService;
 use App\Services\VehiclesDailyKpiReportService;
 use App\Services\VehicleService;
 use App\Support\ApiResponse;
+use App\Support\ProfilePhotoUrl;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Database\Eloquent\Builder;
@@ -393,6 +394,7 @@ class ReportController extends Controller
                     'run_odometer_end_km' => $run?->odometer_end_km,
                     'run_odometer_distance_km' => $runOdometerDistance,
                     'driver' => $run?->driver?->user?->name,
+                    'driver_profile_photo_url' => ProfilePhotoUrl::forPath($run?->driver?->user?->profile_photo_path),
                     'driver_id' => $run?->driver?->uuid,
                     'shipment_type' => $shipment->service_type,
                     'from_location' => $shipment->pickupLocation

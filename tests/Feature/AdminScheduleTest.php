@@ -67,11 +67,17 @@ class AdminScheduleTest extends TestCase
     {
         $c = $this->context();
         $c['user']->update(['profile_photo_path' => 'profile-photos/schedule-driver.jpg']);
+        $run = $this->create($c, $this->payload($c, now()->addHour()->toIso8601String()));
         $this->getJson('/api/v1/schedule?merchant_id='.$c['merchant']->uuid, $c['headers'])
-            ->assertOk()->assertJsonPath('data.drivers.0.profile_photo_url', \App\Support\ProfilePhotoUrl::forPath('profile-photos/schedule-driver.jpg'));
+            ->assertOk()->assertJsonPath('data.drivers.0.profile_photo_url', \App\Support\ProfilePhotoUrl::forPath('profile-photos/schedule-driver.jpg'))
+            ->assertJsonPath('data.trucks.0.runs.0.driver.profile_photo_url', \App\Support\ProfilePhotoUrl::forPath('profile-photos/schedule-driver.jpg'));
         $c['user']->update(['profile_photo_path' => null]);
         $this->getJson('/api/v1/schedule?merchant_id='.$c['merchant']->uuid, $c['headers'])
-            ->assertOk()->assertJsonPath('data.drivers.0.profile_photo_url', null);
+            ->assertOk()->assertJsonPath('data.drivers.0.profile_photo_url', null)
+            ->assertJsonPath('data.trucks.0.runs.0.driver.profile_photo_url', null);
+        $run->update(['driver_id' => null]);
+        $this->getJson('/api/v1/schedule?merchant_id='.$c['merchant']->uuid, $c['headers'])
+            ->assertOk()->assertJsonPath('data.trucks.0.runs.0.driver', null);
     }
 
     public function test_future_plans_are_not_current_or_startable_and_do_not_assign_permanent_vehicle(): void

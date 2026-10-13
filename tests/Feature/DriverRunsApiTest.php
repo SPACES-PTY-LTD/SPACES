@@ -85,6 +85,34 @@ class DriverRunsApiTest extends TestCase
             ->assertJsonCount(0, 'data.shipments')->assertJsonCount(0, 'data.recorded_stops');
     }
 
+    public function test_search_sort_and_merchant_calendar_day_apply_before_pagination(): void
+    {
+        [$user, $driver, $merchant] = $this->context();
+        $merchant->update(['timezone' => 'Africa/Johannesburg']);
+        $origin = Location::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'name' => 'Polokwane Depot', 'address_line_1' => '1 Test Road', 'city' => 'Polokwane', 'province' => 'Limpopo', 'post_code' => '0700']);
+        $vehicle = Vehicle::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'plate_number' => '731HJSGP']);
+        $old = $this->makeRun($driver, 'completed', ['completed_at' => '2026-10-03 21:59:59', 'origin_location_id' => $origin->id, 'vehicle_id' => $vehicle->id]);
+        $first = $this->makeRun($driver, 'completed', ['completed_at' => '2026-10-03 22:00:00', 'origin_location_id' => $origin->id, 'vehicle_id' => $vehicle->id]);
+        $last = $this->makeRun($driver, 'completed', ['completed_at' => '2026-10-04 21:59:59', 'origin_location_id' => $origin->id, 'vehicle_id' => $vehicle->id]);
+        $this->makeRun($driver, 'completed', ['completed_at' => '2026-10-04 22:00:00']);
+        $headers = $this->headers($user);
+        $this->getJson('/api/v1/driver/runs?status=completed&search=polokwane&date=2026-10-04&sort=oldest&per_page=1', $headers)
+            ->assertOk()->assertJsonPath('meta.total', 2)->assertJsonPath('data.0.run_id', $first->uuid);
+        $this->getJson('/api/v1/driver/runs?status=completed&search=731H&date=2026-10-04&sort=newest', $headers)
+            ->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.run_id', $last->uuid);
+        $this->getJson('/api/v1/driver/runs?status=completed&search=Run%20'.$old->id, $headers)
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.run_id', $old->uuid);
+        $this->getJson('/api/v1/driver/runs?date=bad&sort=bad', $headers)->assertUnprocessable();
+        $active = $this->makeRun($driver, 'in_progress', ['started_at' => '2026-10-03 22:00:00', 'planned_start_at' => '2026-10-01 12:00:00']);
+        $this->makeRun($driver, 'draft');
+        $this->getJson('/api/v1/driver/runs?date=2026-10-04&sort=newest', $headers)
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.run_id', $active->uuid);
+        [$otherUser, $otherDriver] = $this->context();
+        $this->makeRun($otherDriver, 'completed', ['completed_at' => '2026-10-04 12:00:00']);
+        $this->getJson('/api/v1/driver/runs?status=completed&search=polokwane', $this->headers($otherUser))
+            ->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_list_and_detail_isolate_driver_account_and_merchant(): void
     {
         [$user, $driver, $merchant] = $this->context();

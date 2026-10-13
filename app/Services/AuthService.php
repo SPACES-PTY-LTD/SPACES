@@ -134,9 +134,14 @@ class AuthService
 
     public function logout(User $user, string $tokenId): void
     {
-        \App\Models\UserDevice::where('user_id', $user->id)->update(['push_token' => null]);
-        $user->tokens()->where('id', $tokenId)->delete();
-        $user->refreshTokens()->whereNull('revoked_at')->update(['revoked_at' => now()]);
+        DB::transaction(function () use ($user, $tokenId) {
+            User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $devices = \App\Models\UserDevice::where('user_id', $user->id);
+            (clone $devices)->update(['push_token' => null]);
+            $devices->delete();
+            $user->tokens()->where('id', $tokenId)->delete();
+            $user->refreshTokens()->whereNull('revoked_at')->update(['revoked_at' => now()]);
+        });
     }
 
     public function refresh(string $refreshToken): ?array

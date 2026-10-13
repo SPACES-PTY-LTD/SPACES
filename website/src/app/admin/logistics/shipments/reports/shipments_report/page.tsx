@@ -422,7 +422,7 @@ export default async function ShipmentsReportPage({ searchParams }: ShipmentsRep
           { key: "delivery_note_number", label: "Delivery Note", type: "delivery_note_number" },
           { key: "invoice_number", label: "Invoice Number", type: "invoice_number" },
           { key: "truck_plate_number", label: "Truck Plate Number", link: "vehicle_href", className: "w-[250px]" },
-          { key: "driver", label: "Driver", link: "driver_href", className: "w-[250px]" },
+          { key: "driver", label: "Driver", type: "driver", avatarKey: "driver_profile_photo_url", link: "driver_href", className: "w-[250px]" },
           { key: "shipment_type", label: "Shipment Type", link: "shipment_href" },
           { key: "from_location_display", label: "From Location", link: "from_location_href", className: "w-[350px]" },
           { key: "to_location_display", label: "To Location", link: "to_location_href", className: " w-[350px]" },

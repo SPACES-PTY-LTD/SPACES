@@ -1,5 +1,59 @@
 # Release Notes
 
+## 2026-10-13 | Version: schedule-shadcn-date-range-v1
+
+- **Summary:** Use the shared shadcn date range picker on Runs Schedule.
+- **API Changes:** None; retain inclusive `from`/`to` calendar-date filters.
+- **Database Changes:** None.
+- **Behavior Changes:** Replace native date inputs and the range toggle with a calendar-icon range trigger and two-month Popover/Calendar selection with Apply. Preserve Today, previous/next day, merchant-timezone filtering and filter pagination resets. Schedule requires dates, so omit Clear there; other consumers retain Clear. Add disabled/accessibility support and bound the shared popover to the viewport with vertical scrolling. Update the loading placeholder width. Existing canonical schedule plan and Figma lifecycle/layout intent are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused picker/schedule ESLint and git diff checks pass. Schedule tests pass 18/19 under `TZ=America/Los_Angeles`, including new inclusive-range, one-day, navigation and merchant-Today coverage. The existing active-run Options test still expects a View run link despite the pending drawer implementation. Live desktop/mobile picker and keyboard interaction remain unverified.
+
+## 2026-10-13 | Version: schedule-run-card-driver-avatars-v1
+
+- **Summary:** Show driver avatars beside names on Runs Schedule run cards.
+- **API Changes:** Schedule run driver summaries add nullable `profile_photo_url` using the existing private-storage URL helper.
+- **Database Changes:** None.
+- **Behavior Changes:** Assigned run cards show the shared small shadcn avatar with photo/initials fallback inside the existing driver-details button. Preserve name wrapping, driver-drawer access and shipment counts; unassigned runs remain text-only.
+- **Breaking Changes:** None. Older API responses show initials until the additive photo field is deployed.
+- **Verification:** All 20 AdminSchedule API tests pass (179 assertions), including run-card/list photo parity, missing photos and unassigned runs. Website TypeScript, focused ESLint and git diff checks pass. Live browser visual verification remains pending.
+
+## 2026-10-13 | Version: schedule-view-run-drawer-v1
+
+- **Summary:** Open Runs Schedule View run in a drawer.
+- **API Changes:** None; reuse the existing authenticated embedded run-detail page and scoped APIs.
+- **Database Changes:** None.
+- **Behavior Changes:** Options → View run preserves the board and opens a responsive right-side drawer, bounded to 1200px on desktop and full-screen on mobile. Embedded run details retain menus, nested action dialogs, location comboboxes, map dropdowns, cost selects and nested drawers in their own document so portals/focus do not compete with the outer drawer. Closing refreshes the schedule. Existing full-page run details remain available. Canonical plan updated; mobile dashboard/Figma behaviour is unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused Schedule ESLint and git diff checks pass. A temporary localhost fixture renders the outer drawer and embedded run-action controls successfully; browser automation timed out twice, so nested dropdown clicks/keyboard, mobile scrolling and authenticated mutation/close-refresh verification remain pending. Temporary fixture removed.
+
+## 2026-10-13 | Version: admin-runs-schedule-label-v1
+
+- **Summary:** Rename the admin Schedule menu item and page heading to Runs Schedule.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show Runs Schedule in navigation, the schedule board heading, loading skeleton and missing-merchant page heading. Keep the existing route and scheduling behaviour.
+- **Breaking Changes:** None.
+- **Verification:** Focused navigation/schedule ESLint and git diff checks pass. Live browser visual verification remains pending.
+
+## 2026-10-13 | Version: driver-logout-device-cleanup-v1
+
+- **Summary:** Remove notification device registrations when a driver logs out.
+- **API Changes:** Logout now clears push tokens and soft-deletes active user devices transactionally alongside existing auth revocation. Registration rechecks access-token validity under the shared user lock to prevent stale requests from recreating logged-out registrations. Existing all-device cleanup scope is retained for the logging-out user.
+- **Database Changes:** None; reuse user_devices soft deletion so presence/offer history is preserved.
+- **Behavior Changes:** Expo waits for successful server cleanup before clearing session/storage. Failed/offline logout displays existing error feedback and keeps the session for retry. Other users are unaffected; subsequent login can register a fresh device. Canonical plan 2.240 and Figma lifecycle handoff aligned.
+- **Breaking Changes:** Logout requires a successful server response; offline logout no longer silently completes locally.
+- **Verification:** 22 Auth/Conversation API tests pass (379 assertions), including soft-deleted registrations, cleared push tokens, other-user isolation, revoked registration rejection and fresh-login registration. Two mocked auth-provider logout tests, mobile TypeScript and focused auth-provider ESLint pass. Existing device-registration tests pass except the unrelated API logging expectation (expected warning count 1, actual 0). Git diff checks pass. Deployed/physical-device push suppression and offline/retry checks remain pending; already submitted pushes cannot be recalled.
+
+## 2026-10-13 | Version: shipment-report-driver-avatars-v1
+
+- **Summary:** Show shadcn driver avatars beside driver names in the Shipments Report.
+- **API Changes:** Shipments full report rows add nullable driver_profile_photo_url from the selected run driver, using the shared profile-photo URL helper.
+- **Database Changes:** None; reuse user profile photos.
+- **Behavior Changes:** Use the existing driver table renderer with saved photos and initials fallback, retaining driver links, sorting and text exports. The Runs table already uses the same shadcn DriverAvatar and its existing driver.profile_photo_url; verified that wiring without changing it. Unassigned rows remain text.
+- **Breaking Changes:** None. Deploy the additive report API field to display saved photos; older responses show initials.
+- **Verification:** 36 ShipmentsFullReport/RunApi tests pass (983 assertions), including report driver identity/photo consistency, missing-photo and unassigned null values and bounded detail query counts. Website TypeScript, focused report/Runs page/API ESLint and git diff checks pass. Authenticated browser visual verification remains pending.
+
 ## 2026-10-13 | Version: admin-schedule-driver-avatars-v1
 
 - **Summary:** Use shadcn avatars in the Schedule Drivers list.

@@ -16,7 +16,7 @@ export type ScheduleRun = {
   planned_start_at: string | null; started_at: string | null; overdue: boolean; waiting_reason: string | null
   can_assign_driver: boolean; can_add_shipment: boolean
   origin: ScheduleLocation | null; destination: ScheduleLocation | null
-  driver: Pick<ScheduleDriver, "driver_id" | "name"> | null; shipments: ScheduleShipment[]
+  driver: Pick<ScheduleDriver, "driver_id" | "name" | "profile_photo_url"> | null; shipments: ScheduleShipment[]
 }
 export type ScheduleTruck = {
   vehicle_id: string; plate_number: string; ref_code?: string | null

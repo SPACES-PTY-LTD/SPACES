@@ -55,7 +55,7 @@ export const adminNavGroups: NavGroup[] = [
         href: AdminLinks.dashboard,
         icon: Home,
       },
-      { title: "Schedule", href: AdminLinks.schedule, icon: CalendarDays },
+      { title: "Runs Schedule", href: AdminLinks.schedule, icon: CalendarDays },
       {
         title: "Shipments",
         href: AdminLinks.reportsShipments,

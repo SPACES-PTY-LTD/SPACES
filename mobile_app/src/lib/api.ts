@@ -614,8 +614,8 @@ export const driverApi = {
   locationSharing: (token: string) => request<PhoneLocationSettings>('/driver/location-sharing', { token }),
   setLocationSharing: (token: string, enabled: boolean) => request<PhoneLocationSettings>('/driver/location-sharing', { token, method: 'PATCH', body: { enabled } }),
   reportPhoneLocation: (token: string, body: { latitude: number; longitude: number; accuracy: number | null; observed_at: string }) => request<PhoneLocationSettings>('/driver/phone-location', { token, method: 'POST', body }),
-  listRuns: (token: string, status: 'active' | 'completed', page = 1) =>
-    requestWithMeta<DriverRunSummary[]>(`/driver/runs?status=${status}&page=${page}`, { token }),
+  listRuns: (token: string, status: 'active' | 'completed', page = 1, filters: { search?: string; sort?: 'default' | 'newest' | 'oldest'; date?: string } = {}) =>
+    requestWithMeta<DriverRunSummary[]>(`/driver/runs?${new URLSearchParams({ status, page: String(page), ...filters }).toString()}`, { token }),
   async getRun(token: string, runId: string): Promise<DriverRunDetail> {
     const result = await request<DriverRunDetail>(`/driver/runs/${encodeURIComponent(runId)}`, { token });
     return { ...result, shipments: result.shipments.map(normalizeShipment) };

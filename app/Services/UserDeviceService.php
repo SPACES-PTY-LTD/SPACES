@@ -12,6 +12,11 @@ class UserDeviceService
         return \Illuminate\Support\Facades\DB::transaction(function () use ($user, $data) {
             // Serialize registrations and clear previous ownership before assigning a token.
             User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $accessToken = $user->currentAccessToken();
+            // Recheck after taking the logout lock: an authenticated request may have waited behind logout.
+            if ($accessToken instanceof \Laravel\Sanctum\PersonalAccessToken) {
+                abort_unless($user->tokens()->whereKey($accessToken->id)->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))->exists(), 401);
+            }
             if (!empty($data['push_token'])) {
                 UserDevice::withTrashed()->where('push_token', $data['push_token'])->where(fn ($q) => $q->where('user_id', '!=', $user->id)->orWhereNotNull('deleted_at'))->update(['push_token' => null]);
             }

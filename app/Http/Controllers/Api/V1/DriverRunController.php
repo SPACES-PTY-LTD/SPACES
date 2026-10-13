@@ -44,13 +44,50 @@ class DriverRunController extends Controller
 
     public function index(Request $request, DriverRunDataService $dataService)
     {
-        $data = $request->validate(['status' => ['sometimes', 'in:active,completed'], 'page' => ['sometimes', 'integer', 'min:1'], 'per_page' => ['sometimes', 'integer', 'min:1', 'max:100']]);
+        $data = $request->validate([
+            'status' => ['sometimes', 'in:active,completed'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'search' => ['nullable', 'string', 'max:200'],
+            'sort' => ['nullable', 'in:default,newest,oldest'],
+            'date' => ['nullable', 'date_format:Y-m-d'],
+        ]);
         $query = $this->query($request);
-        if (($data['status'] ?? 'active') === 'completed') {
-            $query->where('status', Run::STATUS_COMPLETED)->orderByDesc('completed_at')->orderByDesc('id');
+        $completed = ($data['status'] ?? 'active') === 'completed';
+        $query->whereIn('status', $completed ? [Run::STATUS_COMPLETED] : [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED, Run::STATUS_IN_PROGRESS]);
+        if ($search = trim($data['search'] ?? '')) {
+            $driver = $request->user()->driver;
+            $query->where(function ($q) use ($search, $driver) {
+                $id = preg_replace('/^run\s+/i', '', $search);
+                if (ctype_digit($id)) {
+                    $q->where('id', $id);
+                }
+                foreach (['vehicle' => ['plate_number', 'ref_code'], 'originLocation' => ['name'], 'destinationLocation' => ['name']] as $relation => $fields) {
+                    $q->orWhereHas($relation, function ($related) use ($fields, $search, $driver) {
+                        $related->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)
+                            ->where(function ($match) use ($fields, $search) {
+                                foreach ($fields as $field) {
+                                    $match->orWhereLike($field, '%'.$search.'%');
+                                }
+                            });
+                    });
+                }
+            });
+        }
+        // Calendar days use the same merchant timezone as card timestamps.
+        $dateColumn = $completed ? 'completed_at' : 'COALESCE(started_at, planned_start_at)';
+        if (! empty($data['date'])) {
+            $timezone = $request->user()->driver->merchant->timezone ?: config('app.timezone');
+            $from = \Carbon\CarbonImmutable::createFromFormat('!Y-m-d', $data['date'], $timezone);
+            $query->whereRaw($dateColumn.' >= ? AND '.$dateColumn.' < ?', [$from->utc(), $from->addDay()->utc()]);
+        }
+        $sort = $data['sort'] ?? 'default';
+        if ($sort !== 'default' || $completed) {
+            $direction = $sort === 'oldest' ? 'asc' : 'desc';
+            $query->orderByRaw('CASE WHEN '.$dateColumn.' IS NULL THEN 1 ELSE 0 END')
+                ->orderByRaw($dateColumn.' '.$direction)->orderBy('id', $direction);
         } else {
-            $query->whereIn('status', [Run::STATUS_DRAFT, Run::STATUS_DISPATCHED, Run::STATUS_IN_PROGRESS])
-                ->orderByRaw("CASE status WHEN 'in_progress' THEN 0 WHEN 'dispatched' THEN 1 ELSE 2 END")
+            $query->orderByRaw("CASE status WHEN 'in_progress' THEN 0 WHEN 'dispatched' THEN 1 ELSE 2 END")
                 ->orderBy('started_at')->orderBy('planned_start_at')->orderBy('id');
         }
         $runs = $query->paginate($data['per_page'] ?? 20);

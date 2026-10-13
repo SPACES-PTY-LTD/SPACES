@@ -43,6 +43,28 @@ class ShipmentsFullReportTest extends TestCase
         }
     }
 
+    public function test_report_driver_photo_matches_selected_run_and_falls_back_to_null(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+        $location = $this->createLocation($account->id, $merchant->id, 'Depot', 'PHOTO', 'Cape Town');
+        $vehicle = $this->createVehicle($account->id, $merchant->id, 'PHOTO-TRUCK');
+        $shipment = $this->createShipment($account->id, $merchant->id, 'PHOTO-SHIP', $location, $location);
+        $shipmentId = (int) DB::table('shipments')->where('uuid', $shipment)->value('id');
+        $runId = $this->attachShipmentToRun($account->id, $merchant->id, $shipmentId, $vehicle);
+        $driverUser = User::factory()->create(['role' => 'driver', 'account_id' => $account->id, 'name' => 'Photo Driver', 'profile_photo_path' => 'profile-photos/report.jpg']);
+        $driver = \App\Models\Driver::create(['account_id' => $account->id, 'merchant_id' => $merchant->id, 'user_id' => $driverUser->id, 'is_active' => true]);
+        DB::table('runs')->where('id', $runId)->update(['driver_id' => $driver->id]);
+        $url = '/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid;
+        $this->withHeaders($this->authHeaders($user))->getJson($url)->assertOk()
+            ->assertJsonPath('data.0.driver', 'Photo Driver')
+            ->assertJsonPath('data.0.driver_id', $driver->uuid)
+            ->assertJsonPath('data.0.driver_profile_photo_url', \App\Support\ProfilePhotoUrl::forPath('profile-photos/report.jpg'));
+        $driverUser->update(['profile_photo_path' => null]);
+        $this->withHeaders($this->authHeaders($user))->getJson($url)->assertOk()->assertJsonPath('data.0.driver_profile_photo_url', null);
+        DB::table('runs')->where('id', $runId)->update(['driver_id' => null]);
+        $this->withHeaders($this->authHeaders($user))->getJson($url)->assertOk()->assertJsonPath('data.0.driver_profile_photo_url', null);
+    }
+
     public function test_report_detail_query_count_stays_bounded_as_page_size_grows(): void
     {
         [$user, $merchant, $account] = $this->createMerchantContext();

@@ -117,6 +117,7 @@ export type ShipmentFullReportRow = {
   run_odometer_end_km?: number | null
   run_odometer_distance_km?: number | null
   driver_id?: string
+  driver_profile_photo_url?: string | null
   driver?: string
   shipment_type?: string
   from_location?: Location | null
