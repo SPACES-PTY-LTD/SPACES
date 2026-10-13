@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-13 | Version: run-telemetry-window-parity-fix-v1
+
+- **Summary:** Fix missing Expo speeding events and inconsistent admin run-list totals by including unassigned vehicle telemetry within the run window.
+- **API Changes:** Response fields are unchanged. Share one scoped query across driver dashboard safety, recorded timeline, card counts, admin summary speeding counts and admin run details. Include directly linked events or unassigned events for the same vehicle/account/merchant between actual start and completion (or now). Missing start/vehicle disables window attribution. Exclude events assigned to another run and invalidated geofence activities.
+- **Database Changes:** None; no historical records are modified.
+- **Behavior Changes:** Expo receives previously omitted speeding events, maximum speed, worst exceedance and physical stops from run-window telemetry. Live UI inspection found 8 speeding events on the website versus 0 and lower maximum speed in Expo for the same shipment/vehicle context. Keep existing read-only UI, filters, zero/missing readings and authorization. Align canonical plan and Figma handoff.
+- **Breaking Changes:** None. Deploy backend changes before verifying corrected live Expo figures. Admin details no longer include telemetry explicitly assigned to another run inside an overlapping time window.
+- **Verification:** 79 driver run/dashboard/shipment and admin Run API tests pass (1190 assertions), including unassigned events, inclusive start/end bounds, foreign account/merchant/vehicle/run exclusions, completed history, missing start and driver/admin parity. Existing mobile timeline-filter test, PHP syntax and git diff checks pass. Production API deployment and refreshed native data parity remain pending; no deployed fix is claimed.
+
 ## 2026-10-13 | Version: admin-runs-frozen-attention-speeding-fix-v1
 
 - **Summary:** Freeze the admin Runs Attention column and make speeding indicators compatible with older API responses.

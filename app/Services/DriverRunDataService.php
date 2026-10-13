@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Driver;
 use App\Models\Run;
 use App\Models\RunShipment;
-use App\Models\VehicleActivity;
+use App\Support\RunActivityQuery;
 use Illuminate\Database\Eloquent\Collection as ModelCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -19,14 +19,13 @@ class DriverRunDataService
             return;
         }
 
-        $arrival = 'COALESCE(entered_at, occurred_at)';
-        $unlocated = "CASE WHEN location_id IS NULL OR {$arrival} IS NULL THEN uuid ELSE NULL END";
-        $visits = VehicleActivity::query()
-            ->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)
-            ->whereIn('run_id', $runs->modelKeys())
+        $arrival = 'COALESCE(vehicle_activity.entered_at, vehicle_activity.occurred_at)';
+        $unlocated = "CASE WHEN vehicle_activity.location_id IS NULL OR {$arrival} IS NULL THEN vehicle_activity.uuid ELSE NULL END";
+        $visits = RunActivityQuery::forRuns($runs->modelKeys())
+            ->where('vehicle_activity.account_id', $driver->account_id)->where('vehicle_activity.merchant_id', $driver->merchant_id)
             ->whereIn('event_type', ['stopped', 'entered_location', 'shipment_collection', 'shipment_delivery'])
-            ->select('run_id', 'location_id')->selectRaw("{$arrival} as arrival, {$unlocated} as unique_activity")
-            ->groupBy('run_id', 'location_id')->groupByRaw("{$arrival}, {$unlocated}");
+            ->selectRaw('runs.id as run_id, vehicle_activity.location_id')->selectRaw("{$arrival} as arrival, {$unlocated} as unique_activity")
+            ->groupBy('runs.id', 'vehicle_activity.location_id')->groupByRaw("{$arrival}, {$unlocated}");
         $counts = DB::query()->fromSub($visits, 'recorded_visits')
             ->select('run_id')->selectRaw('COUNT(*) as stop_count')->groupBy('run_id')->pluck('stop_count', 'run_id');
 
@@ -63,11 +62,11 @@ class DriverRunDataService
             return null;
         }
 
-        $activities = $run->vehicleActivities()
-            ->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id);
+        $activities = RunActivityQuery::forRuns([$run->id])
+            ->where('vehicle_activity.account_id', $driver->account_id)->where('vehicle_activity.merchant_id', $driver->merchant_id);
         $maximumSpeed = (clone $activities)->max('speed_kph');
         $events = (clone $activities)->where('event_type', 'speeding')
-            ->orderBy('occurred_at')->orderBy('id')->get();
+            ->select('vehicle_activity.*')->orderBy('vehicle_activity.occurred_at')->orderBy('vehicle_activity.id')->get();
         $exceedance = $events->filter(fn ($event) => $event->speed_kph !== null && $event->speed_limit_kph !== null)
             ->map(fn ($event) => max(0, (float) $event->speed_kph - (float) $event->speed_limit_kph))->max();
 
@@ -97,8 +96,9 @@ class DriverRunDataService
 
     public function timeline(?Run $run, Driver $driver, Collection $runShipments): array
     {
-        $activities = $run ? $run->vehicleActivities()
-            ->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)
+        $activities = $run ? RunActivityQuery::forRuns([$run->id])
+            ->select('vehicle_activity.*')
+            ->where('vehicle_activity.account_id', $driver->account_id)->where('vehicle_activity.merchant_id', $driver->merchant_id)
             ->whereIn('event_type', ['stopped', 'entered_location', 'shipment_collection', 'shipment_delivery', 'speeding'])
             ->with(['location' => fn ($query) => $query->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)])
             ->get() : collect();

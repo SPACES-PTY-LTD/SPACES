@@ -337,6 +337,53 @@ class DriverRunsApiTest extends TestCase
         $this->getJson($url, $headers)->assertOk()->assertJsonPath('data.recorded_end', null);
     }
 
+    public function test_unassigned_vehicle_telemetry_matches_run_window_across_driver_and_admin_reads(): void
+    {
+        $this->freezeTime();
+        [$user, $driver] = $this->context();
+        [, , $foreign] = $this->context();
+        $vehicle = Vehicle::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'plate_number' => 'WINDOW001', 'is_active' => true]);
+        $otherVehicle = Vehicle::create(['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'plate_number' => 'WINDOW002', 'is_active' => true]);
+        $start = now()->subHour();
+        $run = $this->makeRun($driver, 'in_progress', ['vehicle_id' => $vehicle->id, 'started_at' => $start]);
+        $otherRun = $this->makeRun($driver, 'completed', ['vehicle_id' => $vehicle->id, 'started_at' => $start->copy()->subHours(2), 'completed_at' => $start->copy()->subHour()]);
+        $base = ['account_id' => $driver->account_id, 'merchant_id' => $driver->merchant_id, 'vehicle_id' => $vehicle->id, 'run_id' => null, 'event_type' => 'speeding'];
+        $first = VehicleActivity::create($base + ['occurred_at' => $start, 'speed_kph' => 100, 'speed_limit_kph' => 80]);
+        $last = VehicleActivity::create($base + ['occurred_at' => now(), 'speed_kph' => 120, 'speed_limit_kph' => 80]);
+        VehicleActivity::create(array_merge($base, ['event_type' => 'stopped', 'occurred_at' => now()->subMinutes(30)]));
+        foreach ([
+            ['occurred_at' => $start->copy()->subSecond()],
+            ['occurred_at' => now()->addSecond()],
+            ['vehicle_id' => $otherVehicle->id],
+            ['run_id' => $otherRun->id],
+            ['account_id' => $foreign->account_id],
+            ['merchant_id' => $foreign->id],
+        ] as $override) {
+            VehicleActivity::create(array_merge($base, ['occurred_at' => now()->subMinute(), 'speed_kph' => 200], $override));
+        }
+        $headers = $this->headers($user);
+        $dashboard = $this->getJson('/api/v1/driver/dashboard', $headers)->assertOk()
+            ->assertJsonPath('data.safety.speeding_event_count', 2)
+            ->assertJsonPath('data.safety.maximum_speed_kph', 120)
+            ->assertJsonPath('data.safety.worst_speed_exceedance_kph', 40)
+            ->assertJsonCount(2, 'data.safety.speeding_events')
+            ->assertJsonPath('data.safety.speeding_events.0.activity_id', $first->uuid)
+            ->assertJsonPath('data.safety.speeding_events.1.activity_id', $last->uuid);
+        $detail = $this->getJson("/api/v1/driver/runs/{$run->uuid}", $headers)->assertOk()
+            ->assertJsonPath('data.speeding_event_count', 2)->assertJsonPath('data.stop_count', 1);
+        $this->assertSame($dashboard->json('data.recorded_stops'), $detail->json('data.recorded_stops'));
+        $this->getJson('/api/v1/driver/runs', $headers)->assertOk()->assertJsonPath('data.0.speeding_event_count', 2);
+        $admin = User::factory()->create(['role' => 'super_admin', 'account_id' => $driver->account_id]);
+        $adminHeaders = $this->headers($admin);
+        $this->getJson('/api/v1/runs?summary=true&sort_by=system_run_id&sort_dir=asc', $adminHeaders)->assertOk()
+            ->assertJsonPath('data.0.speeding_alert_count', 2);
+        $this->getJson("/api/v1/runs/{$run->uuid}", $adminHeaders)->assertOk()->assertJsonPath('data.safety.speeding_event_count', 2);
+        $run->update(['status' => 'completed', 'completed_at' => now()]);
+        $this->getJson("/api/v1/driver/runs/{$run->uuid}", $headers)->assertOk()->assertJsonPath('data.speeding_event_count', 2);
+        $run->update(['started_at' => null]);
+        $this->getJson("/api/v1/driver/runs/{$run->uuid}", $headers)->assertOk()->assertJsonPath('data.speeding_event_count', 0);
+    }
+
     public function test_history_does_not_change_current_run_selection(): void
     {
         [$user, $driver] = $this->context();

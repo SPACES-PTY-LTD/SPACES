@@ -13,6 +13,7 @@ use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleActivity;
+use App\Support\RunActivityQuery;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -54,8 +55,8 @@ class RunService
             ]);
 
         if (filter_var($filters['summary'] ?? false, FILTER_VALIDATE_BOOL)) {
-            $query->withCount(['vehicleActivities as speeding_alert_count' => fn ($activities) => $activities
-                ->where('event_type', VehicleActivity::EVENT_SPEEDING)])->withoutEagerLoads()->with([
+            $query->addSelect(['speeding_alert_count' => RunActivityQuery::forRunRow()
+                ->selectRaw('COUNT(*)')->where('event_type', VehicleActivity::EVENT_SPEEDING)])->withoutEagerLoads()->with([
                 'merchant',
                 'driver.user',
                 'vehicle',
@@ -660,22 +661,7 @@ class RunService
             'deliveryNoteImports.shipments',
         ]);
 
-        $activities = VehicleActivity::query()
-            ->where('merchant_id', $run->merchant_id)
-            ->where(function (Builder $builder) use ($run) {
-                $builder->where('run_id', $run->id);
-
-                if ($run->vehicle_id && $run->started_at) {
-                    $builder->orWhere(function (Builder $windowBuilder) use ($run) {
-                        $windowBuilder
-                            ->where('vehicle_id', $run->vehicle_id)
-                            ->whereBetween('occurred_at', [
-                                $run->started_at,
-                                $run->completed_at ?? now(),
-                            ]);
-                    });
-                }
-            })
+        $activities = RunActivityQuery::forRuns([$run->id])->select('vehicle_activity.*')
             ->with([
                 'merchant',
                 'vehicle.lastDriver.user',
@@ -685,8 +671,8 @@ class RunService
                 'shipment.pickupLocation',
                 'shipment.dropoffLocation',
             ])
-            ->orderBy('occurred_at')
-            ->orderBy('id')
+            ->orderBy('vehicle_activity.occurred_at')
+            ->orderBy('vehicle_activity.id')
             ->get();
 
         $run->setRelation('vehicleActivities', $activities);

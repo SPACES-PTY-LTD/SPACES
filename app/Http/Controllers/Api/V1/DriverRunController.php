@@ -9,6 +9,7 @@ use App\Models\Run;
 use App\Models\RunShipment;
 use App\Services\DriverRunDataService;
 use App\Support\ApiResponse;
+use App\Support\RunActivityQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -33,10 +34,8 @@ class DriverRunController extends Controller
             ->with(['merchant', 'driver.user', 'vehicle' => $location, 'originLocation' => $location, 'destinationLocation' => $location, 'latestEndRequest',
                 'recordedEndStop' => $location, 'recordedEndStop.location' => $location,
             ])
+            ->addSelect(['speeding_event_count' => RunActivityQuery::forRunRow()->selectRaw('COUNT(*)')->where('event_type', 'speeding')])
             ->withCount([
-                'vehicleActivities as speeding_event_count' => fn ($q) => $q
-                    ->where('account_id', $driver->account_id)->where('merchant_id', $driver->merchant_id)
-                    ->where('event_type', 'speeding'),
                 'runShipments as shipment_count' => $assignments,
                 'runShipments as delivered_count' => $countStatus(['delivered']),
                 'runShipments as resolved_count' => $countStatus(['delivered', 'failed', 'cancelled', 'returned']),
