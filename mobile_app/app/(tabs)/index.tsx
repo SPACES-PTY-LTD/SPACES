@@ -179,7 +179,7 @@ export default function HomeScreen() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: surface }}>
       <View style={{ flex: 1, overflow: 'hidden' }} onLayout={event => setContainerHeight(event.nativeEvent.layout.height)}>
       <Animated.View style={mapStyle}>
-        <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset + (showNext ? nextCardHeight : 0)} onOpenShipment={openShipment}
+        <RunMap runId={dashboard?.current_run?.run_id} token={session?.token} shipments={shipments} recordedStops={dashboard?.recorded_stops} onOpenStop={setSelectedStop} endpoints={dashboard?.trip_endpoints} topInset={mapTopInset + (showNext ? nextCardHeight : 0)} onOpenShipment={openShipment}
           navigationShipment={navigationShipment} onStopNavigation={() => void guidance.exit()} />
       {showNext && next && session && dashboard?.current_run && <NextDeliveryCard key={dashboard.current_run.run_id} shipment={next} runId={dashboard.current_run.run_id} token={session.token} topInset={mapTopInset} onHeightChange={setNextCardHeight} onOpenShipment={openShipment}
         onNavigate={startNavigation} />}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupRunMapStops, locationCoordinate, runMapStops } from '../src/components/dashboard/run-map-data.ts';
+import { groupRunMapEvents, groupRunMapStops, locationCoordinate, runMapStops } from '../src/components/dashboard/run-map-data.ts';
 
 test('accepts numeric and decimal-string coordinates, including zero', () => {
   assert.deepEqual(locationCoordinate({ latitude: '-26.14', longitude: '28.04' }), { latitude: -26.14, longitude: 28.04 });
@@ -35,4 +35,20 @@ test('co-located shipments share one marker without losing their timeline number
   assert.equal(groups.length, 2);
   assert.deepEqual(groups[0].stops.map(stop => stop.number), [1, 3]);
   assert.deepEqual(groups[1].stops.map(stop => stop.number), [2]);
+});
+
+
+test('recorded event grouping validates coordinates, excludes plans and preserves co-located history', () => {
+  const groups = groupRunMapEvents([
+    { stop_id: 'stop', kind: 'Stop', latitude: 0, longitude: 0 },
+    { stop_id: 'speed', kind: 'Speeding', latitude: '0', longitude: '0' },
+    { stop_id: 'other', kind: 'Delivery', latitude: 1, longitude: 2 },
+    { stop_id: 'plan', planned: true, latitude: 2, longitude: 2 },
+    { stop_id: 'missing', latitude: null, longitude: null },
+    { stop_id: 'invalid', latitude: 91, longitude: 0 },
+  ]);
+  assert.equal(groups.length, 2);
+  assert.equal(groups[0].speeding, true);
+  assert.deepEqual(groups[0].events.map(event => event.stop_id), ['stop', 'speed']);
+  assert.equal(groups[1].speeding, false);
 });

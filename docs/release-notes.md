@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-13 | Version: dashboard-recorded-event-map-markers-v1
+
+- **Summary:** Show round red speeding and blue recorded-stop markers on the driver dashboard map.
+- **API Changes:** None; reuse scoped dashboard `recorded_stops`.
+- **Database Changes:** None.
+- **Behavior Changes:** Draw actual speeding/stops/collection/delivery events in the overview, including the default Planned view. Use red/blue circles with white outlines and 16/20/24/28-point PNGs at native density variants; include markers in map bounds. Omit missing/invalid coordinates and planned events. Group exact co-located events, use red when speeding is present and offer every event through the existing detail sheet. Hide event pins without a run or during selected-delivery/native guidance. Preserve existing truck, route/endpoints, shipment controls and disabled Recorded rollout. Dashboard plan 2.244 and expanded Figma map aligned.
+- **Breaking Changes:** None.
+- **Verification:** All 20 focused map/data/navigation tests pass, including actual-event classification/grouping, missing coordinates, detail selection and navigation/no-run isolation. Mobile TypeScript and focused ESLint pass with existing effect/purity rules excluded; normal lint retains existing dashboard set-state-in-effect and RunMap Date.now purity errors. PNG density dimensions/transparency verified; Figma map visually reviewed. Physical-device Google/Apple map rendering, zoom/tap behaviour and dark/large-text details remain pending.
+
 ## 2026-10-13 | Version: expo-runs-reference-design-v1
 
 - **Summary:** Apply the supplied design to the Expo Runs list with rounded white cards and usable search, calendar and sorting controls.

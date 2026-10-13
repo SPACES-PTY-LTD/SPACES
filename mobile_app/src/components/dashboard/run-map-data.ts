@@ -48,3 +48,18 @@ export function stopCoordinate(stop: RunStop | null, shipments: DriverShipment[]
   const first = coordinates[0];
   return coordinates.every(coordinate => coordinate.latitude === first.latitude && coordinate.longitude === first.longitude) ? first : null;
 }
+
+/** Actual run activity only; group exact coordinates without losing repeated visits. */
+export function groupRunMapEvents(events: RunStop[]) {
+  const groups = new Map<string, { coordinate: { latitude: number; longitude: number }; events: RunStop[]; speeding: boolean }>();
+  for (const event of events) {
+    const coordinate = locationCoordinate(event);
+    if (event.planned || !coordinate) continue;
+    const key = `${coordinate.latitude},${coordinate.longitude}`;
+    const group = groups.get(key) ?? { coordinate, events: [], speeding: false };
+    group.events.push(event);
+    group.speeding ||= event.kind === 'Speeding';
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}

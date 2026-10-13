@@ -13,7 +13,8 @@ import { truckPositionDescription } from './truck-position-label';
 import { useGuidance } from '@/src/navigation/GuidanceProvider';
 import { GuidanceMap } from '@/src/navigation/GuidanceMap';
 import { currentNavigationLocation } from './navigation-location';
-import { groupRunMapStops, locationCoordinate, runMapStops } from './run-map-data';
+import type { RunStop } from './RunTimeline';
+import { groupRunMapEvents, groupRunMapStops, locationCoordinate, runMapStops } from './run-map-data';
 
 // Temporarily hide mode selection; keep Recorded available for re-enabling later.
 const SHOW_MAP_MODE_SWITCH = false;
@@ -29,6 +30,20 @@ const runStopMarkers = {
   40: require('../../../assets/images/maps/run-stop-24.png'),
   48: require('../../../assets/images/maps/run-stop.png'),
 };
+const eventMarkerImages = {
+  stop: {
+    24: require('../../../assets/images/maps/event-stop-16.png'),
+    32: require('../../../assets/images/maps/event-stop-20.png'),
+    40: require('../../../assets/images/maps/event-stop-24.png'),
+    48: require('../../../assets/images/maps/event-stop-28.png'),
+  },
+  speeding: {
+    24: require('../../../assets/images/maps/event-speeding-16.png'),
+    32: require('../../../assets/images/maps/event-speeding-20.png'),
+    40: require('../../../assets/images/maps/event-speeding-24.png'),
+    48: require('../../../assets/images/maps/event-speeding-28.png'),
+  },
+};
 const truckMarkerImages = {
   24: require('../../../assets/images/maps/truck-location-24.png'),
   32: require('../../../assets/images/maps/truck-location-32.png'),
@@ -38,6 +53,8 @@ const truckMarkerImages = {
 
 export type RunMapProps = {
   shipments: DriverShipment[];
+  recordedStops?: RunStop[];
+  onOpenStop?: (stop: RunStop) => void;
   endpoints?: { role: string; name: string; latitude: number | null; longitude: number | null; address?: string }[];
   runId?: string;
   token?: string;
@@ -48,7 +65,7 @@ export type RunMapProps = {
 };
 
 /** Road geometry is fetched separately so routing never blocks the dashboard. */
-export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShipment, navigationShipment, onStopNavigation }: RunMapProps) {
+export function RunMap({ shipments, recordedStops, onOpenStop, endpoints, runId, token, topInset, onOpenShipment, navigationShipment, onStopNavigation }: RunMapProps) {
   const guidance = useGuidance();
   const guidanceHere = guidance.state.target?.owner === token && guidance.state.target?.runId === runId && guidance.state.target?.shipmentId === navigationShipment?.shipment_id;
   const guiding = guidanceHere && ['guiding', 'arrived', 'stopping'].includes(guidance.state.phase);
@@ -115,6 +132,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   }, [focused, runId, token, positionKey]);
   const stops = useMemo(() => runMapStops(shipments).filter(stop => !navigationId || stop.shipment.shipment_id === navigationId), [shipments, navigationId]);
   const groups = useMemo(() => groupRunMapStops(stops), [stops]);
+  const eventGroups = useMemo(() => runId && !navigationId ? groupRunMapEvents(recordedStops ?? []) : [], [recordedStops, runId, navigationId]);
   const popupKey = JSON.stringify([positionKey, navigationId, mode]);
   const [popup, setPopup] = useState<{ key: string; ids: string; point: { x: number; y: number } } | null>(null);
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -197,7 +215,8 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
   }, [runId, token, routeKey, stops.length, endpointPins.length, routeRetry, mode, navigationId, focused, guiding, starting]);
   const road = route?.status === 'ready' ? route.coordinates : undefined;
   const fit = useCallback(() => {
-    const coordinates = mode === 'recorded' ? [...recordedPoints, ...(mapOrigin ? [mapOrigin] : [])] : [...(road ?? []), ...stops.map(stop => stop.coordinate), ...endpointPins.map(p => p.coordinate), ...(mapOrigin ? [mapOrigin] : [])];
+    const eventCoordinates = eventGroups.map(group => group.coordinate);
+    const coordinates = mode === 'recorded' ? [...recordedPoints, ...eventCoordinates, ...(mapOrigin ? [mapOrigin] : [])] : [...(road ?? []), ...eventCoordinates, ...stops.map(stop => stop.coordinate), ...endpointPins.map(p => p.coordinate), ...(mapOrigin ? [mapOrigin] : [])];
     if (!ready || !coordinates.length) return;
     if (coordinates.length === 1) {
       ref.current?.animateToRegion({ ...coordinates[0], latitudeDelta: 0.025, longitudeDelta: 0.025 }, 250);
@@ -206,7 +225,7 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
         edgePadding: { top: topInset + (navigationId ? navigationPanelHeight + 24 : mode === 'recorded' ? 180 : 65), right: 40, bottom: 105, left: 40 }, animated: false,
       });
     }
-  }, [ready, stops, topInset, road, mapOrigin, endpointPins, mode, recordedPoints, navigationId, navigationPanelHeight]);
+  }, [ready, stops, topInset, road, mapOrigin, endpointPins, mode, recordedPoints, navigationId, navigationPanelHeight, eventGroups]);
   useEffect(fit, [fit]);
   const missing = navigationId ? (locationCoordinate(navigationShipment?.dropoff_location) ? 0 : 1) : shipments.length - stops.length;
   if (guiding) return <View style={styles.container}><GuidanceMap topInset={topInset} /></View>;
@@ -254,6 +273,24 @@ export function RunMap({ shipments, endpoints, runId, token, topInset, onOpenShi
           identifier={`stop-${numbers}`} accessibilityLabel={`Stop ${numbers}. Show shipment location`}
           onPress={event => { event.stopPropagation?.(); void showPopup(group); }} />;
       })}
+      {eventGroups.map(group => <Marker
+        key={`event-${group.coordinate.latitude},${group.coordinate.longitude}`}
+        identifier={`event-${group.events.map(event => event.stop_id).join(',')}`}
+        coordinate={group.coordinate}
+        image={eventMarkerImages[group.speeding ? 'speeding' : 'stop'][truckMarkerSize]}
+        anchor={{ x: 0.5, y: 0.5 }} zIndex={group.speeding ? 30 : 20}
+        title={group.speeding ? 'Speeding event' : group.events[0].name || 'Recorded stop'}
+        accessibilityLabel={`${group.speeding ? 'Speeding' : 'Stop'}. ${group.events.length} recorded ${group.events.length === 1 ? 'event' : 'events'}. Show details`}
+        onPress={event => {
+          event.stopPropagation?.(); dismissPopup();
+          if (!onOpenStop) return;
+          if (group.events.length === 1) return onOpenStop(group.events[0]);
+          actions.current?.present({ title: 'Events at this location', actions: group.events.map(stop => ({
+            id: stop.stop_id, label: `${stop.kind || 'Stop'} · ${stop.name}${stop.occurred_at ? ` · ${new Date(stop.occurred_at).toLocaleString()}` : ''}`,
+            onPress: () => onOpenStop(stop),
+          })) });
+        }}
+      />)}
       {mode === 'recorded' && recorded.track?.segments.map((segment, index) => segment.length > 1
         ? <Polyline key={index} coordinates={segment} strokeColor="#2563eb" strokeWidth={4} />
         : segment[0] ? <Marker key={index} coordinate={segment[0]} title="Recorded position" /> : null)}

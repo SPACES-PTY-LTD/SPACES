@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
-import { groupRunMapStops, locationCoordinate, runMapStops } from '../src/components/dashboard/run-map-data.ts';
+import { groupRunMapEvents, groupRunMapStops, locationCoordinate, runMapStops } from '../src/components/dashboard/run-map-data.ts';
 
 function harness() {
   const slots = [], effects = [], requests = [], timers = new Map(), listeners = new Set();
@@ -37,7 +37,7 @@ function harness() {
     } },
     './useRecordedRunTrack': { useRecordedRunTrack: () => ({}) }, './NativeMap': { NativeMap: 'NativeMap' },
     './navigation-location': locator,
-    './truck-position-label': { truckPositionDescription: () => 'Last report' }, './run-map-data': { groupRunMapStops, locationCoordinate, runMapStops },
+    './truck-position-label': { truckPositionDescription: () => 'Last report' }, './run-map-data': { groupRunMapEvents, groupRunMapStops, locationCoordinate, runMapStops },
   };
   const exports = {};
   vm.runInNewContext(ts.transpileModule(readFileSync(new URL('../src/components/dashboard/RunMap.tsx', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText, {
@@ -267,4 +267,27 @@ test('receipt Navigate closes the receipt and uses dashboard guidance or a scope
   assert.equal(calls[0], 'close');
   assert.equal(calls[1].pathname, '/(tabs)');
   assert.deepEqual(calls[1].params, { navigation_shipment_id: 'selected', navigation_request: 'request', navigation_owner: 'owner' });
+});
+
+
+test('overview shows recorded stop and speeding circles, grouped details and no navigation history pins', () => {
+  const app = harness(); app.props.navigationShipment = undefined;
+  const opened = []; app.props.onOpenStop = stop => opened.push(stop.stop_id);
+  app.props.recordedStops = [
+    { stop_id: 'stop', kind: 'Stop', name: 'Depot', latitude: -26, longitude: 28 },
+    { stop_id: 'speed', kind: 'Speeding', name: 'Speeding event', latitude: -27, longitude: 29 },
+    { stop_id: 'unknown', kind: 'Stop', latitude: null, longitude: null },
+  ];
+  app.render();
+  const pins = () => app.nodes('Marker').filter(n => n.props.identifier?.startsWith('event-'));
+  assert.equal(pins().length, 2);
+  assert.ok(pins()[0].props.image.endsWith('event-stop-16.png'));
+  assert.ok(pins()[1].props.image.endsWith('event-speeding-16.png'));
+  pins()[0].props.onPress({}); assert.deepEqual(opened, ['stop']);
+  app.props.recordedStops = [...app.props.recordedStops, { stop_id: 'second', kind: 'Stop', name: 'Repeat visit', latitude: -27, longitude: 29 }];
+  app.render(); app.nodes('ActionSheet')[0].props.ref.current = { present: value => app.choices.push(value) }; pins()[1].props.onPress({});
+  assert.equal(app.choices.at(-1).actions.length, 2);
+  app.choices.at(-1).actions[1].onPress(); assert.deepEqual(opened, ['stop', 'second']);
+  app.props.navigationShipment = app.props.shipments[1]; app.render(); assert.equal(pins().length, 0);
+  app.props.navigationShipment = undefined; app.props.runId = undefined; app.render(); assert.equal(pins().length, 0);
 });

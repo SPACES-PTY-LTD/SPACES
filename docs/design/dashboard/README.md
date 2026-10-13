@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.243
+Version: 2.244
 Last updated: 2026-10-13
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented behind disabled rollout flags. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -830,6 +830,12 @@ Use Google map routing for road directions. The full planned trip is:
 - A Google routing failure must preserve the run and timeline. Show a routing retry/unavailable state rather than treating a straight line as verified road directions.
 - Do not infer that planned endpoints have been visited. Recorded visits and events remain factual history.
 
+Dashboard recorded activity markers (2.244, implemented locally): show round red markers (`#dc2626`) for recorded Speeding events and round blue markers (`#2563eb`) for recorded stops, collections and deliveries. Use a thin white outline and zoom-scaled native bitmap assets. Draw the dashboard’s scoped `recorded_stops` in the ordinary overview, including Planned mode while the Recorded toggle is hidden; no additional GPS-history fetch or rollout change. Exclude planned entries and invalid/missing coordinates. Include actual event pins in overview bounds, retaining black route/endpoints and shipment destination controls. Group exact co-located events into one pin; speeding takes red precedence, and tapping presents all events for selection into existing stop details. Single events open details directly. Hide activity pins without a current run and during selected-delivery/native guidance. Keep timeline filtering independent from the complete map history. Figma markers are illustrative, not live telemetry.
+
+- [x] Round red speeding/blue recorded-stop pins with coordinate validation, co-located-event preservation, existing detail access and overview bounds; focused map tests and mobile TypeScript verified.
+- [x] Expanded active dashboard Figma map aligned with illustrative activity markers.
+- [ ] Verify deployed/native Google and Apple map marker visibility, taps, zoom sizing and dark/large-text details on physical devices.
+
 Map diagnostics (2026-10-07): development-only `[RunMap]` logs report platform/host, native Google view registration, layout size, ready/loaded events, coordinate availability and directions status. A 15-second missing-event watchdog is a diagnostic, not an SDK error. Do not log credentials, keys, run identifiers or raw GPS data. On the local iOS 26.1 simulator with Expo Go 57.0.9, Google never reported ready/loaded despite nonzero layout, valid truck GPS and ready directions. A temporary Apple Maps comparison rendered the same data. This historical diagnostic is superseded by v1.95: iOS Expo Go now selects Apple automatically because Google is unsupported in that host. No Maps authorization error was captured. Verify Google with a rebuilt native app using the configured iOS key and `com.spaces.logistics`. Screen design and routing behavior are unchanged.
 
 Native map verification setup (2026-10-07): Expo development client and EAS development/device/simulator profiles are configured locally. The unsigned iOS simulator profile will test Google Maps with the app's own native configuration. After explicit user approval, both Maps keys and development API settings are configured on EAS and an Android development build retry is submitted (1fb1ff0a-dd1d-4929-98d8-1f1d3ae3c433). Build completion and successful native Google rendering are not yet verified. Existing map acceptance gates remain pending.
@@ -1548,6 +1554,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-13 | 2.244 | Show actual dashboard activity as round red speeding and blue stop markers in the overview; group co-located history with all event details, omit invalid/planned coordinates and retain navigation isolation. Targeted checks in release notes; Figma map aligned, native interaction pending. |
 | 2026-10-13 | 2.243 | Apply selected Runs screenshot with white outlined cards, compact route/counts and search/calendar/sort controls; additive scoped API filters across pagination. Figma lists aligned; targeted checks pass, native visual QA blocked/pending. |
 | 2026-10-13 | 2.242 | Add selected run system reference above timeline controls, below summary/closure notices. Dashboard API supplies the same Run ID reference as the Runs list; older servers omit the label. Targeted verification in release notes; expanded Figma handoff aligned and physical-device review pending. |
 | 2026-10-13 | 2.241 | Open Runs Schedule View run in a responsive drawer using the authenticated embedded run-detail page; isolate its nested overlay controls in their document and refresh the board on close. TypeScript/lint pass; live interaction verification pending. Mobile dashboard/Figma behaviour unchanged. |
