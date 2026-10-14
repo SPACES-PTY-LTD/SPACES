@@ -9,6 +9,7 @@ function harness() {
   const slots = [], effects = [], requests = [], timers = new Map(), listeners = new Set();
   let cursor = 0, tree, focused = true, stopped = 0;
   const opened = [], choices = [], starts = [];
+  const recorded = { track: null, enabled: false };
   const guidance = { state: { phase: "idle", muted: false }, available: true, start: async target => starts.push(target), exit: async () => {} };
   const same = (a, b) => a && b.length === a.length && b.every((v, i) => Object.is(v, a[i]));
   const react = {
@@ -35,7 +36,7 @@ function harness() {
       runNavigation: (token, run, shipment, origin) => new Promise((resolve, reject) => requests.push({ token, run, shipment, origin, resolve, reject })),
       runDirections: (token, run) => new Promise((resolve, reject) => requests.push({ token, run, resolve, reject })),
     } },
-    './useRecordedRunTrack': { useRecordedRunTrack: () => ({}) }, './NativeMap': { NativeMap: 'NativeMap' },
+    './useRecordedRunTrack': { useRecordedRunTrack: (_, __, enabled) => { recorded.enabled = enabled; return { track: recorded.track, retry() {}, setBefore() {} }; } }, './NativeMap': { NativeMap: 'NativeMap' },
     './navigation-location': locator,
     './truck-position-label': { truckPositionDescription: () => 'Last report' }, './run-map-data': { groupRunMapEvents, groupRunMapStops, locationCoordinate, runMapStops },
   };
@@ -49,7 +50,7 @@ function harness() {
   props.navigationShipment = props.shipments[1];
   function render() { cursor = 0; tree = exports.RunMap(props); while (effects.length) effects.shift()(); return tree; }
   function nodes(type) { const result = []; const visit = n => { if (!n || typeof n !== 'object') return; if (Array.isArray(n)) return n.forEach(visit); if (n.type === type) result.push(n); visit(n.props?.children); }; visit(tree); return result; }
-  return { props, requests, render, nodes, locator, opened, choices, guidance, starts, stopped: () => stopped, async flush() { for (let i = 0; i < 15; i++) await Promise.resolve(); render(); }, tick() { for (const t of timers.values()) if (t.ms === 60000) t.fn(); }, state(value) { native.AppState.currentState = value; for (const fn of listeners) fn(value); }, focus(value) { focused = value; render(); } };
+  return { recorded, props, requests, render, nodes, locator, opened, choices, guidance, starts, stopped: () => stopped, async flush() { for (let i = 0; i < 15; i++) await Promise.resolve(); render(); }, tick() { for (const t of timers.values()) if (t.ms === 60000) t.fn(); }, state(value) { native.AppState.currentState = value; for (const fn of listeners) fn(value); }, focus(value) { focused = value; render(); } };
 }
 const route = { status: 'ready', shipment_id: 'selected', origin_source: 'phone', origin_coordinate: { latitude: 0, longitude: 0 }, coordinates: [{ latitude: -26, longitude: 28 }, { latitude: -26.1, longitude: 28.1 }], distance_meters: 1000, duration_seconds: 120 };
 
@@ -290,4 +291,31 @@ test('overview shows recorded stop and speeding circles, grouped details and no 
   app.choices.at(-1).actions[1].onPress(); assert.deepEqual(opened, ['stop', 'second']);
   app.props.navigationShipment = app.props.shipments[1]; app.render(); assert.equal(pins().length, 0);
   app.props.navigationShipment = undefined; app.props.runId = undefined; app.render(); assert.equal(pins().length, 0);
+});
+
+
+test('Plan Route, Actual and All isolate route layers and reset selection on run changes', async () => {
+  const app = harness(); app.props.navigationShipment = undefined;
+  app.recorded.track = { status: 'ready', source: 'recorded_gps', active: false, coverage: { partial: false }, segments: [
+    [{ latitude: -26, longitude: 28 }, { latitude: -26.05, longitude: 28.05 }],
+    [{ latitude: -26.08, longitude: 28.08 }, { latitude: -26.1, longitude: 28.1 }],
+  ], stops: [] };
+  app.render(); app.requests[0].resolve({ ...route }); await app.flush();
+  const choose = name => { app.nodes('Pressable').find(n => n.props.accessibilityLabel === `Show ${name}`).props.onPress(); app.render(); };
+  assert.equal(app.recorded.enabled, false);
+  assert.deepEqual(app.nodes('Polyline').map(n => n.props.strokeColor), ['#000000']);
+  choose('Actual');
+  assert.equal(app.recorded.enabled, true);
+  assert.deepEqual(app.nodes('Polyline').map(n => n.props.strokeColor), ['#2563eb', '#2563eb']);
+  assert.equal(app.nodes('Marker').some(n => n.props.identifier?.startsWith('stop-')), false);
+  choose('All');
+  assert.deepEqual(app.nodes('Polyline').map(n => n.props.strokeColor), ['#000000', '#2563eb', '#2563eb']);
+  assert.deepEqual(Array.from(app.nodes('Polyline')[0].props.lineDashPattern), [10, 6]);
+  app.recorded.track = { ...app.recorded.track, status: 'disabled', segments: [] }; app.render();
+  assert.deepEqual(app.nodes('Polyline').map(n => n.props.strokeColor), ['#000000']);
+  choose('Plan Route'); assert.equal(app.recorded.enabled, false);
+  choose('Actual'); app.props.runId = 'another-run'; app.render(); assert.equal(app.recorded.enabled, false);
+  assert.equal(app.nodes('Pressable').find(n => n.props.accessibilityLabel === 'Show Plan Route').props.accessibilityState.selected, true);
+  app.props.navigationShipment = app.props.shipments[1]; app.render();
+  assert.equal(app.nodes('Pressable').some(n => n.props.accessibilityRole === 'tab'), false);
 });

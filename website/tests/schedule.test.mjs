@@ -141,7 +141,9 @@ test('active run Options and inline tiles cannot reassign drivers or existing sh
   const app = harness(); await app.load();
   const article = app.find(n => n.type === 'article' && n.props['aria-label'] === 'Run active');
   const nodes = app.nodes(article);
-  assert.ok(nodes.some(n => n.props?.href === 'active' && app.text(n) === 'View run'));
+  const viewRun = nodes.find(n => n.type === 'DropdownMenuItem' && app.text(n) === 'View run');
+  assert.ok(viewRun); viewRun.props.onSelect(); app.render();
+  assert.ok(app.find(n => n.type === 'Drawer' && n.props.open && app.text(n).includes('Run details')));
   assert.equal(nodes.some(n => n.type === 'DropdownMenuItem' && ['Assign driver', 'Edit plan', 'Remove driver', 'Replace driver'].includes(app.text(n))), false);
   const tile = nodes.find(n => n.props?.['data-schedule-shipment-tile']);
   assert.equal(tile.props.draggable, false);
@@ -283,4 +285,29 @@ test('schedule range picker preserves inclusive calendar dates, navigation and T
   const today = utils.dateInTimezone(new Date(), 'Africa/Johannesburg');
   assert.equal(app.requests.at(-1).args[2].from, today);
   assert.equal(app.requests.at(-1).args[2].to, today);
+});
+
+test('truck filter dialog applies all filters together, cancels edits and resets', () => {
+  const slots = []; let cursor = 0, tree;
+  const React = { useState(initial) { const i = cursor++; slots[i] ??= { value: initial }; return [slots[i].value, next => { slots[i].value = typeof next === 'function' ? next(slots[i].value) : next; }]; } };
+  const jsx = (type, props) => ({ type, props });
+  const { TruckFiltersDialog } = compile('../src/components/schedule/truck-filters-dialog.tsx', { react: React, 'react/jsx-runtime': { jsx, jsxs: jsx }, '@/lib/utils': { cn: (...values) => values.filter(Boolean).join(' ') } });
+  let applied;
+  const props = { filters: { fleet_status: 'active', availability: 'all' }, disabled: false, options: { vehicles: [{ vehicle_id: 'truck', plate_number: 'ABC123' }], tags: [{ tag_id: 'tag', name: 'Long haul' }] }, onApply: value => { applied = value; props.filters = value; } };
+  const render = () => { cursor = 0; tree = TruckFiltersDialog(props); };
+  const nodes = n => Array.isArray(n) ? n.flatMap(nodes) : !n || typeof n !== 'object' ? [] : [n, ...nodes(n.props?.children)];
+  const find = predicate => nodes(tree).find(predicate);
+  render(); tree.props.onOpenChange(true); render();
+  find(n => n.props?.id === 'truck-availability').props.onChange({ target: { value: 'available' } }); render();
+  find(n => n.type === 'CommandItem' && n.props.value === 'tag').props.onSelect(); render();
+  find(n => n.type === 'CommandItem' && n.props.value === 'truck').props.onSelect(); render();
+  assert.equal(applied, undefined);
+  find(n => n.type === 'Button' && n.props.children === 'Apply filters').props.onClick(); render();
+  assert.equal(applied.truck_id, 'truck'); assert.equal(applied.truck_tags, 'tag'); assert.equal(applied.availability, 'available'); assert.equal(tree.props.open, false);
+  tree.props.onOpenChange(true); render(); find(n => n.type === 'Button' && n.props.children === 'Reset').props.onClick(); render();
+  find(n => n.type === 'Button' && n.props.children === 'Cancel').props.onClick(); render();
+  assert.equal(applied.truck_id, 'truck');
+  tree.props.onOpenChange(true); render(); find(n => n.type === 'Button' && n.props.children === 'Reset').props.onClick(); render();
+  find(n => n.type === 'Button' && n.props.children === 'Apply filters').props.onClick(); render();
+  assert.equal(applied.fleet_status, 'all'); assert.equal(applied.availability, 'all'); assert.equal(applied.truck_id, ''); assert.equal(applied.truck_tags, '');
 });

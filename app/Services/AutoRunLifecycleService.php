@@ -722,6 +722,18 @@ class AutoRunLifecycleService
         }
     }
 
+    /** Read-only description using the exact runtime resolver, including fallback actions. */
+    public function describeLocationAutomation(Merchant $merchant, LocationType $type): array
+    {
+        $location = new Location;
+        $location->setRelation('locationType', $type);
+        $configured = collect($merchant->location_automation_settings['location_types'] ?? [])->firstWhere('location_type_id', $type->uuid);
+        return ['entry' => $this->resolveLocationAutomationActions($merchant, $location, 'entry'),
+            'exit' => $this->resolveLocationAutomationActions($merchant, $location, 'exit'),
+            'entry_source' => is_array($configured['entry'] ?? null) ? 'configured' : 'fallback',
+            'exit_source' => is_array($configured['exit'] ?? null) ? 'configured' : 'fallback'];
+    }
+
     private function resolveLocationAutomationActions(Merchant $merchant, Location $location, string $event): array
     {
         $location->loadMissing('locationType');

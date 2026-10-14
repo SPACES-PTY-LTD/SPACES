@@ -1,5 +1,60 @@
 # Release Notes
 
+## 2026-10-14 | Version: admin-run-ai-analysis-v1
+
+- **Summary:** Add automatically saved AI run-analysis reports above Shipments on admin run details and embedded drawers.
+- **API Changes:** Add GET/POST `/api/v1/runs/{run_uuid}/analysis` and GET `/api/v1/runs/{run_uuid}/analysis/{analysis_uuid}/locations/{candidate_uuid}/prefill`. Read requires scoped run-view access; generate requires run-update access; location preparation rechecks resource-create access and current saved matches. POST accepts a request UUID and returns queued state with HTTP 202. Existing run APIs remain unchanged.
+- **Database Changes:** Add `run_analyses` for scoped queued/processing/completed/failed history, requester, input snapshot/fingerprint, validated report, model/prompt version and timestamps. Applied only this migration to local MAMP MySQL; other environments need it before backend/website rollout.
+- **Behavior Changes:** Analyze using AI shows animated progress; reports save automatically and reopen with short verdict, expected/observed ending, prioritized red flags, actions and expandable evidence/limitations. Re-analyze run stays top right and retains the prior result on failure. Analyze scoped events/visits/closure, bounded available GPS, relevant location geometry/wait limits, complete merchant type catalogue and exact runtime configured/fallback automation rules. Separate current settings from historical execution, preserve dispatch-only closure, bound dwell calculations and never invent expectations or missing GPS. Important unmatched stops may prepare a merchant/environment-locked location form with name/coordinates/type; users review missing fields and explicitly press Create. AI never changes operational state or settings; AI-prefilled forms disable automatic fallback-type initialization so opening them does not write type records. Fingerprint staleness checks cache for 30 seconds. Dashboard plan 2.249 and Figma handoff aligned.
+- **Breaking Changes:** None. Deploy the report-table migration, backend and an async queue worker before the website in other environments. `OPENAI_RUN_ANALYSIS_MODEL`/`OPENAI_RUN_ANALYSIS_MAX_OUTPUT_TOKENS` configure structured output; `RUN_ANALYSIS_QUEUE_CONNECTION` defaults to the existing async connection (database fallback if sync).
+- **Verification:** 75 targeted backend/API/lifecycle/import tests pass (618 assertions), including eight new analysis cases (57 assertions). Four UI regression tests, website TypeScript, focused ESLint, PHP syntax and diff checks pass. Browser sample checks cover report layout above Shipments, expandable evidence, re-analysis progress retaining the report, and scoped location-form prefill/cancel without saving. Local table migration applied. Live provider response quality, supervised worker and authenticated deployed operations remain unverified; no real run was sent to AI and no operational location/run was created during verification.
+
+## 2026-10-14 | Version: schedule-truck-filter-dialog-v1
+
+- **Summary:** Combine truck filters in a dialog opened from the Truck runs header.
+- **API Changes:** GET /api/v1/schedule adds optional truck_id (UUID), truck_tags (comma-separated tag UUIDs, match any), and merchant/account-scoped truck_filter_options with full-fleet registrations and assigned tags. Filters combine with fleet status, availability and search, including summary counts.
+- **Database Changes:** None.
+- **Behavior Changes:** Active, Availability, searchable multi-select Tags and searchable Registration number with Apply, Cancel, Reset and active-filter count. Draft edits apply together; dismissal discards edits. Keep separate truck search. Dashboard plan 2.248 and selected Figma headers/handoff aligned.
+- **Internal Changes:** Update the stale View run navigation assertion to verify its existing drawer behavior.
+- **Breaking Changes:** None; deploy the additive API with the website for tag and registration options.
+- **Verification:** 21 schedule API tests (195 assertions), 20 schedule UI tests, website TypeScript, focused ESLint and diff checks pass. Live browser keyboard/mobile/large-fleet verification remains pending.
+
+## 2026-10-14 | Version: schedule-hover-links-v1
+
+- **Summary:** Remove persistent location-link underlines from the admin schedule.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Run and shipment location links on `/admin/logistics/schedule` underline only on hover, matching the existing driver and shipment links. Preserve location drawers and keyboard focus rings. Scope the styling through an optional location-trigger class override.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint for the schedule board and location drawer and git diff checks pass. Live browser hover verification remains pending.
+
+## 2026-10-13 | Version: mobile-route-opacity-revert-v1
+
+- **Summary:** Undo route-line transparency following reported map slowdown.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Restore fully opaque black planned and blue actual route strokes. Retain Plan Route / Actual / All, route widths/dashes and existing markers. Dashboard plan 2.247 and Figma planned-line opacity aligned.
+- **Breaking Changes:** None.
+- **Verification:** All 21 focused map tests and diff checks pass. Native performance improvement has not been measured; transparency is reverted without claiming it was the confirmed cause.
+
+## 2026-10-13 | Version: mobile-route-line-opacity-v1
+
+- **Summary:** Make planned and actual route lines partly transparent.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use 70% opacity for both black planned and blue actual route strokes, including All, so overlapping paths blend and map details remain visible. Retain widths, dash patterns and opaque markers. Dashboard plan 2.246 and Figma planned-line styling aligned.
+- **Breaking Changes:** None.
+- **Verification:** All 21 focused map tests, mobile TypeScript and diff checks pass. Native Google/Apple overlap appearance remains unverified.
+
+## 2026-10-13 | Version: mobile-plan-actual-overlay-v1
+
+- **Summary:** Add Plan Route, Actual and All views to the driver run map.
+- **API Changes:** None; Actual/All use the existing scoped recorded-track API and paging.
+- **Database Changes:** None.
+- **Behavior Changes:** Plan Route shows the black calculated road route; Actual shows recorded GPS segments in blue; All overlays dashed black planning beneath solid blue actual GPS with a colour label. Keep actual event markers and truck position; Actual hides planned endpoints/shipment destinations. Load GPS only for Actual/All, preserve gaps, history paging/refresh and explicit loading/disabled/empty/stale/error/partial states. Reset selection on run/auth changes and hide controls during delivery navigation or without a run. Backend recording/display flags remain unchanged; recorded paths require VEHICLE_HISTORY_DISPLAY_ENABLED and available history. Dashboard plan 2.245 and expanded Figma tabs aligned.
+- **Breaking Changes:** None.
+- **Verification:** All 21 focused map/navigation/data tests and mobile TypeScript pass. Focused RunMap lint passes with existing effect/purity rules excluded; diff checks pass. Tests cover exclusive layers, All overlay, missing/disabled GPS, context reset and navigation isolation. Figma tabs visually reviewed. Native Google/Apple dash rendering, overlay/large-text layout and deployed recorded-history availability remain unverified.
+
 ## 2026-10-13 | Version: dashboard-recorded-event-map-markers-v1
 
 - **Summary:** Show round red speeding and blue recorded-stop markers on the driver dashboard map.

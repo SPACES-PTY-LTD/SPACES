@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge"
 import { ShipmentLocationTimeCell } from "@/components/runs/shipment-location-time-cell"
 import { RunStopDuration } from "@/components/runs/run-stop-duration"
 import { RunActiveDurationCard } from "@/components/runs/run-active-duration-card"
+import { RunAnalysisCard } from "@/components/runs/run-analysis-card"
 import { RecordedStopDrawer } from "@/components/runs/recorded-stop-drawer"
 import type { Location, ShipmentStop } from "@/lib/types"
 
@@ -143,6 +144,8 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
           </CardContent>
         </Card>
       </div>
+
+      <RunAnalysisCard key={run.run_id + session.user.uuid} runId={run.run_id} token={session.accessToken} merchantId={run.merchant_id} environmentId={run.environment_id} />
 
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">

@@ -9,14 +9,16 @@ import { getLocation } from "@/lib/api/locations"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { formatAddress } from "@/lib/address"
 import { AdminRoute } from "@/lib/routes/admin"
+import { cn } from "@/lib/utils"
 import type { Location } from "@/lib/types"
 
-export function LocationDetailsDrawer({ locationId, label, accessToken, merchantId, children }: {
+export function LocationDetailsDrawer({ locationId, label, accessToken, merchantId, children, className }: {
   locationId: string
   label: string
   accessToken: string
   merchantId?: string | null
   children?: ReactNode
+  className?: string
 }) {
   const [open, setOpen] = useState(false)
   const [location, setLocation] = useState<Location | null>(null)
@@ -60,7 +62,7 @@ export function LocationDetailsDrawer({ locationId, label, accessToken, merchant
     setOpen(value)
   }}>
     <DrawerTrigger asChild>
-      <button type="button" className="rounded-sm text-left font-medium underline underline-offset-4 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`View location details for ${label}`}>
+      <button type="button" className={cn("rounded-sm text-left font-medium underline underline-offset-4 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)} aria-label={`View location details for ${label}`}>
         {children ?? label}
       </button>
     </DrawerTrigger>

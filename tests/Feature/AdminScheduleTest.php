@@ -63,6 +63,25 @@ class AdminScheduleTest extends TestCase
         return ['merchant_id' => $c['merchant']->uuid, 'shipment_id' => $shipment->uuid, 'expected_source_run_id' => $source?->uuid, 'target_run_id' => $target?->uuid];
     }
 
+    public function test_truck_filters_combine_and_options_remain_merchant_scoped(): void
+    {
+        $c = $this->context();
+        $other = $this->context();
+        $tag = \App\Models\Tag::create(['account_id' => $c['merchant']->account_id, 'merchant_id' => $c['merchant']->id, 'name' => 'Long haul', 'slug' => 'long-haul']);
+        $c['vehicle']->tags()->attach($tag);
+        $inactive = Vehicle::create(['account_id' => $c['merchant']->account_id, 'merchant_id' => $c['merchant']->id, 'plate_number' => 'INACTIVE', 'is_active' => false]);
+        $base = '/api/v1/schedule?merchant_id='.$c['merchant']->uuid;
+        $this->getJson($base.'&truck_tags='.$tag->uuid.'&truck_id='.$c['vehicle']->uuid.'&availability=available', $c['headers'])
+            ->assertOk()->assertJsonCount(1, 'data.trucks')->assertJsonPath('data.trucks.0.vehicle_id', $c['vehicle']->uuid)
+            ->assertJsonCount(2, 'data.truck_filter_options.vehicles')->assertJsonCount(1, 'data.truck_filter_options.tags');
+        $this->getJson($base.'&truck_id='.$inactive->uuid, $c['headers'])->assertOk()->assertJsonCount(0, 'data.trucks');
+        $this->getJson($base.'&truck_id='.$inactive->uuid.'&fleet_status=inactive', $c['headers'])->assertOk()->assertJsonCount(1, 'data.trucks');
+        $this->getJson($base.'&truck_id='.$other['vehicle']->uuid, $c['headers'])->assertOk()->assertJsonCount(0, 'data.trucks');
+        $this->getJson($base.'&truck_tags='.Str::uuid().','.$tag->uuid, $c['headers'])->assertOk()->assertJsonCount(1, 'data.trucks');
+        $this->getJson($base.'&truck_tags='.Str::uuid(), $c['headers'])->assertOk()->assertJsonCount(0, 'data.trucks');
+        $this->getJson($base.'&truck_id=invalid', $c['headers'])->assertUnprocessable();
+    }
+
     public function test_schedule_drivers_include_saved_profile_photos_and_null_fallback(): void
     {
         $c = $this->context();

@@ -23,7 +23,9 @@ export type ScheduleTruck = {
   is_active: boolean; available: boolean; can_create: boolean; runs: ScheduleRun[]
 }
 export type SchedulePage = { current_page: number; last_page: number; total: number }
+export type TruckFilterOptions = { vehicles: { vehicle_id: string; plate_number: string }[]; tags: { tag_id: string; name: string }[] }
 export type ScheduleData = {
+  truck_filter_options?: TruckFilterOptions
   summary?: { unassigned_drivers: number; available_trucks: number; active_runs: number; overdue_plans: number; unassigned_shipments: number }
   environments: { environment_id: string; name: string }[]
   timezone: string; can_manage: boolean; trucks: ScheduleTruck[]; drivers: ScheduleDriver[]; shipments: ScheduleShipment[]
@@ -32,6 +34,7 @@ export type ScheduleData = {
 export type ScheduleFilters = {
   from: string; to: string; truck_search: string; driver_search: string; shipment_search: string
   availability: string; fleet_status: string; driver_filter: string; shipment_statuses?: string
+  truck_id?: string; truck_tags?: string
   driver_page: number; shipment_page: number
 }
 export type ScheduleItem = { kind: "driver"; driver: ScheduleDriver } | { kind: "shipment"; shipment: ScheduleShipment }

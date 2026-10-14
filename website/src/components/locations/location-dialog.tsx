@@ -84,6 +84,10 @@ export function LocationDialog({
   accessToken,
   onSaved,
   trigger,
+  environmentId,
+  open: controlledOpen,
+  onOpenChange,
+  initializeFallbackTypes = true,
 }: {
   location?: Location
   initialValues?: Partial<Location>
@@ -93,11 +97,17 @@ export function LocationDialog({
   accessToken?: string
   onSaved?: (location: Location) => void
   trigger?: React.ReactElement
+  environmentId?: string | null
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  initializeFallbackTypes?: boolean
 }) {
   const router = useRouter()
   const { data: session } = useSession()
   const selectedMerchantId = session?.selected_merchant?.merchant_id ?? null
-  const [open, setOpen] = React.useState(false)
+  const [internalOpen, setInternalOpen] = React.useState(false)
+  const open = controlledOpen ?? internalOpen
+  const setOpen = (value: boolean) => { setInternalOpen(value); onOpenChange?.(value) }
   const [loading, setLoading] = React.useState(false)
   const [locationTypes, setLocationTypes] = React.useState<LocationType[]>([])
   const [locationTypesLoading, setLocationTypesLoading] = React.useState(false)
@@ -178,7 +188,7 @@ export function LocationDialog({
       }
 
       let types = response.data ?? []
-      if (response.meta?.is_default_fallback && types.length > 0) {
+      if (initializeFallbackTypes && response.meta?.is_default_fallback && types.length > 0) {
         const savedResponse = await patchLocationTypes(
           {
             merchant_id: String(activeMerchantId),
@@ -225,7 +235,7 @@ export function LocationDialog({
     return () => {
       ignore = true
     }
-  }, [accessToken, defaultLocationTypeSlug, isEdit, lockMerchant, merchantId, open, selectedMerchantId])
+  }, [accessToken, defaultLocationTypeSlug, initializeFallbackTypes, isEdit, lockMerchant, merchantId, open, selectedMerchantId])
 
   const updateValue = (key: keyof FormState, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -311,6 +321,7 @@ export function LocationDialog({
         google_place_id: values.googlePlaceId || null,
         polygon_bounds: polygonBounds,
       }
+      if (environmentId !== undefined) payload.environment_id = environmentId ?? undefined
       if (payloadMerchantId) {
         payload.merchant_id = payloadMerchantId
       }

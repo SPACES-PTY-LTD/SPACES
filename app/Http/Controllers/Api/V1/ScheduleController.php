@@ -53,6 +53,8 @@ class ScheduleController extends Controller
             'fleet_status' => ['nullable', 'in:all,active,inactive'], 'driver_filter' => ['nullable', 'in:all,assigned,unassigned'],
             'truck_page' => ['nullable', 'integer', 'min:1'], 'driver_page' => ['nullable', 'integer', 'min:1'],
             'shipment_page' => ['nullable', 'integer', 'min:1'],
+            'truck_id' => ['nullable', 'uuid'],
+            'truck_tags' => ['nullable', 'string', 'max:4000', 'regex:/^[a-fA-F0-9-]{36}(?:,[a-fA-F0-9-]{36})*$/'],
             'shipment_statuses' => ['nullable', 'string', 'regex:/^(all|none|(?:draft|ready|quoted|booked|offer_failed|in_transit|at_delivery_location|delivered|exception|failed|cancelled|returned)(?:,(?:draft|ready|quoted|booked|offer_failed|in_transit|at_delivery_location|delivered|exception|failed|cancelled|returned))*)$/'],
         ]);
         $readiness->reconcile($merchant->id);
@@ -63,6 +65,14 @@ class ScheduleController extends Controller
         $open = fn ($q) => $q->where('merchant_id', $merchant->id)->where('environment_id', $environment?->id)
             ->whereIn('status', ['draft', 'dispatched', 'in_progress']);
         $vehicles = Vehicle::where('account_id', $merchant->account_id)->where('merchant_id', $merchant->id);
+        $filterVehicles = (clone $vehicles)->with(['tags' => fn ($q) => $q->where('tags.account_id', $merchant->account_id)->where('tags.merchant_id', $merchant->id)])
+            ->orderBy('plate_number')->orderBy('id')->get(['id', 'uuid', 'plate_number']);
+        if ($truckId = $filters['truck_id'] ?? null) {
+            $vehicles->where('uuid', $truckId);
+        }
+        if ($tagIds = $filters['truck_tags'] ?? null) {
+            $vehicles->whereHas('tags', fn ($q) => $q->where('tags.account_id', $merchant->account_id)->where('tags.merchant_id', $merchant->id)->whereIn('tags.uuid', explode(',', $tagIds)));
+        }
         if ($search = $filters['truck_search'] ?? null) {
             $vehicles->where(fn ($q) => $q->where('plate_number', 'like', "%$search%")->orWhere('ref_code', 'like', "%$search%"));
         }
@@ -119,6 +129,10 @@ class ScheduleController extends Controller
 
         return ApiResponse::success([
             'timezone' => $timezone, 'can_manage' => $canManage,
+            'truck_filter_options' => [
+                'vehicles' => $filterVehicles->map(fn ($v) => ['vehicle_id' => $v->uuid, 'plate_number' => $v->plate_number])->values(),
+                'tags' => $filterVehicles->flatMap(fn ($v) => $v->tags)->unique('id')->sortBy('name')->map(fn ($tag) => ['tag_id' => $tag->uuid, 'name' => $tag->name])->values(),
+            ],
             'summary' => [
                 'unassigned_drivers' => $unassignedDrivers,
                 'available_trucks' => (clone $vehicles)->where('is_active', true)->whereNull('maintenance_mode_at')->whereDoesntHave('runs', $busy)->count(),

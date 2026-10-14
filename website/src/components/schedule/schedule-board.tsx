@@ -7,6 +7,7 @@ import { ListFilter, ChevronDown, ChevronLeft, ChevronRight, Ellipsis, GripVerti
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { TruckFiltersDialog } from "./truck-filters-dialog"
 import { ScheduleColumnSkeleton } from "./schedule-loading-skeletons"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
@@ -32,7 +33,6 @@ type SearchColumn = "drivers" | "runs" | "shipments"
 const shipmentStatuses = ["draft", "ready", "quoted", "booked", "offer_failed", "in_transit", "at_delivery_location", "delivered", "exception", "failed", "cancelled", "returned"]
 const defaultShipmentStatuses = shipmentStatuses.filter(status => !["delivered", "failed", "cancelled", "returned"].includes(status))
 const shipmentStatusLabel = (status: string) => status.replaceAll("_", " ").replace(/^./, value => value.toUpperCase())
-const selectClass = "h-9 rounded-md border bg-background px-2 text-sm"
 const statusName = (status: string) => status === "in_progress" ? "Active" : status === "dispatched" ? "Ready" : "Planned"
 
 function Pagination({ page, onChange, disabled }: { page?: SchedulePage; onChange: (page: number) => void; disabled: boolean }) {
@@ -181,7 +181,7 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
     event.preventDefault(); event.stopPropagation(); event.dataTransfer.dropEffect = "move"; setHover(id)
   }
   function locationName(location: ScheduleLocation | null, fallback: string) {
-    return location?.location_id ? <LocationDetailsDrawer key={location.location_id} locationId={location.location_id} label={location.name} accessToken={token} merchantId={merchantId} /> : location?.name || fallback
+    return location?.location_id ? <LocationDetailsDrawer key={location.location_id} locationId={location.location_id} label={location.name} accessToken={token} merchantId={merchantId} className="no-underline hover:underline" /> : location?.name || fallback
   }
   function driverName(driver: Pick<ScheduleDriver, "driver_id" | "name" | "profile_photo_url"> | null) {
     return driver ? <button type="button" className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-left hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" aria-label={`View driver details for ${driver.name}`} onClick={() => setDetail({ kind: "driver", id: driver.driver_id })}><DriverAvatar name={driver.name} photoUrl={driver.profile_photo_url} size="sm" /><span className="min-w-0 break-words">{driver.name}</span></button> : "Driver not assigned"
@@ -318,8 +318,7 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
       </section>
       <section id="schedule-panel-runs" aria-label="Truck runs" className={cn("flex min-h-0 min-w-0 flex-col border-x bg-background", tab !== "runs" && "hidden @min-[1100px]:flex")}>
         <div className="shrink-0 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-lg font-semibold">Truck runs <span className="ml-1 text-xs font-normal text-muted-foreground">{data?.pagination.trucks.total ?? ""} trucks</span></h2><div className="flex flex-wrap items-center gap-2">
-          <select aria-label="Fleet status" className={cn(selectClass, "text-xs")} value={filters.fleet_status} disabled={busy} onChange={event => changeFilters({ fleet_status: event.target.value })}><option value="active">Active fleet</option><option value="inactive">Inactive fleet</option><option value="all">All fleet</option></select>
-          <select aria-label="Fleet availability" className={cn(selectClass, "text-xs")} value={filters.availability} disabled={busy} onChange={event => changeFilters({ availability: event.target.value })}><option value="all">All availability</option><option value="available">Available</option><option value="busy">Ready / Active</option></select>
+          <TruckFiltersDialog filters={filters} options={data?.truck_filter_options} disabled={busy || !data} onApply={changeFilters} />
           {searchButton("runs", filters.truck_search)}</div></div>{searchInput("runs", "truck_search")}</div>
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4">{loading && !data ? <ScheduleColumnSkeleton column="runs" /> : data?.trucks.map(truck => <div key={truck.vehicle_id} data-schedule-truck-row onDragOver={event => over(event, truck.vehicle_id, truck.can_create || truck.runs.some(run => !!selected && eligibleRun(selected, run)))} onDragLeave={() => setHover(null)}
           onDrop={event => { if (!dragging) return; event.preventDefault(); setDragging(false); setHover(null); if (selected) truckTarget(truck, selected) }} className={cn("grid grid-cols-[112px_minmax(0,1fr)] border-b @min-[1100px]:grid-cols-[144px_minmax(0,1fr)]", hover === truck.vehicle_id && "ring-2 ring-inset ring-primary")}>

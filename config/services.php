@@ -52,6 +52,9 @@ return [
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
         'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com'),
+        'run_analysis_queue_connection' => env('RUN_ANALYSIS_QUEUE_CONNECTION', env('QUEUE_CONNECTION', 'database') === 'sync' ? 'database' : env('QUEUE_CONNECTION', 'database')),
+        'run_analysis_model' => env('OPENAI_RUN_ANALYSIS_MODEL', env('OPENAI_DELIVERY_NOTE_MODEL', 'gpt-5.6-terra')),
+        'run_analysis_max_output_tokens' => (int) env('OPENAI_RUN_ANALYSIS_MAX_OUTPUT_TOKENS', 5000),
         'delivery_note_model' => env('OPENAI_DELIVERY_NOTE_MODEL', 'gpt-5.6-terra'),
         'delivery_note_max_output_tokens' => (int) env('OPENAI_DELIVERY_NOTE_MAX_OUTPUT_TOKENS', 4000),
         'timeout' => (int) env('OPENAI_TIMEOUT', 90),

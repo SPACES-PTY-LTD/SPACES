@@ -211,6 +211,9 @@ Route::prefix('v1')->group(function () {
 
         Route::post('runs', [RunController::class, 'store']);
         Route::get('runs', [RunController::class, 'index'])->middleware('merchant.context');
+        Route::get('runs/{run_uuid}/analysis', [\App\Http\Controllers\Api\V1\RunAnalysisController::class, 'show']);
+        Route::post('runs/{run_uuid}/analysis', [\App\Http\Controllers\Api\V1\RunAnalysisController::class, 'store'])->middleware('throttle:6,1');
+        Route::get('runs/{run_uuid}/analysis/{analysis_uuid}/locations/{candidate_uuid}/prefill', [\App\Http\Controllers\Api\V1\RunAnalysisController::class, 'prefill']);
         Route::get('runs/{run_uuid}/track', [\App\Http\Controllers\Api\V1\RunTrackController::class, 'show']);
         Route::get('runs/{run_uuid}', [RunController::class, 'show']);
         Route::patch('runs/{run_uuid}', [RunController::class, 'update']);
