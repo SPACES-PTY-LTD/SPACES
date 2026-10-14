@@ -37,6 +37,8 @@ import {
 import { StatusBadge } from "@/components/common/status-badge"
 import { ShipmentAttentionCell } from "@/components/reports/shipment-attention-cell"
 import { ShipmentDwellTimeCell } from "@/components/reports/shipment-dwell-time-cell"
+import { RunDeliveryNoteFilesCell } from "@/components/runs/run-delivery-note-files-cell"
+import type { Run } from "@/lib/types"
 import { RunDistanceCell } from "@/components/reports/run-distance-cell"
 import { UpdateDeliveryNoteDialog } from "@/components/shipments/update-delivery-note-dialog"
 import { UpdateInvoiceNumberDialog } from "@/components/shipments/update-invoice-number-dialog"
@@ -67,7 +69,7 @@ export type Column<T> = {
   /** Optional explanation shown beside the column title on hover or focus. */
   description?: string
   className?: string
-  type?: "driver" | "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time" | "shipment_attention" | "run_distance"
+  type?: "driver" | "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time" | "shipment_attention" | "run_distance" | "run_delivery_note_files"
   avatarKey?: keyof T | string
   size?: "sm" | "md" | "lg"
   format?: string
@@ -1474,6 +1476,12 @@ export function DataTable<T extends Record<string, unknown>>({
                             renderDwellTimeValue(row, column)
                           ) : column.type === "shipment_attention" ? (
                             renderShipmentAttentionValue(row)
+                          ) : column.type === "run_delivery_note_files" ? (
+                            <RunDeliveryNoteFilesCell
+                              runId={String(getValue(row, "run_id") ?? "")}
+                              files={(getValue(row, "delivery_note_files") ?? []) as NonNullable<Run["delivery_note_files"]>}
+                              accessToken={accessToken}
+                            />
                           ) : column.type === "run_distance" ? (
                             <RunDistanceCell
                               runId={String(getValue(row, "run_id") ?? "") || null}

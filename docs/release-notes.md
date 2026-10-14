@@ -1,5 +1,50 @@
 # Release Notes
 
+## 2026-10-14 | Version: admin-run-delivery-note-preview-v1
+
+- **Summary:** Add Has Delivery Note File to the admin Runs table with clickable filenames and a right-side preview drawer.
+- **API Changes:** Run list summary responses add lightweight `delivery_note_files` metadata (import ID, original filename and MIME type). Reuse the existing authorized download endpoint; extraction payloads remain omitted.
+- **Database Changes:** None.
+- **Behavior Changes:** Show No for runs without attached delivery-note imports; show Yes and each filename otherwise. Open PDF/JPEG/PNG/WebP previews on click, with loading, retry and download controls; release blob URLs when closed. Unsupported formats offer download. Admin list only; driver dashboard/upload and lifecycle plans are unchanged.
+- **Breaking Changes:** None. Deploy the backend addition with the website to populate the column.
+- **Verification:** All 25 RunApiTest cases pass (649 assertions), including empty and attached-file metadata and compact summary behavior. Website TypeScript, focused ESLint and git diff checks pass. Authenticated browser preview and device PDF support remain unverified.
+
+## 2026-10-14 | Version: ios-production-auto-increment-v1
+
+- **Summary:** Enable EAS-managed iOS production build numbers and configure the App Store Connect submission target.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** EAS stores native build counters remotely; iOS production builds increment their build number automatically. Public app version and OTA runtime remain 1.0.0. Production submissions target Spaces Digital (6822643982). Android auto-increment remains disabled. EAS created the production update channel and matching branch during this build.
+- **Breaking Changes:** None.
+- **Verification:** Mobile TypeScript, four startup-update tests and diff checks pass. Production Maps variables are present. Initialized the remote iOS counter to 1 and verified automatic increment to 2. Production build `1ee3046b-43c7-4dcf-b432-a21b077e2314` finished successfully as 1.0.0 (2); automatic App Store Connect submission `818d0b6a-26be-4a82-b496-dd0d8237df53` finished without error. Apple processing/TestFlight availability, physical-device OTA behavior and public App Review/release remain unverified; no public release performed.
+
+## 2026-10-14 | Version: expo-startup-auto-reload-v1
+
+- **Summary:** Automatically apply downloaded EAS updates with `Updates.reloadAsync()` before driver screens mount.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Update-enabled native release builds check and download at cold launch behind a branded Checking for updates screen. Apply new updates and rollback directives automatically. Open normally on errors or after a 12-second timeout; backgrounding also releases the launch gate. Late requests cannot reload after the gate releases or unmounts. Development, Expo Go and web bypass the gate. Do not check/reload mid-session or on foreground resume, protecting navigation, forms and uploads. A timed-out download can be used on the next launch.
+- **Breaking Changes:** None. Requires an update-enabled native build and a compatible published update/channel.
+- **Verification:** Four focused lifecycle tests pass, covering successful reload, no update, check/download/reload failures, timeout/background/unmount suppression and rollback. Mobile TypeScript, focused ESLint and full iOS/Android/web export (32 static routes) pass. Native OTA delivery remains unverified; no update published or build submitted.
+
+## 2026-10-14 | Version: expo-update-export-fix-v1
+
+- **Summary:** Fix EAS Update export failure caused by the native Google navigation SDK entering the web bundle.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** A web-specific SDK adapter returns unavailable without importing native runtime code; iOS/Android retain their existing guarded SDK loader. Configure preview and production update channels in EAS build profiles; production APK inherits production. Include the existing expo-updates installation, app-version runtime policy, update URL and Android permission configuration generated during update setup. A new native build is required to enable updates on previously unconfigured installations.
+- **Breaking Changes:** None.
+- **Verification:** Reproduced the native-only web import failure, then successfully exported iOS, Android and all 32 static web routes together. Mobile TypeScript and focused adapter lint pass. Existing web notifications warning remains. No EAS update published, remote channel mapping changed, build submitted or on-device OTA delivery verified.
+
+## 2026-10-14 | Version: mobile-map-information-toggle-v1
+
+- **Summary:** Hide the Expo dashboard GPS information card and route colour legend by default.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Use the existing map info button to reveal GPS coverage, timestamps, refresh and history paging in Actual/All. Changing route tabs hides the details again. Preserve route rendering and automatic refresh. Dashboard plan 2.252 and Figma handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** All 16 existing run-map/navigation tests and mobile TypeScript pass. Focused lint reports existing set-state-in-effect and render-time Date.now violations; passes with those two rules excluded. Native device visual checks remain pending.
+
 ## 2026-10-14 | Version: unknown-location-stop-timing-v1
 
 - **Summary:** Persist stop observations and confirmed departure times without requiring a saved location; show evidence-aware durations in admin Recorded stops and map popups.

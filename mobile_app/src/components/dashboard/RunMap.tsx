@@ -317,12 +317,12 @@ export function RunMap({ shipments, recordedStops, onOpenStop, endpoints, runId,
     </View>}
     {runId && !navigationId ? <View style={[styles.modeToggle, { top: topInset + 12, backgroundColor: surface }]}>
       {(['planned', 'recorded', 'all'] as const).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityLabel={`Show ${value === 'planned' ? 'Plan Route' : value === 'recorded' ? 'Actual' : 'All'}`} accessibilityState={{ selected: mode === value }}
-        onPress={() => { dismissPopup(); setSelection({ key: modeKey, mode: value }); }} style={[styles.modeButton, mode === value && { backgroundColor: '#15803d' }]}>
+        onPress={() => { dismissPopup(); setShowRouteInfo(false); setSelection({ key: modeKey, mode: value }); }} style={[styles.modeButton, mode === value && { backgroundColor: '#15803d' }]}>
         <Text style={{ color: mode === value ? '#ffffff' : ink, fontSize: 13, fontWeight: '600' }}>{value === 'planned' ? 'Plan Route' : value === 'recorded' ? 'Actual' : 'All'}</Text>
       </Pressable>)}
     </View> : null}
-    {mode === 'all' && <View pointerEvents="none" style={[styles.routeLegend, { top: topInset + 62, backgroundColor: surface }]}><Text style={{ color: ink, fontSize: 12 }}>Black dashed: Plan Route · Blue: Actual</Text></View>}
-    {showActual && runId ? <View style={[styles.recordedStatus, { top: topInset + (mode === 'all' ? 92 : 60), backgroundColor: surface }]}>
+    {mode === 'all' && showRouteInfo && <View pointerEvents="none" style={[styles.routeLegend, { top: topInset + 62, backgroundColor: surface }]}><Text style={{ color: ink, fontSize: 12 }}>Black dashed: Plan Route · Blue: Actual</Text></View>}
+    {showActual && runId && showRouteInfo ? <View style={[styles.recordedStatus, { top: topInset + (mode === 'all' ? 92 : 60), backgroundColor: surface }]}>
       <Text style={[styles.captionText, { color: muted }]}>{recorded.error ? (recorded.track ? 'Showing previous data. ' : '') + recorded.error
         : !recorded.track ? 'Loading recorded GPS…'
         : recorded.track.status === 'disabled' ? 'Recorded route display is not enabled.'
@@ -388,7 +388,7 @@ export function RunMap({ shipments, recordedStops, onOpenStop, endpoints, runId,
       <Text style={[styles.captionText, { color: muted }]}>{!stops.length && truck ? 'Last reported truck position' : missing ? `${stops.length} of ${shipments.length} shipment locations mapped` : road ? `Google route · ${(route!.distance_meters! / 1000).toFixed(1)} km · ~${Math.ceil(route!.duration_seconds! / 60)} min` : groups.length === 1 ? 'Shipment stop' : !route ? 'Finding road directions…' : 'Road directions unavailable'}</Text>
       {route?.status === 'unavailable' && <Pressable accessibilityRole="button" onPress={() => { setResult(null); setRouteRetry(v => v + 1); }} style={{ padding: 8 }}><Text style={[styles.captionText, { color: muted }]}>Retry directions</Text></Pressable>}
     </View> : null}
-    {showPlanned && !navigationId && runId && (stops.length || truck || endpointPins.length) ? <Pressable style={[styles.infoButton, { backgroundColor: surface }]} onPress={() => setShowRouteInfo(value => !value)}
+    {!navigationId && runId && (showActual || stops.length || truck || endpointPins.length) ? <Pressable style={[styles.infoButton, { backgroundColor: surface }]} onPress={() => setShowRouteInfo(value => !value)}
       accessibilityRole="button" accessibilityLabel={showRouteInfo ? 'Hide route information' : 'Show route information'}
       accessibilityState={{ expanded: showRouteInfo }}>
       <Feather name="info" size={20} color={showRouteInfo ? accent : muted} />

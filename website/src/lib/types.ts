@@ -592,6 +592,7 @@ export interface Run {
   shipments?: RunShipment[]
   created_at?: string
   updated_at?: string
+  delivery_note_files?: Pick<DeliveryNoteImport, "import_id" | "original_name" | "mime_type">[]
   delivery_note_imports?: DeliveryNoteImport[]
 }
 

@@ -61,6 +61,7 @@ class RunService
                 'driver.user',
                 'vehicle',
                 'additionalCosts:id,run_id,currency,amount',
+                'deliveryNoteImports:id,run_id,uuid,original_name,mime_type',
                 'latestEndRequest.requester', 'latestEndRequest.reviewer',
                 'originLocation',
                 'destinationLocation',

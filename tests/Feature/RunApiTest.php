@@ -695,11 +695,28 @@ class RunApiTest extends TestCase
             $this->assertLessThan(strlen($full->getContent()) / 2, strlen($summary->getContent()));
 
             $loaded = app(\App\Services\RunService::class)->listRuns($user, ['summary' => true, 'merchant_id' => $merchant->uuid])->first();
-            $this->assertFalse($loaded->relationLoaded('deliveryNoteImports'));
+            $this->assertTrue($loaded->relationLoaded('deliveryNoteImports'));
+            $summary->assertJsonPath('data.0.delivery_note_files', []);
             $this->assertFalse($loaded->runShipments->first()->shipment->relationLoaded('booking'));
             $this->assertFalse($loaded->runShipments->first()->shipment->relationLoaded('parcels'));
             $this->assertCount($hasOdometer ? 0 : 30, $loaded->vehicleActivities);
         }
+    }
+
+    public function test_run_summary_lists_delivery_note_files_without_extracted_data(): void
+    {
+        [$user, $merchant, $token] = $this->createMerchantContext();
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'status' => Run::STATUS_DRAFT]);
+        $import = \App\Models\DeliveryNoteImport::create([
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'run_id' => $run->id,
+            'uploaded_by_user_id' => $user->id, 'status' => 'confirmed', 'disk' => 'local',
+            'path' => 'private/note.pdf', 'original_name' => 'note.pdf', 'mime_type' => 'application/pdf',
+            'size_bytes' => 100, 'extracted_data' => ['private' => 'extraction'],
+        ]);
+        $this->withHeaders($this->authHeaders($token, $merchant->uuid))->getJson('/api/v1/runs?summary=true')
+            ->assertOk()->assertJsonPath('data.0.delivery_note_files', [[
+                'import_id' => $import->uuid, 'original_name' => 'note.pdf', 'mime_type' => 'application/pdf',
+            ]])->assertJsonMissingPath('data.0.delivery_note_imports');
     }
 
     public function test_run_list_returns_system_ids_and_run_scoped_speeding_counts(): void

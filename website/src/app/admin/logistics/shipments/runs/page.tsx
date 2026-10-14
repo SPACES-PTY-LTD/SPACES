@@ -107,6 +107,7 @@ export default async function RunsPage({
       </form>
       <DataTable
         data={rows}
+        accessToken={session.accessToken}
         enableSorting
         stickyColumns={{ leading: 3 }}
         sortableColumns={[
@@ -127,7 +128,7 @@ export default async function RunsPage({
         meta={response && !isApiErrorResponse(response) ? normalizeTableMeta(response.meta) : undefined}
         loading_error={error}
         emptyMessage="No runs match the selected filters."
-        width="1810px"
+        width="2050px"
         filters={[
           {
             key: "status",
@@ -162,6 +163,7 @@ export default async function RunsPage({
           { key: "runDistance", label: "Distance", link: "href", className: "w-[140px]" },
           { key: "additionalCostsLabel", label: "Additional costs", link: "href", className: "w-[180px]" },
           { key: "shipment_count", label: "Shipments", link: "href", className: "w-[110px]" },
+          { key: "delivery_note_files", label: "Has Delivery Note File", type: "run_delivery_note_files", className: "w-[240px]" },
           { key: "originName", label: "Origin", link: "href", className: "w-[220px]" },
           { key: "destinationName", label: "Destination", link: "href", className: "w-[220px]" },
           { key: "driverName", label: "Driver", type: "driver", avatarKey: "driver.profile_photo_url", link: "href", className: "w-[160px]" },

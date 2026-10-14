@@ -43,6 +43,11 @@ class RunSummaryResource extends JsonResource
             'distance_source' => $odometerDistance !== null ? 'odometer' : ($distance !== null ? 'gps' : null),
             'additional_cost_totals' => CostMoney::totals($this->additionalCosts),
             'shipment_count' => $shipments->count(),
+            'delivery_note_files' => $this->deliveryNoteImports->map(fn ($import) => [
+                'import_id' => $import->uuid,
+                'original_name' => $import->original_name,
+                'mime_type' => $import->mime_type,
+            ])->values(),
             'origin' => $this->locationSummary($this->originLocation ?? $shipments->first()?->shipment?->pickupLocation),
             'destination' => $this->locationSummary($this->destinationLocation ?? $shipments->last()?->shipment?->dropoffLocation),
             'driver' => [

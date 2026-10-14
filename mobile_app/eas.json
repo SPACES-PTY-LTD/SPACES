@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">=21.4.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -16,15 +16,23 @@
     },
     "preview": {
       "distribution": "internal",
-      "environment": "preview"
+      "environment": "preview",
+      "channel": "preview"
     },
     "production": {
-      "environment": "production"
+      "environment": "production",
+      "channel": "production",
+      "ios": { "autoIncrement": "buildNumber" }
     },
     "production-apk": {
       "extends": "production",
       "distribution": "internal",
       "android": { "buildType": "apk" }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": { "ascAppId": "6822643982" }
     }
   }
 }

@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { StartupUpdateGate } from '@/src/components/StartupUpdateGate';
 import { BrandLoadingScreen } from '@/src/components/BrandLoadingScreen';
 import { MessageNotifications } from '@/src/providers/message-notifications';
 import { AuthProvider, useAuth } from '@/src/providers/auth-provider';
@@ -26,15 +27,17 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AuthProvider>
-        <BottomSheetModalProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <GuidanceProvider><LocationSession><RootNavigator /></LocationSession></GuidanceProvider>
-            <MessageNotifications />
-            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-          </ThemeProvider>
-        </BottomSheetModalProvider>
-      </AuthProvider>
+      <StartupUpdateGate>
+        <AuthProvider>
+          <BottomSheetModalProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <GuidanceProvider><LocationSession><RootNavigator /></LocationSession></GuidanceProvider>
+              <MessageNotifications />
+              <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+            </ThemeProvider>
+          </BottomSheetModalProvider>
+        </AuthProvider>
+      </StartupUpdateGate>
     </GestureHandlerRootView>
   );
 }

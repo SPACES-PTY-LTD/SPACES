@@ -21,7 +21,15 @@
         "monochromeImage": "./assets/branding/android-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.spaces.logistics"
+      "package": "com.spaces.logistics",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -75,6 +83,12 @@
         "projectId": "497d04a7-b1e5-48b9-a4fa-84c67c26f325"
       }
     },
-    "owner": "leroyg"
+    "owner": "leroyg",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/497d04a7-b1e5-48b9-a4fa-84c67c26f325"
+    }
   }
 }
