@@ -62,3 +62,14 @@ test('view-only access retains reports but cannot generate or create locations',
   assert.ok(app.text(app.find(n => n.type === 'Card')).includes(report.conclusion));
   assert.equal(app.nodes().some(n => n.type === 'Button' && ['Analyze using AI', 'Re-analyze run', 'Create location'].includes(app.text(n))), false);
 });
+
+test('recommendations display recorded provider names and addresses ahead of AI suggestions', async () => {
+  const enriched = structuredClone(saved);
+  Object.assign(enriched.report.missing_locations[0], { provider_name: 'Recorded Terminal', provider_address: '12 Depot Road', description_source: 'Recorded tracking position', latitude: -26, longitude: 28 });
+  const app = harness({ saved: enriched, latest: enriched }); await app.tick();
+  const card = app.find(n => n.type === 'Card');
+  assert.ok(app.text(card).includes('Suggested location: Recorded Terminal'));
+  assert.ok(app.text(card).includes('12 Depot Road'));
+  assert.ok(app.text(card).includes('Recorded tracking position'));
+  assert.ok(app.text(card).includes('-26.000000, 28.000000'));
+});

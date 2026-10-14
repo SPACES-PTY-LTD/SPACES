@@ -7,7 +7,7 @@ export type RunAnalysisReport = {
   observed_ending: string
   limitations: string[]
   red_flags: { severity: "high" | "medium" | "low"; certainty: "confirmed" | "likely" | "insufficient_evidence"; title: string; finding: string; action: string; details: string; evidence_ids: string[] }[]
-  missing_locations: { candidate_id: string; reason: string; suggested_name: string; location_type_id: string | null }[]
+  missing_locations: { candidate_id: string; reason: string; suggested_name: string; location_type_id: string | null; provider_name?: string | null; provider_address?: string | null; description_source?: string; latitude?: number; longitude?: number }[]
 }
 export type RunAnalysis = {
   analysis_id: string; status: "queued" | "processing" | "completed" | "failed"; report: RunAnalysisReport | null

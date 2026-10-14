@@ -24,14 +24,14 @@ test("missing, reversed and invalid times cannot fabricate stop duration", () =>
   assert.equal(elapsed(end, start), null)
   assert.equal(elapsed("bad", end), null)
   assert.equal(elapsed(start, start), "0s")
-  assert.match(rows(buildRunMapMarkers([stop], null)[0])["Time at stop"], /^Unknown/)
+  assert.match(rows(buildRunMapMarkers([stop], null)[0])["Time at stop"], /^Duration unknown/)
 })
 
 test("motion duration uses next transition from the same vehicle and run", () => {
   const moving = { ...stop, event_type: "moving", occurred_at: end }
   assert.match(rows(buildRunMapMarkers([stop], null, [moving])[0])["Time at stop"], /^1h 15m 30s \(estimated/)
   for (const unrelated of [{ ...moving, vehicle: { vehicle_id: "other" } }, { ...moving, run_id: "other" }, { ...moving, event_type: "stopped" }]) {
-    assert.match(rows(buildRunMapMarkers([stop], null, [unrelated])[0])["Time at stop"], /^Unknown/)
+    assert.match(rows(buildRunMapMarkers([stop], null, [unrelated])[0])["Time at stop"], /^Duration unknown/)
   }
 })
 

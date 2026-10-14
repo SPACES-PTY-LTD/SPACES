@@ -1,15 +1,23 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { AlertTriangle } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { runStopTiming } from "@/components/runs/run-stop-timing"
 import type { ShipmentStop } from "@/lib/types"
 
-export function RunStopDuration({ stop }: { stop: ShipmentStop }) {
-  const timing = runStopTiming(stop)
+export function RunStopDuration({ stop, activities = [], initialNow }: { stop: ShipmentStop; activities?: ShipmentStop[]; initialNow?: string }) {
+  const [now, setNow] = useState(() => initialNow ? Date.parse(initialNow) : Date.now())
+  const hasRecordedTiming = Boolean(stop.metadata?.stop_timing)
+  useEffect(() => {
+    if (!hasRecordedTiming) return
+    const timer = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(timer)
+  }, [hasRecordedTiming])
+  const timing = runStopTiming(stop, activities, now)
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-      <span className="text-muted-foreground">Total time at location:</span>
+      <span className="text-muted-foreground">{stop.event_type === "stopped" ? "Stop duration:" : "Total time at location:"}</span>
       <span className="font-medium tabular-nums">{timing.durationLabel}</span>
       {timing.tooltip && <TooltipProvider>
         <Tooltip>

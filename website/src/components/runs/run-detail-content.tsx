@@ -91,6 +91,9 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
     return <ErrorMessage title="Run" description="Run details and recorded telemetry." message={run.message} />
   }
 
+  // The API already bounds these unassigned vehicle events to this run's window.
+  const timedActivities = (run.stops ?? []).map(stop => ({ ...stop, run_id: stop.run_id ?? run.run_id }))
+  const timedStops = (run.actual_stops ?? []).map(stop => ({ ...stop, run_id: stop.run_id ?? run.run_id }))
   const runLabel = String(run.system_run_id ?? "—")
   const initialNow = new Date().toISOString()
   const stats = run.stats
@@ -107,7 +110,7 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
       />
 
       {run.end_request && <RunEndReview key={run.end_request.request_id + run.end_request.status} runId={run.run_id} active={run.status === "in_progress"} request={run.end_request} canReview={run.can_review_end_request === true} accessToken={session.accessToken} unfinished={Math.max(0, (stats?.shipment_count ?? run.shipment_count ?? 0) - (stats?.completed_shipments ?? 0) - (stats?.failed_shipments ?? 0))} />}
-      <RunActualMap tripStart={run.started_at} tripEnd={run.completed_at} runId={run.run_id} accessToken={session.accessToken} stops={run.actual_stops ?? []} activities={run.stops} />
+      <RunActualMap tripStart={run.started_at} tripEnd={run.completed_at} runId={run.run_id} accessToken={session.accessToken} stops={timedStops} activities={timedActivities} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <RunActiveDurationCard key={run.run_id + (run.started_at ?? "")} status={run.status} startedAt={run.started_at} completedAt={run.completed_at} initialNow={initialNow} />
@@ -203,14 +206,14 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
         <Card>
           <CardHeader><CardTitle>Recorded stops</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {(run.actual_stops ?? []).length ? (run.actual_stops ?? []).map((stop, index) => (
+            {(run.actual_stops ?? []).length ? timedStops.map((stop, index) => (
               <div key={stop.activity_id ?? index} className="border-l-2 pl-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{index + 1}. {stop.location?.location_id ? <LocationDetailsDrawer locationId={stop.location.location_id} label={stopName(stop)} accessToken={session.accessToken} merchantId={run.merchant_id} /> : <RecordedStopDrawer stop={stop} label={stopName(stop)} accessToken={session.accessToken} merchantId={run.merchant_id} />}</span>
                   <Badge variant="outline">{stop.location?.type?.title || "Type not set"}</Badge>
                 </div>
                 <div className="capitalize text-xs text-muted-foreground">{(stop.event_type ?? "stop").replaceAll("_", " ")} · {dateTime(stop.occurred_at)}</div>
-                <RunStopDuration stop={stop} />
+                <RunStopDuration stop={stop} activities={timedActivities} initialNow={initialNow} />
               </div>
             )) : <div className="text-sm text-muted-foreground">No stop events were recorded for this run.</div>}
           </CardContent>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Run;
 use App\Models\RunAnalysis;
+use App\Services\RunAnalysisLocationDetails;
 use App\Services\RunAnalysisService;
 use App\Services\RunAnalysisSnapshot;
 use App\Support\ApiResponse;
@@ -84,7 +85,17 @@ class RunAnalysisController extends Controller
             'duration_seconds' => $event['duration_seconds'], 'expected_waiting_minutes' => $event['expected_waiting_minutes'],
         ])->values()->all();
 
-        return ['analysis_id' => $analysis->uuid, 'status' => $analysis->status, 'report' => $analysis->report,
+        $report = $analysis->report;
+        if ($report) {
+            $candidates = app(RunAnalysisLocationDetails::class)->candidates($analysis);
+            $report['missing_locations'] = array_map(function ($item) use ($candidates) {
+                $candidate = $candidates[$item['candidate_id']] ?? [];
+
+                return array_merge($item, array_intersect_key($candidate, array_flip(['provider_name', 'provider_address', 'description_source', 'latitude', 'longitude'])));
+            }, $report['missing_locations'] ?? []);
+        }
+
+        return ['analysis_id' => $analysis->uuid, 'status' => $analysis->status, 'report' => $report,
             'error' => $analysis->failure_message, 'created_at' => $analysis->created_at?->toIso8601String(),
             'completed_at' => $analysis->completed_at?->toIso8601String(), 'as_of' => $analysis->input_snapshot['as_of'] ?? null,
             'timezone' => $analysis->input_snapshot['timezone'] ?? 'UTC', 'evidence' => $evidence];

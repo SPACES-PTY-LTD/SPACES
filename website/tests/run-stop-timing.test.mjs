@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises"
 import test from "node:test"
 import ts from "typescript"
 const markers = await readFile(new URL("../src/components/runs/run-map-markers.ts", import.meta.url), "utf8")
-const timing = (await readFile(new URL("../src/components/runs/run-stop-timing.ts", import.meta.url), "utf8")).replace('import { elapsed } from "@/components/runs/run-map-markers"', "")
+const timing = (await readFile(new URL("../src/components/runs/run-stop-timing.ts", import.meta.url), "utf8")).replace('import { elapsed, stoppedDuration } from "@/components/runs/run-map-markers"', "")
 const compiled = ts.transpileModule(`${markers}\n${timing}`, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
 const { runStopTiming } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`)
 const exitVisitSource = await readFile(new URL("../src/components/shipments/shipment-exit-visit.ts", import.meta.url), "utf8")
@@ -49,4 +49,22 @@ test("shipment exits use recorded visit metadata without pairing unrelated event
   assert.deepEqual(runStopTiming(shipmentExitVisit({ ...exit, metadata: null })), { durationLabel: "Not available", tooltip: null })
   const direct = stop("2026-10-09T08:30:00Z", 60)
   assert.deepEqual(runStopTiming(shipmentExitVisit(direct)), { durationLabel: "30m", tooltip: null })
+})
+
+
+test("persisted stops distinguish completed, fresh, stale and incomplete observations", () => {
+  const base = { event_type: "stopped", metadata: { stop_timing: { started_at: start, last_confirmed_at: "2026-10-09T08:02:00Z", departed_at: "2026-10-09T08:03:00Z", status: "completed", gap_seconds: 300 } } }
+  assert.equal(runStopTiming(base).durationLabel, "3m (recorded from tracker)")
+  base.metadata.stop_timing.status = "open"
+  assert.match(runStopTiming(base, [], Date.parse("2026-10-09T08:03:00Z")).durationLabel, /At least 2m · stationary at last report/)
+  assert.match(runStopTiming(base, [], Date.parse("2026-10-09T09:00:00Z")).durationLabel, /tracking incomplete/)
+  base.metadata.stop_timing.status = "incomplete"
+  assert.match(runStopTiming(base).durationLabel, /At least 2m · tracking incomplete/)
+})
+test("historical estimates require the next motion event for the same vehicle and run", () => {
+  const base = { event_type: "stopped", occurred_at: start, run_id: "r1", vehicle: { vehicle_id: "v1" } }
+  const moving = { ...base, event_type: "moving", occurred_at: "2026-10-09T08:05:00Z" }
+  assert.match(runStopTiming(base, [moving]).durationLabel, /5m \(estimated/)
+  assert.match(runStopTiming(base, [{ ...moving, run_id: "r2" }]).durationLabel, /Duration unknown/)
+  assert.match(runStopTiming(base, [{ ...moving, event_type: "stopped" }, moving]).durationLabel, /Duration unknown/)
 })

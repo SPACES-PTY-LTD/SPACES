@@ -1,7 +1,9 @@
 import type { ShipmentStop } from "@/lib/types"
-import { elapsed } from "@/components/runs/run-map-markers"
+import { elapsed, stoppedDuration } from "@/components/runs/run-map-markers"
 
-export function runStopTiming(stop: ShipmentStop) {
+export function runStopTiming(stop: ShipmentStop, activities: ShipmentStop[] = [], now = Date.now()) {
+  const stopped = stoppedDuration(stop, activities, now)
+  if (stopped) return { durationLabel: stopped, tooltip: null }
   const duration = elapsed(stop.entered_at, stop.exited_at)
   const expected = stop.location?.expected_waiting_time
   const milliseconds = duration === null ? null : Date.parse(stop.exited_at!) - Date.parse(stop.entered_at!)

@@ -117,7 +117,7 @@ class RunAnalysisSnapshot
                 $relevant->push($match->id);
             }
             if (! $event->location_id && $event->event_type === 'stopped' && $validCoordinate && ! $match) {
-                $candidates[] = ['candidate_id' => $event->uuid, 'latitude' => (float) $event->latitude, 'longitude' => (float) $event->longitude, 'occurred_at' => $event->occurred_at?->toIso8601String(), 'duration_seconds' => $seconds];
+                $candidates[] = ['candidate_id' => $event->uuid, 'latitude' => (float) $event->latitude, 'longitude' => (float) $event->longitude, 'occurred_at' => $event->occurred_at?->toIso8601String(), 'duration_seconds' => $seconds, ...app(RunAnalysisLocationDetails::class)->fromPosition($event->metadata['provider_position'] ?? [], (float) $event->latitude, (float) $event->longitude)];
             }
             $facts[] = ['evidence_id' => $event->uuid, 'event' => $event->event_type, 'at' => $event->occurred_at?->toIso8601String(), 'entered_at' => $event->entered_at?->toIso8601String(), 'exited_at' => $event->exited_at?->toIso8601String(), 'duration_seconds' => $seconds, 'open_visit_elapsed_seconds' => $openElapsed, 'open_visit_is_not_proof_of_current_presence' => true,
                 'location_id' => $location?->uuid, 'nearby_saved_location_id' => $match?->uuid, 'latitude' => $validCoordinate ? (float) $event->latitude : null, 'longitude' => $validCoordinate ? (float) $event->longitude : null,

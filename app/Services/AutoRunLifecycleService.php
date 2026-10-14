@@ -47,7 +47,8 @@ class AutoRunLifecycleService
         ?float $speedLimitKph = null,
         ?float $odometerKilometres = null,
         ?string $driverIntegrationId = null,
-        array $providerPosition = []
+        array $providerPosition = [],
+        bool $sourceTimeKnown = true
     ): bool {
         if ($latitude === null || $longitude === null) {
             return false;
@@ -55,6 +56,7 @@ class AutoRunLifecycleService
 
         app(RunReadinessService::class)->reconcile($merchant->id);
 
+        $sourceTimeKnown = $sourceTimeKnown && $eventAt !== null;
         $occurredAt = Carbon::instance(($eventAt ?? now())->toDateTime());
 
         return DB::transaction(function () use (
@@ -67,7 +69,8 @@ class AutoRunLifecycleService
             $speedLimitKph,
             $odometerKilometres,
             $driverIntegrationId,
-            $providerPosition
+            $providerPosition,
+            $sourceTimeKnown
         ) {
             $vehicle = Vehicle::query()->whereKey($vehicle->id)->lockForUpdate()->firstOrFail();
 
@@ -82,6 +85,7 @@ class AutoRunLifecycleService
                 odometerKilometres: $odometerKilometres,
                 driverIntegrationId: $driverIntegrationId,
                 providerPosition: $providerPosition,
+                sourceTimeKnown: $sourceTimeKnown,
             );
 
             $activeVisits = VehicleActivity::query()
@@ -1261,17 +1265,34 @@ class AutoRunLifecycleService
         ?float $speedLimitKph,
         ?float $odometerKilometres,
         ?string $driverIntegrationId,
-        array $providerPosition
+        array $providerPosition,
+        bool $sourceTimeKnown
     ): void {
+        $lastAt = $vehicle->metadata['stop_timing_cursor']['at'] ?? null;
+        if ($lastAt && $occurredAt->lessThanOrEqualTo(Carbon::parse($lastAt))) {
+            return;
+        }
+        app(VehicleStopTimingService::class)->record($vehicle, $merchant, $occurredAt, $latitude, $longitude, $speedKph, $sourceTimeKnown,
+            fn ($runId, $timing) => $this->recordVehicleActivity(
+                vehicle: $vehicle, merchant: $merchant, eventType: VehicleActivity::EVENT_STOPPED,
+                occurredAt: $occurredAt, latitude: $latitude, longitude: $longitude, runId: $runId,
+                speedKph: $speedKph, speedLimitKph: $speedLimitKph,
+                metadata: ['stop_timing' => $timing, 'driver_intergration_id' => $driverIntegrationId,
+                    'odometer_kilometres' => $odometerKilometres, 'provider_position' => $providerPosition],
+            ));
+
         $state = $vehicle->metadata['vehicle_activity_state'] ?? [];
         $stateChanged = false;
 
-        if ($speedKph !== null) {
-            $motionState = $speedKph > 0
+        if ($speedKph !== null && is_finite($speedKph) && $speedKph >= 0) {
+            $motionState = $speedKph > config('vehicle_history.stationary_speed_kph', 3)
                 ? VehicleActivity::EVENT_MOVING
                 : VehicleActivity::EVENT_STOPPED;
 
-            if (($state['motion'] ?? null) !== $motionState) {
+            if ($motionState === VehicleActivity::EVENT_STOPPED) {
+                $state['motion'] = $motionState;
+                $stateChanged = true;
+            } elseif (($state['motion'] ?? null) !== $motionState) {
                 $this->recordVehicleActivity(
                     vehicle: $vehicle,
                     merchant: $merchant,

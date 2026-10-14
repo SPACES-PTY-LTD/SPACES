@@ -166,6 +166,7 @@ class TrackVehicleLocationsJob implements ShouldQueue
                                 odometerKilometres: $odometerKilometres,
                                 driverIntegrationId: $driverIntegrationId,
                                 providerPosition: $position,
+                                sourceTimeKnown: $sourceTimeKnown,
                             );
 
                             if ($insideGeofence) {

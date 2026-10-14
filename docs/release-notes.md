@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-14 | Version: unknown-location-stop-timing-v1
+
+- **Summary:** Persist stop observations and confirmed departure times without requiring a saved location; show evidence-aware durations in admin Recorded stops and map popups.
+- **API Changes:** Existing activity/run responses expose additive `metadata.stop_timing` with start, last-confirmed, departure, status, sample count, pending movement and gap threshold. Tracking ingestion passes source-time provenance to the lifecycle recorder. Geofence entry/exit fields retain their meaning.
+- **Database Changes:** None; use existing activity and vehicle metadata. No historical rewrite or production migration.
+- **Behavior Changes:** Record stationary reports using the configurable GPS-history speed/radius defaults (3 km/h, 25m), independently of its rollout flag. Confirm departure with two consecutive moving reports and retain the first timestamp. Split incomplete intervals for >5-minute reporting gaps, invalid observations, run changes and stationary position jumps. Ignore duplicate/late timing reports. Admin rows/maps distinguish tracker-recorded durations, observed lower bounds with last-confirmed timestamps, and legacy estimates from the next same-vehicle/run motion event. Page refresh loads new evidence; row freshness reevaluates every 30 seconds without accumulating time or polling. Dashboard plan 2.251 and Figma timeline handoff aligned.
+- **Breaking Changes:** None. Future stopped-event generation uses the stationary threshold instead of exact zero speed; a tracking gap can produce separate stop observations. Deploy backend and website together for the new timing labels.
+- **Verification:** 73 backend tests pass (523 assertions), including five new regressions covering complete intervals, duplicate/late reports, movement jitter, tracking gaps, position jumps, missing timestamps/speed, run boundaries and API metadata. Seventeen client duration/map tests, website TypeScript, focused ESLint and diff checks pass. Deployed tracker cadence and authenticated browser/mobile-width checks remain pending. No production deployment or historical data repair performed.
+
+## 2026-10-14 | Version: run-analysis-provider-location-details-v1
+
+- **Summary:** Show recorded tracking-provider names and addresses on AI suggested locations instead of relying on coordinates or AI guesses.
+- **API Changes:** Run-analysis missing-location recommendations add optional provider_name, provider_address, description_source and coordinates. The existing prefill endpoint prefers recorded names/addresses and supplies address_line_1. MiX position normalization retains optional LocationName alongside FormattedAddress.
+- **Database Changes:** None; descriptions use existing stopped-event metadata and analysis JSON snapshots.
+- **Behavior Changes:** Coordinate-matched provider descriptions enter AI context, appear on recommendations and prefill the review form. Recover descriptions for older reports from scoped recorded stops. Missing/mismatched data shows an unavailable message and leaves the address blank. Never use the vehicle’s latest position or invent city/postcode/business names; no additional provider requests, automatic location creation or automation changes. Dashboard plan 2.250 and Figma handoff aligned.
+- **Breaking Changes:** None.
+- **Verification:** 25 targeted provider/run-analysis tests pass (132 assertions), five UI regressions, website TypeScript and focused ESLint pass. Covers stored context, report output, form prefill, old reports, coordinate mismatch and no location creation. Live MiX response completeness remains unverified.
+
 ## 2026-10-14 | Version: admin-run-ai-analysis-v1
 
 - **Summary:** Add automatically saved AI run-analysis reports above Shipments on admin run details and embedded drawers.

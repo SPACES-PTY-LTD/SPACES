@@ -13,6 +13,20 @@ use Tests\TestCase;
 
 class MixIntegrateServiceTest extends TestCase
 {
+    public function test_position_mapping_retains_address_and_optional_location_name(): void
+    {
+        $method = new ReflectionMethod(MixIntegrateService::class, 'mapPosition');
+        $position = $method->invoke(new MixIntegrateService(), ['Latitude' => -26, 'Longitude' => 28, 'FormattedAddress' => '12 Depot Road', 'LocationName' => 'Terminal']);
+        $this->assertSame('12 Depot Road', $position['formatted_address']);
+        $this->assertSame('Terminal', $position['location_name']);
+        $details = app(\App\Services\RunAnalysisLocationDetails::class)->fromPosition($position, -26, 28);
+        $this->assertSame('Terminal', $details['provider_name']);
+        $this->assertSame([], app(\App\Services\RunAnalysisLocationDetails::class)->fromPosition($position, -27, 28));
+        $addressOnly = $method->invoke(new MixIntegrateService(), ['Latitude' => -26, 'Longitude' => 28, 'formattedAddress' => '12 Depot Road']);
+        $this->assertNull($addressOnly['location_name']);
+        $this->assertSame('12 Depot Road', $addressOnly['formatted_address']);
+    }
+
     public function test_extract_polygon_centroid_preserves_longitude_and_latitude_axes(): void
     {
         $service = new MixIntegrateService();

@@ -112,7 +112,11 @@ export function RunAnalysisCard({ runId, token, merchantId, environmentId }: { r
             <details><summary className="cursor-pointer text-muted-foreground">Evidence and rule details</summary><div className="mt-2 space-y-2 text-muted-foreground"><p className="whitespace-pre-wrap">{flag.details}</p>{saved.evidence.filter(item => flag.evidence_ids.includes(item.evidence_id)).map(item => <p key={item.evidence_id}>{date(item.at)} · {item.event.replaceAll("_", " ")}{item.location ? ` · ${item.location}` : ""}{item.duration_seconds !== null ? ` · ${Math.round(item.duration_seconds / 60)} minutes at location` : ""}{item.expected_waiting_minutes !== null ? ` · expected ${item.expected_waiting_minutes} minutes` : ""}</p>)}</div></details>
           </div>)}
         </div>
-        {report.missing_locations.map(item => <div key={item.candidate_id} className="space-y-2 rounded-lg border p-3 text-sm"><h3 className="font-semibold">Suggested location: {item.suggested_name}</h3><p>{item.reason}</p>
+        {report.missing_locations.map(item => <div key={item.candidate_id} className="space-y-2 rounded-lg border p-3 text-sm"><h3 className="font-semibold">Suggested location: {item.provider_name ?? item.provider_address ?? item.suggested_name}</h3>
+          {item.provider_name && item.provider_address && <p>{item.provider_address}</p>}
+          {item.description_source ? <p className="text-xs text-muted-foreground">{item.description_source} · Review before creating</p> : <p className="text-xs text-muted-foreground">No name or address available from the recorded tracking position.</p>}
+          {item.latitude != null && item.longitude != null && <p className="text-xs text-muted-foreground">Coordinates: {item.latitude.toFixed(6)}, {item.longitude.toFixed(6)}</p>}
+          <p>{item.reason}</p>
           {matches[item.candidate_id] ? <LocationDetailsDrawer locationId={matches[item.candidate_id]} label="View saved location" accessToken={token} merchantId={merchantId} /> : state?.can_create_location && <Button variant="outline" size="sm" disabled={!!preparing} onClick={() => void prepare(item.candidate_id)}>{preparing === item.candidate_id ? "Preparing…" : "Create location"}</Button>}
           <p className="text-xs text-muted-foreground">Review the location form and geofence before pressing Create. This recommendation does not create a location or change automation.</p>
         </div>)}

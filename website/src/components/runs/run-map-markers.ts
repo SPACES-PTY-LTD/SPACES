@@ -30,6 +30,42 @@ export function elapsed(start?: string | null, end?: string | null) {
   return [days && `${days}d`, hours && `${hours}h`, minutes && `${minutes}m`, (seconds % 60 || seconds === 0) && `${seconds % 60}s`].filter(Boolean).join(" ")
 }
 
+/** New persisted observations take precedence over legacy transition estimates. */
+export function stoppedDuration(stop: ShipmentStop, activities: ShipmentStop[] = [], now = Date.now()): string | null {
+  if (stop.event_type !== "stopped") return null
+  const timing = stop.metadata?.stop_timing as Record<string, unknown> | undefined
+  if (timing) {
+    const start = typeof timing.started_at === "string" ? timing.started_at : null
+    const last = typeof timing.last_confirmed_at === "string" ? timing.last_confirmed_at : null
+    const end = typeof timing.departed_at === "string" ? timing.departed_at : null
+    const observed = elapsed(start, last)
+    if (!observed) return "Duration unknown — invalid stop observations"
+    if (timing.status === "completed" && end && last && Date.parse(end) >= Date.parse(last)) {
+      const duration = elapsed(start, end)
+      if (duration) return `${duration} (recorded from tracker)`
+    }
+    const gapSeconds = typeof timing.gap_seconds === "number" ? timing.gap_seconds : 300
+    const fresh = last && now >= Date.parse(last) && now - Date.parse(last) <= gapSeconds * 1000
+    const confirmed = last ? new Date(last).toISOString().replace("T", " ").replace(".000Z", " UTC") : "unknown"
+    if (timing.status === "open" && fresh && !timing.moving_at) {
+      return `At least ${observed} · stationary at last report (${confirmed})`
+    }
+    const reason = timing.status === "open" && timing.moving_at && fresh ? "departure awaiting confirmation"
+      : timing.reason === "run_changed" ? "run changed; departure not recorded"
+      : timing.reason === "position_changed" ? "position changed; departure not recorded"
+      : "tracking incomplete"
+    return `At least ${observed} · ${reason} · last confirmed ${confirmed}`
+  }
+  if (elapsed(stop.entered_at, stop.exited_at) !== null) return null
+  const next = stop.occurred_at && stop.vehicle?.vehicle_id && stop.run_id ? activities
+    .filter(activity => ["stopped", "moving"].includes(activity.event_type ?? "")
+      && activity.vehicle?.vehicle_id === stop.vehicle?.vehicle_id && activity.run_id === stop.run_id
+      && Date.parse(activity.occurred_at ?? "") > Date.parse(stop.occurred_at!))
+    .sort((a, b) => Date.parse(a.occurred_at!) - Date.parse(b.occurred_at!))[0] : undefined
+  const duration = next?.event_type === "moving" ? elapsed(stop.occurred_at, next.occurred_at) : null
+  return duration ? `${duration} (estimated from stopped → moving events)` : "Duration unknown — departure not recorded"
+}
+
 function position(latitude?: number | null, longitude?: number | null) {
   if (latitude == null || longitude == null || !Number.isFinite(latitude) || !Number.isFinite(longitude)
     || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null
@@ -56,16 +92,14 @@ export function buildRunMapMarkers(stops: ShipmentStop[], track: RunTrack | null
     if (location?.company && location.company !== location.name) rows.push(["Company", location.company])
     if (location?.code) rows.push(["Location code", location.code])
     rows.push(["Event time", time(stop.occurred_at)], ["Arrival", time(stop.entered_at)], ["Departure", time(stop.exited_at)])
+    const timing = stop.metadata?.stop_timing as Record<string, unknown> | undefined
+    if (type === "stopped" && timing) {
+      for (const [label, key] of [["Stopped at", "started_at"], ["Last stationary report", "last_confirmed_at"], ["Recorded departure", "departed_at"]]) {
+        rows.push([label, time(typeof timing[key] === "string" ? timing[key] as string : null)])
+      }
+    }
     const visitDuration = elapsed(stop.entered_at, stop.exited_at)
-    const nextMotion = type === "stopped" && stop.occurred_at && stop.vehicle?.vehicle_id && stop.run_id ? activities
-      .filter(activity => ["stopped", "moving"].includes(activity.event_type ?? "")
-        && activity.vehicle?.vehicle_id === stop.vehicle?.vehicle_id
-        && activity.run_id === stop.run_id
-        && Date.parse(activity.occurred_at ?? "") > Date.parse(stop.occurred_at!))
-      .sort((left, right) => Date.parse(left.occurred_at!) - Date.parse(right.occurred_at!))[0] : undefined
-    const motionDuration = nextMotion?.event_type === "moving" ? elapsed(stop.occurred_at, nextMotion.occurred_at) : null
-    rows.push(["Time at stop", visitDuration ?? (motionDuration ? `${motionDuration} (estimated from stopped → moving events)` : "Unknown — complete arrival/departure times not recorded")])
-    if (!visitDuration && motionDuration) rows.push(["Moving again", time(nextMotion?.occurred_at)])
+    rows.push(["Time at stop", stoppedDuration(stop, activities) ?? visitDuration ?? "Unknown — complete arrival/departure times not recorded"])
     if (stop.exit_reason) rows.push(["Departure reason", eventLabel(stop.exit_reason)])
     if (stop.shipment) {
       rows.push(["Shipment", stop.shipment.merchant_order_ref || stop.shipment.shipment_id || "Reference unavailable"])

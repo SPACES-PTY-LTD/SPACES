@@ -27,6 +27,94 @@ class AutoRunLifecycleServiceTest extends TestCase
     use RefreshDatabase;
     use \Tests\Support\DrawnGeofence;
 
+    public function test_unknown_stop_records_observations_and_confirms_departure_without_gps_history(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        config(['vehicle_history.recording_enabled' => false]);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-10-14T08:00:00Z');
+        foreach ([0 => 0, 60 => 0, 120 => 2, 180 => 20, 240 => 30] as $seconds => $speed) {
+            $service->processVehiclePosition($vehicle, $merchant, -33, 18, $at->copy()->addSeconds($seconds), $speed);
+        }
+        $stop = VehicleActivity::where('event_type', 'stopped')->sole();
+        $this->assertNull($stop->location_id);
+        $this->assertNull($stop->entered_at); // Do not turn motion into a geofence visit.
+        $timing = $stop->metadata['stop_timing'];
+        $this->assertSame('completed', $timing['status']);
+        $this->assertSame($at->toIso8601String(), $timing['started_at']);
+        $this->assertSame($at->copy()->addMinutes(2)->toIso8601String(), $timing['last_confirmed_at']);
+        $this->assertSame($at->copy()->addMinutes(3)->toIso8601String(), $timing['departed_at']);
+        $this->assertSame(3, $timing['sample_count']);
+        // Late/repeated reports cannot reopen or lengthen the persisted interval.
+        $service->processVehiclePosition($vehicle, $merchant, -33, 18, $at->copy()->addMinute(), 0);
+        $this->assertSame($timing, $stop->fresh()->metadata['stop_timing']);
+        $this->assertSame(1, VehicleActivity::where('event_type', 'stopped')->count());
+    }
+
+    public function test_unknown_stop_splits_tracking_gaps_and_position_changes_and_ignores_motion_jitter(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-10-14T08:00:00Z');
+        foreach ([0 => 0, 60 => 10, 120 => 0, 600 => 0] as $seconds => $speed) {
+            $service->processVehiclePosition($vehicle, $merchant, -33, 18, $at->copy()->addSeconds($seconds), $speed);
+        }
+        $stops = VehicleActivity::where('event_type', 'stopped')->orderBy('id')->get();
+        $this->assertCount(2, $stops);
+        $this->assertSame('tracking_gap', $stops[0]->metadata['stop_timing']['reason']);
+        $this->assertNull($stops[0]->metadata['stop_timing']['departed_at']);
+        $this->assertSame($at->copy()->addMinutes(2)->toIso8601String(), $stops[0]->metadata['stop_timing']['last_confirmed_at']);
+        $service->processVehiclePosition($vehicle, $merchant, -34, 18, $at->copy()->addMinutes(11), 0);
+        $this->assertSame('position_changed', $stops[1]->fresh()->metadata['stop_timing']['reason']);
+        $this->assertSame(3, VehicleActivity::where('event_type', 'stopped')->count());
+    }
+
+    public function test_unknown_stop_rejects_missing_source_time_and_missing_speed(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-10-14T08:00:00Z');
+        $service->processVehiclePosition($vehicle, $merchant, -33, 18, $at, 0, sourceTimeKnown: false);
+        $this->assertSame(0, VehicleActivity::where('event_type', 'stopped')->count());
+        $service->processVehiclePosition($vehicle, $merchant, -33, 18, $at->copy()->addMinute(), 0);
+        $service->processVehiclePosition($vehicle, $merchant, -33, 18, $at->copy()->addMinutes(2), null);
+        $stop = VehicleActivity::where('event_type', 'stopped')->sole();
+        $this->assertSame('incomplete', $stop->metadata['stop_timing']['status']);
+        $this->assertSame('invalid_observation', $stop->metadata['stop_timing']['reason']);
+    }
+
+    public function test_unknown_stop_does_not_span_runs_and_is_exposed_in_activity_resource(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $at = Carbon::parse('2026-10-14T08:00:00Z');
+        $run = Run::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'vehicle_id' => $vehicle->id, 'started_at' => $at, 'status' => Run::STATUS_IN_PROGRESS]);
+        $service = app(AutoRunLifecycleService::class);
+        $service->processVehiclePosition($vehicle, $merchant, -33, 18, $at, 0);
+        $first = VehicleActivity::where('event_type', 'stopped')->sole();
+        $this->assertSame($run->id, $first->run_id);
+        $run->update(['completed_at' => $at->copy()->addSeconds(30), 'status' => Run::STATUS_COMPLETED]);
+        $service->processVehiclePosition($vehicle, $merchant, -33, 18, $at->copy()->addMinute(), 0);
+        $this->assertSame('run_changed', $first->fresh()->metadata['stop_timing']['reason']);
+        $this->assertNull(VehicleActivity::where('event_type', 'stopped')->latest('id')->first()->run_id);
+        $payload = (new \App\Http\Resources\VehicleActivityResource($first->fresh()))->resolve();
+        $this->assertSame('incomplete', $payload['metadata']['stop_timing']['status']);
+        $this->assertNull($payload['exited_at']);
+    }
+
+    public function test_departure_confirmation_uses_gaps_between_reports_not_total_elapsed_stop_time(): void
+    {
+        [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);
+        $service = app(AutoRunLifecycleService::class);
+        $at = Carbon::parse('2026-10-14T08:00:00Z');
+        foreach ([0 => 0, 240 => 20, 480 => 30] as $seconds => $speed) {
+            $service->processVehiclePosition($vehicle, $merchant, -33, 18, $at->copy()->addSeconds($seconds), $speed);
+        }
+        $timing = VehicleActivity::where('event_type', 'stopped')->sole()->metadata['stop_timing'];
+        $this->assertSame('completed', $timing['status']);
+        $this->assertSame($at->copy()->addMinutes(4)->toIso8601String(), $timing['departed_at']);
+    }
+
     public function test_only_drawn_polygon_contains_truck_and_radius_cannot_keep_visit_open(): void
     {
         [$merchant, $vehicle] = $this->createMerchantVehicleContext(true);

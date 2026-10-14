@@ -120,6 +120,31 @@ class RunAnalysisTest extends TestCase
         $this->getJson($url, $c['headers'])->assertOk()->assertJsonPath('data.existing_location_id', $saved->uuid)->assertJsonPath('data.initial_values', null);
     }
 
+    public function test_recorded_provider_description_enriches_snapshot_saved_report_and_review_form(): void
+    {
+        $c = $this->context();
+        $event = VehicleActivity::create(['vehicle_id' => $c['vehicle']->id, 'account_id' => $c['account']->id, 'merchant_id' => $c['merchant']->id, 'run_id' => $c['run']->id, 'event_type' => 'stopped', 'latitude' => -26, 'longitude' => 28, 'occurred_at' => now(), 'metadata' => ['provider_position' => ['latitude' => -26, 'longitude' => 28, 'formatted_address' => '12 Depot Road, Johannesburg', 'location_name' => 'MiX Terminal']]]);
+        $report = $this->report();
+        $report['missing_locations'][] = ['candidate_id' => $event->uuid, 'reason' => 'Important unmatched stop.', 'suggested_name' => 'AI guessed name', 'location_type_id' => null];
+        $this->submit($c);
+        $this->fakeAi($report);
+        $analysis = RunAnalysis::firstOrFail();
+        $this->job($analysis);
+        $this->assertSame('MiX Terminal', $analysis->refresh()->input_snapshot['missing_location_candidates'][0]['provider_name']);
+        $this->getJson('/api/v1/runs/'.$c['run']->uuid.'/analysis', $c['headers'])->assertOk()->assertJsonPath('data.saved.report.missing_locations.0.provider_address', '12 Depot Road, Johannesburg');
+        $url = '/api/v1/runs/'.$c['run']->uuid.'/analysis/'.$analysis->uuid.'/locations/'.$event->uuid.'/prefill';
+        $this->getJson($url, $c['headers'])->assertOk()->assertJsonPath('data.initial_values.name', 'MiX Terminal')->assertJsonPath('data.initial_values.address_line_1', '12 Depot Road, Johannesburg');
+        // Old reports recover the recorded address, but never from a different coordinate.
+        $snapshot = $analysis->input_snapshot;
+        unset($snapshot['missing_location_candidates'][0]['provider_name'], $snapshot['missing_location_candidates'][0]['provider_address'], $snapshot['missing_location_candidates'][0]['description_source']);
+        $analysis->update(['input_snapshot' => $snapshot]);
+        $this->getJson($url, $c['headers'])->assertOk()->assertJsonPath('data.initial_values.name', 'MiX Terminal');
+        $event->update(['metadata' => ['provider_position' => ['latitude' => -27, 'longitude' => 29, 'formatted_address' => 'Wrong current address']]]);
+        $c['vehicle']->update(['metadata' => ['tracking_position' => ['latitude' => -26, 'longitude' => 28, 'formatted_address' => 'Latest vehicle address']]]);
+        $this->getJson($url, $c['headers'])->assertOk()->assertJsonPath('data.initial_values.name', 'AI guessed name')->assertJsonPath('data.initial_values.address_line_1', null);
+        $this->assertDatabaseCount('locations', 0);
+    }
+
     public function test_other_merchant_viewer_and_missing_configuration_cannot_generate(): void
     {
         $c = $this->context();

@@ -64,7 +64,7 @@ class RunAnalysisService
     public function prefill(Run $run, RunAnalysis $analysis, string $candidateId): array
     {
         $item = collect($analysis->report['missing_locations'] ?? [])->firstWhere('candidate_id', $candidateId);
-        $candidate = collect($analysis->input_snapshot['missing_location_candidates'] ?? [])->firstWhere('candidate_id', $candidateId);
+        $candidate = app(RunAnalysisLocationDetails::class)->candidates($analysis)[$candidateId] ?? null;
         abort_unless($item && $candidate && $analysis->status === 'completed', 404);
         $matched = app(RunAnalysisSnapshot::class)->matchLocation(app(RunAnalysisSnapshot::class)->locations($run), $candidate['latitude'], $candidate['longitude']);
         if ($matched) {
@@ -72,6 +72,6 @@ class RunAnalysisService
         }
         $type = $item['location_type_id'] ? LocationType::where('account_id', $run->account_id)->where('merchant_id', $run->merchant_id)->where('uuid', $item['location_type_id'])->first() : null;
 
-        return ['existing_location_id' => null, 'initial_values' => ['name' => $item['suggested_name'], 'latitude' => $candidate['latitude'], 'longitude' => $candidate['longitude'], 'location_type_id' => $type?->uuid]];
+        return ['existing_location_id' => null, 'initial_values' => ['name' => $candidate['provider_name'] ?? $candidate['provider_address'] ?? $item['suggested_name'], 'address_line_1' => $candidate['provider_address'] ?? null, 'latitude' => $candidate['latitude'], 'longitude' => $candidate['longitude'], 'location_type_id' => $type?->uuid]];
     }
 }
