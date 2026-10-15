@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-15 | Version: monitoring-v2-moving-highway
+
+- **Summary:** Restore V1's moving-highway effect in V2.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Highway lane dashes scroll continuously and wrap within the elevated deck. Pause and reduced-motion preferences freeze the effect without resetting its position; resume continues from there. The road structure and ramp remain fixed, and the effect does not represent GPS speed.
+- **Breaking Changes:** None.
+- **Verification:** Local animation and pause/resume checked in the browser; the ramp geometry remains unchanged. TypeScript, focused ESLint and diff checks pass; no browser console errors. Reduced motion uses the existing shared pause state; OS preference switching was not separately exercised. Not deployed.
+
 ## 2026-10-15 | Version: monitoring-v2-elevated-highway
 
 - **Summary:** Raise the highway above depots so selected transit vehicles are not hidden behind buildings.

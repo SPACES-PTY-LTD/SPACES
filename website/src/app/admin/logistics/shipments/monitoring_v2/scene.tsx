@@ -2,7 +2,7 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, MapControls } from '@react-three/drei';
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Color, MOUSE, TOUCH, Object3D, Vector3, type InstancedMesh } from 'three';
+import { Color, MOUSE, TOUCH, Object3D, Vector3, type Group, type InstancedMesh } from 'three';
 import type { OrbitControls as Controls } from 'three-stdlib';
 import { REFINED_TRUCK_GEOMETRIES } from '../monitoring/components/refined-truck-geometry';
 import { Depot } from './depot';
@@ -53,11 +53,22 @@ function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance}:Pi
     {placements.filter(p=>p.vehicle.id===selected).map(p=><mesh key={p.vehicle.id} position={[p.x,(p.y ?? 0)+.04,p.z]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[1.45,1.52,48]}/><meshBasicMaterial color="#1463ff"/></mesh>)}
   </>;
 }
-function Road({x=0,y=0,z,width,depth=5}:{x?:number;y?:number;z:number;width:number;depth?:number}) {
+function Road({x=0,y=0,z,width,depth=5,moving=false,paused=false}:{x?:number;y?:number;z:number;width:number;depth?:number;moving?:boolean;paused?:boolean}) {
+  const dividers=useRef<Group>(null);
+  const travel=useRef(0);
+  useFrame((_,delta)=>{
+    if(!moving || paused || !dividers.current)return;
+    const span=Math.max(1,width-1.1);
+    travel.current=(travel.current+Math.min(delta,.05))%span;
+    dividers.current.children.forEach((dash,index)=>{
+      // Match V1's scrolling road illusion; keep every dash inside the deck.
+      dash.position.x=-width/2+.55+((index*2-travel.current)%span+span)%span;
+    });
+  });
   return <group position={[x,y,z]}>
     <mesh receiveShadow position={[0,-.12,0]}><boxGeometry args={[width,.22,depth]}/><meshStandardMaterial color="#8d97a5" roughness={.95}/></mesh>
     {[-1,1].map(side=><mesh key={side} position={[0,.005,side*(depth/2-.15)]}><boxGeometry args={[width,.015,.055]}/><meshBasicMaterial color="#f9fafb"/></mesh>)}
-    {Array.from({length:Math.ceil(width/2)},(_,i)=><mesh key={i} position={[-width/2+i*2+.6,.012,0]}><boxGeometry args={[1.1,.02,.07]}/><meshBasicMaterial color="#f8fafc"/></mesh>)}
+    <group ref={dividers}>{Array.from({length:Math.floor((width-1.1)/2)+1},(_,i)=><mesh key={i} position={[-width/2+i*2+.55,.012,0]}><boxGeometry args={[1.1,.02,.07]}/><meshBasicMaterial color="#f8fafc"/></mesh>)}</group>
   </group>;
 }
 function Tree({x,z}:{x:number;z:number}) { return <group position={[x,0,z]}><mesh position={[0,.65,0]} castShadow><cylinderGeometry args={[.12,.18,1.3,6]}/><meshStandardMaterial color="#766955"/></mesh><mesh position={[0,1.7,0]} castShadow><icosahedronGeometry args={[.8,1]}/><meshStandardMaterial color="#89a76c" roughness={1}/></mesh><mesh position={[.15,2.2,0]} castShadow><icosahedronGeometry args={[.57,1]}/><meshStandardMaterial color="#94af75" roughness={1}/></mesh></group>; }
@@ -113,7 +124,7 @@ function World(props:SceneProps) {
     <directionalLight position={[-25,50,20]} intensity={2} castShadow shadow-mapSize={props.fleet.length>250?[1024,1024]:[2048,2048]} shadow-camera-left={-90} shadow-camera-right={90} shadow-camera-top={90} shadow-camera-bottom={-90} shadow-bias={-.0005}/>
     <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.3,0]} receiveShadow><planeGeometry args={[2000,2000]}/><meshBasicMaterial color="#f3f6fa" toneMapped={false}/></mesh>
     <Road x={centre} z={frontZ} width={width}/>
-    <Road x={centre} y={HIGHWAY_HEIGHT} z={highwayZ} width={width} depth={highwayDepth}/>
+    <Road x={centre} y={HIGHWAY_HEIGHT} moving paused={props.paused} z={highwayZ} width={width} depth={highwayDepth}/>
     {Array.from({length:Math.ceil(width/12)},(_,i)=><group key={`pier-${i}`}>{[-1,1].map(side=><mesh key={side} position={[minX+6+i*12,HIGHWAY_HEIGHT/2-.15,highwayZ+side*highwayDepth*.3]} castShadow><boxGeometry args={[.8,HIGHWAY_HEIGHT,.8]}/><meshStandardMaterial color="#bbc3ce"/></mesh>)}</group>)}
     <HighwayRamp x={maxX} frontZ={frontZ} highwayZ={-12} highwayDepth={5}/>
     {visibleSites.map((site,i)=><group key={site.id}>

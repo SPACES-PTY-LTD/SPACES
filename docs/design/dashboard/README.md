@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.260
+Version: 2.261
 Last updated: 2026-10-15
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -26,11 +26,13 @@ This is the canonical behaviour plan for the Spaces driver dashboard and deliver
 
 Figma simulates file selection, AI reading, GPS, searches and server responses. Its example locations and roads are illustrative. The location picker currently demonstrates saved-location choices; real address search, geocoding and routing must be implemented and verified in the app. Native document management, keyboard entry and telephone calls are implementation handoffs.
 
-## Admin 3D Monitor V2 (2.260 — implemented locally)
+## Admin 3D Monitor V2 (2.261 — implemented locally)
 
 First-load API failures show an unavailable state, not an empty fleet or a nonexistent saved snapshot (2.259). A production shared-API timeout was reproduced for the larger merchant; explicit-index query mitigation is implemented locally, with deployed query-plan and recovery verification pending.
 
 Direct entry: `/admin/logistics/shipments/monitoring_v2`. V1 and existing sidebar destinations remain unchanged. [Visual references and verification](../monitoring-v2/README.md) record the selected image design and six connected views: fleet overview, vehicle tracking, location detail, attention, shipment journey and standby/unknown. These local image references are authoritative for this admin surface; the mobile Figma references above are unaffected.
+
+The highway lane markings scroll like V1 to convey illustrative travel; pause/reduced motion freeze them and resume preserves their position. This is not measured GPS speed (2.261).
 
 The highway is elevated above the depot roofs, with transit vehicles, selection markers and camera focus on the raised deck. A smooth curved ramp connects its nearest lane to the lower frontage road, with level joins at both ends. Location yards and shipment journey staging remain at ground level (2.260, implemented and visually checked locally).
 
@@ -1621,6 +1623,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-15 | 2.261 | Restore scrolling highway lane markings in V2 with pause and reduced-motion support; preserve the fixed elevated deck and ramp. |
 | 2026-10-15 | 2.260 | Elevate the V2 highway and transit selection camera above depots; connect to the lower road with a smooth level-ended ramp. Local visual and geometry checks pass; production deployment pending. |
 | 2026-10-15 | 2.259 | Distinguish V2 initial-load failure from a truly empty fleet. Prepare shared fleet API index-plan mitigation and read-only diagnostics after production timeout; live recovery pending. |
 | 2026-10-15 | 2.258 | Implement direct-entry 3D Monitor V2 from selected local designs, six connected views, native individual vehicle scene and ground-constrained pan/zoom controls. Fixture verification complete; authenticated and physical-touch release checks remain. |
