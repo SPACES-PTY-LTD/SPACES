@@ -74,7 +74,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
         ...driver,
         is_active: driver.is_active ? "active" : "inactive",
         document_status: driver.document_summary?.status ?? "unknown",
-        missing_documents: driver.document_summary?.missing.join(", ") || "—",
+        missing_documents: driver.document_summary?.missing,
         expired_documents: driver.document_summary?.expired.join(", ") || "—",
         documents_href: `${AdminRoute.driverDetails(driver.driver_id)}#files`,
         href: AdminRoute.driverDetails(driver.driver_id),
@@ -139,7 +139,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
             type: "status",
           },
           { key: "document_status", label: "Document status", type: "status" },
-          { key: "missing_documents", label: "Missing documents", link: "documents_href", className: "min-w-48 whitespace-normal" },
+          { key: "missing_documents", label: "Missing documents", type: "missing_documents", link: "documents_href" },
           { key: "expired_documents", label: "Expired documents", link: "documents_href", className: "min-w-48 whitespace-normal" },
           { key: "vehicles", label: "Vehicles", type: "count_array" },
         ]}

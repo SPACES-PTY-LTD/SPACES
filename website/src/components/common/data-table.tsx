@@ -61,6 +61,7 @@ import {
   Search,
 } from "lucide-react"
 import { Button } from "../ui/button"
+import { MissingDocumentsCell } from "@/components/drivers/missing-documents-cell"
 import { DriverAvatar } from "@/components/drivers/driver-avatar"
 
 export type Column<T> = {
@@ -69,7 +70,7 @@ export type Column<T> = {
   /** Optional explanation shown beside the column title on hover or focus. */
   description?: string
   className?: string
-  type?: "driver" | "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time" | "shipment_attention" | "run_distance" | "run_delivery_note_files"
+  type?: "missing_documents" | "driver" | "text" | "status" | "date_time" | "count_array" | "image" | "tags" | "delivery_note_number" | "invoice_number" | "dwell_time" | "shipment_attention" | "run_distance" | "run_delivery_note_files"
   avatarKey?: keyof T | string
   size?: "sm" | "md" | "lg"
   format?: string
@@ -1465,6 +1466,11 @@ export function DataTable<T extends Record<string, unknown>>({
                           {column.type === "status" ? (
                             <StatusBadge
                               status={String(getCellValue(row, column.key) ?? "")}
+                            />
+                          ) : column.type === "missing_documents" ? (
+                            <MissingDocumentsCell
+                              documents={getCellValue(row, column.key) as string[] | undefined}
+                              href={column.link ? String(getValue(row, column.link) ?? "") : undefined}
                             />
                           ) : column.type === "image" ? (
                             renderImageValue(row, column)

@@ -1,5 +1,32 @@
 # Release Notes
 
+## 2026-10-15 | Version: shipment-monitoring-v2
+
+- **Summary:** Add the design-led 3D Monitor V2 at `/admin/logistics/shipments/monitoring_v2`.
+- **API Changes:** None; reuse scoped latest activity, event history and shipment APIs.
+- **Database Changes:** None for V2. The separate pending performance migration is documented below.
+- **Behavior Changes:** Six connected monitoring views, individually rendered vehicles, native depot scene, search/filter/deep links, attention and waiting states, live refresh, motion pause, reduced motion and fallback fleet list. Preserve V1 navigation. Compact location anchors reveal cards on hover/focus and can be hidden to avoid obscuring the scene. Add drag/one-finger pan, wheel/pinch zoom, rotation, presets and reset; keep the camera above ground. Stabilize camera callbacks so clock updates do not reconnect gesture listeners. Development-only sample preview supports larger-fleet checks.
+- **Breaking Changes:** None.
+- **Verification:** 18 targeted model/waiting/geometry/catalog tests, website TypeScript and focused ESLint pass. All 26 location types plus missing/unsupported fallbacks rendered and passed marker-to-detail navigation in the browser (28 checks); no console errors. Browser fixture checks cover navigation, search, attention filters, 390px layout without horizontal overflow, 500/1000 vehicle lists, drag pan, wheel zoom and reset. Physical pinch, authenticated live data and production-device performance remain unverified.
+
+## 2026-10-15 | Version: shipment-monitoring-performance-v1
+
+- **Summary:** Reduce shipment monitoring load work and prevent overlapping refreshes.
+- **API Changes:** Preserve the latest-activity-check response contract while replacing whole-history grouped queries with per-vehicle latest-row seeks. Compare at most two location-transition candidates per vehicle; retain timestamp/ID ordering, merchant scope and invalidated-geofence exclusions.
+- **Database Changes:** Add migration `2026_10_15_180000_add_monitoring_activity_seek_indexes.php` with latest-activity and event-specific transition indexes, including cleanup visibility and timestamp/ID ordering. Migration passes in SQLite tests; application to local/deployed MySQL remains required.
+- **Behavior Changes:** Fetch fleet state and recent activity concurrently. Allow only one refresh at a time, skip hidden-tab polls, refresh on visibility return, and abort obsolete requests on search/context changes or navigation. Existing monitoring classification and waiting thresholds are unchanged.
+- **Breaking Changes:** None.
+- **Verification:** Five VehicleLatestActivityCheckTest cases pass (52 assertions), including timestamp ties, out-of-order history, invalidated records and merchant isolation. Five monitoring waiting-time tests, website TypeScript and focused ESLint pass. Live MySQL timing and authenticated browser verification remain unverified because the configured MAMP MySQL socket is unavailable. No production migration or deployment performed.
+
+## 2026-10-15 | Version: driver-missing-document-count-v1
+
+- **Summary:** Display missing driver documents as a compact count with a hover list.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Missing documents shows an amber count; hovering or focusing it reveals the missing document names. Clicking the count still opens the driver's files. Zero shows 0 without a popover; unavailable summary data shows a dash.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint and diff checks pass. Live browser hover/focus verification was not performed.
+
 ## 2026-10-15 | Version: driver-document-status-v1
 
 - **Summary:** Show document health and driver status in the admin Drivers table and freeze the Driver column during horizontal scrolling.

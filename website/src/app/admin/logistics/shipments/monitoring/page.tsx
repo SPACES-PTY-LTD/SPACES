@@ -466,155 +466,169 @@ export default function VirtualWarehousePage() {
     if (!session?.accessToken) return;
 
     let cancelled = false;
+    let inFlight = false;
+    const controller = new AbortController();
     const plateNumberFilter = debouncedSearchQuery || undefined;
     const run = async () => {
-      const allVehiclesResponse = await listAllVehiclesCheck(session.accessToken, {
-        page: 1,
-        per_page: 500,
-        merchant_id: selectedMerchantId,
-        plate_number: plateNumberFilter
-      });
+      if (inFlight || document.hidden) return;
+      inFlight = true;
+      try {
+        const [allVehiclesResponse, response] = await Promise.all([
+          listAllVehiclesCheck(session.accessToken, {
+            page: 1,
+            per_page: 500,
+            merchant_id: selectedMerchantId,
+            plate_number: plateNumberFilter
+          }, controller.signal),
+          listVehicleActivities(session.accessToken, {
+            page: 1,
+            per_page: 100,
+            merchant_id: selectedMerchantId,
+            plate_number: plateNumberFilter
+          }, controller.signal)
+        ]);
 
-      if (cancelled) return;
-      if (isApiErrorResponse(allVehiclesResponse)) {
-        setApiError(allVehiclesResponse.message);
-        return;
-      }
-      const response = await listVehicleActivities(session.accessToken, {
-        page: 1,
-        per_page: 100,
-        merchant_id: selectedMerchantId,
-        plate_number: plateNumberFilter
-      });
+        if (cancelled) return;
+        if (isApiErrorResponse(allVehiclesResponse)) {
+          setApiError(allVehiclesResponse.message);
+          return;
+        }
+        const latestByVehicle = isApiErrorResponse(response) ? [] : getLatestActivityPerVehicle(response.data ?? []);
+        const activityDetailsByVehicle = new Map(
+          latestByVehicle.flatMap((activity) => {
+            const key = getVehicleKey(activity);
+            return key ? [[String(key), activity] as const] : [];
+          })
+        );
+        const now = Date.now();
+        const nextTrucks: Record<string, TruckRender> = {};
+        const parkingByVehicleKey = new Map<string, TruckRender>();
+        const standbyByVehicleKey = new Map<string, TruckRender>();
+        const roadByVehicleKey = new Map<string, TruckRender>();
+        const locationSlots = new Map<string, number>();
+        const locationDetailsById = new Map<
+          string,
+          Pick<LocationNode, "label" | "company" | "fullAddress" | "city" | "province" | "country" | "meshType" | "maxWaitingMs">
+        >();
 
-      if (cancelled) return;
-      const latestByVehicle = isApiErrorResponse(response) ? [] : getLatestActivityPerVehicle(response.data ?? []);
-      const activityDetailsByVehicle = new Map(
-        latestByVehicle.flatMap((activity) => {
+        for (const activity of allVehiclesResponse.data ?? []) {
           const key = getVehicleKey(activity);
-          return key ? [[String(key), activity] as const] : [];
-        })
-      );
-      const now = Date.now();
-      const nextTrucks: Record<string, TruckRender> = {};
-      const parkingByVehicleKey = new Map<string, TruckRender>();
-      const standbyByVehicleKey = new Map<string, TruckRender>();
-      const roadByVehicleKey = new Map<string, TruckRender>();
-      const locationSlots = new Map<string, number>();
-      const locationDetailsById = new Map<
-        string,
-        Pick<LocationNode, "label" | "company" | "fullAddress" | "city" | "province" | "country" | "meshType" | "maxWaitingMs">
-      >();
+          if (!key) continue;
+          const resolvedKey = String(key);
+          const monitoring = activity.monitoring;
+          const detail = activityDetailsByVehicle.get(resolvedKey);
+          const displayActivity: VehicleActivity = {
+            ...activity,
+            ...detail,
+            vehicle: activity.vehicle,
+            monitoring,
+            location: monitoring?.location ?? null,
+            event_type: monitoring?.source_event_type ?? undefined,
+            occurred_at: monitoring?.since_at ?? activity.occurred_at
+          };
+          const monitoringLocationId = monitoring?.location?.location_id ?? null;
+          const monitoringLocationLabel = monitoring?.location
+            ? buildLocationDetails(displayActivity).label
+            : null;
+          const truck = {
+            ...buildTruckFromActivity(displayActivity, now),
+            monitoringLocationId,
+            monitoringLocationLabel,
+            waitingSinceMs: monitoring?.since_at ? new Date(monitoring.since_at).getTime() : null,
+            maxWaitingMs: typeof monitoring?.location?.expected_waiting_time === "number" &&
+              Number.isFinite(monitoring.location.expected_waiting_time) && monitoring.location.expected_waiting_time >= 0
+              ? monitoring.location.expected_waiting_time * 60_000 : undefined
+          };
 
-      for (const activity of allVehiclesResponse.data ?? []) {
-        const key = getVehicleKey(activity);
-        if (!key) continue;
-        const resolvedKey = String(key);
-        const monitoring = activity.monitoring;
-        const detail = activityDetailsByVehicle.get(resolvedKey);
-        const displayActivity: VehicleActivity = {
-          ...activity,
-          ...detail,
-          vehicle: activity.vehicle,
-          monitoring,
-          location: monitoring?.location ?? null,
-          event_type: monitoring?.source_event_type ?? undefined,
-          occurred_at: monitoring?.since_at ?? activity.occurred_at
-        };
-        const monitoringLocationId = monitoring?.location?.location_id ?? null;
-        const monitoringLocationLabel = monitoring?.location
-          ? buildLocationDetails(displayActivity).label
-          : null;
-        const truck = {
-          ...buildTruckFromActivity(displayActivity, now),
-          monitoringLocationId,
-          monitoringLocationLabel,
-          waitingSinceMs: monitoring?.since_at ? new Date(monitoring.since_at).getTime() : null,
-          maxWaitingMs: typeof monitoring?.location?.expected_waiting_time === "number" &&
-            Number.isFinite(monitoring.location.expected_waiting_time) && monitoring.location.expected_waiting_time >= 0
-            ? monitoring.location.expected_waiting_time * 60_000 : undefined
-        };
+          if (monitoring?.status === "in_transit") {
+            roadByVehicleKey.set(resolvedKey, {
+              ...truck,
+              locationId: "ON_ROAD",
+              locationLabel: "On road"
+            });
+            continue;
+          }
 
-        if (monitoring?.status === "in_transit") {
-          roadByVehicleKey.set(resolvedKey, {
+          if (monitoring?.status === "standby") {
+            standbyByVehicleKey.set(resolvedKey, {
+              ...truck,
+              locationId: "PARKING_STANDBY",
+              locationLabel: "Standby vehicles",
+              slot: 0,
+              status: "parked",
+              changedAt: now
+            });
+            continue;
+          }
+
+          if (monitoring?.status !== "at_location" || !monitoringLocationId) {
+            parkingByVehicleKey.set(resolvedKey, {
+              ...truck,
+              locationId: "PARKING_UNKNOWN",
+              locationLabel: "Unknown location parking",
+              slot: 0,
+              status: "parked",
+              changedAt: now
+            });
+            continue;
+          }
+
+          const resolvedLocationId = String(monitoringLocationId);
+          const nextSlot = locationSlots.get(resolvedLocationId) ?? 0;
+          locationSlots.set(resolvedLocationId, nextSlot + 1);
+          nextTrucks[truck.truckId] = {
             ...truck,
-            locationId: "ON_ROAD",
-            locationLabel: "On road"
-          });
-          continue;
+            locationId: resolvedLocationId,
+            slot: nextSlot
+          };
+          locationDetailsById.set(resolvedLocationId, { ...buildLocationDetails(displayActivity), maxWaitingMs: truck.maxWaitingMs });
         }
 
-        if (monitoring?.status === "standby") {
-          standbyByVehicleKey.set(resolvedKey, {
-            ...truck,
-            locationId: "PARKING_STANDBY",
-            locationLabel: "Standby vehicles",
-            slot: 0,
-            status: "parked",
-            changedAt: now
-          });
-          continue;
-        }
-
-        if (monitoring?.status !== "at_location" || !monitoringLocationId) {
-          parkingByVehicleKey.set(resolvedKey, {
-            ...truck,
-            locationId: "PARKING_UNKNOWN",
-            locationLabel: "Unknown location parking",
-            slot: 0,
-            status: "parked",
-            changedAt: now
-          });
-          continue;
-        }
-
-        const resolvedLocationId = String(monitoringLocationId);
-        const nextSlot = locationSlots.get(resolvedLocationId) ?? 0;
-        locationSlots.set(resolvedLocationId, nextSlot + 1);
-        nextTrucks[truck.truckId] = {
+        const nextParkingTrucks = Array.from(parkingByVehicleKey.values()).map((truck, index) => ({
           ...truck,
-          locationId: resolvedLocationId,
-          slot: nextSlot
-        };
-        locationDetailsById.set(resolvedLocationId, { ...buildLocationDetails(displayActivity), maxWaitingMs: truck.maxWaitingMs });
+          slot: index
+        }));
+        const nextStandbyTrucks = Array.from(standbyByVehicleKey.values()).map((truck, index) => ({
+          ...truck,
+          slot: index
+        }));
+        const nextRoadSlots = Array.from(roadByVehicleKey.values()).reduce<Array<TruckRender | null>>(
+          (slots, truck) => assignTruckToEarliestRoadPlaceholder(slots, truck),
+          createRoadPlaceholders(BASE_ROAD_SLOT_COUNT)
+        );
+
+        setRoadSlots(nextRoadSlots);
+        setParkingTrucks(nextParkingTrucks);
+        setStandbyTrucks(nextStandbyTrucks);
+        setTrucks(nextTrucks);
+        setLocations((prevLocations) =>
+          syncLocationsFromTrucks(prevLocations, nextTrucks).map((location) => {
+            if (location.meshType === "placeholder") return location;
+            const details = locationDetailsById.get(location.locationId);
+            if (!details) return location;
+            return { ...location, ...details };
+          })
+        );
+
+        const nextHistory = latestByVehicle.slice(0, 50).map(buildEventFromActivity);
+        setLatest(nextHistory[0] ?? null);
+        setHistory(nextHistory);
+        setApiError(isApiErrorResponse(response) ? response.message : null);
+      } catch {
+        if (!cancelled) setApiError("Unable to load vehicle monitoring. Please try again.");
+      } finally {
+        inFlight = false;
       }
-
-      const nextParkingTrucks = Array.from(parkingByVehicleKey.values()).map((truck, index) => ({
-        ...truck,
-        slot: index
-      }));
-      const nextStandbyTrucks = Array.from(standbyByVehicleKey.values()).map((truck, index) => ({
-        ...truck,
-        slot: index
-      }));
-      const nextRoadSlots = Array.from(roadByVehicleKey.values()).reduce<Array<TruckRender | null>>(
-        (slots, truck) => assignTruckToEarliestRoadPlaceholder(slots, truck),
-        createRoadPlaceholders(BASE_ROAD_SLOT_COUNT)
-      );
-
-      setRoadSlots(nextRoadSlots);
-      setParkingTrucks(nextParkingTrucks);
-      setStandbyTrucks(nextStandbyTrucks);
-      setTrucks(nextTrucks);
-      setLocations((prevLocations) =>
-        syncLocationsFromTrucks(prevLocations, nextTrucks).map((location) => {
-          if (location.meshType === "placeholder") return location;
-          const details = locationDetailsById.get(location.locationId);
-          if (!details) return location;
-          return { ...location, ...details };
-        })
-      );
-
-      const nextHistory = latestByVehicle.slice(0, 50).map(buildEventFromActivity);
-      setLatest(nextHistory[0] ?? null);
-      setHistory(nextHistory);
-      setApiError(isApiErrorResponse(response) ? response.message : null);
     };
 
-    run();
+    void run();
+    const onVisibilityChange = () => { if (!document.hidden) void run(); };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     const intervalId = window.setInterval(run, ACTIVITY_API_POLL_INTERVAL_MS);
     return () => {
       cancelled = true;
+      controller.abort();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       window.clearInterval(intervalId);
     };
   }, [debouncedSearchQuery, selectedMerchantId, session?.accessToken]);

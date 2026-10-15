@@ -20,10 +20,12 @@ export type VehicleActivitiesResponse = ApiEnvelope<VehicleActivity[]> & ApiList
 
 export async function listVehicleActivities(
   token?: string | null,
-  params: ListVehicleActivitiesParams = {}
+  params: ListVehicleActivitiesParams = {},
+  signal?: AbortSignal
 ) {
   return apiFetch<VehicleActivitiesResponse>("/api/v1/vehicle-activities", {
     token,
+    signal,
     params: {
       page: params.page,
       per_page: params.per_page,
@@ -43,10 +45,12 @@ export async function listVehicleActivities(
 
 export async function listAllVehiclesCheck(
   token?: string | null,
-  params: Pick<ListVehicleActivitiesParams, "page" | "per_page" | "merchant_id" | "plate_number"> = {}
+  params: Pick<ListVehicleActivitiesParams, "page" | "per_page" | "merchant_id" | "plate_number"> = {},
+  signal?: AbortSignal
 ) {
   return apiFetch<VehicleActivitiesResponse>("/api/v1/vehicles/latest-activity-check", {
     token,
+    signal,
     params: {
       page: params.page,
       per_page: params.per_page,

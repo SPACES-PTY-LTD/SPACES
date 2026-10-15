@@ -90,7 +90,23 @@ class VehicleActivityService
             return new Collection;
         }
 
+        // Seek one row per vehicle instead of aggregating its entire activity history.
+        $latestActivity = fn () => VehicleActivity::query()
+            ->select('id')
+            ->where('merchant_id', $merchant->id)
+            ->whereColumn('vehicle_id', 'vehicles.id')
+            ->whereNotNull('occurred_at')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
+            ->limit(1);
+
         $vehicles = Vehicle::query()
+            ->select('vehicles.*')
+            ->addSelect([
+                'latest_activity_id' => $latestActivity(),
+                'latest_entry_id' => $latestActivity()->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION),
+                'latest_exit_id' => $latestActivity()->where('event_type', VehicleActivity::EVENT_EXITED_LOCATION),
+            ])
             ->with(['lastDriver.user'])
             ->withCount([
                 'activeRuns as qualifying_active_runs_count' => function (Builder $query) {
@@ -112,66 +128,23 @@ class VehicleActivityService
             return $vehicles;
         }
 
-        $vehicleIds = $vehicles->pluck('id');
-
-        $latestOccurredAtSub = VehicleActivity::query()
-            ->selectRaw('vehicle_id, MAX(occurred_at) as latest_occurred_at')
-            ->where('merchant_id', $merchant->id)
-            ->whereIn('vehicle_id', $vehicleIds)
-            ->groupBy('vehicle_id')
-            ->toBase();
-
-        $latestActivityIdSub = VehicleActivity::query()
-            ->from('vehicle_activity as latest_vehicle_activity_candidates')
-            ->selectRaw('latest_vehicle_activity_candidates.vehicle_id, MAX(latest_vehicle_activity_candidates.id) as latest_activity_id')
-            ->joinSub($latestOccurredAtSub, 'latest_vehicle_activity_occurred_at', function ($join) {
-                $join->on('latest_vehicle_activity_occurred_at.vehicle_id', '=', 'latest_vehicle_activity_candidates.vehicle_id')
-                    ->on('latest_vehicle_activity_occurred_at.latest_occurred_at', '=', 'latest_vehicle_activity_candidates.occurred_at');
-            })
-            ->groupBy('latest_vehicle_activity_candidates.vehicle_id')
-            ->toBase();
-
         $activities = VehicleActivity::query()
-            ->select('vehicle_activity.*')
-            ->joinSub($latestActivityIdSub, 'latest_vehicle_activity', function ($join) {
-                $join->on('latest_vehicle_activity.latest_activity_id', '=', 'vehicle_activity.id');
-            })
+            ->whereIn('id', $vehicles->pluck('latest_activity_id')->filter())
             ->with(['merchant', 'vehicle.lastDriver.user', 'location', 'run.driver.user', 'shipment.pickupLocation', 'shipment.dropoffLocation', 'shipment.booking'])
             ->get()
             ->keyBy('vehicle_id');
 
-        $latestTransitionOccurredAtSub = VehicleActivity::query()
-            ->selectRaw('vehicle_id, MAX(occurred_at) as latest_occurred_at')
-            ->where('merchant_id', $merchant->id)
-            ->whereIn('vehicle_id', $vehicleIds)
-            ->whereIn('event_type', [
-                VehicleActivity::EVENT_ENTERED_LOCATION,
-                VehicleActivity::EVENT_EXITED_LOCATION,
-            ])
-            ->groupBy('vehicle_id')
-            ->toBase();
-
-        $latestTransitionIdSub = VehicleActivity::query()
-            ->from('vehicle_activity as latest_transition_candidates')
-            ->selectRaw('latest_transition_candidates.vehicle_id, MAX(latest_transition_candidates.id) as latest_activity_id')
-            ->joinSub($latestTransitionOccurredAtSub, 'latest_transition_occurred_at', function ($join) {
-                $join->on('latest_transition_occurred_at.vehicle_id', '=', 'latest_transition_candidates.vehicle_id')
-                    ->on('latest_transition_occurred_at.latest_occurred_at', '=', 'latest_transition_candidates.occurred_at');
-            })
-            ->whereIn('latest_transition_candidates.event_type', [
-                VehicleActivity::EVENT_ENTERED_LOCATION,
-                VehicleActivity::EVENT_EXITED_LOCATION,
-            ])
-            ->groupBy('latest_transition_candidates.vehicle_id')
-            ->toBase();
-
+        // Each event type uses its own indexed seek. Only two candidates per
+        // vehicle need comparison, including deterministic timestamp ties.
+        $transitionIds = $vehicles->pluck('latest_entry_id')
+            ->merge($vehicles->pluck('latest_exit_id'))->filter()->unique();
         $monitoringActivities = VehicleActivity::query()
-            ->select('vehicle_activity.*')
-            ->joinSub($latestTransitionIdSub, 'latest_monitoring_activity', function ($join) {
-                $join->on('latest_monitoring_activity.latest_activity_id', '=', 'vehicle_activity.id');
-            })
+            ->whereIn('id', $transitionIds)
             ->with('location.locationType')
+            ->orderByDesc('occurred_at')
+            ->orderByDesc('id')
             ->get()
+            ->unique('vehicle_id')
             ->keyBy('vehicle_id');
 
         $vehicles->each(function (Vehicle $vehicle) use ($activities, $monitoringActivities, $merchant) {

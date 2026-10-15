@@ -71,6 +71,7 @@ function FullAdminShell({
   const router = useRouter()
   const pathname = usePathname()
   const messagesPage = pathname === "/admin/messages"
+  const monitoringV2Page = pathname === "/admin/logistics/shipments/monitoring_v2"
   const schedulePage = pathname === "/admin/logistics/schedule"
   const [messagesHeight, setMessagesHeight] = React.useState<number>()
   React.useEffect(() => {
@@ -300,12 +301,12 @@ function FullAdminShell({
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
-      <SidebarInset style={messagesPage && messagesHeight ? { height: messagesHeight } : undefined} className={schedulePage ? "h-dvh min-h-0 min-w-0 overflow-hidden bg-background md:h-[calc(100dvh-1rem)]" : messagesPage ? "h-dvh min-h-0 min-w-0 overflow-hidden bg-background" : "min-w-0 bg-background"}>
+      <SidebarInset style={messagesPage && messagesHeight ? { height: messagesHeight } : undefined} className={(schedulePage || monitoringV2Page) ? "h-dvh min-h-0 min-w-0 overflow-hidden bg-background md:h-[calc(100dvh-1rem)]" : messagesPage ? "h-dvh min-h-0 min-w-0 overflow-hidden bg-background" : "min-w-0 bg-background"}>
         <header className="sticky top-0 z-30 flex shrink-0 items-center gap-2 border-b bg-background px-4 py-3 md:hidden">
           <SidebarTrigger />
           <span className="text-sm font-semibold">{appName}</span>
         </header>
-        <main className={schedulePage ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" : messagesPage ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:p-6" : "min-h-[calc(100vh-4rem)] min-w-0 flex-1 overflow-x-auto px-6 py-6"}>
+        <main className={monitoringV2Page ? "min-h-0 min-w-0 flex-1 overflow-y-auto" : schedulePage ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" : messagesPage ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:p-6" : "min-h-[calc(100vh-4rem)] min-w-0 flex-1 overflow-x-auto px-6 py-6"}>
           {children}
         </main>
       </SidebarInset>

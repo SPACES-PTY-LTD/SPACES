@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.257
+Version: 2.258
 Last updated: 2026-10-15
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -25,6 +25,21 @@ This is the canonical behaviour plan for the Spaces driver dashboard and deliver
 - [Step 4: confirm shipments found](https://www.figma.com/design/dmyymVqVKc7Nz0HTdn9xi0/Spaces-Driver-Dashboard?node-id=28-1456)
 
 Figma simulates file selection, AI reading, GPS, searches and server responses. Its example locations and roads are illustrative. The location picker currently demonstrates saved-location choices; real address search, geocoding and routing must be implemented and verified in the app. Native document management, keyboard entry and telephone calls are implementation handoffs.
+
+## Admin 3D Monitor V2 (2.258 — implemented locally)
+
+Direct entry: `/admin/logistics/shipments/monitoring_v2`. V1 and existing sidebar destinations remain unchanged. [Visual references and verification](../monitoring-v2/README.md) record the selected image design and six connected views: fleet overview, vehicle tracking, location detail, attention, shipment journey and standby/unknown. These local image references are authoritative for this admin surface; the mobile Figma references above are unaffected.
+
+Render each vehicle separately in an interactive native Three.js schematic. Use real scoped fleet/activity/shipment data; label illustrative motion and keep recorded GPS separate. Search and filters compose, selected entities and camera presets are URL-addressable, polling skips hidden tabs and cancels obsolete requests. Pause and reduced motion stop illustrative motion. A fleet list remains available when WebGL fails. Unknown coordinates and missing shipment associations remain explicitly unavailable.
+
+V2 location anchors are compact icons. Hover or keyboard focus reveals details; Hide locations clears the overlays. This supersedes the always-expanded reference cards to keep yards visible when zoomed out.
+
+Camera navigation supports left-drag/one-finger pan, wheel/pinch zoom, right-drag/two-finger rotation, Overview/Road/Top presets and reset. Panning follows the ground plane; the polar limit and camera-height floor prevent looking beneath the scene. Manual input cancels preset animation without being reset by clock ticks.
+
+- [x] Six connected views, native scene, per-vehicle rendering, filters, details, pause, fallback list and direct route implemented locally.
+- [x] All 26 location types and two fallback cases rendered and selected in browser without console errors.
+- [x] 18 targeted tests pass; fixture interactions and 390px layout checked. Mouse pan/wheel zoom/reset verified in browser.
+- [ ] Authenticated live data, physical touch/pinch, production build and representative production-device performance remain release checks.
 
 ## Admin run AI analysis (2.250 — implemented locally)
 
@@ -1602,6 +1617,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-15 | 2.258 | Implement direct-entry 3D Monitor V2 from selected local designs, six connected views, native individual vehicle scene and ground-constrained pan/zoom controls. Fixture verification complete; authenticated and physical-touch release checks remain. |
 | 2026-10-15 | 2.257 | Add Schedule shipment Urgent shipment switch beside Collection date with off/normal default/reset and on/urgent. Reuse existing validation/persistence for both creation paths. Implemented locally; Figma schedule handoff aligned, client/static verification in release notes; live creation pending. |
 | 2026-10-15 | 2.255 | Filter Schedule cards and active/overdue totals by planned_start_at using merchant-local full days; preserve 08:00 new-run default, operational assignments and scope. Remove duplicate driver-row avatar and modestly enlarge KPI values while keeping smaller labels. Implemented locally; Figma handoffs aligned, verification in release notes; authenticated live integration pending. |
 | 2026-10-15 | 2.254 | Display admin Recorded stops in the shared DataTable below Safety and speeding, preserving order, drawers, badges and timing warnings. Local location/type/event search available. Implemented locally; browser verification pending; mobile Figma unaffected. |

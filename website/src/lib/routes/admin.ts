@@ -40,6 +40,7 @@ export const AdminLinks = {
   shipments: `${LOGISTICS_BASE}/shipments`,
   runs: `${SHIPMENTS_BASE}/runs`,
   tracking: `${SHIPMENTS_BASE}/tracking`,
+  threeDMonitoringV2: `${SHIPMENTS_BASE}/monitoring_v2`,
   threeDMonitoring: `${SHIPMENTS_BASE}/monitoring`,
   invoiced: `${SHIPMENTS_BASE}/invoiced`,
   users: `${ADMIN_BASE}/settings/users`,

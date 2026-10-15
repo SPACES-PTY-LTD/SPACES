@@ -408,6 +408,33 @@ class VehicleLatestActivityCheckTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_latest_seeks_respect_timestamp_ties_scope_and_invalidated_history(): void
+    {
+        $user = User::withoutEvents(fn () => User::factory()->create(['uuid' => (string) Str::uuid(), 'role' => 'super_admin']));
+        $account = Account::create(['owner_user_id' => $user->id]);
+        $merchant = Merchant::factory()->create(['account_id' => $account->id, 'owner_user_id' => $user->id]);
+        $otherMerchant = Merchant::factory()->create(['account_id' => $account->id, 'owner_user_id' => $user->id]);
+        $vehicle = Vehicle::create(['account_id' => $account->id, 'merchant_id' => $merchant->id, 'plate_number' => 'SEEK-1']);
+        $base = ['account_id' => $account->id, 'merchant_id' => $merchant->id, 'vehicle_id' => $vehicle->id];
+        $entry = VehicleActivity::create($base + ['event_type' => VehicleActivity::EVENT_ENTERED_LOCATION, 'occurred_at' => '2026-10-15 10:00:00']);
+        $exit = VehicleActivity::create($base + ['event_type' => VehicleActivity::EVENT_EXITED_LOCATION, 'occurred_at' => '2026-10-15 10:00:00']);
+        $moving = VehicleActivity::create($base + ['event_type' => VehicleActivity::EVENT_MOVING, 'occurred_at' => '2026-10-15 10:00:00']);
+        // A higher ID with an older timestamp must not win either lookup.
+        VehicleActivity::create($base + ['event_type' => VehicleActivity::EVENT_ENTERED_LOCATION, 'occurred_at' => '2026-10-14 10:00:00']);
+        $invalid = VehicleActivity::create($base + ['event_type' => VehicleActivity::EVENT_ENTERED_LOCATION, 'occurred_at' => '2026-10-15 11:00:00']);
+        $invalid->forceFill(['geofence_cleanup_batch_uuid' => (string) Str::uuid()])->save();
+        VehicleActivity::create(array_replace($base, ['merchant_id' => $otherMerchant->id, 'event_type' => VehicleActivity::EVENT_ENTERED_LOCATION, 'occurred_at' => '2026-10-15 12:00:00']));
+
+        $response = $this->actingAs($user)
+            ->getJson('/api/v1/vehicles/latest-activity-check?merchant_id='.$merchant->uuid)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.activity_id', $moving->uuid)
+            ->assertJsonPath('data.0.monitoring.source_activity_id', $exit->uuid)
+            ->assertJsonPath('data.0.monitoring.status', 'in_transit');
+        $this->assertNotSame($entry->uuid, $response->json('data.0.monitoring.source_activity_id'));
+    }
+
     public function test_it_requires_merchant_id(): void
     {
         $user = User::withoutEvents(fn () => User::factory()->create([
