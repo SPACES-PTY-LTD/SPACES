@@ -256,6 +256,7 @@ test('Schedule driver rows pass saved photos and names to shadcn DriverAvatar', 
   const app = harness(); app.data.drivers[0].profile_photo_url = 'https://example.test/driver.jpg';
   await app.load();
   const row = app.find(n => n.props?.['data-schedule-driver-row']);
+  assert.equal(app.nodes(row).filter(n => n.type === 'DriverAvatar').length, 1);
   const avatar = app.nodes(row).find(n => n.type === 'DriverAvatar');
   assert.equal(avatar.props.name, 'Alex');
   assert.equal(avatar.props.photoUrl, 'https://example.test/driver.jpg');
@@ -267,12 +268,17 @@ test('Schedule driver rows pass saved photos and names to shadcn DriverAvatar', 
 test('schedule range picker preserves inclusive calendar dates, navigation and Today reset', async () => {
   const app = harness(); await app.load();
   const picker = () => app.find(n => n.type === 'DateRangePicker');
+  assert.equal(picker().props['aria-label'], 'Filter runs by planned start date range');
+  assert.ok(app.text(app.find(n => n.props?.role === 'status')).includes('Runs planned to start in the selected dates.'));
   assert.equal(picker().props.allowClear, false);
   assert.equal(picker().props.disabled, false);
   picker().props.onChange({ from: new Date(2026, 9, 1), to: new Date(2026, 9, 7) });
   app.render(); app.timersRun();
   assert.equal(app.requests.at(-1).args[2].from, '2026-10-01');
   assert.equal(app.requests.at(-1).args[2].to, '2026-10-07');
+  app.find(n => n.props?.['aria-label'] === 'Choose a run for Alex').props.onClick(); app.render();
+  app.find(n => n.type === 'Button' && app.text(n) === 'Create run').props.onClick(); app.render();
+  assert.equal(app.find(n => n.props?.id === 'planned-start').props.value, '2026-10-01T08:00');
   app.find(n => n.props?.['aria-label'] === 'Next day').props.onClick(); app.render(); app.timersRun();
   assert.equal(app.requests.at(-1).args[2].from, '2026-10-02');
   assert.equal(app.requests.at(-1).args[2].to, '2026-10-08');

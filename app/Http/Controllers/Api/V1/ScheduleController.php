@@ -88,7 +88,7 @@ class ScheduleController extends Controller
         }
         $trucks = (clone $vehicles)->with(['runs' => function ($q) use ($open, $from, $to) {
             $open($q);
-            $q->whereBetween('created_at', [$from, $to])
+            $q->whereBetween('planned_start_at', [$from, $to])
                 ->with(['merchant', 'driver.user', 'vehicle', 'originLocation', 'destinationLocation', 'runShipments.shipment.pickupLocation', 'runShipments.shipment.dropoffLocation'])
                 ->orderBy('planned_start_at')->orderBy('id');
         }])->withCount(['runs as occupied_count' => $busy])->orderBy('plate_number')->orderBy('id')->get();
@@ -125,7 +125,7 @@ class ScheduleController extends Controller
         $canManage = $request->user()->can('create', [Run::class, $merchant]);
         $summaryRuns = Run::whereIn('vehicle_id', (clone $vehicles)->select('vehicles.id'));
         $open($summaryRuns);
-        $summaryRuns->whereBetween('created_at', [$from, $to]);
+        $summaryRuns->whereBetween('planned_start_at', [$from, $to]);
 
         return ApiResponse::success([
             'timezone' => $timezone, 'can_manage' => $canManage,

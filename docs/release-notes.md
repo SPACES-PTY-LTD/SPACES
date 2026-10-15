@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-15 | Version: schedule-planned-start-v1 (dashboard plan 2.255)
+
+- **Summary:** Filter Runs Schedule by planned start, remove duplicate driver-row avatars and enlarge summary values.
+- **API Changes:** Schedule truck run cards and active/overdue summary totals filter `runs.planned_start_at` instead of `runs.created_at`, using the existing inclusive merchant-local full-day UTC bounds. Response shape, merchant/environment/status/fleet scope, operational availability, driver assignments and unassigned shipment filtering are unchanged.
+- **Database Changes:** None. No backfill or creation-date fallback.
+- **Behavior Changes:** Runs created today for tomorrow appear when tomorrow is selected. Date-picker accessibility and footer wording describe planned start; new-run default remains the selected range start at 08:00. Each driver row keeps one avatar and a text-only details link; run-card avatars, detail actions, assignment and drag behavior remain intact. All five KPI values use 16px type with existing 11px labels and responsive columns; loading placeholders match the new line height. Canonical dashboard plan and Figma schedule handoffs/selected summary typography are aligned.
+- **Breaking Changes:** Schedule date inclusion intentionally changes from creation date to planned-start date; no schema or payload changes.
+- **Verification:** 21 Schedule API tests pass (206 assertions) against in-memory SQLite, covering differing creation/planned dates, tomorrow selection, UTC boundaries for inclusive merchant days, active/overdue totals and existing scope/assignment rules. 20 Schedule UI tests pass, including one avatar per row, planned-start wording and selected-range 08:00 creation default. Website TypeScript and focused ESLint pass; selected Figma composition visually reviewed. Dependencies were reused from the existing local checkout with a temporary PHP bootstrap remapping application/test classes to this worktree. Authenticated live browser integration and production deployment remain unverified; no production data was changed.
+
 ## 2026-10-15 | Version: runs-frozen-column-shadow-v1
 
 - **Summary:** Restore the Runs table frozen-column boundary shadow during horizontal scrolling.

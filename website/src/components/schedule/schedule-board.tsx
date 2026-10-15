@@ -183,8 +183,8 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
   function locationName(location: ScheduleLocation | null, fallback: string) {
     return location?.location_id ? <LocationDetailsDrawer key={location.location_id} locationId={location.location_id} label={location.name} accessToken={token} merchantId={merchantId} className="no-underline hover:underline" /> : location?.name || fallback
   }
-  function driverName(driver: Pick<ScheduleDriver, "driver_id" | "name" | "profile_photo_url"> | null) {
-    return driver ? <button type="button" className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-left hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" aria-label={`View driver details for ${driver.name}`} onClick={() => setDetail({ kind: "driver", id: driver.driver_id })}><DriverAvatar name={driver.name} photoUrl={driver.profile_photo_url} size="sm" /><span className="min-w-0 break-words">{driver.name}</span></button> : "Driver not assigned"
+  function driverName(driver: Pick<ScheduleDriver, "driver_id" | "name" | "profile_photo_url"> | null, showAvatar = true) {
+    return driver ? <button type="button" className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-left hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" aria-label={`View driver details for ${driver.name}`} onClick={() => setDetail({ kind: "driver", id: driver.driver_id })}>{showAvatar && <DriverAvatar name={driver.name} photoUrl={driver.profile_photo_url} size="sm" />}<span className="min-w-0 break-words">{driver.name}</span></button> : "Driver not assigned"
   }
   function closeDetails(open: boolean) { if (!open) { setDetail(null); refreshBoard() } }
   function shipmentCard(shipment: ScheduleShipment, movable: boolean) {
@@ -285,7 +285,7 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-y px-3 py-3">
       <Button variant="outline" size="icon" aria-label="Previous day" disabled={busy} onClick={() => changeFilters({ from: shiftDay(filters.from, -1), to: shiftDay(filters.to, -1) })}><ChevronLeft className="size-4" /></Button>
       <DateRangePicker
-        aria-label="Filter runs by creation date range"
+        aria-label="Filter runs by planned start date range"
         value={{ from: parseISO(filters.from), to: parseISO(filters.to) }}
         disabled={busy}
         allowClear={false}
@@ -300,7 +300,7 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
       <span className="ml-auto text-xs text-muted-foreground">{timezone}</span>
     </div>
     <dl aria-label="Schedule summary" className="grid shrink-0 grid-cols-3 gap-x-3 gap-y-2 border-b px-3 py-3 text-xs @min-[700px]:grid-cols-5">
-      {([['Drivers unassigned', summary?.unassigned_drivers], ['Trucks available', summary?.available_trucks], ['Active runs', summary?.active_runs], ['Overdue plans', summary?.overdue_plans], ['Unassigned shipments', summary?.unassigned_shipments]] as const).map(([label, count]) => <div key={label}><dt className="text-[11px] text-muted-foreground">{label}</dt><dd className="mt-1 font-medium tabular-nums">{loading && !data ? <Skeleton aria-hidden="true" className="h-4 w-8 motion-reduce:animate-none" /> : count ?? "—"}</dd></div>)}
+      {([['Drivers unassigned', summary?.unassigned_drivers], ['Trucks available', summary?.available_trucks], ['Active runs', summary?.active_runs], ['Overdue plans', summary?.overdue_plans], ['Unassigned shipments', summary?.unassigned_shipments]] as const).map(([label, count]) => <div key={label}><dt className="text-[11px] text-muted-foreground">{label}</dt><dd className="mt-1 text-base font-medium tabular-nums">{loading && !data ? <Skeleton aria-hidden="true" className="h-6 w-8 motion-reduce:animate-none" /> : count ?? "—"}</dd></div>)}
     </dl>
     {error && <div role="alert" className="flex shrink-0 items-center justify-between gap-2 border-b border-destructive/30 bg-destructive/5 p-3 text-sm"><span>{error}{data && " Showing the last loaded schedule."}</span><Button size="sm" variant="outline" disabled={busy} onClick={refreshBoard}>Retry</Button></div>}
     {selected && !dragging && <div role="status" className="flex shrink-0 items-center justify-between gap-2 border-b bg-primary/5 px-3 py-2 text-sm"><span>Choose a run for {selected.kind === "driver" ? selected.driver.name : selected.shipment.reference}.</span><Button variant="ghost" size="sm" onClick={() => { setSelected(null); setPicker(null) }}>Cancel</Button></div>}
@@ -313,7 +313,7 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
         <div className="min-h-0 flex-1 overflow-y-auto px-4">{loading && !data ? <ScheduleColumnSkeleton column="drivers" /> : data?.drivers.map(driver => <div key={driver.driver_id} data-schedule-driver-row draggable={canManage && !busy}
           onDragStart={event => beginDrag(event, { kind: "driver", driver })} onDragEnd={dragEnd}
           className={cn("flex min-h-16 w-full items-center gap-2 border-b py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring", canManage && "cursor-grab hover:bg-muted/40")}>
-          <DriverAvatar name={driver.name} photoUrl={driver.profile_photo_url} /><span className="min-w-0"><span className="block break-words text-sm font-medium">{driverName(driver)}</span><span className="mt-1 block break-words text-xs text-muted-foreground">{driverAssignment(driver)}</span>{canManage && <Button variant="ghost" size="xs" className="mt-1" disabled={busy} aria-label={`Choose a run for ${driver.name}`} onClick={() => chooseDriver(driver)}>Choose run</Button>}</span></div>)}{!loading && data?.drivers.length === 0 && <p className="py-3 text-sm text-muted-foreground">No matching drivers.</p>}</div>
+          <DriverAvatar name={driver.name} photoUrl={driver.profile_photo_url} /><span className="min-w-0"><span className="block break-words text-sm font-medium">{driverName(driver, false)}</span><span className="mt-1 block break-words text-xs text-muted-foreground">{driverAssignment(driver)}</span>{canManage && <Button variant="ghost" size="xs" className="mt-1" disabled={busy} aria-label={`Choose a run for ${driver.name}`} onClick={() => chooseDriver(driver)}>Choose run</Button>}</span></div>)}{!loading && data?.drivers.length === 0 && <p className="py-3 text-sm text-muted-foreground">No matching drivers.</p>}</div>
         <p className="shrink-0 px-4 py-2 text-[11px] text-muted-foreground">Assigned = an open run</p><Pagination page={data?.pagination.drivers} disabled={loading || busy} onChange={driver_page => setFilters(old => ({ ...old, driver_page }))} />
       </section>
       <section id="schedule-panel-runs" aria-label="Truck runs" className={cn("flex min-h-0 min-w-0 flex-col border-x bg-background", tab !== "runs" && "hidden @min-[1100px]:flex")}>
@@ -340,7 +340,7 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
         <Pagination page={data?.pagination.shipments} disabled={loading || busy} onChange={shipment_page => setFilters(old => ({ ...old, shipment_page }))} />
       </section>
     </div>
-    <p role="status" aria-live="polite" className="shrink-0 border-t px-4 py-1 text-[11px] text-muted-foreground">{busy ? "Saving assignment…" : loading ? data ? "Refreshing schedule…" : "Loading schedule…" : "Runs created in the selected dates. Drag to a run or use Assign to run."}</p>
+    <p role="status" aria-live="polite" className="shrink-0 border-t px-4 py-1 text-[11px] text-muted-foreground">{busy ? "Saving assignment…" : loading ? data ? "Refreshing schedule…" : "Loading schedule…" : "Runs planned to start in the selected dates. Drag to a run or use Assign to run."}</p>
     {detail?.kind === "shipment" && <ShipmentMapDialog key={detail.id} open shipmentId={detail.id} accessToken={token} merchantId={merchantId} onOpenChange={closeDetails} />}
     <Drawer open={detail?.kind === "run"} onOpenChange={closeDetails}>
       <DrawerContent side="right" className="gap-0 overflow-hidden sm:w-[min(96vw,1200px)]">

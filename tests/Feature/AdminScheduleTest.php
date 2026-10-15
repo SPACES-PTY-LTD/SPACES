@@ -128,7 +128,7 @@ class AdminScheduleTest extends TestCase
 
         $response = $this->getJson('/api/v1/schedule?merchant_id='.$c['merchant']->uuid.'&driver_filter=assigned', $c['headers'])
             ->assertOk()->assertJsonCount(1, 'data.drivers')->assertJsonPath('data.drivers.0.assigned', true)
-            ->assertJsonCount(2, 'data.drivers.0.assigned_runs')->assertJsonCount(2, 'data.trucks.0.runs');
+            ->assertJsonCount(2, 'data.drivers.0.assigned_runs')->assertJsonCount(0, 'data.trucks.0.runs');
         $this->assertEqualsCanonicalizing([$future->uuid, $second->uuid], array_column($response->json('data.drivers.0.assigned_runs'), 'run_id'));
         $response->assertJsonPath('data.drivers.0.assigned_runs.0.status', 'draft');
         $this->getJson('/api/v1/schedule?merchant_id='.$c['merchant']->uuid.'&environment_id='.$environment->uuid, $c['headers'])
@@ -245,18 +245,24 @@ class AdminScheduleTest extends TestCase
         $this->assertDatabaseHas('run_shipments', ['run_id' => $source->id, 'shipment_id' => $shipment->id, 'status' => 'removed']);
     }
 
-    public function test_board_groups_runs_created_today_regardless_of_planned_date(): void
+    public function test_board_groups_runs_by_planned_date_regardless_of_creation_date(): void
     {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-15 10:00:00', 'UTC'));
         $c = $this->context();
         $active = $this->create($c, $this->payload($c, now()->subDays(3)->toIso8601String(), $this->shipment($c)));
         $this->postJson("/api/v1/runs/{$active->uuid}/start", [], $c['headers'])->assertOk();
         $overdue = $this->create($c, $this->payload($c, now()->subDay()->toIso8601String(), $this->shipment($c)));
-        $planned = $this->create($c, $this->payload($c, now()->addDays(2)->toIso8601String(), $this->shipment($c)));
+        $planned = $this->create($c, $this->payload($c, now()->addDay()->toIso8601String(), $this->shipment($c)));
         $terminal = $this->shipment($c, 'delivered');
         $unassigned = $this->shipment($c);
         $day = now('Africa/Johannesburg')->toDateString();
         $response = $this->getJson('/api/v1/schedule?merchant_id='.$c['merchant']->uuid.'&from='.$day.'&to='.$day, $c['headers'])->assertOk()
-            ->assertJsonCount(3, 'data.trucks.0.runs')->assertJsonCount(1, 'data.shipments')->assertJsonPath('data.shipments.0.shipment_id', $unassigned->uuid);
+            ->assertJsonCount(0, 'data.trucks.0.runs')->assertJsonPath('data.summary.active_runs', 0)->assertJsonPath('data.summary.overdue_plans', 0)->assertJsonCount(1, 'data.shipments')->assertJsonPath('data.shipments.0.shipment_id', $unassigned->uuid);
+        $this->getJson('/api/v1/schedule?merchant_id='.$c['merchant']->uuid.'&from=2026-10-16&to=2026-10-16', $c['headers'])
+            ->assertOk()->assertJsonCount(1, 'data.trucks.0.runs')->assertJsonPath('data.trucks.0.runs.0.run_id', $planned->uuid)
+            ->assertJsonPath('data.summary.active_runs', 0)->assertJsonPath('data.summary.overdue_plans', 0);
+        $response = $this->getJson('/api/v1/schedule?merchant_id='.$c['merchant']->uuid.'&from=2026-10-12&to=2026-10-14', $c['headers'])
+            ->assertOk()->assertJsonCount(2, 'data.trucks.0.runs')->assertJsonPath('data.summary.active_runs', 1)->assertJsonPath('data.summary.overdue_plans', 1);
         $legacy = Run::create(['account_id' => $c['merchant']->account_id, 'merchant_id' => $c['merchant']->id, 'driver_id' => $c['driver']->id, 'status' => 'draft']);
         $driverHeaders = ['Authorization' => 'Bearer '.$c['user']->createToken('driver-current')->plainTextToken];
         $this->getJson("/api/v1/driver/dashboard?run_id={$legacy->uuid}", $driverHeaders)->assertOk()->assertJsonPath('data.current_run.run_id', $active->uuid);
@@ -267,15 +273,15 @@ class AdminScheduleTest extends TestCase
         $this->getJson('/api/v1/shipments?merchant_id='.$c['merchant']->uuid.'&unassigned=true', $c['headers'])->assertOk()->assertJsonCount(1, 'data');
     }
 
-    public function test_creation_date_range_uses_inclusive_merchant_days_and_excludes_outside_active_runs(): void
+    public function test_planned_date_range_uses_inclusive_merchant_days_and_excludes_outside_active_runs(): void
     {
         $c = $this->context();
         $runs = [];
-        foreach (['2026-10-12 21:59:59', '2026-10-12 22:00:00', '2026-10-14 21:59:59', '2026-10-14 22:00:00'] as $created) {
+        foreach (['2026-10-12 21:59:59', '2026-10-12 22:00:00', '2026-10-14 21:59:59', '2026-10-14 22:00:00'] as $planned) {
             $runs[] = Run::create(['account_id' => $c['merchant']->account_id, 'merchant_id' => $c['merchant']->id,
                 'vehicle_id' => $c['vehicle']->id, 'status' => 'in_progress',
-                'planned_start_at' => '2026-10-01 08:00:00']);
-            end($runs)->forceFill(['created_at' => $created])->save();
+                'planned_start_at' => $planned]);
+            end($runs)->forceFill(['created_at' => '2026-10-01 08:00:00'])->save();
         }
         $response = $this->getJson('/api/v1/schedule?merchant_id='.$c['merchant']->uuid.'&from=2026-10-13&to=2026-10-14', $c['headers'])
             ->assertOk()->assertJsonCount(2, 'data.trucks.0.runs')->assertJsonPath('data.summary.active_runs', 2);
