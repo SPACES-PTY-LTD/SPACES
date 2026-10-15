@@ -34,3 +34,13 @@ test('offline logout retains session and propagates error for retry', async () =
   assert.equal(app.value.session.token, 'session'); assert.equal(app.clears, 0);
   offline = false; await app.value.signOut(); app.render(); assert.equal(app.value.session, null); assert.equal(app.clears, 1);
 });
+test('expired or revoked sessions can still log out locally', async () => {
+  const app = harness(async () => { throw Object.assign(new Error('Unauthenticated'), { status: 401 }); });
+  await app.login(); await app.value.signOut(); app.render();
+  assert.equal(app.value.session, null); assert.equal(app.clears, 1);
+});
+test('server failures retain the session so device cleanup can be retried', async () => {
+  const app = harness(async () => { throw Object.assign(new Error('Server unavailable'), { status: 500 }); });
+  await app.login(); await assert.rejects(app.value.signOut(), /Server unavailable/); app.render();
+  assert.equal(app.value.session.token, 'session'); assert.equal(app.clears, 0);
+});

@@ -1,5 +1,32 @@
 # Release Notes
 
+## 2026-10-15 | Version: unknown-stop-provider-details-v1
+
+- **Summary:** Show saved tracking-provider information at the bottom of unknown recorded-stop details, after Suggested address.
+- **API Changes:** MiX normalized positions add `raw_position` with the full received position. Existing activity metadata responses carry it for future observations; no new endpoint.
+- **Database Changes:** None. Existing JSON metadata retains the additional position fields for newly processed observations; old records are not backfilled.
+- **Behavior Changes:** Render all saved provider-position fields as indented, wrapping, keyboard-scrollable JSON, including nested values. Explain missing/legacy snapshots; retain the panel when coordinates or address lookup are unavailable. Read only the selected stop's saved snapshot, never current vehicle tracking data. Dashboard plan 2.253 records the admin-only addition; mobile Figma screens are unaffected.
+- **Breaking Changes:** None. Deploy the backend/tracking worker code to retain full raw fields in future snapshots; existing snapshots display immediately with the website change.
+- **Verification:** 17 MiX tests (66 assertions), 8 tracking-job tests (45 assertions), all 4 recorded-stop client tests, website TypeScript, focused ESLint and diff checks pass. Authenticated live drawer and actual provider payload inspection remain unverified. No production deployment performed.
+
+## 2026-10-15 | Version: admin-run-detail-card-rows-v1
+
+- **Summary:** Give Safety and speeding and Recorded stops separate full-width rows on admin run details.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Stack Recorded stops immediately below Safety and speeding at every screen size, including shared embedded run details. Preserve card content and interactions.
+- **Breaking Changes:** None.
+- **Verification:** Reviewed the shared layout and card order; focused ESLint and git diff checks pass. Live browser visual verification remains pending.
+
+## 2026-10-14 | Version: expo-logout-navigation-fix-v1
+
+- **Summary:** Fix the Expo logout loading-screen deadlock and allow locally clearing expired or revoked sessions.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Mount the root stack after session hydration without waiting for navigation state from that same stack. Use protected route groups to switch between authentication and driver screens and remove inaccessible history on session changes. Treat logout HTTP 401 as an already-invalid session; retain retry behavior for network/server errors. Clear persisted session before changing in-memory authentication state.
+- **Breaking Changes:** None.
+- **Verification:** All 18 focused authentication/navigation and phone-location provider tests pass; mobile TypeScript and focused ESLint pass. Device-registration checks pass 5 of 6 tests; the existing API 429 logging assertion fails (untouched API/registration code). Laravel AuthTest passes (2 tests, 20 assertions), including logout token revocation and device cleanup. The live logout route returns the expected HTTP 401 without credentials; authenticated production logout and physical-device behavior remain unverified. Published iOS/Android EAS production update group `172f1638-1c3c-4318-beeb-5f6c225f3b4b` for runtime `1.0.0` using the production environment; native bundles and 32 static web routes exported successfully.
+
 ## 2026-10-14 | Version: admin-run-delivery-note-preview-v1
 
 - **Summary:** Add Has Delivery Note File to the admin Runs table with clickable filenames and a right-side preview drawer.

@@ -146,10 +146,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Keep the session until the server removes notification registrations.
     // A failed/offline logout must remain retryable instead of silently leaving push enabled.
     if (activeToken) {
-      await authApi.logout(activeToken);
+      try {
+        await authApi.logout(activeToken);
+      } catch (error) {
+        // An expired/revoked token is already signed out on the server.
+        if (!isUnauthorizedError(error)) throw error;
+      }
     }
-    setSession(null);
     await clearSession();
+    setSession(null);
   };
 
   const updateSessionUser = async (user: AuthUser) => {

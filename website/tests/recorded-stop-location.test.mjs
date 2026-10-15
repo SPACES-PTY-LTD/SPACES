@@ -5,7 +5,7 @@ import ts from "typescript"
 
 const source = await readFile(new URL("../src/components/runs/recorded-stop-location.ts", import.meta.url), "utf8")
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText
-const { recordedStopCoordinates, recordedStopLocationValues } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`)
+const { recordedStopCoordinates, recordedStopLocationValues, recordedStopProviderJson } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`)
 
 test("preserve observation coordinates, including zero, without mixing coordinate pairs", () => {
   assert.deepEqual(recordedStopCoordinates({ latitude: 0, longitude: 0, location: { latitude: -26, longitude: 28 } }), { lat: 0, lng: 0 })
@@ -48,4 +48,14 @@ test("failed lookup leaves unknown details blank without inventing a shipment na
   assert.equal(values.longitude, 28)
   assert.equal(values.location_type_id, undefined)
   assert.equal(values.polygon_bounds, undefined)
+})
+
+test("provider JSON preserves every saved field and nested raw values", () => {
+  const position = { latitude: 0, formatted_address: "Depot", raw_position: { Heading: 0, IsAvl: false, Missing: null, Extra: ["<script>", { Name: "Road" }] } }
+  const json = recordedStopProviderJson({ metadata: { provider_position: position, unrelated: "not provider data" } })
+  assert.deepEqual(JSON.parse(json), position)
+  assert.ok(json.includes('\n  "latitude": 0'))
+  for (const metadata of [null, {}, { provider_position: null }, { provider_position: {} }, { provider_position: [] }, { provider_position: "invalid" }]) {
+    assert.equal(recordedStopProviderJson({ metadata }), null)
+  }
 })

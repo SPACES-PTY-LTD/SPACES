@@ -6,7 +6,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, Dr
 import { LocationDialog } from "@/components/locations/location-dialog"
 import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 import type { Location, ShipmentStop } from "@/lib/types"
-import { recordedStopCoordinates, recordedStopLocationValues } from "./recorded-stop-location"
+import { recordedStopCoordinates, recordedStopLocationValues, recordedStopProviderJson } from "./recorded-stop-location"
 
 export function RecordedStopDrawer({ stop, label, merchantId, accessToken }: {
   stop: ShipmentStop
@@ -32,6 +32,7 @@ function RecordedStopDetails({ stop, label, merchantId, accessToken, onSaved }: 
   accessToken: string
   onSaved: (location: Location) => void
 }) {
+  const providerJson = recordedStopProviderJson(stop)
   const coordinates = recordedStopCoordinates(stop)
   const lat = coordinates?.lat
   const lng = coordinates?.lng
@@ -103,6 +104,12 @@ function RecordedStopDetails({ stop, label, merchantId, accessToken, onSaved }: 
         <p className="text-sm text-muted-foreground" role="status">{addressStatus}</p>
         {!merchantId && <p className="text-sm text-muted-foreground">A run merchant is required to create a location.</p>}
       </> : <p className="text-sm text-muted-foreground">This stop has no valid recorded coordinates. A map and location creation are unavailable.</p>}
+      <section aria-label="Recorded tracking data" className="min-w-0 space-y-2 border-t pt-4">
+        <h3 className="text-sm font-semibold">Recorded tracking data</h3>
+        <p className="text-sm text-muted-foreground">Provider information saved with this stop. Older stops may contain only a subset of the original fields.</p>
+        {providerJson ? <pre tabIndex={0} aria-label="Recorded provider position JSON" className="max-h-[32rem] overflow-auto whitespace-pre-wrap break-words rounded-lg border bg-muted/40 p-4 font-mono text-xs leading-relaxed">{providerJson}</pre>
+          : <p className="text-sm text-muted-foreground">No provider information was saved for this stop.</p>}
+      </section>
     </div>
   </>
 }

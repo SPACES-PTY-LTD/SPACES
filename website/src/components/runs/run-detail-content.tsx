@@ -179,7 +179,7 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
 
       <Card><CardContent><AdditionalCosts kind="runs" id={run.run_id} accessToken={session.accessToken} merchantId={run.merchant_id} environmentId={run.environment_id} /></CardContent></Card>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid grid-cols-1 gap-6">
         <Card>
           <CardHeader><CardTitle>Safety and speeding</CardTitle></CardHeader>
           <CardContent className="space-y-4">

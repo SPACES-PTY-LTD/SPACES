@@ -728,6 +728,8 @@ class MixIntegrateService
             'vehicle_integration_id' => $assetId ?? null,
             'formatted_address' => $item['FormattedAddress'] ?? $item['formattedAddress'] ?? $item['formatted_address'] ?? null,
             'location_name' => $item['LocationName'] ?? $item['locationName'] ?? $item['location_name'] ?? null,
+            // Retain the complete observation for historical stop inspection.
+            'raw_position' => $item,
             'odometer_kilometres' => $item['odometer_kilometres'] ?? $item['OdometerKilometres'] ?? null,
         ];
     }

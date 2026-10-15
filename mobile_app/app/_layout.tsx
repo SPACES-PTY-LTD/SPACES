@@ -1,7 +1,7 @@
 import "@/global.css";
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { DarkTheme, DefaultTheme, ThemeProvider, Redirect, Stack, useRootNavigationState, useSegments } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useEffect } from 'react';
@@ -49,33 +49,17 @@ function LocationSession({ children }: { children: React.ReactNode }) {
 
 function RootNavigator() {
   const { isHydrating, session } = useAuth();
-  const segments = useSegments();
-  const navigationState = useRootNavigationState();
-
-  useEffect(() => {
-    if (!navigationState?.key || isHydrating) {
-      return;
-    }
-  }, [isHydrating, navigationState?.key]);
-
-  if (isHydrating || !navigationState?.key) {
+  if (isHydrating) {
     return <BrandLoadingScreen />;
   }
 
-  const inAuthGroup = segments[0] === '(auth)';
-
-  if (!session && !inAuthGroup) {
-    return <Redirect href="/(auth)/login" />;
-  }
-
-  if (session && inAuthGroup) {
-    return <Redirect href="/(tabs)" />;
-  }
-
   return (
-      <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={!session}>
         <Stack.Screen name="(auth)/login" />
         <Stack.Screen name="(auth)/register" />
+      </Stack.Protected>
+      <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="shipments/load" options={{ presentation: 'transparentModal', animation: 'none', gestureEnabled: false, contentStyle: { backgroundColor: 'transparent' } }} />
         <Stack.Screen name="shipments/imports/[import_id]" options={{ presentation: 'transparentModal', animation: 'none', gestureEnabled: false, contentStyle: { backgroundColor: 'transparent' } }} />
@@ -86,8 +70,12 @@ function RootNavigator() {
         <Stack.Screen name="shipments/completed" />
         <Stack.Screen name="account/edit-profile" />
         <Stack.Screen name="account/vehicles" />
+        <Stack.Screen name="account/notifications" />
+        <Stack.Screen name="account/theme" />
+        <Stack.Screen name="account/location" />
         <Stack.Screen name="vehicles/[vehicle_id]" />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
+      </Stack.Protected>
+    </Stack>
   );
 }

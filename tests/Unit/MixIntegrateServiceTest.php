@@ -13,6 +13,18 @@ use Tests\TestCase;
 
 class MixIntegrateServiceTest extends TestCase
 {
+    public function test_position_preserves_all_original_provider_fields(): void
+    {
+        $raw = ['Latitude' => -26, 'Longitude' => 28, 'FormattedAddress' => 'Depot Road',
+            'Heading' => 0, 'IsAvl' => false, 'AltitudeMetres' => null,
+            'AdditionalData' => ['Values' => [0, false, 'Recorded observation']]];
+        $method = new ReflectionMethod(MixIntegrateService::class, 'mapPosition');
+        $position = $method->invoke(new MixIntegrateService(), $raw);
+        $this->assertSame($raw, $position['raw_position']);
+        $this->assertSame(-26, $position['latitude']);
+        $this->assertSame('Depot Road', $position['formatted_address']);
+    }
+
     public function test_position_mapping_retains_address_and_optional_location_name(): void
     {
         $method = new ReflectionMethod(MixIntegrateService::class, 'mapPosition');

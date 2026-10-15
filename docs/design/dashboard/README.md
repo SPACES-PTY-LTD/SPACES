@@ -1,7 +1,7 @@
 # Driver dashboard plan
 
-Version: 2.252
-Last updated: 2026-10-14
+Version: 2.253
+Last updated: 2026-10-15
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
 ## Purpose and maintenance
@@ -722,10 +722,13 @@ Show a red notice in Truck details: **Allowed waiting time exceeded**, followed 
 - [x] Per-vehicle red state and truck-details notice, including zero/missing limits and open standby visits.
 - [ ] Verify authenticated live 3D colour, details notice and departure refresh.
 
-### Admin unknown recorded-stop locations (2.201 — implemented locally)
+### Admin unknown recorded-stop locations (2.253 — implemented locally)
 
 Click an unknown Recorded stops entry on the website run page to open a right-side drawer showing its recorded coordinate pin. At the top right, **Create new location from coordinates** opens the existing merchant-locked location creation drawer. Preserve the exact observation coordinates (including valid zero values); only fall back to a complete valid location coordinate pair. Try reverse geocoding to suggest name/address, town, city, province, postal code and country while retaining known stop details. Capture suggestions when opening the form so late lookup responses cannot overwrite user edits. Leave unknown company/contact/type/geofence details blank for review. Address/map failures still allow coordinate-based creation; missing/invalid coordinates disable creation and show an explicit unavailable state. Saving creates a new location only; it does not relink historical stops or invent a geofence. This admin-only flow does not affect the existing mobile Figma designs.
 
+Beneath Suggested address and its lookup/review status, show **Recorded tracking data** containing all saved `metadata.provider_position` fields as indented, wrapping JSON in a bounded, keyboard-scrollable panel. Keep it available when coordinates or geocoding are unavailable. Preserve nested fields, null, false and zero values; render provider strings as text. Show an explicit empty state if no snapshot was saved. MiX position normalization now retains the entire received position under `raw_position`, carried through existing tracking/activity metadata for future observations. Older stops show only their saved subset; never backfill historical evidence from current vehicle positions or fetch live provider data when opening the drawer. No new endpoint or migration. This admin-only panel does not alter the referenced mobile Figma screens.
+
+- [x] Saved provider JSON and empty state below address lookup, including full MiX raw positions for future observations (2.253); provider/tracking tests and website checks pass. Authenticated live drawer verification remains pending.
 - [x] Accessible unknown-stop trigger, map pin, responsive drawer and top-right creation action.
 - [x] Merchant-locked existing form with exact coordinates, optional address suggestions and manual fallback.
 - [x] Coordinate validity/zero/pair selection and address-prefill regressions; website TypeScript and focused ESLint pass.
@@ -1591,6 +1594,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-15 | 2.253 | Show all saved provider-position fields below the unknown-stop suggested address as readable JSON; preserve complete MiX positions for future observations. Explicit legacy/missing-data states, no live-position backfill. Implemented locally; tests/typecheck/lint pass, authenticated browser verification pending. Admin-only; mobile Figma unchanged. |
 | 2026-10-14 | 2.252 | Hide mobile GPS status/date-range card and All colour legend by default; retain details, refresh and paging behind the map information button. Route-tab changes close information. Implemented locally; native visual verification pending. |
 | 2026-10-14 | 2.251 | Persist unknown-location stop observations and confirmed departures; distinguish recorded, incomplete and historical estimated durations in admin rows/maps. Figma handoff aligned; local regression checks recorded in release notes, deployed tracking/browser verification pending. |
 | 2026-10-14 | 2.250 | Enrich AI suggested locations with coordinate-matched recorded provider names/addresses, including old-report recovery and reviewed form prefill. Targeted tests pass; live MiX field availability remains pending. Figma handoff aligned. |

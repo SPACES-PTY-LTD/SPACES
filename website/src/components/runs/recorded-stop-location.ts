@@ -30,3 +30,9 @@ export function recordedStopLocationValues(stop: ShipmentStop, address?: google.
     longitude: coordinates?.lng ?? null,
   }
 }
+
+export function recordedStopProviderJson(stop: ShipmentStop): string | null {
+  const position = stop.metadata?.provider_position
+  if (!position || typeof position !== "object" || Object.keys(position).length === 0) return null
+  return JSON.stringify(position, null, 2)
+}
