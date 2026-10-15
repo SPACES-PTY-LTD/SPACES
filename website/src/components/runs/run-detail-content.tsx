@@ -19,11 +19,10 @@ import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import { LocationDetailsDrawer } from "@/components/locations/location-details-drawer"
 import { Badge } from "@/components/ui/badge"
 import { ShipmentLocationTimeCell } from "@/components/runs/shipment-location-time-cell"
-import { RunStopDuration } from "@/components/runs/run-stop-duration"
+import { RecordedStopsTable } from "@/components/runs/recorded-stops-table"
 import { RunActiveDurationCard } from "@/components/runs/run-active-duration-card"
 import { RunAnalysisCard } from "@/components/runs/run-analysis-card"
-import { RecordedStopDrawer } from "@/components/runs/recorded-stop-drawer"
-import type { Location, ShipmentStop } from "@/lib/types"
+import type { Location } from "@/lib/types"
 
 function runLocationLabel(location: Location | null | undefined, fallback: string) {
   if (!location) return fallback
@@ -77,10 +76,6 @@ function Stat({ label, value, note }: { label: string; value: string | number; n
       {note ? <div className="mt-1 text-xs text-muted-foreground">{note}</div> : null}
     </div>
   )
-}
-
-function stopName(stop: ShipmentStop) {
-  return stop.location?.name || stop.location?.company || stop.shipment?.merchant_order_ref || "Recorded stop"
 }
 
 export async function RunDetailContent({ runId, embedded = false }: { runId: string; embedded?: boolean }) {
@@ -205,17 +200,8 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
 
         <Card>
           <CardHeader><CardTitle>Recorded stops</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            {(run.actual_stops ?? []).length ? timedStops.map((stop, index) => (
-              <div key={stop.activity_id ?? index} className="border-l-2 pl-3 text-sm">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{index + 1}. {stop.location?.location_id ? <LocationDetailsDrawer locationId={stop.location.location_id} label={stopName(stop)} accessToken={session.accessToken} merchantId={run.merchant_id} /> : <RecordedStopDrawer stop={stop} label={stopName(stop)} accessToken={session.accessToken} merchantId={run.merchant_id} />}</span>
-                  <Badge variant="outline">{stop.location?.type?.title || "Type not set"}</Badge>
-                </div>
-                <div className="capitalize text-xs text-muted-foreground">{(stop.event_type ?? "stop").replaceAll("_", " ")} · {dateTime(stop.occurred_at)}</div>
-                <RunStopDuration stop={stop} activities={timedActivities} initialNow={initialNow} />
-              </div>
-            )) : <div className="text-sm text-muted-foreground">No stop events were recorded for this run.</div>}
+          <CardContent>
+            <RecordedStopsTable stops={timedStops} activities={timedActivities} accessToken={session.accessToken} merchantId={run.merchant_id} initialNow={initialNow} />
           </CardContent>
         </Card>
       </div>

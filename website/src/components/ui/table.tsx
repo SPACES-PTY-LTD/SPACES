@@ -5,12 +5,15 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({ className, onViewportScroll, ...props }: React.ComponentProps<"table"> & {
+  onViewportScroll?: React.UIEventHandler<HTMLDivElement>
+}) {
   return (
     <ScrollArea
       id="table-container"
       data-slot="table-container"
       className="w-full"
+      onViewportScroll={onViewportScroll}
     >
       <table
         data-slot="table"

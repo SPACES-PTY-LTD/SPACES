@@ -337,6 +337,7 @@ export function DataTable<T extends Record<string, unknown>>({
   const frozenHeaderCells = React.useRef(
     new Map<number | "selection", HTMLTableCellElement>()
   )
+  const [isHorizontallyScrolled, setIsHorizontallyScrolled] = React.useState(false)
   const [stickyColumnOffsets, setStickyColumnOffsets] = React.useState<number[]>([])
   const router = useRouter()
   const pathname = usePathname()
@@ -752,6 +753,16 @@ export function DataTable<T extends Record<string, unknown>>({
     columns.length,
     Math.max(0, Math.floor(stickyColumns?.leading ?? 0))
   )
+
+  // Paint an overlay: collapsed table borders can suppress cell box-shadows.
+  const frozenBoundaryClassName = cn(
+    "border-r border-border",
+    isHorizontallyScrolled &&
+      "after:pointer-events-none after:absolute after:inset-y-0 after:left-full after:w-3 after:bg-[linear-gradient(to_right,rgba(0,0,0,0.18),transparent)] after:content-['']"
+  )
+  const handleViewportScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    setIsHorizontallyScrolled(event.currentTarget.scrollLeft > 0)
+  }, [])
 
   const registerFrozenHeaderCell = React.useCallback(
     (key: number | "selection", node: HTMLTableCellElement | null) => {
@@ -1281,7 +1292,7 @@ export function DataTable<T extends Record<string, unknown>>({
         ) : null}
         
         <div>
-            <Table className={cn(width ? `table-fixed` : "table-auto")} style={width ? { minWidth:width } : undefined}>
+            <Table onViewportScroll={handleViewportScroll} className={cn(width ? `table-fixed` : "table-auto")} style={width ? { minWidth:width } : undefined}>
               <TableHeader className="bg-muted/30">
                 <TableRow>
                   {selection ? (
@@ -1327,7 +1338,7 @@ export function DataTable<T extends Record<string, unknown>>({
                         "sticky top-0",
                         columnIndex < stickyLeadingColumnCount && "z-30 bg-muted",
                         columnIndex === stickyLeadingColumnCount - 1 &&
-                          "border-r border-border shadow-[8px_0_12px_-5px_rgba(0,0,0,0.4)]",
+                          frozenBoundaryClassName,
                         column.className
                       )}
                     >
@@ -1448,7 +1459,7 @@ export function DataTable<T extends Record<string, unknown>>({
                               columnIndex < stickyLeadingColumnCount &&
                                 "sticky z-10 bg-background group-hover/data-table-row:bg-muted group-data-[state=selected]/data-table-row:bg-muted",
                               columnIndex === stickyLeadingColumnCount - 1 &&
-                                "border-r border-border shadow-[8px_0_12px_-5px_rgba(0,0,0,0.4)]"
+                                frozenBoundaryClassName
                             )}
                           >
                           {column.type === "status" ? (

@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.253
+Version: 2.254
 Last updated: 2026-10-15
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -662,6 +662,11 @@ Implementation status: website/API implemented locally. Existing mobile Figma ac
 - [ ] Deploy API before website controls and verify the authenticated run with concurrent Expo/admin updates, real browser drag/long-list scrolling and live driver-message delivery.
 
 ### Admin recorded-stop duration (2.251 — implemented locally)
+
+Admin Recorded stops layout (2.254, implemented locally): display the shared DataTable in its own full-width row below Safety and speeding, with sequence, Location, Type, Event, Time and Duration columns. Preserve API order, every event, known/unknown location drawers, type badges and duration provenance/warnings. Enable local search by location, type and event. This admin-only presentation does not change mobile Figma screens or the timeline behavior handoff.
+
+- [x] Shared DataTable replaces the vertical list on full and embedded run details; existing drawers and duration component retained.
+- [ ] Verify authenticated browser layout, narrow-screen horizontal scrolling and drawer interactions.
 
 On the website run-detail page, each Recorded stops entry shows **Total time at location** from its recorded `entered_at` and `exited_at`, including seconds and multi-day durations. Missing, invalid or reversed intervals show **Not available**; do not infer a departure or ongoing visit from incomplete historical evidence. Preserve zero-duration visits. Keep every existing event row and location drawer/type badge.
 
@@ -1594,6 +1599,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-15 | 2.254 | Display admin Recorded stops in the shared DataTable below Safety and speeding, preserving order, drawers, badges and timing warnings. Local location/type/event search available. Implemented locally; browser verification pending; mobile Figma unaffected. |
 | 2026-10-15 | 2.253 | Show all saved provider-position fields below the unknown-stop suggested address as readable JSON; preserve complete MiX positions for future observations. Explicit legacy/missing-data states, no live-position backfill. Implemented locally; tests/typecheck/lint pass, authenticated browser verification pending. Admin-only; mobile Figma unchanged. |
 | 2026-10-14 | 2.252 | Hide mobile GPS status/date-range card and All colour legend by default; retain details, refresh and paging behind the map information button. Route-tab changes close information. Implemented locally; native visual verification pending. |
 | 2026-10-14 | 2.251 | Persist unknown-location stop observations and confirmed departures; distinguish recorded, incomplete and historical estimated durations in admin rows/maps. Figma handoff aligned; local regression checks recorded in release notes, deployed tracking/browser verification pending. |

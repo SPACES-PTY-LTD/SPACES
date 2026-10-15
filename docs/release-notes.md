@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-15 | Version: runs-frozen-column-shadow-v1
+
+- **Summary:** Restore the Runs table frozen-column boundary shadow during horizontal scrolling.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Render a pointer-transparent gradient (opacity softened from 22% to 18% during review) at the right edge of the last frozen header/body cell when the table viewport scrollLeft is positive; hide it at the horizontal origin. Replace the collapsed-table cell box-shadow and preserve frozen offsets, borders and row interactions. Shared DataTables with frozen columns inherit the fix.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript and focused ESLint pass. Chrome inspection confirmed the original shadow CSS was present on the collapsed-border table. A local fixture using the actual shared DataTable verified absent/present/absent shadow through origin, sideways scroll and return, with unchanged frozen positions. Production deployment and authenticated integration of the changed build remain unverified.
+
+## 2026-10-15 | Version: recorded-stops-datatable-v1
+
+- **Summary:** Replace the Recorded stops list with the shared DataTable on admin run details.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Show sequence, Location, Type, Event, Time and Duration columns; preserve recorded order, detail drawers, badges and timing warnings. Support local search by location, type and event. Full and embedded details share the table. Dashboard plan 2.254 records the admin presentation; mobile Figma screens are unaffected.
+- **Breaking Changes:** None.
+- **Verification:** Website TypeScript, focused ESLint and existing recorded-stop/timing tests pass; diff checks pass. Authenticated browser visual and drawer checks remain pending.
+
 ## 2026-10-15 | Version: unknown-stop-provider-details-v1
 
 - **Summary:** Show saved tracking-provider information at the bottom of unknown recorded-stop details, after Suggested address.
