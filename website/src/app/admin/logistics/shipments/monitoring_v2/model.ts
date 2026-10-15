@@ -75,7 +75,7 @@ export class SlotRegistry {
   private groups = new Map<string, Map<string,number>>();
   slot(group: string,id: string) { let slots=this.groups.get(group); if(!slots){slots=new Map();this.groups.set(group,slots);} if(!slots.has(id)) slots.set(id,slots.size); return slots.get(id)!; }
 }
-export type Placement = { vehicle: MonitorVehicle; x:number; z:number; rotation:number };
+export type Placement = { vehicle: MonitorVehicle; x:number; y?:number; z:number; rotation:number };
 export type SitePlacement = MonitorLocation & { x:number; z:number };
 export function layoutFleet(fleet: MonitorVehicle[], registry: SlotRegistry) {
   const locations=locationsFor(fleet);

@@ -23,7 +23,7 @@ export function useMonitorData(token?:string, merchant?:string) {
         ]);
         if(disposed) return;
         if(fleetResult.status==='rejected' || isApiErrorResponse(fleetResult.value)) {
-          setState(s=>({...s,loading:false,error:'Fleet refresh failed. Showing the last successful snapshot.'})); return;
+          setState(s=>({...s,loading:false,error:s.updated?'Fleet refresh failed. Showing the last successful snapshot.':'Unable to load the fleet. Please retry.'})); return;
         }
         const events=eventResult.status==='fulfilled' && !isApiErrorResponse(eventResult.value)?eventResult.value.data:null;
         const rows=fleetResult.value.data ?? [];

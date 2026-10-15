@@ -13,8 +13,10 @@ use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleActivity;
+use App\Services\VehicleActivityService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -27,6 +29,35 @@ class VehicleLatestActivityCheckTest extends TestCase
         parent::setUp();
 
         $this->withoutMiddleware(ApiAuthMiddleware::class);
+    }
+
+    public function test_mysql_monitoring_seeks_use_matching_indexes_and_short_circuit_run_presence(): void
+    {
+        $original = DB::getDefaultConnection();
+        config(['database.connections.monitoring_plan_test' => [
+            'driver' => 'mysql', 'host' => '127.0.0.1', 'database' => 'not_connected',
+            'username' => '', 'password' => '', 'prefix' => '',
+        ]]);
+        // Query compilation only: no live MySQL connection or production data.
+        DB::setDefaultConnection('monitoring_plan_test');
+        try {
+            $merchant = (new Merchant)->forceFill(['id' => 42]);
+            $service = app(VehicleActivityService::class);
+            $query = $service->monitoringVehicleQuery($merchant);
+            $sql = $query->toSql();
+            $this->assertSame(1, substr_count($sql, 'force index (va_monitoring_latest)'));
+            $this->assertSame(2, substr_count($sql, 'force index (va_monitoring_transition)'));
+            $this->assertStringContainsString('exists(select', $sql);
+            $this->assertStringNotContainsString('count(*)', $sql);
+            $this->assertSame(3, substr_count($sql, '`vehicle_activity`.`geofence_cleanup_batch_uuid` is null'));
+            $this->assertSame(3, substr_count($sql, 'order by `occurred_at` desc, `id` desc limit 1'));
+            $unhinted = $service->monitoringVehicleQuery($merchant, false);
+            $this->assertStringNotContainsString('force index', $unhinted->toSql());
+            $this->assertSame($query->getBindings(), $unhinted->getBindings());
+        } finally {
+            DB::setDefaultConnection($original);
+            DB::purge('monitoring_plan_test');
+        }
     }
 
     public function test_it_returns_all_merchant_vehicles_with_latest_activity_data(): void

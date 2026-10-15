@@ -6,6 +6,8 @@ import { Color, MOUSE, TOUCH, Object3D, Vector3, type InstancedMesh } from 'thre
 import type { OrbitControls as Controls } from 'three-stdlib';
 import { REFINED_TRUCK_GEOMETRIES } from '../monitoring/components/refined-truck-geometry';
 import { Depot } from './depot';
+import { HIGHWAY_HEIGHT } from './highway';
+import { HighwayRamp } from './highway-ramp';
 import { LocationMesh } from '../monitoring/components/location-meshes';
 import { resolveLocationMeshType } from '@/lib/location-type-icons';
 import { Building2, Clock3, ParkingCircle, CircleHelp } from 'lucide-react';
@@ -27,7 +29,7 @@ function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance}:Pi
       const moving=p.vehicle.status==='in_transit';
       const x=p.x+(moving?Math.sin(clock.current*.16+i*.7)*.65:0);
       let current=positions.current.get(p.vehicle.id);
-      const target=new Vector3(x,0,p.z);
+      const target=new Vector3(x,p.y ?? 0,p.z);
       if(!current){current=target.clone();positions.current.set(p.vehicle.id,current);}
       // Changes are derived from snapshots; never synthesize arrivals or delivery events.
       if(paused) current.copy(target); else current.lerp(target,Math.min(1,delta*3));
@@ -47,12 +49,12 @@ function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance}:Pi
       onPointerOut={()=>setHover(null)}>
       <meshStandardMaterial color={colours[part]} roughness={part==='windows'?.3:.78} metalness={part==='metal'?.35:0}/>
     </instancedMesh>)}
-    {active && <Html position={[active.x,2,active.z]} center zIndexRange={[10,0]}><button className="mv-truck-label" onClick={()=>onVehicle(active.vehicle.id)}>{active.vehicle.plate}</button></Html>}
-    {placements.filter(p=>p.vehicle.id===selected).map(p=><mesh key={p.vehicle.id} position={[p.x,.04,p.z]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[1.45,1.52,48]}/><meshBasicMaterial color="#1463ff"/></mesh>)}
+    {active && <Html position={[active.x,(active.y ?? 0)+2,active.z]} center zIndexRange={[10,0]}><button className="mv-truck-label" onClick={()=>onVehicle(active.vehicle.id)}>{active.vehicle.plate}</button></Html>}
+    {placements.filter(p=>p.vehicle.id===selected).map(p=><mesh key={p.vehicle.id} position={[p.x,(p.y ?? 0)+.04,p.z]} rotation={[-Math.PI/2,0,0]}><ringGeometry args={[1.45,1.52,48]}/><meshBasicMaterial color="#1463ff"/></mesh>)}
   </>;
 }
-function Road({x=0,z,width,depth=5}:{x?:number;z:number;width:number;depth?:number}) {
-  return <group position={[x,0,z]}>
+function Road({x=0,y=0,z,width,depth=5}:{x?:number;y?:number;z:number;width:number;depth?:number}) {
+  return <group position={[x,y,z]}>
     <mesh receiveShadow position={[0,-.12,0]}><boxGeometry args={[width,.22,depth]}/><meshStandardMaterial color="#8d97a5" roughness={.95}/></mesh>
     {[-1,1].map(side=><mesh key={side} position={[0,.005,side*(depth/2-.15)]}><boxGeometry args={[width,.015,.055]}/><meshBasicMaterial color="#f9fafb"/></mesh>)}
     {Array.from({length:Math.ceil(width/2)},(_,i)=><mesh key={i} position={[-width/2+i*2+.6,.012,0]}><boxGeometry args={[1.1,.02,.07]}/><meshBasicMaterial color="#f8fafc"/></mesh>)}
@@ -65,20 +67,22 @@ function Camera({camera,zoom,focus,selected,location,placements,sites,paused}:{c
   const target=useRef(new Vector3());const destination=useRef(new Vector3(50,48,65));const moving=useRef(true);
   // Keep this callback stable: Drei reconnects input listeners when it changes.
   const cancelCameraMotion=useCallback(()=>{moving.current=false;},[]);
+  const selectedPosition=placements.find(p=>p.vehicle.id===selected);const site=sites.find(s=>s.id===location);
+  const anchorY=selectedPosition?.y ?? 0;
   const keepAboveGround=useCallback(()=>{
     if(!controls.current)return;
     // Ground-plane pan plus a height floor also protects cursor-focused dolly.
-    controls.current.target.y=0;
-    if(cam.position.y<1){cam.position.setY(1);cam.lookAt(controls.current.target);}
-  },[cam]);
-  const selectedPosition=placements.find(p=>p.vehicle.id===selected);const site=sites.find(s=>s.id===location);
+    controls.current.target.y=anchorY;
+    if(cam.position.y<anchorY+1){cam.position.setY(anchorY+1);cam.lookAt(controls.current.target);}
+  },[cam,anchorY]);
+
   // Camera responds to navigation, not each live clock tick or background refresh.
   const anchorX=selectedPosition?.x ?? site?.x ?? 0, anchorZ=selectedPosition?.z ?? site?.z ?? 0;
   useEffect(()=>{
-    const close=Boolean(selected || location);target.current.set(anchorX,0,anchorZ);
+    const close=Boolean(selected || location);target.current.set(anchorX,anchorY,anchorZ);
     const distance=(close?(location?28:18):43)*Math.pow(.8,zoom);
-    destination.current.set(anchorX+(camera==='top'?.01:camera==='road'?-distance*.6:-distance*.4),camera==='top'?distance*1.5:camera==='road'?distance*.3:distance*.68,anchorZ+(camera==='top'?.01:distance));moving.current=true;
-  },[camera,zoom,focus,selected,location,anchorX,anchorZ]);
+    destination.current.set(anchorX+(camera==='top'?.01:camera==='road'?-distance*.6:-distance*.4),anchorY+(camera==='top'?distance*1.5:camera==='road'?distance*.3:distance*.68),anchorZ+(camera==='top'?.01:distance));moving.current=true;
+  },[camera,zoom,focus,selected,location,anchorX,anchorY,anchorZ]);
   useFrame((_,delta)=>{if(!controls.current || !moving.current)return;cam.position.lerp(destination.current,paused?1:Math.min(1,delta*5));controls.current.target.lerp(target.current,paused?1:Math.min(1,delta*5));controls.current.update();if(cam.position.distanceTo(destination.current)<.05)moving.current=false;});
   return <MapControls ref={controls} domElement={gl.domElement} makeDefault
     enablePan enableZoom enableRotate enableDamping dampingFactor={0.05}
@@ -92,7 +96,7 @@ function World(props:SceneProps) {
   const [registry]=useState(()=>new SlotRegistry());
   const layout=useMemo(()=>layoutFleet(props.fleet,registry),[props.fleet,registry]);
   const sites=props.journey?[{id:'journey-from',name:props.journey.from,address:'Collection',icon:'warehouse',vehicles:[],x:-19,z:0},{id:'journey-to',name:props.journey.to,address:'Destination',icon:'warehouse',vehicles:[],x:19,z:0}]:layout.sites;
-  const placements=props.journey?layout.placements.filter(p=>p.vehicle.id===props.selected).map(p=>({...p,x:0,z:10,rotation:0})):layout.placements;
+  const placements=props.journey?layout.placements.filter(p=>p.vehicle.id===props.selected).map(p=>({...p,x:0,y:0,z:10,rotation:0})):layout.placements.map(p=>({...p,y:p.vehicle.status==='in_transit'?HIGHWAY_HEIGHT:0}));
   const visible=placements.filter(p=>props.visibleIds.has(p.vehicle.id));
   const visibleSites=props.journey?sites:sites.filter(s=>s.vehicles.some(v=>props.visibleIds.has(v.id)));
   const grouped=props.group?placements.filter(p=>p.vehicle.status===props.group):[];
@@ -100,6 +104,7 @@ function World(props:SceneProps) {
   const minX=Math.min(-38,...sites.map(s=>s.x-9)),maxX=Math.max(40,...sites.map(s=>s.x+9));
   const width=maxX-minX,centre=(minX+maxX)/2;
   const roadRows=Math.max(2,...placements.filter(p=>p.vehicle.status==='in_transit').map(p=>Math.round((-p.z-12)/2.4)+1));
+  const highwayZ=-12-(roadRows-1)*1.2, highwayDepth=roadRows*2.4+1.2;
   const frontZ=Math.max(10,...placements.filter(p=>p.vehicle.status==='at_location').map(p=>p.z+3));
   const {gl}=useThree();const onFailure=props.onFailure;
   useEffect(()=>{const canvas=gl.domElement;const lost=(e:Event)=>{e.preventDefault();onFailure();};canvas.addEventListener('webglcontextlost',lost);return()=>canvas.removeEventListener('webglcontextlost',lost);},[gl,onFailure]);
@@ -108,8 +113,9 @@ function World(props:SceneProps) {
     <directionalLight position={[-25,50,20]} intensity={2} castShadow shadow-mapSize={props.fleet.length>250?[1024,1024]:[2048,2048]} shadow-camera-left={-90} shadow-camera-right={90} shadow-camera-top={90} shadow-camera-bottom={-90} shadow-bias={-.0005}/>
     <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.3,0]} receiveShadow><planeGeometry args={[2000,2000]}/><meshBasicMaterial color="#f3f6fa" toneMapped={false}/></mesh>
     <Road x={centre} z={frontZ} width={width}/>
-    <Road x={centre} z={-12-(roadRows-1)*1.2} width={width} depth={roadRows*2.4+1.2}/>
-    <mesh position={[maxX,.01,(frontZ-12)/2]} rotation={[-Math.PI/2,0,0]} receiveShadow><ringGeometry args={[(frontZ+12)/2-2.5,(frontZ+12)/2+2.5,64,1,-Math.PI/2,Math.PI]}/><meshStandardMaterial color="#8d97a5" roughness={.95}/></mesh>
+    <Road x={centre} y={HIGHWAY_HEIGHT} z={highwayZ} width={width} depth={highwayDepth}/>
+    {Array.from({length:Math.ceil(width/12)},(_,i)=><group key={`pier-${i}`}>{[-1,1].map(side=><mesh key={side} position={[minX+6+i*12,HIGHWAY_HEIGHT/2-.15,highwayZ+side*highwayDepth*.3]} castShadow><boxGeometry args={[.8,HIGHWAY_HEIGHT,.8]}/><meshStandardMaterial color="#bbc3ce"/></mesh>)}</group>)}
+    <HighwayRamp x={maxX} frontZ={frontZ} highwayZ={-12} highwayDepth={5}/>
     {visibleSites.map((site,i)=><group key={site.id}>
       <mesh position={[site.x,-.06,(frontZ+site.z)/2]} receiveShadow><boxGeometry args={[13,.12,frontZ-site.z-1]}/><meshStandardMaterial color="#c7cdd6"/></mesh>
       <group position={[site.x,0,site.z]}>{resolveLocationMeshType(site.icon)==='warehouse'?<Depot onSelect={()=>{if(!props.journey)props.onLocation(site.id);}}/>:<group scale={1.35}><LocationMesh x={0} z={0} location={{locationId:site.id,index:i,category:'depot',meshType:resolveLocationMeshType(site.icon),status:'active',changedAt:0,label:site.name}} showLocationLabels={false} onSelectLocation={props.onLocation}/></group>}</group>

@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-15 | Version: monitoring-v2-elevated-highway
+
+- **Summary:** Raise the highway above depots so selected transit vehicles are not hidden behind buildings.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Transit trucks, labels, selection rings and camera targets follow the raised highway. Narrow piers support the deck; the joining curve is a smoothly sloped ramp with level connections to both roads. Yard vehicles and shipment journey staging stay at ground level. Highway selection keeps the camera above its deck.
+- **Breaking Changes:** None.
+- **Verification:** Seven targeted fleet/geometry tests, TypeScript and focused ESLint pass, including both ramp endpoints, level endpoint slopes and monotonic elevation for different yard sizes. Local browser checks confirm the selected highway vehicle is unobstructed and the ramp connects both levels; no console errors. Screenshots saved under `docs/design/monitoring-v2/verification/10-elevated-vehicle.png` and `11-elevated-highway.png`. Production deployment pending.
+
+## 2026-10-15 | Version: monitoring-query-plan-v1
+
+- **Summary:** Prepare a mitigation for the production latest-activity-check timeout affecting both monitors on larger merchants. The timeout is confirmed; its production query plan has not yet been obtained.
+- **API Changes:** Response contract unchanged. MySQL/MariaDB latest-row subqueries explicitly use the existing `va_monitoring_latest` and `va_monitoring_transition` indexes, avoiding optimizer-selected ordered scans over unrelated history. Replace qualifying-run counts with existence checks while preserving active/standby semantics. SQLite retains its normal planner.
+- **Database Changes:** No new migration. Requires the existing `2026_10_15_180000_add_monitoring_activity_seek_indexes.php`, confirmed applied by the user. No production data changes performed.
+- **Behavior Changes:** V2 first-load failures no longer claim a prior snapshot exists or that the merchant has no vehicles. Add read-only `php artisan monitoring:explain <merchant-uuid>` to check required indexes and compare hinted/unhinted EXPLAIN plans without executing the fleet query.
+- **Breaking Changes:** None for migrated deployments; explicit index hints require the named indexes to exist.
+- **Verification:** Six latest-activity tests pass (60 assertions), covering MySQL SQL compilation, index selection, cleanup exclusions, timestamp ties, merchant scope and unchanged fleet classifications. Website TypeScript, focused ESLint, PHP formatting, command registration and diff checks pass. Production plan, deployment and timeout recovery remain unverified; this is a targeted mitigation, not a confirmed production resolution.
+
 ## 2026-10-15 | Version: shipment-monitoring-v2
 
 - **Summary:** Add the design-led 3D Monitor V2 at `/admin/logistics/shipments/monitoring_v2`.

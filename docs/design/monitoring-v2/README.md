@@ -19,3 +19,7 @@ V2 location anchors are compact icons. Hover or keyboard focus reveals details; 
 ## Location-type verification
 
 All 26 catalog types rendered in the V2 browser fixture. Each marker opened the matching location detail view (28 selection checks including missing/unsupported fallback). Reviewed the captured model contact sheet; both fallback cases render the warehouse. No browser console errors were recorded. Evidence: `docs/design/monitoring-v2/verification/location-type-contact-sheet.png` and individual captures in `verification/location-types/`. Reproduce with `/dev-monitoring-v2-preview?catalog=1`; choose Preview location type. Catalog mapping/asset/registry tests also pass.
+
+## Elevated highway refinement
+
+The 2.260 refinement raises the highway and its vehicles above the depots. The selection camera and labels use the same elevation. A smooth ramp joins the nearest highway lane to the ground-level frontage road; its endpoint slope is zero at both decks. This preserves the joining curve as highway lanes increase. See verification captures 10 and 11.

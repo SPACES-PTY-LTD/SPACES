@@ -90,39 +90,7 @@ class VehicleActivityService
             return new Collection;
         }
 
-        // Seek one row per vehicle instead of aggregating its entire activity history.
-        $latestActivity = fn () => VehicleActivity::query()
-            ->select('id')
-            ->where('merchant_id', $merchant->id)
-            ->whereColumn('vehicle_id', 'vehicles.id')
-            ->whereNotNull('occurred_at')
-            ->orderByDesc('occurred_at')
-            ->orderByDesc('id')
-            ->limit(1);
-
-        $vehicles = Vehicle::query()
-            ->select('vehicles.*')
-            ->addSelect([
-                'latest_activity_id' => $latestActivity(),
-                'latest_entry_id' => $latestActivity()->where('event_type', VehicleActivity::EVENT_ENTERED_LOCATION),
-                'latest_exit_id' => $latestActivity()->where('event_type', VehicleActivity::EVENT_EXITED_LOCATION),
-            ])
-            ->with(['lastDriver.user'])
-            ->withCount([
-                'activeRuns as qualifying_active_runs_count' => function (Builder $query) {
-                    $query->whereHas('runShipments', function (Builder $runShipmentQuery) {
-                        $runShipmentQuery
-                            ->where('status', '!=', RunShipment::STATUS_REMOVED)
-                            ->whereHas('shipment', function (Builder $shipmentQuery) {
-                                $shipmentQuery->whereNotIn('status', ['delivered', 'cancelled']);
-                            });
-                    });
-                },
-            ])
-            ->where('merchant_id', $merchant->id)
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get();
+        $vehicles = $this->monitoringVehicleQuery($merchant)->get();
 
         if ($vehicles->isEmpty()) {
             return $vehicles;
@@ -154,6 +122,57 @@ class VehicleActivityService
         });
 
         return $vehicles;
+    }
+
+    /** Internal query factory shared with the read-only query-plan diagnostic.
+     * Merchant authorization is performed by listVehiclesWithLatestActivity.
+     */
+    public function monitoringVehicleQuery(Merchant $merchant, bool $useIndexHints = true): Builder
+    {
+        // Constrain the access path: an ordered PRIMARY/occurred_at scan can
+        // inspect unrelated history for every vehicle, especially absent events.
+        $latestActivity = function (?string $eventType = null) use ($merchant, $useIndexHints) {
+            $query = VehicleActivity::query()
+                ->select('id')
+                ->where('merchant_id', $merchant->id)
+                ->whereColumn('vehicle_id', 'vehicles.id')
+                ->whereNotNull('occurred_at')
+                ->orderByDesc('occurred_at')
+                ->orderByDesc('id')
+                ->limit(1);
+            if ($eventType !== null) {
+                $query->where('event_type', $eventType);
+            }
+            if ($useIndexHints && in_array($query->getConnection()->getDriverName(), ['mysql', 'mariadb'], true)) {
+                $query->forceIndex($eventType === null ? 'va_monitoring_latest' : 'va_monitoring_transition');
+            }
+
+            return $query;
+        };
+
+        return Vehicle::query()
+            ->select('vehicles.*')
+            ->addSelect([
+                'latest_activity_id' => $latestActivity(),
+                'latest_entry_id' => $latestActivity(VehicleActivity::EVENT_ENTERED_LOCATION),
+                'latest_exit_id' => $latestActivity(VehicleActivity::EVENT_EXITED_LOCATION),
+            ])
+            ->with(['lastDriver.user'])
+            ->withExists([
+                'activeRuns as qualifying_active_runs_count' => function (Builder $query) {
+                    $query->whereHas('runShipments', function (Builder $runShipmentQuery) {
+                        $runShipmentQuery
+                            ->where('status', '!=', RunShipment::STATUS_REMOVED)
+                            ->whereHas('shipment', function (Builder $shipmentQuery) {
+                                $shipmentQuery->whereNotIn('status', ['delivered', 'cancelled']);
+                            });
+                    });
+                },
+            ])
+            ->where('merchant_id', $merchant->id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+
     }
 
     public function getActivity(User $user, string $activityUuid): VehicleActivity
