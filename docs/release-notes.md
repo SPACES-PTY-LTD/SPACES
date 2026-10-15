@@ -1,5 +1,77 @@
 # Release Notes
 
+## 2026-10-15 | Version: monitoring-v2-dynamic-junctions
+
+- **Summary:** Improve dynamic multi-road junctions and landscaping.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Clear crossing lane markings, add static illustrative traffic lights at three-way joins and occasional planted roundabouts, and generate verge trees with junction/building/vehicle clearance. Placement follows road rows and stays deterministic.
+- **Breaking Changes:** None.
+- **Verification:** Nine model tests, TypeScript and focused lint pass; local network visually checked. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-road-layouts
+
+- **Summary:** Add a 1 road / Multiple roads dropdown for compact location networks.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Default to the existing paired frontage road; optionally arrange locations into shorter connected streets, retaining the highway ramp and adapting Overview. Choice is local state; changing it resets camera framing. Shipment staging remains dedicated.
+- **Breaking Changes:** None.
+- **Verification:** Eight model tests pass, including compact layout, unique bays, road clearance, reorder stability and switching back. TypeScript and focused lint pass; local dropdown switching and network framing visually checked. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-canvas-pinch
+
+- **Summary:** Reserve pinch zoom for the 3D canvas.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Suppress browser pinch scaling while V2 is mounted, preserve normal page scrolling and canvas camera zoom, and remove listeners/touch policy on exit.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused lint pass; browser confirms page pan-only touch policy and canvas touch-action none. Physical touch/trackpad verification pending.
+
+## 2026-10-15 | Version: monitoring-v2-location-camera-controls
+
+- **Summary:** Hide camera presets while viewing a specific location.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Overview / Road / Top buttons only render outside location detail; scene interaction controls remain available.
+- **Breaking Changes:** None.
+- **Verification:** Focused lint and TypeScript pass; local browser confirmed presets hidden in location detail and restored after Back to overview. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-lengthwise-overview
+
+- **Summary:** Match Overview to the latest reference showing both roads lengthwise.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Rotate the default Overview along the roads and lower its elevation to about 39 degrees, retaining both yard rows and the connecting ramp.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused lint pass; local overview visually checked. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-pan-rotate
+
+- **Summary:** Add visible Pan / Rotate controls to every V2 scene view.
+- **API Changes:** None; local interaction-mode prop only.
+- **Database Changes:** None.
+- **Behavior Changes:** Pan is the default. Rotate maps left mouse drag and one finger to orbit/tilt without resetting camera position. Wheel/pinch zoom and right-drag rotation remain available. Reset view restores Pan. Accessible pressed states, keyboard controls and a mode hint accompany a wrapping toolbar. Existing ground limits remain enforced.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and TypeScript pass. Local browser checks cover mouse rotation, pan switching, wheel input, keyboard activation, Reset to Pan, camera preset navigation, lower angle limit and 390px toolbar wrapping. Mode changes do not enter the camera preset effect. Physical touch/pinch and production-refresh validation remain pending. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-aerial-overview
+
+- **Summary:** Raise the fleet overview to reveal vehicles obscured by near-side buildings.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Overview uses a steeper aerial perspective with less horizontal offset. Road, Top and selected-entity angles retain their existing behavior.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint and TypeScript checks; local visual verification recorded with the design evidence. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-two-sided-locations
+
+- **Summary:** Place V2 locations on both sides of the frontage road to reduce horizontal growth.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Locations share paired columns; entrances and truck bays face inward. Yard depth preserves road clearance, parking moves beyond the second row, and selection cameras respect the facing direction. Overview frames both rows; the elevated highway ramp follows the road position.
+- **Breaking Changes:** None.
+- **Verification:** Eight fleet/geometry tests pass, including 20 locations in 10 columns, road clearance and refresh stability. Local overview visually checked. TypeScript and focused ESLint pass. Not deployed.
+
 ## 2026-10-15 | Version: monitoring-v2-moving-highway
 
 - **Summary:** Restore V1's moving-highway effect in V2.

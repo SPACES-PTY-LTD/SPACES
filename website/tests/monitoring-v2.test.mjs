@@ -33,3 +33,36 @@ test('105, 500 and 1000 trucks each get a unique position without aggregation',(
 test('poll reorder and removals preserve surviving slots',()=>{
  const registry=new m.SlotRegistry();const fleet=m.normalizeFleet([row('a'),row('b'),row('c','in_transit')]);const initial=m.layoutFleet(fleet,registry).placements;const next=m.layoutFleet([fleet[2],fleet[1]],registry).placements;for(const p of next){const before=initial.find(x=>x.vehicle.id===p.vehicle.id);assert.equal(p.x,before.x);assert.equal(p.z,before.z);}
 });
+test('locations pair across the road with inward yards and stable slots',()=>{
+ const fleet=m.normalizeFleet(Array.from({length:240},(_,i)=>row(String(i),'at_location',{monitoring:{status:'at_location',location:{location_id:`site-${Math.floor(i/12)}`,name:`Site ${Math.floor(i/12)}`}}})));
+ const registry=new m.SlotRegistry();const layout=m.layoutFleet(fleet,registry);
+ assert.equal(new Set(layout.sites.map(s=>s.x)).size,10);
+ assert.equal(layout.sites.filter(s=>s.z<layout.roadZ).length,10);
+ assert.equal(layout.sites.filter(s=>s.z>layout.roadZ).length,10);
+ for(const p of layout.placements){const site=layout.sites.find(s=>s.id===p.vehicle.locationId);assert.ok((p.z-site.z)*site.direction>0);assert.ok(Math.abs(p.z-layout.roadZ)>=4.5-1e-9);assert.equal(p.rotation,-site.direction*Math.PI/2);}
+ const refreshed=m.layoutFleet([...fleet].reverse(),registry);
+ assert.deepEqual(new Map(refreshed.sites.map(s=>[s.id,[s.x,s.z,s.direction]])),new Map(layout.sites.map(s=>[s.id,[s.x,s.z,s.direction]])));
+});
+test('multiple roads compact locations and keep yards clear and slots stable',()=>{
+ const fleet=m.normalizeFleet(Array.from({length:240},(_,i)=>row(String(i),'at_location',{monitoring:{status:'at_location',location:{location_id:`site-${Math.floor(i/12)}`,name:`Site ${Math.floor(i/12)}`}}})));
+ const registry=new m.SlotRegistry();const single=m.layoutFleet(fleet,registry);const multi=m.layoutFleet(fleet,registry,'multiple');
+ assert.ok(multi.roads.length>1);
+ assert.ok(Math.max(...multi.sites.map(s=>s.x))<Math.max(...single.sites.map(s=>s.x)));
+ assert.equal(new Set(multi.placements.map(p=>`${p.x}:${p.z}`)).size,fleet.length);
+ for(const p of multi.placements){const site=multi.sites.find(s=>s.id===p.vehicle.locationId);assert.ok(multi.roads.includes(site.roadZ));assert.ok(p.z>site.z);for(const z of multi.roads)assert.ok(Math.abs(p.z-z)>=4.5-1e-9);}
+ const refreshed=m.layoutFleet([...fleet].reverse(),registry,'multiple');
+ assert.deepEqual(new Map(refreshed.sites.map(s=>[s.id,[s.x,s.z]])),new Map(multi.sites.map(s=>[s.id,[s.x,s.z]])));
+ assert.deepEqual(m.layoutFleet(fleet,registry).placements,single.placements);
+});
+test('street furniture follows road topology and keeps trees clear',()=>{
+ for(const count of [0,1,4,20,60]){
+  const fleet=m.normalizeFleet(Array.from({length:count},(_,i)=>row(String(i),'at_location',{monitoring:{status:'at_location',location:{location_id:`site-${i}`,name:`Site ${i}`}}})));
+  const layout=m.layoutFleet(fleet,new m.SlotRegistry(),'multiple');const min=Math.min(-35,...layout.sites.map(s=>s.x-10)),max=Math.max(-16,...layout.sites.map(s=>s.x+10));
+  const furniture=m.streetFurniture(layout.roads,min,max,layout.sites,layout.placements);
+  assert.deepEqual(furniture,m.streetFurniture(layout.roads,min,max,layout.sites,layout.placements));
+  assert.equal(furniture.junctions.length,layout.roads.length>1?layout.roads.length*2:0);
+  if(layout.roads.length>1){assert.ok(furniture.junctions.some(j=>j.kind==='roundabout'));assert.ok(furniture.junctions.some(j=>j.kind==='signals'));}
+  for(const j of furniture.junctions){assert.ok(layout.roads.includes(j.z));assert.equal(new Set(j.arms).size,j.arms.length);if(j.kind==='signals')assert.ok(j.arms.length>=3);}
+  for(const t of furniture.trees){assert.ok(t.x<min-4 || t.x>max+4);assert.ok(furniture.junctions.every(j=>Math.hypot(t.x-j.x,t.z-j.z)>6.5));assert.ok(layout.placements.every(p=>Math.hypot(t.x-p.x,t.z-p.z)>4));}
+ }
+});

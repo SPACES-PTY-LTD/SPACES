@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.261
+Version: 2.269
 Last updated: 2026-10-15
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -26,11 +26,13 @@ This is the canonical behaviour plan for the Spaces driver dashboard and deliver
 
 Figma simulates file selection, AI reading, GPS, searches and server responses. Its example locations and roads are illustrative. The location picker currently demonstrates saved-location choices; real address search, geocoding and routing must be implemented and verified in the app. Native document management, keyboard entry and telephone calls are implementation handoffs.
 
-## Admin 3D Monitor V2 (2.261 — implemented locally)
+## Admin 3D Monitor V2 (2.269 — implemented locally)
 
 First-load API failures show an unavailable state, not an empty fleet or a nonexistent saved snapshot (2.259). A production shared-API timeout was reproduced for the larger merchant; explicit-index query mitigation is implemented locally, with deployed query-plan and recovery verification pending.
 
 Direct entry: `/admin/logistics/shipments/monitoring_v2`. V1 and existing sidebar destinations remain unchanged. [Visual references and verification](../monitoring-v2/README.md) record the selected image design and six connected views: fleet overview, vehicle tracking, location detail, attention, shipment journey and standby/unknown. These local image references are authoritative for this admin surface; the mobile Figma references above are unaffected.
+
+Locations alternate across both sides of the lower road in paired columns, with entrances and vehicle bays facing inward. The road stays clear as yards grow; south-side selection uses a matching camera direction. The overview frames both rows and the elevated highway ramp remains connected (2.262, implemented locally).
 
 The highway lane markings scroll like V1 to convey illustrative travel; pause/reduced motion freeze them and resume preserves their position. This is not measured GPS speed (2.261).
 
@@ -40,8 +42,25 @@ Render each vehicle separately in an interactive native Three.js schematic. Use 
 
 V2 location anchors are compact icons. Hover or keyboard focus reveals details; Hide locations clears the overlays. This supersedes the always-expanded reference cards to keep yards visible when zoomed out.
 
-Camera navigation supports left-drag/one-finger pan, wheel/pinch zoom, right-drag/two-finger rotation, Overview/Road/Top presets and reset. Panning follows the ground plane; the polar limit and camera-height floor prevent looking beneath the scene. Manual input cancels preset animation without being reset by clock ticks.
+Overview looks along the two parallel roads from an elevated angle (about 39 degrees above ground), matching the latest user reference: highway on the left, location road and inward-facing yards beside it, and the joining curve in the distance (2.265, implemented locally). Road, Top and selected-entity camera angles retain their existing behavior.
 
+Multiple-road junctions mask crossing lane markings, use illustrative signals at three-way joins and occasional planted roundabouts, and place verge trees using road-row spacing and clearance checks. Placement is deterministic across refreshes (2.269, implemented locally).
+
+- [x] Junction topology and tree clearance tested across 0, 1, 4, 20 and 60 locations.
+
+A Road layout dropdown defaults to 1 road and offers Multiple roads: a compact grid of location rows with connecting end streets, a retained elevated-highway ramp, and adapted Overview framing. Switching is local UI state and resets camera framing; shipment journey staging remains its dedicated layout (2.268, implemented locally).
+
+- [x] Multiple-road layout preserves unique vehicle bays, road clearance, stable reordered slots and switching back to the original layout in focused tests.
+
+Pinch zoom is reserved for the 3D canvas while Monitor V2 is mounted; outside it, ordinary page scrolling remains available and browser pinch scaling is suppressed. Listeners and page touch policy are removed on exit (2.267, implemented locally; physical pinch verification pending).
+
+Overview / Road / Top preset buttons are hidden in location detail and return outside that view (2.266).
+
+Camera navigation has a visible Pan / Rotate toggle (default Pan). Left-drag/one-finger input pans in Pan mode and rotates/tilts in Rotate mode. Switching modes preserves the current camera; Reset view restores the preset and Pan mode. A mode-specific hint explains dragging and zoom. Controls wrap on narrow screens. Navigation also supports wheel/pinch zoom, right-drag/two-finger rotation, Overview/Road/Top presets and reset. Panning follows the ground plane; the polar limit and camera-height floor prevent looking beneath the scene. Manual input cancels preset animation without being reset by clock ticks.
+
+- [x] Visible, keyboard-accessible Pan / Rotate buttons control mouse and one-finger gestures locally; physical touch verification remains pending.
+- [x] Frame both roads lengthwise with both yard rows visible; static checks complete.
+- [x] Paired location rows, inward vehicle bays and stable slots pass layout regression coverage; overview visually checked locally.
 - [x] Six connected views, native scene, per-vehicle rendering, filters, details, pause, fallback list and direct route implemented locally.
 - [x] All 26 location types and two fallback cases rendered and selected in browser without console errors.
 - [x] 18 targeted tests pass; fixture interactions and 390px layout checked. Mouse pan/wheel zoom/reset verified in browser.
@@ -1623,6 +1642,14 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-15 | 2.269 | Add dynamic intersection treatments, signals, occasional roundabouts and clearance-aware verge trees. |
+| 2026-10-15 | 2.268 | Add optional compact connected streets via the Road layout dropdown. |
+| 2026-10-15 | 2.267 | Restrict pinch zoom to the canvas while Monitor V2 is mounted. |
+| 2026-10-15 | 2.266 | Hide camera preset buttons while focused on a specific location. |
+| 2026-10-15 | 2.265 | Align Overview lengthwise along both roads using the latest user reference. |
+| 2026-10-15 | 2.264 | Add visible Pan / Rotate controls, mode hints and reset-to-pan behavior while preserving camera limits. |
+| 2026-10-15 | 2.263 | Raise the fleet overview angle to reveal vehicles in both inward-facing yards. |
+| 2026-10-15 | 2.262 | Pair locations on both sides of the frontage road, mirror entrances and yards, and reframe overview/selection cameras. |
 | 2026-10-15 | 2.261 | Restore scrolling highway lane markings in V2 with pause and reduced-motion support; preserve the fixed elevated deck and ramp. |
 | 2026-10-15 | 2.260 | Elevate the V2 highway and transit selection camera above depots; connect to the lower road with a smooth level-ended ramp. Local visual and geometry checks pass; production deployment pending. |
 | 2026-10-15 | 2.259 | Distinguish V2 initial-load failure from a truly empty fleet. Prepare shared fleet API index-plan mitigation and read-only diagnostics after production timeout; live recovery pending. |

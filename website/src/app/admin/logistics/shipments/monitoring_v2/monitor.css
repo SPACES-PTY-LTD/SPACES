@@ -16,3 +16,14 @@
 .mv-location-label:hover>span,.mv-location-label:focus-visible>span{display:block}
 .mv-location-label:hover,.mv-location-label:focus-visible{z-index:20;background:#edf4ff}
 .mv-scene-controls{flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 32px)}
+
+.mv-interaction-hint{flex-basis:100%;text-align:right;font-size:11px;color:#52627c;pointer-events:none}
+.mv-interaction-toggle{display:flex;gap:2px;padding:2px;background:#fff;border:1px solid #e2e8f0;border-radius:10px}
+.mv-interaction-toggle .mv-control{border:0;box-shadow:none}
+.mv-interaction-toggle .mv-control[aria-pressed="true"]{background:#2563eb;color:#fff}
+.mv-interaction-toggle .mv-control:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+
+/* Allow page scrolling, but reserve pinch zoom for the scene camera. */
+body.monitor-v2-active{touch-action:pan-x pan-y}
+
+.mv-road-layout{display:flex;align-items:center;gap:6px;font-size:12px;color:#52627c}.mv-road-layout select{background:white;border:1px solid #dfe5ee;border-radius:10px;padding:10px;color:#172336}.mv-toolbar{flex-wrap:wrap}

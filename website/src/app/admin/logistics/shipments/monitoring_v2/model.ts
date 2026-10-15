@@ -73,27 +73,56 @@ export function filterFleet(fleet: MonitorVehicle[], f: FleetFilter, now: number
 // Slots are retained for the lifetime of a merchant workspace, including filtered vehicles.
 export class SlotRegistry {
   private groups = new Map<string, Map<string,number>>();
+  size(group:string) { return this.groups.get(group)?.size ?? 0; }
   slot(group: string,id: string) { let slots=this.groups.get(group); if(!slots){slots=new Map();this.groups.set(group,slots);} if(!slots.has(id)) slots.set(id,slots.size); return slots.get(id)!; }
 }
 export type Placement = { vehicle: MonitorVehicle; x:number; y?:number; z:number; rotation:number };
-export type SitePlacement = MonitorLocation & { x:number; z:number };
-export function layoutFleet(fleet: MonitorVehicle[], registry: SlotRegistry) {
+export type SitePlacement = MonitorLocation & { x:number; z:number; direction:number; roadZ:number };
+export function layoutFleet(fleet: MonitorVehicle[], registry: SlotRegistry, roadLayout:'single'|'multiple'='single') {
   const locations=locationsFor(fleet);
-  const sites=locations.map(l=>{const i=registry.slot('locations',l.id);return {...l,x:i*17-25.5,z:0};});
+  // Reserve slots before sizing the yards so refreshes cannot shrink across survivors.
+  for(const vehicle of fleet) if(vehicle.status==='at_location' && vehicle.locationId) registry.slot(vehicle.locationId,vehicle.id);
+  const maxYardRows=Math.max(1,...locations.map(l=>Math.ceil(registry.size(l.id)/5)));
+  const roadZ=Math.max(10,3.4+(maxYardRows-1)*3+4.5);
+  for(const location of locations) registry.slot('locations',location.id);
+  const columns=Math.max(2,Math.ceil(Math.sqrt(registry.size('locations'))));
+  const streetSpacing=roadZ+12;
+  const sites:SitePlacement[]=locations.map(l=>{const i=registry.slot('locations',l.id);const direction=roadLayout==='multiple'?1:i%2===0?1:-1;const z=roadLayout==='multiple'?Math.floor(i/columns)*streetSpacing:direction===1?0:roadZ*2;return {...l,x:(roadLayout==='multiple'?i%columns:Math.floor(i/2))*17-25.5,z,direction,roadZ:roadLayout==='multiple'?z+roadZ:roadZ};});
   const byId=new Map(sites.map(l=>[l.id,l]));
-  const maxYardRows=Math.max(1,...sites.map(s=>Math.ceil(s.vehicles.filter(v=>v.status==='at_location').length/5)));
-  const parkingStart=Math.max(16,6+maxYardRows*3+7);
+  const roads=roadLayout==='multiple'?Array.from({length:Math.max(1,Math.ceil(registry.size('locations')/columns))},(_,i)=>roadZ+i*streetSpacing):[roadZ];
+  const parkingStart=roadLayout==='multiple'?roads[roads.length-1]+12:roadZ*2+12;
   const standbyRows=Math.max(1,Math.ceil(fleet.filter(v=>v.status==='standby').length/8));
   const placements=fleet.map(vehicle=>{
     if(vehicle.status==='at_location' && vehicle.locationId && byId.has(vehicle.locationId)){
       const site=byId.get(vehicle.locationId)!;const slot=registry.slot(vehicle.locationId,vehicle.id);
       // Rows grow away from the facility into its own extensible yard.
-      return {vehicle,x:site.x+(slot%5-2)*2.1,z:site.z+3.4+Math.floor(slot/5)*3,rotation:-Math.PI/2};
+      return {vehicle,x:site.x+(slot%5-2)*2.1,z:site.z+site.direction*(3.4+Math.floor(slot/5)*3),rotation:-site.direction*Math.PI/2};
     }
     const slot=registry.slot(vehicle.status,vehicle.id);
     if(vehicle.status==='in_transit') return {vehicle,x:-31+(slot%16)*4,z:-12-Math.floor(slot/16)*2.4,rotation:0};
     const base=vehicle.status==='standby'?parkingStart:parkingStart+standbyRows*3+7;
     return {vehicle,x:14+(slot%8)*3.4,z:base+Math.floor(slot/8)*3,rotation:-Math.PI/2};
   });
-  return {sites,placements};
+  return {sites,placements,roadZ,roads};
+}
+
+export type StreetJunction={x:number;z:number;kind:'signals'|'roundabout'|'bend';arms:number[]};
+// Deterministic street furniture: keyed to road rows, never to animation frames or filters.
+export function streetFurniture(roads:number[],minX:number,maxX:number,sites:SitePlacement[],placements:Placement[]) {
+  if(roads.length<2)return {junctions:[] as StreetJunction[],trees:[] as {x:number;z:number}[]};
+  const junctions:StreetJunction[]=roads.flatMap((z,row)=>[minX,maxX].map((x,side)=>({
+    x,z,kind:(row===roads.length-1 && side===0)||(row>0 && row%3===0 && side===1)?'roundabout' as const:'signals' as const,
+    // Local +Z is the approach direction; right first junction also connects to the ramp.
+    arms:[side===0?Math.PI/2:-Math.PI/2,...(side===1 && row===0?[Math.PI/2]:[]),...(row>0?[Math.PI]:[]),...(row<roads.length-1?[0]:[])],
+  })));
+  for(const junction of junctions) if(junction.kind==='signals' && junction.arms.length===2) junction.kind='bend';
+  const trees:{x:number;z:number}[]=[];
+  for(let row=0;row<roads.length-1;row++){
+    const gap=roads[row+1]-roads[row],count=Math.max(1,Math.floor(gap/10));
+    for(let i=0;i<count;i++) for(const x of [minX-6,maxX+6]){
+      const z=roads[row]+gap*(i+1)/(count+1);
+      if(junctions.every(j=>Math.hypot(x-j.x,z-j.z)>6.5) && sites.every(s=>Math.hypot(x-s.x,z-s.z)>8) && placements.every(p=>Math.hypot(x-p.x,z-p.z)>4))trees.push({x,z});
+    }
+  }
+  return {junctions,trees};
 }
