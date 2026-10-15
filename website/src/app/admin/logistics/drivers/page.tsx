@@ -72,7 +72,11 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
     ? []
     : drivers.map((driver) => ({
         ...driver,
-        is_active: driver.is_active ? "Active" : "Inactive",
+        is_active: driver.is_active ? "active" : "inactive",
+        document_status: driver.document_summary?.status ?? "unknown",
+        missing_documents: driver.document_summary?.missing.join(", ") || "—",
+        expired_documents: driver.document_summary?.expired.join(", ") || "—",
+        documents_href: `${AdminRoute.driverDetails(driver.driver_id)}#files`,
         href: AdminRoute.driverDetails(driver.driver_id),
       }))
   const tableMeta =
@@ -108,6 +112,7 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
         data={rows}
         meta={tableMeta}
         loading_error={loading_error}
+        stickyColumns={{ leading: 1 }}
         enableSorting
         sortableColumns={["name", "email", "is_active", "vehicles"]}
         serverSearchParam="search"
@@ -126,12 +131,16 @@ export default async function DriversPage({ searchParams }: DriversPageProps) {
           },
         ]}
         columns={[
-          { key: "name", label: "Driver", link: "href", type: "driver", avatarKey: "profile_photo_url" },
+          { key: "name", label: "Driver", className: "min-w-56", link: "href", type: "driver", avatarKey: "profile_photo_url" },
           { key: "email", label: "Email", link: "href" },
           {
             key: "is_active",
-            label: "Active",
+            label: "Status",
+            type: "status",
           },
+          { key: "document_status", label: "Document status", type: "status" },
+          { key: "missing_documents", label: "Missing documents", link: "documents_href", className: "min-w-48 whitespace-normal" },
+          { key: "expired_documents", label: "Expired documents", link: "documents_href", className: "min-w-48 whitespace-normal" },
           { key: "vehicles", label: "Vehicles", type: "count_array" },
         ]}
         rowActions={[

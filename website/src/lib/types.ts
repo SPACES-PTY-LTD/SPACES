@@ -998,6 +998,11 @@ export interface TrackingProviderLocationPreview {
 }
 
 export interface Driver {
+  document_summary?: {
+    status: "not_configured" | "needs_attention" | "up_to_date"
+    missing: string[]
+    expired: string[]
+  }
   profile_photo_url?: string | null
   merchant_id?: UUID | null
   driver_id: UUID

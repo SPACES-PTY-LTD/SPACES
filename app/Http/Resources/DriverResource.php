@@ -22,6 +22,7 @@ class DriverResource extends JsonResource
             'vehicle_type_id' => $this->vehicleType?->uuid,
             'vehicles' => VehicleResource::collection($this->vehicles),
             'is_active' => (bool) $this->is_active,
+            'document_summary' => $this->whenHas('document_summary'),
             'notes' => $this->notes,
             'metadata' => $this->metadata,
             'imported_at' => optional($this->imported_at)?->toIso8601String(),

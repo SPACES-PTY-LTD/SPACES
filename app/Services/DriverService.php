@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Carrier;
 use App\Models\Driver;
+use App\Models\EntityFile;
+use App\Models\FileType;
 use App\Models\Merchant;
 use App\Models\MerchantIntegration;
 use App\Models\User;
@@ -114,7 +116,39 @@ class DriverService
             ), $sql),
         ]);
 
-        return $query->paginate($perPage);
+        $drivers = $query->paginate($perPage);
+        $merchantIds = $drivers->getCollection()->pluck('merchant_id')->filter()->unique();
+        $types = FileType::query()->whereIn('merchant_id', $merchantIds)
+            ->where('entity_type', FileType::ENTITY_DRIVER)->where('is_active', true)
+            ->orderBy('sort_order')->orderBy('name')->get()->groupBy('merchant_id');
+        $files = EntityFile::query()->whereIn('merchant_id', $merchantIds)
+            ->where('attachable_type', (new Driver)->getMorphClass())
+            ->whereIn('attachable_id', $drivers->getCollection()->pluck('id'))
+            ->get()->groupBy('attachable_id');
+        $now = now();
+
+        foreach ($drivers as $driver) {
+            $missing = [];
+            $expired = [];
+            $requiredTypes = $types->get($driver->merchant_id, collect());
+            $driverFiles = $files->get($driver->id, collect())->where('merchant_id', $driver->merchant_id);
+            foreach ($requiredTypes as $type) {
+                $uploads = $driverFiles->where('file_type_id', $type->id);
+                if ($uploads->isEmpty()) {
+                    $missing[] = $type->name;
+                } elseif (!$uploads->contains(fn ($file) => $file->expires_at === null || $file->expires_at->gt($now))) {
+                    $expired[] = $type->name;
+                }
+            }
+            $driver->setAttribute('document_summary', [
+                'status' => $requiredTypes->isEmpty() ? 'not_configured'
+                    : ($missing || $expired ? 'needs_attention' : 'up_to_date'),
+                'missing' => $missing,
+                'expired' => $expired,
+            ]);
+        }
+
+        return $drivers;
     }
 
     private function applyDriverListSorting(Builder $query, array $filters): void

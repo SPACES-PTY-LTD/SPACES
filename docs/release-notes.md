@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-15 | Version: driver-document-status-v1
+
+- **Summary:** Show document health and driver status in the admin Drivers table and freeze the Driver column during horizontal scrolling.
+- **API Changes:** Driver list responses add `document_summary` with status, missing document names and expired document names, calculated in batch for the current page using merchant-scoped active driver file types.
+- **Database Changes:** None.
+- **Behavior Changes:** Show Active/Inactive badges, document status (Up to date, Needs attention, Not configured), and missing/expired names linked to driver files. A type is expired only when all its undeleted uploads have expired at or before the current instant; a valid replacement clears the warning. Inactive/deleted types and deleted files are excluded. No configured types is explicitly shown rather than implying compliance. The first data column and selection checkboxes remain frozen.
+- **Breaking Changes:** None.
+- **Verification:** DriverIndexTest passes (9 tests, 73 assertions), covering expiry boundaries, replacements, deletion, inactive types and existing search/scope/filter behavior. Website TypeScript and focused ESLint pass. Authenticated browser visual verification and deployment were not performed.
+
 ## 2026-10-15 | Version: schedule-shipment-priority-v1 (dashboard plan 2.257)
 
 - **Summary:** Add an Urgent shipment switch beside Collection date in Schedule shipment creation.

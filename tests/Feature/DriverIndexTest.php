@@ -248,6 +248,48 @@ class DriverIndexTest extends TestCase
         }
     }
 
+    public function test_document_summary_tracks_missing_expired_replaced_and_unconfigured_types(): void
+    {
+        $this->travelTo(now()->startOfDay());
+        [$user, $merchant] = $this->createUserMerchant();
+        $driver = $this->createDriver($merchant, 'Document Driver');
+        // Isolate this test from merchant default document types.
+        \App\Models\FileType::where('merchant_id', $merchant->id)->delete();
+        $url = '/api/v1/drivers?merchant_id=' . $merchant->uuid;
+        $this->withHeaders($this->authHeaders($user))->getJson($url)->assertOk()
+            ->assertJsonPath('data.0.document_summary.status', 'not_configured');
+        $type = \App\Models\FileType::create([
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'entity_type' => 'driver', 'name' => 'Licence', 'slug' => 'licence',
+            'is_active' => true, 'requires_expiry' => true,
+        ]);
+        $this->getJson($url)->assertOk()
+            ->assertJsonPath('data.0.document_summary.missing', ['Licence'])
+            ->assertJsonPath('data.0.document_summary.status', 'needs_attention');
+        $file = $driver->files()->create([
+            'account_id' => $merchant->account_id, 'merchant_id' => $merchant->id,
+            'file_type_id' => $type->id, 'disk' => 'local', 'path' => 'test.pdf',
+            'original_name' => 'test.pdf', 'mime_type' => 'application/pdf', 'size_bytes' => 10,
+            'uploaded_by_user_id' => $user->id, 'uploaded_by_role' => $user->role,
+            'expires_at' => now(),
+        ]);
+        $this->getJson($url)->assertOk()
+            ->assertJsonPath('data.0.document_summary.expired', ['Licence'])
+            ->assertJsonPath('data.0.document_summary.missing', []);
+        $replacement = $file->replicate(['uuid']);
+        $replacement->expires_at = now()->addDay();
+        $replacement->save();
+        $this->getJson($url)->assertOk()
+            ->assertJsonPath('data.0.document_summary.status', 'up_to_date')
+            ->assertJsonPath('data.0.document_summary.expired', []);
+        $replacement->delete();
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.document_summary.expired', ['Licence']);
+        $file->delete();
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.document_summary.missing', ['Licence']);
+        $type->update(['is_active' => false]);
+        $this->getJson($url)->assertOk()->assertJsonPath('data.0.document_summary.status', 'not_configured');
+    }
+
     private function createDriver(Merchant $merchant, string $name, array $attributes = []): Driver
     {
         $driverUser = User::withoutEvents(fn () => User::factory()->create([

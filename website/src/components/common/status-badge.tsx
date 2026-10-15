@@ -2,6 +2,9 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 const STATUS_STYLES: Record<string, string> = {
+  up_to_date: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  needs_attention: "bg-amber-100 text-amber-700 border-amber-200",
+  not_configured: "bg-slate-100 text-slate-600 border-slate-200",
   active: "bg-emerald-100 text-emerald-700 border-emerald-200",
   inactive: "bg-slate-100 text-slate-600 border-slate-200",
   pending_approval: "bg-amber-100 text-amber-700 border-amber-200",
