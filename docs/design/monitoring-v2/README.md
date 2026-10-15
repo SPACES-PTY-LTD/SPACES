@@ -83,3 +83,21 @@ TypeScript and focused lint pass. Selected-location scene reload checked locally
 ### Location navigation — 2026-10-15
 
 Location camera maximum distance is max(45, twice yard depth), using all assigned vehicle positions so filters do not shrink the limit. Both controls and button-driven destinations share the limit. Back to overview uses a three-cycle 1.8-second blue halo, stops on hover/focus and disables for reduced motion. Other view types retain their camera range. Physical pinch verification remains pending.
+
+### Illustrated scene preparation — 2026-10-15
+
+A lightweight inline SVG road/warehouse scene and blue truck replace the plain dynamic-import fallback. A workspace-owned overlay remains through module download and canvas initialization; the scene signals readiness on its second frame callback (after the first render). It fades in 200 ms and unmounts at 220 ms. No percentage is fabricated. Background refreshes retain readiness.
+
+Overview says “Preparing your fleet view”; a known location says “Opening [name]”; other contexts say “Preparing your view”. A polite live region switches supporting copy after ten seconds. Fleet list opens the existing list; available header and summary stay outside the overlay. API/empty/error states retain their own banner above it. Existing error-boundary and context-loss paths remove the illustration and open the list fallback. Timers clean up on readiness/unmount; reduced motion disables truck movement and fading.
+
+Verification: TypeScript and focused ESLint passed. A temporary component harness verified location copy, the ten-second message, Fleet list callback, ready dismissal, and a 375 px layout without horizontal overflow; the harness was removed. The real 25-location preview completed scene initialization and removed the overlay. Screenshot `verification/25-loading-preview.png` records the delayed component state. Reduced-motion rules and timer cleanup were inspected; OS reduced-motion, forced WebGL failure and network-throttled module download were not exercised.
+
+### Pointer affordance — 2026-10-15
+
+Vehicle and location hover now share a canvas-scoped pointer cursor. The existing hover labels and selection stay unchanged. The cursor returns to auto on exit or scene unmount; hidden locations/vehicles do not retain the pointer.
+
+### Building and yard motion — 2026-10-15
+
+Buildings rise over 650 ms when mounted. Vehicles enter from the location road via the side aisle and turn into their assigned bay. A changed location/status drives them back to the old road before switching to the new schematic position; unrelated sites and the elevated highway are never joined by a straight flying interpolation. Departures remain visible briefly through status filters. Filter/layout changes do not simulate departures; missing API records are removed without inventing one. Pause freezes motion and reduced motion settles immediately. Selection labels/rings follow the vehicle. Movements are illustrative, not measured GPS routes; vehicles do not perform collision avoidance.
+
+Verification: five focused motion tests cover arrival, filtered departure, opposite-side yards, pause/reduced motion, and filter/layout stability. TypeScript and focused lint passed. The 150-vehicle/25-location preview loaded successfully; `verification/26-yard-motion.png` captures the settled scene. Live production arrival/departure timing has not been verified.

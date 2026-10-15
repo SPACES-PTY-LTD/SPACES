@@ -1,5 +1,32 @@
 # Release Notes
 
+## 2026-10-15 | Version: monitoring-v2-yard-motion
+
+- **Summary:** Animate buildings and vehicle arrivals/departures at locations.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Buildings rise into view. Vehicles drive via a side aisle between road and bay; changed location/status drives out before switching schematic positions. Pause freezes animation, reduced motion settles immediately, and selection markers follow vehicles. Filtering/reflow does not fabricate departures. Missing records disappear without an inferred departure.
+- **Breaking Changes:** None.
+- **Verification:** Five focused motion tests, TypeScript and focused lint. Motion is illustrative; no collision avoidance or GPS route reconstruction. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-pointer-cursor
+
+- **Summary:** Show a pointer over vehicles and locations in Monitor V2.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Canvas cursor follows vehicle/location hover and returns to normal on hover exit or scene cleanup. Filtered-out objects do not retain the pointer.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused ESLint; hover state and canvas-scoped cleanup inspected.
+
+## 2026-10-15 | Version: monitoring-v2-illustrated-loading
+
+- **Summary:** Replace the plain scene-loading message with an illustrated preview.
+- **API Changes:** None; internal scene-ready callback only.
+- **Database Changes:** None.
+- **Behavior Changes:** SVG roads, warehouses and an animated blue truck cover module/canvas preparation until a frame has rendered, then fade out. Contextual headings, a ten-second slow-load message and Fleet list remain available. Reduced motion disables animation. API/empty/error messaging stays distinct; existing WebGL failure handling is preserved.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused lint; browser verification recorded in design notes. Not deployed.
+
 ## 2026-10-15 | Version: monitoring-v2-location-navigation
 
 - **Summary:** Keep location zoom local and make the return action easier to notice.

@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.274
+Version: 2.276
 Last updated: 2026-10-15
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -26,9 +26,15 @@ This is the canonical behaviour plan for the Spaces driver dashboard and deliver
 
 Figma simulates file selection, AI reading, GPS, searches and server responses. Its example locations and roads are illustrative. The location picker currently demonstrates saved-location choices; real address search, geocoding and routing must be implemented and verified in the app. Native document management, keyboard entry and telephone calls are implementation handoffs.
 
-## Admin 3D Monitor V2 (2.274 — implemented locally)
+## Admin 3D Monitor V2 (2.276 — implemented locally)
 
 First-load API failures show an unavailable state, not an empty fleet or a nonexistent saved snapshot (2.259). A production shared-API timeout was reproduced for the larger merchant; explicit-index query mitigation is implemented locally, with deployed query-plan and recovery verification pending.
+
+The initial scene uses a lightweight SVG road/warehouse illustration and animated blue truck while the scene module and canvas prepare. It fades after the first rendered frame, offers Fleet list, announces status politely, switches to slow-load copy after ten seconds and respects reduced motion. Background refreshes keep the scene; API status and WebGL failure remain separate (2.275, implemented locally).
+
+- [x] Buildings rise into view; vehicles use illustrative yard arrival/departure paths with pause and reduced-motion support (2.276, implemented locally).
+
+- [x] Scene readiness callback and illustrated loading overlay implemented; no simulated progress percentage.
 
 Direct entry: `/admin/logistics/shipments/monitoring_v2`. V1 and existing sidebar destinations remain unchanged. [Visual references and verification](../monitoring-v2/README.md) record the selected image design and six connected views: fleet overview, vehicle tracking, location detail, attention, shipment journey and standby/unknown. These local image references are authoritative for this admin surface; the mobile Figma references above are unaffected.
 
@@ -1646,6 +1652,8 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-15 | 2.276 | Add building entrances and schematic vehicle yard arrival/departure motion. |
+| 2026-10-15 | 2.275 | Illustrated scene preparation with real first-frame readiness, slow-load copy and fleet-list access. |
 | 2026-10-15 | 2.274 | Bound location camera zoom-out to yard size; pulse Back to overview three times with reduced-motion support. |
 | 2026-10-15 | 2.273 | Reduce location hover popups to compact name-only vehicle-style labels. |
 | 2026-10-15 | 2.272 | Replace floating location icons with physical-location hover popups. |
