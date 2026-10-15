@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { LocationCombobox } from "@/components/locations/location-combobox"
 import { isApiErrorResponse } from "@/lib/api/client"
 import type { Location, ShipmentParcelInput } from "@/lib/types"
@@ -33,6 +34,7 @@ export type ShipmentQuoteFormValues = {
   deliveryNoteNumber?: string
   invoiceInvoiceNumber?: string
   invoicedAt?: string
+  priority?: "low" | "normal" | "high" | "urgent"
   collectionDate: string
   pickupLocation: Location
   dropoffLocation: Location
@@ -48,6 +50,7 @@ export function ShipmentQuoteDialog({
   triggerLabel,
   includeOrderRef = false,
   includeInvoicedAt = true,
+  includeUrgentShipment = false,
   initialValues,
   submitLabel,
   trigger,
@@ -61,11 +64,14 @@ export function ShipmentQuoteDialog({
   triggerLabel: string
   includeOrderRef?: boolean
   includeInvoicedAt?: boolean
+  includeUrgentShipment?: boolean
   initialValues?: Partial<ShipmentQuoteFormValues>
   submitLabel?: string
   trigger?: React.ReactElement
   onSubmit: (values: ShipmentQuoteFormValues) => Promise<unknown>
 }) {
+  const urgentShipmentId = React.useId()
+  const [urgentShipment, setUrgentShipment] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -100,6 +106,7 @@ export function ShipmentQuoteDialog({
   }, [])
 
   const resetForm = React.useCallback(() => {
+    setUrgentShipment(initialValues?.priority === "urgent")
     setMerchantOrderRef(initialValues?.merchantOrderRef ?? "")
     setDeliveryNoteNumber(initialValues?.deliveryNoteNumber ?? "")
     setInvoiceInvoiceNumber(initialValues?.invoiceInvoiceNumber ?? "")
@@ -205,6 +212,7 @@ export function ShipmentQuoteDialog({
         invoiceInvoiceNumber: invoiceInvoiceNumber || undefined,
         invoicedAt: invoicedAtIso,
         collectionDate: collectionDateIso,
+        ...(includeUrgentShipment ? { priority: urgentShipment ? "urgent" as const : "normal" as const } : {}),
         pickupLocation,
         dropoffLocation,
         parcels,
@@ -274,14 +282,22 @@ export function ShipmentQuoteDialog({
               />
             </div>
           ) : null}
-          <div className="grid gap-2">
-            <Label>Collection date</Label>
-            <Input
-              type="datetime-local"
-              min={getMinDateTimeLocal()}
-              value={collectionDate}
-              onChange={(event) => setCollectionDate(event.target.value)}
-            />
+          <div className={includeUrgentShipment ? "grid gap-2 md:grid-cols-2" : "grid gap-2"}>
+            <div className="grid gap-2">
+              <Label>Collection date</Label>
+              <Input
+                type="datetime-local"
+                min={getMinDateTimeLocal()}
+                value={collectionDate}
+                onChange={(event) => setCollectionDate(event.target.value)}
+              />
+            </div>
+            {includeUrgentShipment ? (
+              <div className="flex items-center gap-3 md:pt-6">
+                <Switch id={urgentShipmentId} checked={urgentShipment} onCheckedChange={setUrgentShipment} disabled={loading} />
+                <Label htmlFor={urgentShipmentId}>Urgent shipment</Label>
+              </div>
+            ) : null}
           </div>
           <div className="grid gap-2 md:grid-cols-2">
             <div className="grid gap-2">

@@ -41,7 +41,7 @@ function harness() {
   };
   const jsx = (type, props) => ({ type, props });
   const write = (kind, args) => { writes.push({ kind, args }); return Promise.resolve({ data: {} }); };
-  const modules = { 'date-fns': dateFns, react: React, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' }, './schedule-utils': utils,
+  const modules = { '@/lib/shipment-create-payload': compile('../src/lib/shipment-create-payload.ts'), 'date-fns': dateFns, react: React, 'react/jsx-runtime': { jsx, jsxs: jsx, Fragment: 'Fragment' }, './schedule-utils': utils,
     '@/lib/utils': { cn: (...args) => args.filter(Boolean).join(' ') },
     '@/lib/api/client': { isApiErrorResponse: value => !!value?.error, apiFetch: (...args) => write('api', args) },
     '@/lib/api/schedule': { getSchedule: (...args) => new Promise(resolve => requests.push({ args, resolve })), assignScheduledDriver: (...args) => write('driver', args), transferScheduledShipment: (...args) => write('shipment', args), createScheduledRun: (...args) => write('create', args) },
@@ -316,4 +316,55 @@ test('truck filter dialog applies all filters together, cancels edits and resets
   tree.props.onOpenChange(true); render(); find(n => n.type === 'Button' && n.props.children === 'Reset').props.onClick(); render();
   find(n => n.type === 'Button' && n.props.children === 'Apply filters').props.onClick(); render();
   assert.equal(applied.fleet_status, 'all'); assert.equal(applied.availability, 'all'); assert.equal(applied.truck_id, ''); assert.equal(applied.truck_tags, '');
+});
+
+test('both schedule shipment creation paths submit urgent or normal and default to normal', async () => {
+  const app = harness();
+  await app.load();
+  const drawers = app.nodes().filter(node => node.type === 'ShipmentQuoteDialog');
+  assert.ok(drawers.length >= 2);
+  for (const drawer of drawers) {
+    assert.equal(drawer.props.includeUrgentShipment, true);
+    for (const priority of [undefined, 'normal', 'urgent']) {
+      await drawer.props.onSubmit({ merchantId: 'merchant', collectionDate: '2026-10-16T08:00:00Z', priority,
+        pickupLocation: { location_id: 'pickup' }, dropoffLocation: { location_id: 'dropoff' }, parcels: [] });
+      const request = app.writes.at(-1);
+      assert.equal(request.kind, 'api');
+      assert.match(request.args[0], /^\/api\/v1\/(shipments|runs\/[^/]+\/shipments\/create)$/);
+      assert.equal(request.args[1].body.priority, priority ?? 'normal');
+      assert.equal(request.args[1].body.auto_assign, false);
+    }
+  }
+});
+
+test('Urgent shipment switch defaults off, submits both states and resets after saving', async () => {
+  const slots = []; let cursor = 0, tree;
+  const React = {
+    useId: () => 'urgent-shipment',
+    useState(initial) { const i = cursor++; slots[i] ??= { value: initial }; return [slots[i].value, value => { slots[i].value = value; }]; },
+    useCallback: fn => fn,
+    useEffect() {},
+  };
+  const jsx = (type, props) => ({ type, props });
+  const saved = [];
+  const { ShipmentQuoteDialog } = compile('../src/components/shipments/shipment-quote-dialog.tsx', {
+    react: React, 'react/jsx-runtime': { jsx, jsxs: jsx },
+    '@/lib/api/client': { isApiErrorResponse: () => false },
+  });
+  const props = { merchantId: 'merchant', title: 'Create shipment', triggerLabel: 'Save', includeUrgentShipment: true,
+    initialValues: { collectionDate: '2026-10-16T08:00:00Z', pickupLocation: { location_id: 'pickup' }, dropoffLocation: { location_id: 'dropoff' }, parcels: [{ title: 'Box', weight_kg: 1 }] },
+    onSubmit: async values => { saved.push(values); },
+  };
+  const render = () => { cursor = 0; tree = ShipmentQuoteDialog(props); };
+  const nodes = n => Array.isArray(n) ? n.flatMap(nodes) : !n || typeof n !== 'object' ? [] : [n, ...nodes(n.props?.children)];
+  const find = predicate => nodes(tree).find(predicate);
+  render();
+  find(n => n.type === 'Button' && n.props.children === 'Cancel').props.onClick(); render();
+  assert.equal(find(n => n.type === 'Switch').props.checked, false);
+  for (const checked of [false, true, false]) {
+    find(n => n.type === 'Switch').props.onCheckedChange(checked); render();
+    await find(n => n.type === 'Button' && n.props.children === 'Save' && n.props.onClick).props.onClick(); render();
+    assert.equal(saved.at(-1).priority, checked ? 'urgent' : 'normal');
+    assert.equal(find(n => n.type === 'Switch').props.checked, false);
+  }
 });

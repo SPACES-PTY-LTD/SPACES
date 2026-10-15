@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-15 | Version: schedule-shipment-priority-v1 (dashboard plan 2.257)
+
+- **Summary:** Add an Urgent shipment switch beside Collection date in Schedule shipment creation.
+- **API Changes:** Submit the existing optional priority field with normal or urgent; existing validation and persistence are unchanged for standalone and per-run creation.
+- **Database Changes:** None.
+- **Behavior Changes:** Default/reset the switch off (normal); on saves urgent. Use the shared accessible Switch and stack fields on narrow screens. Enable the control only for Schedule creation drawers, preserving other quote/edit interfaces. Retain selection on submission errors. Shared creation payload defaults missing priority to normal.
+- **Breaking Changes:** None.
+- **Verification:** 22 Schedule client tests pass, including switch toggling/reset and normal/urgent priorities and default payloads through both creation paths. Website TypeScript, focused ESLint and diff checks pass. Traced both controllers through StoreShipmentRequest to ShipmentService and the fillable priority field. Backend runtime persistence and authenticated browser creation were not exercised; no live data or deployment changes. Figma Schedule handoff aligned.
+
 ## 2026-10-15 | Version: schedule-planned-start-v1 (dashboard plan 2.255)
 
 - **Summary:** Filter Runs Schedule by planned start, remove duplicate driver-row avatars and enlarge summary values.

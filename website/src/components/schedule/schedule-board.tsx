@@ -166,7 +166,7 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
   function shipmentDrawer(runId?: string) {
     return <ShipmentQuoteDialog merchantId={merchantId} environmentId="" token={token} title="Create shipment"
       triggerLabel={runId ? "Add new shipment" : "Create shipment"} description="Capture pickup, destination and parcel details."
-      includeOrderRef includeInvoicedAt={false} trigger={runId
+      includeOrderRef includeInvoicedAt={false} includeUrgentShipment trigger={runId
         ? <Button variant="outline" className="size-11 shrink-0 border-dashed p-0 shadow-none" aria-label={`Add shipment to run ${runId}`} disabled={!canManage || busy}><Plus className="size-5 text-muted-foreground" /></Button>
         : <Button size="sm" disabled={!canManage || busy}>Create shipment</Button>}
       onSubmit={values => createShipment(values, runId)} />

@@ -393,6 +393,7 @@ export type CreateShipmentParcelPayload = {
 }
 
 export type CreateShipmentPayload = {
+  priority?: "low" | "normal" | "high" | "urgent"
   merchant_id: UUID
   merchant_order_ref: string
   delivery_note_number?: string

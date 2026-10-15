@@ -9,7 +9,7 @@ export function shipmentCreatePayload(values: ShipmentQuoteFormValues, environme
   return {
     merchant_id: values.merchantId, environment_id: environmentId, merchant_order_ref: values.merchantOrderRef ?? "",
     delivery_note_number: values.deliveryNoteNumber ?? "", invoice_number: values.invoiceInvoiceNumber ?? "",
-    collection_date: values.collectionDate, auto_assign: autoAssign,
+    collection_date: values.collectionDate, priority: values.priority ?? "normal", auto_assign: autoAssign,
     pickup_location_id: values.pickupLocation.location_id, dropoff_location_id: values.dropoffLocation.location_id,
     pickup_address: values.pickupLocation.location_id ? undefined : address(values.pickupLocation),
     dropoff_address: values.dropoffLocation.location_id ? undefined : address(values.dropoffLocation),
