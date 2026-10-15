@@ -10,13 +10,13 @@ import { HIGHWAY_HEIGHT } from './highway';
 import { HighwayRamp } from './highway-ramp';
 import { LocationMesh } from '../monitoring/components/location-meshes';
 import { resolveLocationMeshType } from '@/lib/location-type-icons';
-import { Building2, Clock3, ParkingCircle, CircleHelp } from 'lucide-react';
+import { ParkingCircle, CircleHelp } from 'lucide-react';
 import { StreetIntersection } from './street-junction';
 import { streetFurniture, layoutFleet, SlotRegistry, waiting, type MonitorVehicle, type CameraView, type Placement } from './model';
 
 const parts=Object.keys(REFINED_TRUCK_GEOMETRIES) as (keyof typeof REFINED_TRUCK_GEOMETRIES)[];
 const colours:Record<string,string>={dark:'#26313d',windows:'#426b82',metal:'#a9b4c2',tyres:'#18212a',lights:'#fff1d5',rearLights:'#be2932',painted:'#e2e8ef'};
-type SceneProps={roadLayout:'single'|'multiple';interactionMode:'pan'|'rotate';fleet:MonitorVehicle[];visibleIds:Set<string>;selected:string|null;location:string|null;camera:CameraView;zoom:number;focus:number;paused:boolean;showLabels:boolean;group?:'standby'|'unknown';now:number;onVehicle:(id:string)=>void;onLocation:(id:string)=>void;onGroup:(group:string)=>void;onFailure:()=>void;journey?:{from:string;to:string}|null;onPerformance?:(fps:number)=>void};
+type SceneProps={roadLayout:'single'|'multiple'|'mixed';interactionMode:'pan'|'rotate';fleet:MonitorVehicle[];visibleIds:Set<string>;selected:string|null;location:string|null;camera:CameraView;zoom:number;focus:number;paused:boolean;showLabels:boolean;group?:'standby'|'unknown';now:number;onVehicle:(id:string)=>void;onLocation:(id:string)=>void;onGroup:(group:string)=>void;onFailure:()=>void;journey?:{from:string;to:string}|null;onPerformance?:(fps:number)=>void};
 function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance}:Pick<SceneProps,'selected'|'paused'|'now'|'onVehicle'|'onPerformance'> & {placements:Placement[]}) {
   const refs=useRef<Partial<Record<keyof typeof REFINED_TRUCK_GEOMETRIES,InstancedMesh>>>({});
   const [hover,setHover]=useState<string|null>(null);
@@ -81,6 +81,9 @@ function Camera({camera,zoom,focus,selected,location,placements,sites,paused,roa
   const cancelCameraMotion=useCallback(()=>{moving.current=false;},[]);
   const selectedPosition=placements.find(p=>p.vehicle.id===selected);const site=sites.find(s=>s.id===location);
   const anchorY=selectedPosition?.y ?? 0;
+  // Limit location dolly to its yard size, independent of the overall fleet grid.
+  const yardDepth=site?Math.max(10,...placements.filter(p=>p.vehicle.locationId===location).map(p=>Math.abs(p.z-site.z)+4)):0;
+  const maxDistance=site && location!=='__group'?Math.max(45,yardDepth*2):500;
   const facing=site?.direction ?? (selectedPosition?.vehicle.status==='at_location'?sites.find(s=>s.id===selectedPosition.vehicle.locationId)?.direction:1) ?? 1;
   const keepAboveGround=useCallback(()=>{
     if(!controls.current)return;
@@ -96,19 +99,22 @@ function Camera({camera,zoom,focus,selected,location,placements,sites,paused,roa
     const distance=(close?(location?28:18):camera==='overview'?extent:55)*Math.pow(.8,zoom);
     // Look along the parallel roads so both yard rows and the joining ramp read together.
     const overview=camera==='overview' && !close;
-    destination.current.set(anchorX+(camera==='top'?.01:camera==='road'?-distance*.6:-distance*(overview?(compact?.65:.95):.4)),anchorY+(camera==='top'?distance*1.5:camera==='road'?distance*.3:distance*(overview?(compact?1.1:.78):.68)),anchorZ+(camera==='top'?.01:distance*(overview?(compact?1:-.16):1)*facing));moving.current=true;
-  },[camera,zoom,focus,selected,location,anchorX,anchorY,anchorZ,facing,extent,compact]);
+    destination.current.set(anchorX+(camera==='top'?.01:camera==='road'?-distance*.6:-distance*(overview?(compact?.65:.95):.4)),anchorY+(camera==='top'?distance*1.5:camera==='road'?distance*.3:distance*(overview?(compact?1.1:.78):.68)),anchorZ+(camera==='top'?.01:distance*(overview?(compact?1:-.16):1)*facing));
+    destination.current.sub(target.current).clampLength(5,maxDistance).add(target.current);
+    moving.current=true;
+  },[camera,zoom,focus,selected,location,anchorX,anchorY,anchorZ,facing,extent,compact,maxDistance]);
   useFrame((_,delta)=>{if(!controls.current || !moving.current)return;cam.position.lerp(destination.current,paused?1:Math.min(1,delta*5));controls.current.target.lerp(target.current,paused?1:Math.min(1,delta*5));controls.current.update();if(cam.position.distanceTo(destination.current)<.05)moving.current=false;});
   return <MapControls ref={controls} domElement={gl.domElement} makeDefault
     enablePan enableZoom enableRotate enableDamping dampingFactor={0.05}
     screenSpacePanning={false} zoomToCursor zoomSpeed={1.15} panSpeed={1.1}
     mouseButtons={{LEFT:interactionMode==='rotate'?MOUSE.ROTATE:MOUSE.PAN,MIDDLE:MOUSE.DOLLY,RIGHT:MOUSE.ROTATE}}
     touches={{ONE:interactionMode==='rotate'?TOUCH.ROTATE:TOUCH.PAN,TWO:TOUCH.DOLLY_ROTATE}}
-    minDistance={5} maxDistance={500} maxPolarAngle={Math.PI/2.12}
+    minDistance={5} maxDistance={maxDistance} maxPolarAngle={Math.PI/2.12}
     onStart={cancelCameraMotion} onChange={keepAboveGround}/>;
 }
 function World(props:SceneProps) {
   const [registry]=useState(()=>new SlotRegistry());
+  const [hoveredLocation,setHoveredLocation]=useState<string|null>(null);
   const layout=useMemo(()=>layoutFleet(props.fleet,registry,props.journey?'single':props.roadLayout),[props.fleet,registry,props.roadLayout,props.journey]);
   const sites=props.journey?[{id:'journey-from',name:props.journey.from,address:'Collection',icon:'warehouse',vehicles:[],x:-19,z:0,direction:1,roadZ:10},{id:'journey-to',name:props.journey.to,address:'Destination',icon:'warehouse',vehicles:[],x:19,z:0,direction:1,roadZ:10}]:layout.sites;
   const placements=props.journey?layout.placements.filter(p=>p.vehicle.id===props.selected).map(p=>({...p,x:0,y:0,z:10,rotation:0})):layout.placements.map(p=>({...p,y:p.vehicle.status==='in_transit'?HIGHWAY_HEIGHT:0}));
@@ -123,11 +129,11 @@ function World(props:SceneProps) {
   const frontZ=props.journey?10:layout.roadZ;
   const roads=props.journey?[10]:layout.roads;
   const lastRoad=roads[roads.length-1];
-  const compact=props.roadLayout==='multiple' && !props.journey;
+  const compact=props.roadLayout!=='single' && !props.journey;
   const streetMin=compact?Math.min(-35,...sites.map(s=>s.x-10)):minX;
   const streetMax=compact?Math.max(-16,...sites.map(s=>s.x+10)):maxX;
   const streetCentre=(streetMin+streetMax)/2;
-  const furniture=compact?streetFurniture(roads,streetMin,streetMax,sites,placements):null;
+  const furniture=compact?streetFurniture(roads,streetMin,streetMax,sites,placements,layout.crossStreets):null;
   const {gl}=useThree();const onFailure=props.onFailure;
   useEffect(()=>{const canvas=gl.domElement;const lost=(e:Event)=>{e.preventDefault();onFailure();};canvas.addEventListener('webglcontextlost',lost);return()=>canvas.removeEventListener('webglcontextlost',lost);},[gl,onFailure]);
   return <>
@@ -136,16 +142,17 @@ function World(props:SceneProps) {
     <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.3,0]} receiveShadow><planeGeometry args={[2000,2000]}/><meshBasicMaterial color="#f3f6fa" toneMapped={false}/></mesh>
     {roads.map(z=><Road key={z} x={streetCentre} z={z} width={streetMax-streetMin}/>)}
     {roads.length>1 && [streetMin,streetMax].map(x=><group key={x} position={[x,0,(frontZ+lastRoad)/2]} rotation={[0,Math.PI/2,0]}><Road z={0} width={lastRoad-frontZ+5}/></group>)}
+    {compact && layout.crossStreets.map(s=><group key={`${s.x}:${s.from}`} position={[s.x,0,(s.from+s.to)/2]} rotation={[0,Math.PI/2,0]}><Road z={0} width={s.to-s.from+5}/></group>)}
     <Road x={centre} y={HIGHWAY_HEIGHT} moving paused={props.paused} z={highwayZ} width={width} depth={highwayDepth}/>
     {Array.from({length:Math.ceil(width/12)},(_,i)=><group key={`pier-${i}`}>{[-1,1].map(side=><mesh key={side} position={[minX+6+i*12,HIGHWAY_HEIGHT/2-.15,highwayZ+side*highwayDepth*.3]} castShadow><boxGeometry args={[.8,HIGHWAY_HEIGHT,.8]}/><meshStandardMaterial color="#bbc3ce"/></mesh>)}</group>)}
     {compact && streetMax<maxX && <Road x={(streetMax+maxX)/2} z={frontZ} width={maxX-streetMax}/>}
     {furniture?.junctions.map(j=><StreetIntersection key={`${j.x}:${j.z}`} junction={j}/>)}
     {furniture?.trees.map(t=><Tree key={`verge-${t.x}:${t.z}`} x={t.x} z={t.z}/>)}
     <HighwayRamp x={maxX} frontZ={frontZ} highwayZ={-12} highwayDepth={5}/>
-    {visibleSites.map((site,i)=><group key={site.id}>
+    {visibleSites.map((site,i)=><group key={site.id} onPointerOver={e=>{e.stopPropagation();setHoveredLocation(site.id);}} onPointerOut={()=>setHoveredLocation(null)}>
       <mesh position={[site.x,-.06,site.z+site.direction*(Math.abs(site.roadZ-site.z)-3)/2]} receiveShadow><boxGeometry args={[13,.12,Math.abs(site.roadZ-site.z)-3]}/><meshStandardMaterial color="#c7cdd6"/></mesh>
       <group position={[site.x,0,site.z]} rotation={[0,site.direction===-1?Math.PI:0,0]}>{resolveLocationMeshType(site.icon)==='warehouse'?<Depot onSelect={()=>{if(!props.journey)props.onLocation(site.id);}}/>:<group scale={1.35}><LocationMesh x={0} z={0} location={{locationId:site.id,index:i,category:'depot',meshType:resolveLocationMeshType(site.icon),status:'active',changedAt:0,label:site.name}} showLocationLabels={false} onSelectLocation={props.onLocation}/></group>}</group>
-      {props.showLabels && <Html position={[site.x,7,site.z-site.direction*3]} center zIndexRange={[8,0]}><button className="mv-location-label" aria-label={`View ${site.name}`} onClick={()=>{if(!props.journey)props.onLocation(site.id);}}><Building2 size={20}/><span><strong>{site.name}</strong><small>{site.address || 'Saved location'}</small>{!props.journey && <span className="mv-location-count">{site.vehicles.filter(v=>props.visibleIds.has(v.id)).length} vehicles <span className={site.vehicles.some(v=>waiting(v,props.now).overdue)?'mv-danger':''}><Clock3 size={13}/> {site.vehicles.filter(v=>props.visibleIds.has(v.id)&&waiting(v,props.now).overdue).length} overdue</span></span>}</span></button></Html>}
+      {props.showLabels && hoveredLocation===site.id && <Html style={{pointerEvents:'none'}} position={[site.x,7,site.z-site.direction*3]} center zIndexRange={[8,0]}><div className="mv-truck-label" role="tooltip">{site.name}</div></Html>}
       <Tree x={site.x-6.5} z={site.z-site.direction*2}/><Tree x={site.x+6} z={site.z+site.direction}/><Lamp x={site.x+6.7} z={site.roadZ-site.direction*3.5}/>
     </group>)}
     {(['standby','unknown'] as const).map(group=>{const parked=visible.filter(p=>p.vehicle.status===group);if(!parked.length)return null;const x=parked[0].x+10;const minZ=Math.min(...parked.map(p=>p.z));const depth=Math.max(...parked.map(p=>p.z))-minZ+5;const Icon=group==='standby'?ParkingCircle:CircleHelp;return <group key={group}>

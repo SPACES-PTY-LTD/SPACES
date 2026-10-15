@@ -55,3 +55,31 @@ The latest supplied road-network reference informs the Multiple roads option: co
 Multiple-road joins now mask overlapping lane markings, use stop bars and illustrative static traffic signals at three-way junctions, and add occasional roundabouts with planted islands and yield markings. Two-arm bends do not receive signals. Road rows determine junction placement; verge trees are spaced between junctions and excluded near buildings or vehicles. No frame-by-frame randomness or traffic-control API is involved. Nine model tests pass, including empty/single-site layouts and networks with 4, 20 and 60 locations.
 
 Local network visual check: [junctions and trees](verification/18-dynamic-junctions.png). Signal and yield markings use left-hand approach lanes.
+
+### Three road layouts (2026-10-15)
+
+Multiple Roads Mixed Grid is now the default. The dropdown also offers 1 Road and Multiple Roads Square Grid. Mixed blocks follow a stable one/three/two location rhythm with staggered building rows and varied street spacing, avoiding random repositioning during refresh. Both network layouts retain junctions, roundabouts and tree-clearance rules. This supersedes the earlier single-road default.
+
+Verified initial selection after reload and all three options. Ten model tests, TypeScript and focused lint pass. [Mixed Grid preview](verification/19-mixed-grid.png).
+
+### Multiple blocks per row — 2026-10-15
+
+Mixed Grid now packs up to three blocks across each row, rotating the 1/3/2 location capacities. Connecting streets join rows with deterministic traffic lights and occasional roundabouts. The 25-location fixture uses five rows instead of thirteen; buildings and bays remain clear of internal streets. The first frontage row remains open toward the highway.
+
+Development preview: `/dev-monitoring-v2-preview?count=150&locations=25&camera=overview&status=at_location`. The optional locations parameter generates sample locations (including fuel stops); production data is unaffected. Screenshot 20 records the earlier long strip; screenshot 21 records the compact layout.
+
+Verification: ten model tests, TypeScript and focused ESLint pass. The 25-location / 150-vehicle overview was visually checked locally, including internal roundabouts and signals. Not deployed.
+
+### Location hover details — 2026-10-15
+
+Floating building icons are removed. Hover the building or yard to show the location name, address, visible vehicle count and overdue count. The popup ignores pointer input so it cannot block selection or canvas gestures. Hide location info disables popups. Screenshot 22 verifies a single location popup in the 25-location overview with no persistent icons. TypeScript and focused ESLint pass.
+
+### Compact location name labels — 2026-10-15
+
+Supersedes the expanded hover card above: location hover now displays only the name using the same compact label style as vehicles. No icon, address or counts appear in the hover label. Full details remain available by selecting the location.
+
+TypeScript and focused lint pass. Selected-location scene reload checked locally; hover-label visual confirmation remains pending.
+
+### Location navigation — 2026-10-15
+
+Location camera maximum distance is max(45, twice yard depth), using all assigned vehicle positions so filters do not shrink the limit. Both controls and button-driven destinations share the limit. Back to overview uses a three-cycle 1.8-second blue halo, stops on hover/focus and disables for reduced motion. Other view types retain their camera range. Physical pinch verification remains pending.

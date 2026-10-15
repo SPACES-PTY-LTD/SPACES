@@ -77,8 +77,8 @@ export class SlotRegistry {
   slot(group: string,id: string) { let slots=this.groups.get(group); if(!slots){slots=new Map();this.groups.set(group,slots);} if(!slots.has(id)) slots.set(id,slots.size); return slots.get(id)!; }
 }
 export type Placement = { vehicle: MonitorVehicle; x:number; y?:number; z:number; rotation:number };
-export type SitePlacement = MonitorLocation & { x:number; z:number; direction:number; roadZ:number };
-export function layoutFleet(fleet: MonitorVehicle[], registry: SlotRegistry, roadLayout:'single'|'multiple'='single') {
+export type SitePlacement = MonitorLocation & { x:number; z:number; direction:number; roadZ:number; block?:number };
+export function layoutFleet(fleet: MonitorVehicle[], registry: SlotRegistry, roadLayout:'single'|'multiple'|'mixed'='single') {
   const locations=locationsFor(fleet);
   // Reserve slots before sizing the yards so refreshes cannot shrink across survivors.
   for(const vehicle of fleet) if(vehicle.status==='at_location' && vehicle.locationId) registry.slot(vehicle.locationId,vehicle.id);
@@ -87,10 +87,33 @@ export function layoutFleet(fleet: MonitorVehicle[], registry: SlotRegistry, roa
   for(const location of locations) registry.slot('locations',location.id);
   const columns=Math.max(2,Math.ceil(Math.sqrt(registry.size('locations'))));
   const streetSpacing=roadZ+12;
-  const sites:SitePlacement[]=locations.map(l=>{const i=registry.slot('locations',l.id);const direction=roadLayout==='multiple'?1:i%2===0?1:-1;const z=roadLayout==='multiple'?Math.floor(i/columns)*streetSpacing:direction===1?0:roadZ*2;return {...l,x:(roadLayout==='multiple'?i%columns:Math.floor(i/2))*17-25.5,z,direction,roadZ:roadLayout==='multiple'?z+roadZ:roadZ};});
+  const mixedSlots:{x:number;row:number;z:number;block:number}[]=[];
+  const crossStreets:{x:number;from:number;to:number}[]=[];
+  const mixedRoads:number[]=[];
+  let mixedZ=0;
+  // Three blocks per row; rotate capacities without moving slots on refresh.
+  for(let row=0;mixedSlots.length<registry.size('locations');row++){
+    mixedRoads.push(mixedZ+roadZ);
+    let x=-25.5;
+    for(let block=0;block<3;block++){
+      const capacity=[1,3,2][(row+block)%3];
+      for(let column=0;column<capacity;column++)mixedSlots.push({x:x+column*17,row,z:mixedZ,block:row*3+block});
+      x+=capacity*17+12;
+      if(block<2 && row>0 && mixedSlots.length<registry.size('locations'))crossStreets.push({x:x-14.5,from:mixedRoads[row-1],to:mixedRoads[row]});
+    }
+    mixedZ+=streetSpacing+[0,5,2][row%3];
+  }
+  const network=roadLayout!=='single';
+  const sites:SitePlacement[]=locations.map(l=>{
+    const i=registry.slot('locations',l.id),mixed=mixedSlots[i];
+    const direction=network?1:i%2===0?1:-1;
+    const z=roadLayout==='mixed'?mixed.z:network?Math.floor(i/columns)*streetSpacing:direction===1?0:roadZ*2;
+    const column=network?i%columns:Math.floor(i/2);
+    return {...l,x:roadLayout==='mixed'?mixed.x:column*17-25.5,z,direction,block:roadLayout==='mixed'?mixed.block:undefined,roadZ:network?z+roadZ:roadZ};
+  });
   const byId=new Map(sites.map(l=>[l.id,l]));
-  const roads=roadLayout==='multiple'?Array.from({length:Math.max(1,Math.ceil(registry.size('locations')/columns))},(_,i)=>roadZ+i*streetSpacing):[roadZ];
-  const parkingStart=roadLayout==='multiple'?roads[roads.length-1]+12:roadZ*2+12;
+  const roads=roadLayout==='mixed'?(mixedRoads.length?mixedRoads:[roadZ]):network?Array.from({length:Math.max(1,Math.ceil(registry.size('locations')/columns))},(_,i)=>roadZ+i*streetSpacing):[roadZ];
+  const parkingStart=network?roads[roads.length-1]+12:roadZ*2+12;
   const standbyRows=Math.max(1,Math.ceil(fleet.filter(v=>v.status==='standby').length/8));
   const placements=fleet.map(vehicle=>{
     if(vehicle.status==='at_location' && vehicle.locationId && byId.has(vehicle.locationId)){
@@ -103,18 +126,23 @@ export function layoutFleet(fleet: MonitorVehicle[], registry: SlotRegistry, roa
     const base=vehicle.status==='standby'?parkingStart:parkingStart+standbyRows*3+7;
     return {vehicle,x:14+(slot%8)*3.4,z:base+Math.floor(slot/8)*3,rotation:-Math.PI/2};
   });
-  return {sites,placements,roadZ,roads};
+  return {sites,placements,roadZ,roads,crossStreets:roadLayout==='mixed'?crossStreets:[]};
 }
 
 export type StreetJunction={x:number;z:number;kind:'signals'|'roundabout'|'bend';arms:number[]};
 // Deterministic street furniture: keyed to road rows, never to animation frames or filters.
-export function streetFurniture(roads:number[],minX:number,maxX:number,sites:SitePlacement[],placements:Placement[]) {
+export function streetFurniture(roads:number[],minX:number,maxX:number,sites:SitePlacement[],placements:Placement[],crossStreets:{x:number;from:number;to:number}[] = []) {
   if(roads.length<2)return {junctions:[] as StreetJunction[],trees:[] as {x:number;z:number}[]};
   const junctions:StreetJunction[]=roads.flatMap((z,row)=>[minX,maxX].map((x,side)=>({
     x,z,kind:(row===roads.length-1 && side===0)||(row>0 && row%3===0 && side===1)?'roundabout' as const:'signals' as const,
     // Local +Z is the approach direction; right first junction also connects to the ramp.
     arms:[side===0?Math.PI/2:-Math.PI/2,...(side===1 && row===0?[Math.PI/2]:[]),...(row>0?[Math.PI]:[]),...(row<roads.length-1?[0]:[])],
   })));
+  for(const street of crossStreets)for(const [z,arm] of [[street.from,0],[street.to,Math.PI]]){
+    const existing=junctions.find(j=>j.x===street.x && j.z===z);
+    if(existing){if(!existing.arms.includes(arm))existing.arms.push(arm);}
+    else junctions.push({x:street.x,z,kind:(Math.round(street.x*2)+Math.round(z*2))%3===0?'roundabout':'signals',arms:[Math.PI/2,-Math.PI/2,arm]});
+  }
   for(const junction of junctions) if(junction.kind==='signals' && junction.arms.length===2) junction.kind='bend';
   const trees:{x:number;z:number}[]=[];
   for(let row=0;row<roads.length-1;row++){

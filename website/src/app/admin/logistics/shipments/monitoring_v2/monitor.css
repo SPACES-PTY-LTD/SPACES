@@ -10,11 +10,8 @@
 /* Keep scene gestures on the canvas; page scrolling remains available outside it. */
 .mv-scene canvas{touch-action:none;cursor:grab}.mv-scene canvas:active{cursor:grabbing}
 
-/* Compact location anchors keep yards visible; details appear only on intent. */
-.mv-location-label{position:relative;width:34px;height:34px;min-width:0!important;padding:7px!important;justify-content:center;border-radius:10px;touch-action:none}
-.mv-location-label>span{display:none;position:absolute;bottom:42px;left:50%;transform:translateX(-50%);min-width:190px;max-width:260px;white-space:normal;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px;text-align:left;box-shadow:0 6px 24px #24344920;pointer-events:none}
-.mv-location-label:hover>span,.mv-location-label:focus-visible>span{display:block}
-.mv-location-label:hover,.mv-location-label:focus-visible{z-index:20;background:#edf4ff}
+/* Location details only appear while the physical location is hovered. */
+.mv-location-label{pointer-events:none}
 .mv-scene-controls{flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 32px)}
 
 .mv-interaction-hint{flex-basis:100%;text-align:right;font-size:11px;color:#52627c;pointer-events:none}
@@ -27,3 +24,9 @@
 body.monitor-v2-active{touch-action:pan-x pan-y}
 
 .mv-road-layout{display:flex;align-items:center;gap:6px;font-size:12px;color:#52627c}.mv-road-layout select{background:white;border:1px solid #dfe5ee;border-radius:10px;padding:10px;color:#172336}.mv-toolbar{flex-wrap:wrap}
+
+/* A short, non-moving cue for leaving location detail. */
+.mv-back-pulse{animation:mv-back-pulse 1.8s ease-out 3}
+.mv-back-pulse:hover,.mv-back-pulse:focus-visible{animation:none}
+@keyframes mv-back-pulse{0%,100%{box-shadow:0 0 0 0 #1463ff00}35%{box-shadow:0 0 0 6px #1463ff26}80%{box-shadow:0 0 0 11px #1463ff00}}
+@media(prefers-reduced-motion:reduce){.mv-back-pulse{animation:none}}

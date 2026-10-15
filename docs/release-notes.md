@@ -1,5 +1,50 @@
 # Release Notes
 
+## 2026-10-15 | Version: monitoring-v2-location-navigation
+
+- **Summary:** Keep location zoom local and make the return action easier to notice.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Bound location zoom-out by yard depth across camera controls and preset destinations. Pulse the Back to overview button three times in location detail; stop on hover/focus and respect reduced motion.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused lint; physical pinch verification pending. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-location-name-label
+
+- **Summary:** Use compact name-only location hover labels matching vehicles.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove the icon, address and counts from the hover popup. Full location details remain in location detail.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused lint; local visual check. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-location-hover
+
+- **Summary:** Remove floating location icons from the scene.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Hover a location building or yard to reveal its details; leaving hides the popup. Popups do not intercept canvas interaction. Building selection is preserved.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused lint and local visual checks recorded in design notes. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-multi-block-rows
+
+- **Summary:** Compact Mixed Grid into multiple blocks per row.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Place up to three blocks per row, with 1–3 locations per block. Internal connecting streets use a deterministic mix of roundabouts and traffic lights. Add a development-only location-count fixture for the 25-location / 150-vehicle preview.
+- **Breaking Changes:** None.
+- **Verification:** Model coverage checks five rows for 25 locations, block capacities, bay/building clearance, connected junctions and stable reordered positions. Local visual verification and static checks recorded in design notes. Not deployed.
+
+## 2026-10-15 | Version: monitoring-v2-mixed-grid
+
+- **Summary:** Default V2 to a mixed road grid with one to three locations per block.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Offer 1 Road, Multiple Roads Square Grid and Multiple Roads Mixed Grid. Mixed Grid is the initial local selection, with staggered rows and varied spacing. Existing junction and landscaping rules apply.
+- **Breaking Changes:** None.
+- **Verification:** Ten model tests, TypeScript and focused lint pass; local reload confirms Mixed Grid default and all three dropdown options, with visual preview checked. Not deployed.
+
 ## 2026-10-15 | Version: monitoring-v2-dynamic-junctions
 
 - **Summary:** Improve dynamic multi-road junctions and landscaping.

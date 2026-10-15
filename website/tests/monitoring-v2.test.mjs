@@ -66,3 +66,26 @@ test('street furniture follows road topology and keeps trees clear',()=>{
   for(const t of furniture.trees){assert.ok(t.x<min-4 || t.x>max+4);assert.ok(furniture.junctions.every(j=>Math.hypot(t.x-j.x,t.z-j.z)>6.5));assert.ok(layout.placements.every(p=>Math.hypot(t.x-p.x,t.z-p.z)>4));}
  }
 });
+test('mixed blocks contain one to three locations with stable staggered placement',()=>{
+ const fleet=m.normalizeFleet(Array.from({length:25},(_,i)=>row(String(i),'at_location',{monitoring:{status:'at_location',location:{location_id:`mixed-${i}`,name:`Mixed ${i}`}}})));
+ const registry=new m.SlotRegistry(),layout=m.layoutFleet(fleet,registry,'mixed');
+ const counts=layout.roads.map(z=>layout.sites.filter(s=>s.roadZ===z).length);
+ assert.deepEqual(counts,[6,6,6,6,1]);
+ const blocks=Map.groupBy(layout.sites,s=>s.block);
+ assert.ok([...blocks.values()].every(b=>b.length>=1 && b.length<=3));
+ assert.ok(layout.roads.length<=5);
+ for(const street of layout.crossStreets){
+   assert.ok(layout.roads.includes(street.from) && layout.roads.includes(street.to));
+   for(const site of layout.sites)if(site.z>street.from && site.z<street.to)assert.ok(Math.abs(site.x-street.x)>9);
+   for(const p of layout.placements)if(p.z>street.from && p.z<street.to)assert.ok(Math.abs(p.x-street.x)>4.5);
+ }
+ const furniture=m.streetFurniture(layout.roads,-35,100,layout.sites,layout.placements,layout.crossStreets);
+ const internal=furniture.junctions.filter(j=>j.x!==-35 && j.x!==100);
+ assert.ok(internal.some(j=>j.kind==='roundabout'));assert.ok(internal.some(j=>j.kind==='signals'));
+ for(const street of layout.crossStreets)for(const z of [street.from,street.to])assert.ok(furniture.junctions.some(j=>j.x===street.x && j.z===z));
+ assert.ok(new Set(layout.roads.slice(1).map((z,i)=>z-layout.roads[i])).size>1);
+ assert.equal(new Set(layout.placements.map(p=>`${p.x}:${p.z}`)).size,25);
+ for(const p of layout.placements)for(const z of layout.roads)assert.ok(Math.abs(p.z-z)>=4.5-1e-9);
+ const updated=m.layoutFleet([...fleet].reverse(),registry,'mixed');
+ assert.deepEqual(new Map(updated.sites.map(s=>[s.id,[s.x,s.z]])),new Map(layout.sites.map(s=>[s.id,[s.x,s.z]])));
+});

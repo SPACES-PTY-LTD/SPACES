@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.269
+Version: 2.274
 Last updated: 2026-10-15
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -26,7 +26,7 @@ This is the canonical behaviour plan for the Spaces driver dashboard and deliver
 
 Figma simulates file selection, AI reading, GPS, searches and server responses. Its example locations and roads are illustrative. The location picker currently demonstrates saved-location choices; real address search, geocoding and routing must be implemented and verified in the app. Native document management, keyboard entry and telephone calls are implementation handoffs.
 
-## Admin 3D Monitor V2 (2.269 — implemented locally)
+## Admin 3D Monitor V2 (2.274 — implemented locally)
 
 First-load API failures show an unavailable state, not an empty fleet or a nonexistent saved snapshot (2.259). A production shared-API timeout was reproduced for the larger merchant; explicit-index query mitigation is implemented locally, with deployed query-plan and recovery verification pending.
 
@@ -40,7 +40,7 @@ The highway is elevated above the depot roofs, with transit vehicles, selection 
 
 Render each vehicle separately in an interactive native Three.js schematic. Use real scoped fleet/activity/shipment data; label illustrative motion and keep recorded GPS separate. Search and filters compose, selected entities and camera presets are URL-addressable, polling skips hidden tabs and cancels obsolete requests. Pause and reduced motion stop illustrative motion. A fleet list remains available when WebGL fails. Unknown coordinates and missing shipment associations remain explicitly unavailable.
 
-V2 location anchors are compact icons. Hover or keyboard focus reveals details; Hide locations clears the overlays. This supersedes the always-expanded reference cards to keep yards visible when zoomed out.
+V2 has no floating location icons. Hovering a physical location shows only its name in a compact, non-interactive label styled like vehicle labels; moving away hides it. Building selection remains available. Hide location info disables these popups (2.272, implemented locally).
 
 Overview looks along the two parallel roads from an elevated angle (about 39 degrees above ground), matching the latest user reference: highway on the left, location road and inward-facing yards beside it, and the joining curve in the distance (2.265, implemented locally). Road, Top and selected-entity camera angles retain their existing behavior.
 
@@ -48,11 +48,15 @@ Multiple-road junctions mask crossing lane markings, use illustrative signals at
 
 - [x] Junction topology and tree clearance tested across 0, 1, 4, 20 and 60 locations.
 
-A Road layout dropdown defaults to 1 road and offers Multiple roads: a compact grid of location rows with connecting end streets, a retained elevated-highway ramp, and adapted Overview framing. Switching is local UI state and resets camera framing; shipment journey staging remains its dedicated layout (2.268, implemented locally).
+The Road layout dropdown defaults to Multiple Roads Mixed Grid, with up to three blocks per row, each containing one to three locations, and varied street spacing. Internal connecting streets mix illustrative traffic signals and roundabouts deterministically. It also offers 1 Road and Multiple Roads Square Grid. The square option uses a compact grid of location rows with connecting end streets, a retained elevated-highway ramp, and adapted Overview framing. Switching is local UI state and resets camera framing; shipment journey staging remains its dedicated layout (2.268, implemented locally).
 
+- [x] A 25-location / 150-vehicle development fixture fits five road rows; internal streets clear buildings and vehicle bays.
+- [x] Mixed blocks contain one to three locations with varied spacing, unique bays and stable reordered positions.
 - [x] Multiple-road layout preserves unique vehicle bays, road clearance, stable reordered slots and switching back to the original layout in focused tests.
 
 Pinch zoom is reserved for the 3D canvas while Monitor V2 is mounted; outside it, ordinary page scrolling remains available and browser pinch scaling is suppressed. Listeners and page touch policy are removed on exit (2.267, implemented locally; physical pinch verification pending).
+
+Location detail limits zoom-out to a yard-sized camera distance for buttons, wheel and pinch. Back to overview pulses three times on entering location view, stopping on hover/focus and disabled for reduced motion (2.274, implemented locally).
 
 Overview / Road / Top preset buttons are hidden in location detail and return outside that view (2.266).
 
@@ -1642,6 +1646,11 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-15 | 2.274 | Bound location camera zoom-out to yard size; pulse Back to overview three times with reduced-motion support. |
+| 2026-10-15 | 2.273 | Reduce location hover popups to compact name-only vehicle-style labels. |
+| 2026-10-15 | 2.272 | Replace floating location icons with physical-location hover popups. |
+| 2026-10-15 | 2.271 | Pack up to three mixed blocks per row; connect internal streets with mixed signals/roundabouts and add configurable location-count preview. |
+| 2026-10-15 | 2.270 | Default to Mixed Grid; preserve 1 Road and Square Grid choices with stable 1–3 location mixed blocks. |
 | 2026-10-15 | 2.269 | Add dynamic intersection treatments, signals, occasional roundabouts and clearance-aware verge trees. |
 | 2026-10-15 | 2.268 | Add optional compact connected streets via the Road layout dropdown. |
 | 2026-10-15 | 2.267 | Restrict pinch zoom to the canvas while Monitor V2 is mounted. |
