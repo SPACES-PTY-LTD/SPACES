@@ -125,3 +125,27 @@ All Fleet list entry points open the shared modal Sheet from the right. The filt
 ### Transport landmark exceptions — 2026-10-16
 
 Rail freight retains its train, seaport its ship, and airport cargo its aircraft, as requested. These three model previews match the restored geometry. The five road-truck removals remain in place. This supersedes the blanket transport removal above.
+
+### Road layout select — 2026-10-16
+
+The road layout uses the shared shadcn Select with Route, Grid2X2 and PanelsTopLeft icons for single, square and mixed layouts. Labels and layout/reset behavior are unchanged; the menu supports keyboard navigation and selected-state indication.
+
+### Filter popover — 2026-10-16
+
+Filters now opens the shared shadcn Popover beneath its button, aligned to the right edge. The two-column form overlays rather than displacing the scene, becomes one column on very narrow screens, and retains URL filtering, badge counts and clearing. Close, Escape and outside click dismiss it.
+
+### Stable fleet summary — 2026-10-16
+
+Overview summary cards count the complete loaded fleet, independently of status, search, location and alert filters. Filtering changes scene/list results only; the fleet-list result count continues to reflect filtered vehicles.
+
+### Operational summary cards — 2026-10-16
+
+Unread Messages uses the current merchant unread endpoint and opens Messages. Compliance counts missing required document uploads across drivers, vehicles and shipments using the missing-documents report total (not unique vehicles or expired documents), and opens that report. Counts ignore scene filters, refresh with fleet updates and on focus/visibility; messages-read also refreshes them. Unavailable initial data shows a dash; transient failures retain confirmed counts. Preview uses illustrative counts of 8 and 12. Summary cards wrap on narrow widths.
+
+### Location-info control removed — 2026-10-16
+
+Remove the Show/Hide location info toolbar toggle. Location hover labels remain enabled in overview and shipment views.
+
+### Info drawer — 2026-10-16
+
+Info beside Fleet list opens a right-side Sheet with the former overview footer: Latest reported events, Fleet attention and Locations. The overview footer is removed; detail-view footers remain. Drawer content scrolls on small screens. Escape/backdrop/Close dismiss it and restore focus to Info; attention/location actions close the drawer and navigate.

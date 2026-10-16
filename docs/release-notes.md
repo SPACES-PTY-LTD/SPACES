@@ -1,5 +1,77 @@
 # Release Notes
 
+## 2026-10-16 | Version: monitoring-v2-info-drawer
+- Summary: Move overview information into an Info drawer beside Fleet list.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Latest reported events, Fleet attention and Locations appear in a scrollable right-side drawer. Overview footer removed; detail footers retained. Drawer navigation closes it; dismissal restores focus.
+- Breaking Changes: None.
+- Verification: Focused ESLint and TypeScript; preview drawer verification.
+
+
+## 2026-10-16 | Version: monitoring-v2-remove-label-toggle
+- Summary: Remove the Show/Hide location info button from the scene toolbar.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Location hover labels remain enabled in overview and shipment views without a visibility toggle.
+- Breaking Changes: None.
+- Verification: Focused workspace ESLint and diff whitespace check.
+
+
+## 2026-10-16 | Version: monitoring-v2-operational-stats
+- Summary: Add Unread Messages and Compliance summary cards.
+- API Changes: None; reuse merchant unread count and missing-documents report endpoints.
+- Database Changes: None.
+- Behavior Changes: Cards open Messages and Missing Documents. Compliance counts missing required uploads across drivers, vehicles and shipments. Counts are independent of scene filters, preserve confirmed values on refresh failure, and show a dash before data is available. Preview counts are illustrative. Cards wrap to fit.
+- Breaking Changes: None.
+- Verification: Focused ESLint and TypeScript passed; preview verified both labels and sample counts. Live authenticated API verification pending.
+
+
+## 2026-10-16 | Version: monitoring-v2-stable-fleet-counts
+- Summary: Keep fleet summary counts stable when selecting In transit or other filters.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Total, status and attention summary counts use the complete loaded fleet; scene and list results remain filtered.
+- Breaking Changes: None.
+- Verification: Focused workspace lint and diff whitespace check; summary expressions checked against unfiltered fleet input.
+
+
+## 2026-10-16 | Version: monitoring-v2-overview-header
+
+- **Summary:** Simplify the Monitoring overview header.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove the overview subtitle and its Schematic view label; retain contextual details on other views.
+- **Breaking Changes:** None.
+- **Verification:** Focused workspace lint and diff whitespace check.
+
+## 2026-10-16 | Version: monitoring-v2-overview-title
+
+- **Summary:** Rename the V2 overview title to Monitoring.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Overview displays “Monitoring” instead of “Journey Ribbon”.
+- **Breaking Changes:** None.
+- **Verification:** Confirmed the overview title mapping; diff whitespace check.
+
+## 2026-10-16 | Version: monitoring-v2-filter-popover
+
+- **Summary:** Show filters in a shadcn Popover anchored to the Filters button.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** The filter form overlays the scene without moving it. Includes active count, Clear filters, results count, Close, outside-click and Escape dismissal, plus viewport-constrained sizing.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused lint and browser filter interaction checks.
+
+## 2026-10-16 | Version: monitoring-v2-road-layout-select
+
+- **Summary:** Use a shadcn Select with icons for road layout.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Road layout uses an accessible Radix/shadcn menu with route, square-grid and mixed-layout icons. Existing layout selection and camera-reset behavior is preserved.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript, focused lint and browser selection checks.
+
 ## 2026-10-16 | Version: location-transport-landmarks
 
 - **Summary:** Retain transport landmarks for rail freight, seaport and airport cargo.
