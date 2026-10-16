@@ -149,3 +149,23 @@ Remove the Show/Hide location info toolbar toggle. Location hover labels remain 
 ### Info drawer — 2026-10-16
 
 Info beside Fleet list opens a right-side Sheet with the former overview footer: Latest reported events, Fleet attention and Locations. The overview footer is removed; detail-view footers remain. Drawer content scrolls on small screens. Escape/backdrop/Close dismiss it and restore focus to Info; attention/location actions close the drawer and navigate.
+
+### Single-row stats — 2026-10-16
+
+All eight summary cards stay in one horizontal row. Narrow screens scroll horizontally instead of wrapping cards into a second row. Supersedes the four-column responsive stats layout.
+
+### Fill unused scene space — 2026-10-16
+
+Remove the bottom vehicle-count/version/date strip, including preview FPS. The scene grows into remaining workspace height; overview no longer reserves height for its removed information footer. Detail panels retain their content.
+
+### In-transit highway navigation — 2026-10-16
+
+Selecting In transit closes Fleet list, filters to in-transit vehicles and focuses the elevated highway in Road view. The camera targets highway height and centre with framing based on road dimensions, including when no vehicles are in transit. Repeated clicks reset focus and zoom; background refreshes do not reset the camera when geometry is unchanged.
+
+### Total vehicles reset — 2026-10-16
+
+Total vehicles clears search, status, location, location-type and alert filters plus detail selections. It returns to Overview camera, resets zoom/focus and closes Fleet list and Info. Road layout remains selected.
+
+### At-locations framing — 2026-10-16
+
+At locations closes drawers, resets zoom and selects the Overview angle centred on the full location layout. Framing includes location footprints and parked vehicles, expands for narrow canvases and is independent of scene filters.

@@ -17,7 +17,7 @@ import { streetFurniture, layoutFleet, SlotRegistry, waiting, type MonitorVehicl
 
 const parts=Object.keys(REFINED_TRUCK_GEOMETRIES) as (keyof typeof REFINED_TRUCK_GEOMETRIES)[];
 const colours:Record<string,string>={dark:'#26313d',windows:'#426b82',metal:'#a9b4c2',tyres:'#18212a',lights:'#fff1d5',rearLights:'#be2932',painted:'#e2e8ef'};
-type SceneProps={reducedMotion?:boolean;onReady:()=>void;roadLayout:'single'|'multiple'|'mixed';interactionMode:'pan'|'rotate';fleet:MonitorVehicle[];visibleIds:Set<string>;selected:string|null;location:string|null;camera:CameraView;zoom:number;focus:number;paused:boolean;showLabels:boolean;group?:'standby'|'unknown';now:number;onVehicle:(id:string)=>void;onLocation:(id:string)=>void;onGroup:(group:string)=>void;onFailure:()=>void;journey?:{from:string;to:string}|null;onPerformance?:(fps:number)=>void};
+type SceneProps={locationsFocus?:boolean;highwayFocus?:boolean;reducedMotion?:boolean;onReady:()=>void;roadLayout:'single'|'multiple'|'mixed';interactionMode:'pan'|'rotate';fleet:MonitorVehicle[];visibleIds:Set<string>;selected:string|null;location:string|null;camera:CameraView;zoom:number;focus:number;paused:boolean;showLabels:boolean;group?:'standby'|'unknown';now:number;onVehicle:(id:string)=>void;onLocation:(id:string)=>void;onGroup:(group:string)=>void;onFailure:()=>void;journey?:{from:string;to:string}|null;onPerformance?:(fps:number)=>void};
 function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance,hover,setHover,sites,visibleIds,reducedMotion}:Pick<SceneProps,'selected'|'paused'|'now'|'onVehicle'|'onPerformance'|'visibleIds'|'reducedMotion'> & {sites:{id:string;x:number;z:number;roadZ:number;direction:number}[];placements:Placement[];hover:string|null;setHover:(id:string|null)=>void}) {
   const refs=useRef<Partial<Record<keyof typeof REFINED_TRUCK_GEOMETRIES,InstancedMesh>>>({});
   const clock=useRef(0);const frames=useRef({time:0,count:0}); const object=useMemo(()=>new Object3D(),[]);const colour=useMemo(()=>new Color(),[]);
@@ -90,16 +90,17 @@ function Road({x=0,y=0,z,width,depth=5,moving=false,paused=false}:{x?:number;y?:
 }
 function Tree({x,z}:{x:number;z:number}) { return <group position={[x,0,z]}><mesh position={[0,.65,0]} castShadow><cylinderGeometry args={[.12,.18,1.3,6]}/><meshStandardMaterial color="#766955"/></mesh><mesh position={[0,1.7,0]} castShadow><icosahedronGeometry args={[.8,1]}/><meshStandardMaterial color="#89a76c" roughness={1}/></mesh><mesh position={[.15,2.2,0]} castShadow><icosahedronGeometry args={[.57,1]}/><meshStandardMaterial color="#94af75" roughness={1}/></mesh></group>; }
 function Lamp({x,z}:{x:number;z:number}) {return <group position={[x,0,z]}><mesh position={[0,1.45,0]}><cylinderGeometry args={[.035,.055,2.9,6]}/><meshStandardMaterial color="#606c7d"/></mesh><mesh position={[.22,2.9,0]}><boxGeometry args={[.55,.08,.16]}/><meshStandardMaterial color="#536071"/></mesh></group>;}
-function Camera({camera,zoom,focus,selected,location,placements,sites,paused,roadZ,interactionMode,extent,compact,centreX}:{interactionMode:'pan'|'rotate';camera:CameraView;zoom:number;focus:number;selected:string|null;location:string|null;placements:Placement[];sites:{id:string;x:number;z:number;direction?:number}[];paused:boolean;roadZ:number;extent:number;compact:boolean;centreX:number}) {
-  const controls=useRef<Controls>(null);const {camera:cam,gl}=useThree();
+function Camera({locationsFocus,highwayFocus,roadY=0,camera,zoom,focus,selected,location,placements,sites,paused,roadZ,interactionMode,extent,compact,centreX}:{locationsFocus?:boolean;highwayFocus?:boolean;roadY?:number;interactionMode:'pan'|'rotate';camera:CameraView;zoom:number;focus:number;selected:string|null;location:string|null;placements:Placement[];sites:{id:string;x:number;z:number;direction?:number}[];paused:boolean;roadZ:number;extent:number;compact:boolean;centreX:number}) {
+  const controls=useRef<Controls>(null);const {camera:cam,gl,size}=useThree();
   const target=useRef(new Vector3());const destination=useRef(new Vector3(50,48,65));const moving=useRef(true);
   // Keep this callback stable: Drei reconnects input listeners when it changes.
   const cancelCameraMotion=useCallback(()=>{moving.current=false;},[]);
   const selectedPosition=placements.find(p=>p.vehicle.id===selected);const site=sites.find(s=>s.id===location);
-  const anchorY=selectedPosition?.y ?? 0;
+  const anchorY=selectedPosition?.y ?? roadY;
   // Limit location dolly to its yard size, independent of the overall fleet grid.
   const yardDepth=site?Math.max(10,...placements.filter(p=>p.vehicle.locationId===location).map(p=>Math.abs(p.z-site.z)+4)):0;
-  const maxDistance=site && location!=='__group'?Math.max(45,yardDepth*2):500;
+  const fitScale=locationsFocus?Math.max(1,size.height/Math.max(1,size.width)):1;
+  const maxDistance=site && location!=='__group'?Math.max(45,yardDepth*2):Math.max(500,locationsFocus?extent*fitScale*3:0);
   const facing=site?.direction ?? (selectedPosition?.vehicle.status==='at_location'?sites.find(s=>s.id===selectedPosition.vehicle.locationId)?.direction:1) ?? 1;
   const keepAboveGround=useCallback(()=>{
     if(!controls.current)return;
@@ -112,13 +113,13 @@ function Camera({camera,zoom,focus,selected,location,placements,sites,paused,roa
   const anchorX=selectedPosition?.x ?? site?.x ?? centreX, anchorZ=selectedPosition?.z ?? site?.z ?? roadZ;
   useEffect(()=>{
     const close=Boolean(selected || location);target.current.set(anchorX,anchorY,anchorZ);
-    const distance=(close?(location?28:18):camera==='overview'?extent:55)*Math.pow(.8,zoom);
+    const distance=(close?(location?28:18):camera==='overview'||highwayFocus?extent:55)*fitScale*Math.pow(.8,zoom);
     // Look along the parallel roads so both yard rows and the joining ramp read together.
     const overview=camera==='overview' && !close;
     destination.current.set(anchorX+(camera==='top'?.01:camera==='road'?-distance*.6:-distance*(overview?(compact?.65:.95):.4)),anchorY+(camera==='top'?distance*1.5:camera==='road'?distance*.3:distance*(overview?(compact?1.1:.78):.68)),anchorZ+(camera==='top'?.01:distance*(overview?(compact?1:-.16):1)*facing));
     destination.current.sub(target.current).clampLength(5,maxDistance).add(target.current);
     moving.current=true;
-  },[camera,zoom,focus,selected,location,anchorX,anchorY,anchorZ,facing,extent,compact,maxDistance]);
+  },[fitScale,highwayFocus,camera,zoom,focus,selected,location,anchorX,anchorY,anchorZ,facing,extent,compact,maxDistance]);
   useFrame((_,delta)=>{if(!controls.current || !moving.current)return;cam.position.lerp(destination.current,paused?1:Math.min(1,delta*5));controls.current.target.lerp(target.current,paused?1:Math.min(1,delta*5));controls.current.update();if(cam.position.distanceTo(destination.current)<.05)moving.current=false;});
   return <MapControls ref={controls} domElement={gl.domElement} makeDefault
     enablePan enableZoom enableRotate enableDamping dampingFactor={0.05}
@@ -153,6 +154,9 @@ function World(props:SceneProps) {
   const streetMin=compact?Math.min(-35,...sites.map(s=>s.x-10)):minX;
   const streetMax=compact?Math.max(-16,...sites.map(s=>s.x+10)):maxX;
   const streetCentre=(streetMin+streetMax)/2;
+  const locationPoints=[...sites,...placements.filter(p=>['at_location','standby'].includes(p.vehicle.status))];
+  const locationMinX=Math.min(0,...locationPoints.map(p=>p.x-14)),locationMaxX=Math.max(0,...locationPoints.map(p=>p.x+14));
+  const locationMinZ=Math.min(0,...locationPoints.map(p=>p.z-14)),locationMaxZ=Math.max(0,...locationPoints.map(p=>p.z+14));
   const furniture=compact?streetFurniture(roads,streetMin,streetMax,sites,placements,layout.crossStreets):null;
   const {gl}=useThree();const onFailure=props.onFailure;
   useCursor(visible.some(p=>p.vehicle.id===hoveredVehicle) || visibleSites.some(s=>s.id===hoveredLocation), 'pointer', 'auto', gl.domElement);
@@ -185,7 +189,7 @@ function World(props:SceneProps) {
     {!compact && Array.from({length:8},(_,i)=><Tree key={i} x={-35+i*11} z={frontZ*2+8+(i%2)*3}/>)}
     <FleetMeshes hover={hoveredVehicle} setHover={setHoveredVehicle} placements={placements} sites={sites} {...props}/>
     {props.journey && <group><mesh position={[0,.04,10]}><boxGeometry args={[38,.04,.13]}/><meshBasicMaterial color="#1463ff" toneMapped={false}/></mesh>{[-19,19].map(x=><mesh key={x} position={[x,.04,5.7]}><boxGeometry args={[.13,.04,8.6]}/><meshBasicMaterial color="#1463ff" toneMapped={false}/></mesh>)}</group>}
-    <Camera compact={compact} centreX={compact?streetCentre:0} interactionMode={props.interactionMode} roadZ={(frontZ+lastRoad)/2} extent={Math.max(80,(lastRoad-frontZ)*1.5)} paused={props.paused} camera={props.camera} zoom={props.zoom} focus={props.focus} selected={props.journey||props.location||props.group?null:props.selected} location={groupSite?'__group':props.location} placements={placements} sites={groupSite?[...sites,groupSite]:sites}/>
+    <Camera locationsFocus={props.locationsFocus} highwayFocus={props.highwayFocus} roadY={props.highwayFocus?HIGHWAY_HEIGHT:0} compact={compact} centreX={props.locationsFocus?(locationMinX+locationMaxX)/2:props.highwayFocus?centre:compact?streetCentre:0} interactionMode={props.interactionMode} roadZ={props.locationsFocus?(locationMinZ+locationMaxZ)/2:props.highwayFocus?highwayZ:(frontZ+lastRoad)/2} extent={props.locationsFocus?Math.max(55,Math.hypot(locationMaxX-locationMinX,locationMaxZ-locationMinZ)*1.2):props.highwayFocus?Math.max(55,width,highwayDepth*2):Math.max(80,(lastRoad-frontZ)*1.5)} paused={props.paused} camera={props.camera} zoom={props.zoom} focus={props.focus} selected={props.journey||props.location||props.group?null:props.selected} location={groupSite?'__group':props.location} placements={placements} sites={groupSite?[...sites,groupSite]:sites}/>
   </>;
 }
 class SceneBoundary extends Component<{children:ReactNode;onFailure:()=>void},{failed:boolean}> {state={failed:false};static getDerivedStateFromError(){return {failed:true};}componentDidCatch(){this.props.onFailure();}render(){return this.state.failed?<div className="mv-empty">3D is unavailable. Use the fleet list to continue.</div>:this.props.children;}}

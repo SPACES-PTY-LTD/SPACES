@@ -1,5 +1,50 @@
 # Release Notes
 
+## 2026-10-16 | Version: monitoring-v2-locations-camera
+- Summary: Focus the location layout when selecting At locations.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Close drawers, reset zoom and select Overview camera with framing based on all location footprints and parked vehicles, allowing extra distance on narrow canvases.
+- Breaking Changes: None.
+- Verification: Focused lint, TypeScript and diff whitespace checks.
+
+
+## 2026-10-16 | Version: monitoring-v2-total-reset
+- Summary: Make Total vehicles restore the unfiltered overview.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Clear all five filters and detail selections, close drawers and reset the Overview camera and zoom. Preserve road layout.
+- Breaking Changes: None.
+- Verification: Focused workspace lint and diff whitespace check.
+
+
+## 2026-10-16 | Version: monitoring-v2-in-transit-highway
+- Summary: Make the In transit stat focus the highway.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Selecting In transit closes Fleet list, selects Road camera, resets zoom and targets the elevated highway. Summary counts remain fleet-wide.
+- Breaking Changes: None.
+- Verification: Focused lint, TypeScript and diff whitespace checks.
+
+
+## 2026-10-16 | Version: monitoring-v2-fill-scene
+- Summary: Remove unused bottom space and footer labels from Monitoring.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Remove vehicle-count/version/date strip and preview FPS; let the scene fill remaining height, retaining detail panels.
+- Breaking Changes: None.
+- Verification: Focused workspace lint and diff whitespace check.
+
+
+## 2026-10-16 | Version: monitoring-v2-single-row-stats
+- Summary: Keep all eight Monitoring summary stats in one row.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Remove the four-column wrapping layout; narrow viewports scroll the stats horizontally.
+- Breaking Changes: None.
+- Verification: CSS rule inspection and diff whitespace check.
+
+
 ## 2026-10-16 | Version: monitoring-v2-info-drawer
 - Summary: Move overview information into an Info drawer beside Fleet list.
 - API Changes: None.
