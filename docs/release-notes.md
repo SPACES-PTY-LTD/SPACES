@@ -1,5 +1,23 @@
 # Release Notes
 
+## 2026-10-16 | Version: monitoring-v2-smaller-attention-icons
+- Summary: Reduce attention icon size by 25%.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Scale scene badges and paired spacing to 75%; retain their height and alert meanings.
+- Breaking Changes: None.
+- Verification: Focused scene lint and diff whitespace check.
+
+
+## 2026-10-16 | Version: monitoring-v2-attention-icons
+- Summary: Add scene-rendered attention icons above trucks.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Speedometer badges indicate speeding and clock badges indicate overdue waiting; both appear when applicable. Instanced WebGL badges track truck motion and visibility without HTML overlays or blocking selection.
+- Breaking Changes: None.
+- Verification: Focused lint and TypeScript checks.
+
+
 ## 2026-10-16 | Version: monitoring-v2-truck-contrast
 - Summary: Darken default trucks for clearer scene visibility.
 - API Changes: None.

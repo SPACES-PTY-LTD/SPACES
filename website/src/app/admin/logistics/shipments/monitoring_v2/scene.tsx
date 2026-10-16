@@ -5,6 +5,7 @@ import { Component, useCallback, useEffect, useMemo, useRef, useState, type Reac
 import { Color, MOUSE, TOUCH, Object3D, Vector3, type Group, type InstancedMesh } from 'three';
 import type { OrbitControls as Controls } from 'three-stdlib';
 import { REFINED_TRUCK_GEOMETRIES } from '../monitoring/components/refined-truck-geometry';
+import { createAttentionIcons } from './attention-icons';
 import { VehicleMotion } from './vehicle-motion';
 import { Depot } from './depot';
 import { HIGHWAY_HEIGHT } from './highway';
@@ -20,10 +21,14 @@ const colours:Record<string,string>={dark:'#26313d',windows:'#426b82',metal:'#a9
 type SceneProps={locationsFocus?:boolean;highwayFocus?:boolean;reducedMotion?:boolean;onReady:()=>void;roadLayout:'single'|'multiple'|'mixed';interactionMode:'pan'|'rotate';fleet:MonitorVehicle[];visibleIds:Set<string>;selected:string|null;location:string|null;camera:CameraView;zoom:number;focus:number;paused:boolean;showLabels:boolean;group?:'standby'|'unknown';now:number;onVehicle:(id:string)=>void;onLocation:(id:string)=>void;onGroup:(group:string)=>void;onFailure:()=>void;journey?:{from:string;to:string}|null;onPerformance?:(fps:number)=>void};
 function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance,hover,setHover,sites,visibleIds,reducedMotion}:Pick<SceneProps,'selected'|'paused'|'now'|'onVehicle'|'onPerformance'|'visibleIds'|'reducedMotion'> & {sites:{id:string;x:number;z:number;roadZ:number;direction:number}[];placements:Placement[];hover:string|null;setHover:(id:string|null)=>void}) {
   const refs=useRef<Partial<Record<keyof typeof REFINED_TRUCK_GEOMETRIES,InstancedMesh>>>({});
+  const iconMeshes=useRef<Partial<Record<'background'|'clock'|'speed',InstancedMesh>>>({});
+  const icons=useMemo(()=>createAttentionIcons(),[]);
+  const iconOffset=useMemo(()=>new Vector3(),[]);
+  useEffect(()=>()=>{Object.values(icons).forEach(geometry=>geometry.dispose());},[icons]);
   const clock=useRef(0);const frames=useRef({time:0,count:0}); const object=useMemo(()=>new Object3D(),[]);const colour=useMemo(()=>new Color(),[]);
   const [motion]=useState(()=>new VehicleMotion());
   useEffect(()=>motion.prune(new Set(placements.map(p=>p.vehicle.id))),[motion,placements]);
-  useFrame((_,delta)=>{
+  useFrame(({camera},delta)=>{
     frames.current.time+=delta;frames.current.count++;if(frames.current.time>=2){onPerformance?.(Math.round(frames.current.count/frames.current.time));frames.current={time:0,count:0};}
     if(!paused) clock.current+=Math.min(delta,.05);
     for(let i=0;i<placements.length;i++){
@@ -40,11 +45,25 @@ function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance,hov
       for(const part of parts) refs.current[part]?.setMatrixAt(i,object.matrix);
       colour.set(alert?'#ef4444':p.vehicle.id===selected?'#1463ff':p.vehicle.id===hover?'#475569':'#64748b');
       refs.current.painted?.setColorAt(i,colour);
+      const overdue=waiting(p.vehicle,now).overdue;
+      const both=p.vehicle.speeding && overdue;
+      for(const [j,kind] of (['speed','clock'] as const).entries()){
+        const enabled=state.visible && (kind==='speed'?p.vehicle.speeding:overdue);
+        iconOffset.set(both?(j===0?-.4875:.4875):0,0,0).applyQuaternion(camera.quaternion);
+        object.position.set(state.position.x+(moving?x-p.x:0)+iconOffset.x,state.position.y+bounce+2.8+iconOffset.y,state.position.z+iconOffset.z);
+        object.quaternion.copy(camera.quaternion);object.scale.setScalar(enabled?.75:0);object.updateMatrix();
+        iconMeshes.current.background?.setMatrixAt(i*2+j,object.matrix);
+        iconMeshes.current[kind]?.setMatrixAt(i,object.matrix);
+      }
     }
+    for(const mesh of Object.values(iconMeshes.current))if(mesh)mesh.instanceMatrix.needsUpdate=true;
     for(const part of parts){const mesh=refs.current[part];if(mesh){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}}
   });
   const active=placements.find(p=>visibleIds.has(p.vehicle.id) && p.vehicle.id===(hover || selected));
   return <>
+    {(['background','clock','speed'] as const).map(kind=><instancedMesh key={`attention-${kind}-${placements.length}`} ref={mesh=>{if(mesh)iconMeshes.current[kind]=mesh;}} args={[icons[kind],undefined,placements.length*(kind==='background'?2:1)]} frustumCulled={false} raycast={()=>null}>
+      <meshBasicMaterial color={kind==='background'?'#dc2626':'#ffffff'} toneMapped={false}/>
+    </instancedMesh>)}
     {parts.map(part=><instancedMesh key={`${part}-${placements.length}`} ref={mesh=>{if(mesh)refs.current[part]=mesh;}} args={[REFINED_TRUCK_GEOMETRIES[part],undefined,placements.length]} frustumCulled={false} castShadow={placements.length<250} receiveShadow
       onClick={e=>{e.stopPropagation();if(e.instanceId!==undefined)onVehicle(placements[e.instanceId].vehicle.id);}}
       onPointerMove={e=>{e.stopPropagation();if(e.instanceId!==undefined)setHover(placements[e.instanceId].vehicle.id);}}

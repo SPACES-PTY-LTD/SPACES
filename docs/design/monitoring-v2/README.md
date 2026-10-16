@@ -177,3 +177,9 @@ Mixed Grid starts with blocks of one and two locations, then uses three mixed bl
 ### Truck contrast — 2026-10-16
 
 Default truck bodies use darker slate grey (#64748b), with a darker hover shade (#475569) for clearer contrast against pale yards and buildings. Selected blue and attention red are retained.
+
+### Scene attention icons — 2026-10-16
+
+Attention trucks carry camera-facing WebGL mesh badges: speedometer for speeding, clock for overdue waiting, both side by side when applicable. Instanced geometry follows the same vehicle position, bounce and visibility as the truck, remains depth-tested and ignores pointer hits. No HTML overlays or extra animation are used.
+
+Attention badges and their side-by-side spacing are scaled to 75% of their original size.
