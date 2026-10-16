@@ -173,3 +173,7 @@ At locations closes drawers, resets zoom and selects the Overview angle centred 
 ### Small mixed grids — 2026-10-16
 
 Mixed Grid starts with blocks of one and two locations, then uses three mixed blocks per subsequent row. Four or more locations now create multiple road rows rather than fitting six on a single long road. Capacities are independent of fleet size so adding locations preserves assigned positions.
+
+### Truck contrast — 2026-10-16
+
+Default truck bodies use darker slate grey (#64748b), with a darker hover shade (#475569) for clearer contrast against pale yards and buildings. Selected blue and attention red are retained.

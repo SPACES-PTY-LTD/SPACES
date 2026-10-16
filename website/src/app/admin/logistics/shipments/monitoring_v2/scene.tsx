@@ -38,7 +38,7 @@ function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance,hov
       object.position.set(state.position.x+(moving?x-p.x:0),state.position.y+bounce,state.position.z);
       object.rotation.set(0,state.rotation,0);object.scale.setScalar(state.visible?1:0);object.updateMatrix();
       for(const part of parts) refs.current[part]?.setMatrixAt(i,object.matrix);
-      colour.set(alert?'#ef4444':p.vehicle.id===selected?'#1463ff':p.vehicle.id===hover?'#a7b4c6':'#e0e6ed');
+      colour.set(alert?'#ef4444':p.vehicle.id===selected?'#1463ff':p.vehicle.id===hover?'#475569':'#64748b');
       refs.current.painted?.setColorAt(i,colour);
     }
     for(const part of parts){const mesh=refs.current[part];if(mesh){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}}

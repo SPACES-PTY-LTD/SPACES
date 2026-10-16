@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-16 | Version: monitoring-v2-truck-contrast
+- Summary: Darken default trucks for clearer scene visibility.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Default truck paint uses slate grey with a darker hover shade; selected blue and attention red remain.
+- Breaking Changes: None.
+- Verification: Focused scene lint and diff whitespace check.
+
+
 ## 2026-10-16 | Version: monitoring-v2-small-mixed-grid
 - Summary: Fix small mixed grids appearing as a single long road.
 - API Changes: None.
