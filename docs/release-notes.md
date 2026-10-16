@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-16 | Version: monitoring-v2-small-mixed-grid
+- Summary: Fix small mixed grids appearing as a single long road.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: The first mixed-grid row holds three locations across two blocks; four or more locations create multiple rows. Later rows retain mixed blocks of one to three locations. Refresh placement remains stable.
+- Breaking Changes: None.
+- Verification: Monitoring model tests, focused lint and diff whitespace check.
+
+
 ## 2026-10-16 | Version: monitoring-v2-locations-camera
 - Summary: Focus the location layout when selecting At locations.
 - API Changes: None.

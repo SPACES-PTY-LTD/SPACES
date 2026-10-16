@@ -169,3 +169,7 @@ Total vehicles clears search, status, location, location-type and alert filters 
 ### At-locations framing — 2026-10-16
 
 At locations closes drawers, resets zoom and selects the Overview angle centred on the full location layout. Framing includes location footprints and parked vehicles, expands for narrow canvases and is independent of scene filters.
+
+### Small mixed grids — 2026-10-16
+
+Mixed Grid starts with blocks of one and two locations, then uses three mixed blocks per subsequent row. Four or more locations now create multiple road rows rather than fitting six on a single long road. Capacities are independent of fleet size so adding locations preserves assigned positions.

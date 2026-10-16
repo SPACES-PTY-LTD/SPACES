@@ -70,7 +70,7 @@ test('mixed blocks contain one to three locations with stable staggered placemen
  const fleet=m.normalizeFleet(Array.from({length:25},(_,i)=>row(String(i),'at_location',{monitoring:{status:'at_location',location:{location_id:`mixed-${i}`,name:`Mixed ${i}`}}})));
  const registry=new m.SlotRegistry(),layout=m.layoutFleet(fleet,registry,'mixed');
  const counts=layout.roads.map(z=>layout.sites.filter(s=>s.roadZ===z).length);
- assert.deepEqual(counts,[6,6,6,6,1]);
+ assert.deepEqual(counts,[3,6,6,6,4]);
  const blocks=Map.groupBy(layout.sites,s=>s.block);
  assert.ok([...blocks.values()].every(b=>b.length>=1 && b.length<=3));
  assert.ok(layout.roads.length<=5);
@@ -88,4 +88,16 @@ test('mixed blocks contain one to three locations with stable staggered placemen
  for(const p of layout.placements)for(const z of layout.roads)assert.ok(Math.abs(p.z-z)>=4.5-1e-9);
  const updated=m.layoutFleet([...fleet].reverse(),registry,'mixed');
  assert.deepEqual(new Map(updated.sites.map(s=>[s.id,[s.x,s.z]])),new Map(layout.sites.map(s=>[s.id,[s.x,s.z]])));
+});
+
+test('small mixed grids use multiple road rows and remain stable as locations arrive',()=>{
+ const fleet=m.normalizeFleet(Array.from({length:7},(_,i)=>row(String(i),'at_location',{monitoring:{status:'at_location',location:{location_id:`small-${i}`,name:`Small ${i}`}}})));
+ for(const count of [4,5,6,7]){
+  const registry=new m.SlotRegistry();
+  const initial=m.layoutFleet(fleet.slice(0,count),registry,'mixed');
+  assert.ok(initial.roads.length>=2);
+  assert.ok(new Set(initial.sites.map(site=>site.z)).size>=2);
+  const expanded=m.layoutFleet(fleet,registry,'mixed');
+  for(const site of initial.sites){const next=expanded.sites.find(s=>s.id===site.id);assert.equal(next.x,site.x);assert.equal(next.z,site.z);}
+ }
 });

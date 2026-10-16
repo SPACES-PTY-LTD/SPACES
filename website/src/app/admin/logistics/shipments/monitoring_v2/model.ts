@@ -91,12 +91,14 @@ export function layoutFleet(fleet: MonitorVehicle[], registry: SlotRegistry, roa
   const crossStreets:{x:number;from:number;to:number}[]=[];
   const mixedRoads:number[]=[];
   let mixedZ=0;
-  // Three blocks per row; rotate capacities without moving slots on refresh.
+  // Start with a compact three-location row so small fleets form a network.
+  // Subsequent rows retain three mixed blocks; capacity never depends on fleet size.
   for(let row=0;mixedSlots.length<registry.size('locations');row++){
     mixedRoads.push(mixedZ+roadZ);
     let x=-25.5;
-    for(let block=0;block<3;block++){
-      const capacity=[1,3,2][(row+block)%3];
+    const capacities=row===0?[1,2]:[0,1,2].map(block=>[1,3,2][(row+block)%3]);
+    for(let block=0;block<capacities.length;block++){
+      const capacity=capacities[block];
       for(let column=0;column<capacity;column++)mixedSlots.push({x:x+column*17,row,z:mixedZ,block:row*3+block});
       x+=capacity*17+12;
       if(block<2 && row>0 && mixedSlots.length<registry.size('locations'))crossStreets.push({x:x-14.5,from:mixedRoads[row-1],to:mixedRoads[row]});
