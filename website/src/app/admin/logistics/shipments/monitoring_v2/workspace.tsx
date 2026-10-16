@@ -49,7 +49,7 @@ export function MonitorWorkspace(props:WorkspaceProps){
   const [retry,setRetry]=useState(0);
   const [interactionMode,setInteractionMode]=useState<'pan'|'rotate'>('pan');
   const [roadLayout,setRoadLayout]=useState<'single'|'multiple'|'mixed'>('mixed');
-  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),1000);const mq=window.matchMedia('(prefers-reduced-motion: reduce)');const changed=()=>setReduced(mq.matches);changed();mq.addEventListener('change',changed);return()=>{clearInterval(timer);mq.removeEventListener('change',changed);};},[]);
+  useEffect(()=>{const timer=setInterval(()=>{if(!document.hidden)setNow(Date.now());},1000);const mq=window.matchMedia('(prefers-reduced-motion: reduce)');const changed=()=>setReduced(mq.matches);changed();mq.addEventListener('change',changed);return()=>{clearInterval(timer);mq.removeEventListener('change',changed);};},[]);
   useEffect(()=>{
     // Scope browser pinch suppression to this page; canvas controls still receive zoom input.
     document.body.classList.add('monitor-v2-active');

@@ -11,6 +11,7 @@ const aisle=(s:Site,p:Point):Point=>({x:s.x+6,y:0,z:p.z});
 /** Schematic yard movements only: never interpolate across unrelated locations. */
 export class VehicleMotion {
   private states=new Map<string,Motion>();
+  isAnimating(id:string){const s=this.states.get(id);return !!s && (s.visible || s.departing) && s.path.length>0;}
   position(id:string){return this.states.get(id)?.position;}
   prune(ids:Set<string>){for(const id of this.states.keys())if(!ids.has(id))this.states.delete(id);}
   step(p:Placement,site:Site|undefined,visible:boolean,delta:number,paused:boolean,reduced:boolean){

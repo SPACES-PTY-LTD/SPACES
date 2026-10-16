@@ -183,3 +183,15 @@ Default truck bodies use darker slate grey (#64748b), with a darker hover shade 
 Attention trucks carry camera-facing WebGL mesh badges: speedometer for speeding, clock for overdue waiting, both side by side when applicable. Instanced geometry follows the same vehicle position, bounce and visibility as the truck, remains depth-tested and ignores pointer hits. No HTML overlays or extra animation are used.
 
 Attention badges and their side-by-side spacing are scaled to 75% of their original size.
+
+Attention badge backgrounds are yellow (#facc15) with dark glyphs (#422006) for contrast; truck alert paint remains unchanged.
+
+### Rendering resource reduction — 2026-10-16
+
+Disable WebGL shadows completely. Hidden tabs use no rendering loop and suppress the workspace clock update; paused scenes render on demand for controls/data changes. Settled truck transforms and colours are cached, with frame work reserved for visible moving/alerting trucks, arrivals/departures and changed data. Location lookups and alert calculation are prepared outside the frame loop. Alert icon buffers allocate only the required speed/clock/background instances. Resolution and active animation frame rate remain unchanged.
+
+### Rounded KPI surface — 2026-10-16
+
+The KPI strip is a white rounded panel with 20px side margins (12px on small screens). The workspace and header share the canvas background #f3f6fa. Stats retain their single-row horizontal scrolling. Drawer and detail surfaces stay white.
+
+KPI panel vertical padding is 2px on desktop and mobile, with no fixed minimum height.

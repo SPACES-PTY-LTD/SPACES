@@ -54,3 +54,5 @@ body.monitor-v2-active{touch-action:pan-x pan-y}
 .mv-info-body{display:flex;flex-direction:column;gap:28px}.mv-info-body>section{flex:none!important;display:block;max-height:none}.mv-info-body h2{font-size:14px;font-weight:600;margin-bottom:14px}.mv-info-body .mv-large-number{margin-bottom:16px}.mv-info-body .mv-location-summary button{padding:12px 0;gap:10px}.mv-info-body .mv-location-summary button svg{flex-shrink:0}
 
 .monitor-v2>.mv-stage{flex:1 0 auto}.monitor-v2.mv-overview>.mv-stage{height:auto;min-height:450px}.mv-overview .mv-scene{flex:1;min-height:400px}
+
+.monitor-v2[data-testid="monitor-v2"],.monitor-v2>.mv-header{background:#f3f6fa}.monitor-v2>.mv-stats{background:#fff;margin:0 20px 16px;border:0;border-radius:40px;padding:2px 24px;min-height:0;flex-shrink:0}@media(max-width:760px){.monitor-v2>.mv-stats{margin:0 12px 12px;padding:2px 18px;border-radius:28px}}

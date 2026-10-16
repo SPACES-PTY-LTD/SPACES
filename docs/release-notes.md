@@ -1,5 +1,58 @@
 # Release Notes
 
+## 2026-10-16 | Version: monitoring-v2-kpi-padding-2px
+- Summary: Set KPI container vertical padding to 2px.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Apply 2px top/bottom padding on desktop and mobile; preserve horizontal padding.
+- Breaking Changes: None.
+- Verification: CSS inspection and diff whitespace check.
+
+
+## 2026-10-16 | Version: monitoring-v2-compact-kpis
+- Summary: Reduce KPI container vertical padding.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Use 8px top/bottom padding and remove the panel minimum height, retaining side margins and rounding.
+- Breaking Changes: None.
+- Verification: CSS inspection and diff whitespace check.
+
+
+## 2026-10-16 | Version: monitoring-v2-rounded-kpis
+- Summary: Style Monitoring KPIs as an inset rounded white panel.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Add responsive side margins and rounded corners to the KPI strip; match header and workspace backgrounds to the canvas. Preserve single-row scrolling.
+- Breaking Changes: None.
+- Verification: CSS inspection and diff whitespace check.
+
+
+## 2026-10-16 | Version: monitoring-v2-render-efficiency
+- Summary: Reduce Monitoring scene rendering and per-frame work.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Remove all WebGL shadows; stop rendering in hidden tabs and render on demand while paused. Skip settled truck animation work and unchanged instance uploads. Size icon buffers to alert counts. Retain visible movement and filtered departures.
+- Breaking Changes: None.
+- Verification: TypeScript, focused ESLint and six motion tests passed; 1,000-vehicle preview loaded, pause/zoom/resume checked. No quantified CPU/memory benchmark or browser hidden-tab measurement.
+
+
+## 2026-10-16 | Version: monitoring-v2-yellow-attention-icons
+- Summary: Change attention badges from red to yellow.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Yellow scene badges use dark clock/speedometer glyphs for contrast. Truck colours remain unchanged.
+- Breaking Changes: None.
+- Verification: Focused scene lint and diff whitespace check.
+
+
+## 2026-10-16 | Version: session-refresh-centered-loader
+- Summary: Replace the session restoration message with a centered loading animation.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Show a viewport-centered spinner without visible loading text, retain a screen-reader loading label, respect reduced motion, and preserve the reconnect error and retry action.
+- Breaking Changes: None.
+- Verification: Focused ESLint and diff whitespace checks; browser visual verification not performed.
+
 ## 2026-10-16 | Version: monitoring-v2-smaller-attention-icons
 - Summary: Reduce attention icon size by 25%.
 - API Changes: None.

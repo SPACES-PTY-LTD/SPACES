@@ -14,3 +14,12 @@ test('departure stays visible through status filter and never flies toward eleva
 test('pause freezes motion and reduced motion settles immediately',()=>{const m=new VehicleMotion();const a=m.step(bay,site,true,.05,false,false);const b=m.step(bay,site,true,.05,true,false);assert.deepEqual(a.position,b.position);assert.deepEqual(m.step(bay,site,true,.05,true,true).position,{x:0,y:0,z:3.4});});
 test('filter and layout changes do not replay arrivals',()=>{const m=new VehicleMotion();settle(m);assert.equal(m.step(bay,site,false,.05,false,false).visible,false);assert.deepEqual(m.step(bay,site,true,.05,false,false).position,{x:0,y:0,z:3.4});const moved={...bay,x:20};assert.deepEqual(m.step(moved,{...site,x:20},true,.05,false,false).position,{x:20,y:0,z:3.4});});
 test('opposite-side yards use their own road entrance',()=>{const m=new VehicleMotion();const p={...bay,z:-3.4,rotation:Math.PI/2};const s={...site,roadZ:-16,direction:-1};assert.equal(m.step(p,s,true,0,false,false).position.z,-16);assert.equal(settle(m,p,s).position.z,-3.4);});
+test('animation work stops at rest but continues for filtered departures',()=>{
+ const m=new VehicleMotion();
+ assert.equal(m.isAnimating('a'),false);
+ m.step(bay,site,true,0,false,false);assert.equal(m.isAnimating('a'),true);
+ settle(m);assert.equal(m.isAnimating('a'),false);
+ m.step(road,undefined,false,.05,false,false);assert.equal(m.isAnimating('a'),true);
+ settle(m,road,undefined,false);assert.equal(m.isAnimating('a'),false);
+ m.prune(new Set());assert.equal(m.isAnimating('a'),false);
+});
