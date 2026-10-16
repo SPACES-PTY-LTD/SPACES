@@ -31,10 +31,13 @@ function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance,hov
       const moving=p.vehicle.status==='in_transit';
       const x=p.x+(moving?Math.sin(clock.current*.16+i*.7)*.65:0);
       const state=motion.step(p,sites.find(s=>s.id===p.vehicle.locationId),visibleIds.has(p.vehicle.id),delta,paused,!!reducedMotion);
-      object.position.set(state.position.x+(moving?x-p.x:0),state.position.y,state.position.z);
+      const alert=p.vehicle.speeding || waiting(p.vehicle,now).overdue;
+      // A gentle two-second attention cue, always above the road/yard surface.
+      // The shared clock freezes on pause; reduced motion keeps vehicles grounded.
+      const bounce=alert && !reducedMotion? .12*(1-Math.cos(clock.current*Math.PI)):0;
+      object.position.set(state.position.x+(moving?x-p.x:0),state.position.y+bounce,state.position.z);
       object.rotation.set(0,state.rotation,0);object.scale.setScalar(state.visible?1:0);object.updateMatrix();
       for(const part of parts) refs.current[part]?.setMatrixAt(i,object.matrix);
-      const alert=p.vehicle.speeding || waiting(p.vehicle,now).overdue;
       colour.set(alert?'#ef4444':p.vehicle.id===selected?'#1463ff':p.vehicle.id===hover?'#a7b4c6':'#e0e6ed');
       refs.current.painted?.setColorAt(i,colour);
     }
@@ -167,10 +170,10 @@ function World(props:SceneProps) {
     {furniture?.junctions.map(j=><StreetIntersection key={`${j.x}:${j.z}`} junction={j}/>)}
     {furniture?.trees.map(t=><Tree key={`verge-${t.x}:${t.z}`} x={t.x} z={t.z}/>)}
     <HighwayRamp x={maxX} frontZ={frontZ} highwayZ={-12} highwayDepth={5}/>
-    {visibleSites.map((site,i)=><group key={site.id} onPointerOver={e=>{e.stopPropagation();setHoveredLocation(site.id);}} onPointerOut={()=>setHoveredLocation(null)}>
+    {visibleSites.map((site,i)=><group key={site.id}>
       <mesh position={[site.x,-.06,site.z+site.direction*(Math.abs(site.roadZ-site.z)-3)/2]} receiveShadow><boxGeometry args={[13,.12,Math.abs(site.roadZ-site.z)-3]}/><meshStandardMaterial color="#c7cdd6"/></mesh>
-      <BuildingEntrance paused={props.paused} reduced={!!props.reducedMotion}><group position={[site.x,0,site.z]} rotation={[0,site.direction===-1?Math.PI:0,0]}>{resolveLocationMeshType(site.icon)==='warehouse'?<Depot onSelect={()=>{if(!props.journey)props.onLocation(site.id);}}/>:<group scale={1.35}><LocationMesh x={0} z={0} location={{locationId:site.id,index:i,category:'depot',meshType:resolveLocationMeshType(site.icon),status:'active',changedAt:0,label:site.name}} showLocationLabels={false} onSelectLocation={props.onLocation}/></group>}</group></BuildingEntrance>
-      {props.showLabels && hoveredLocation===site.id && <Html style={{pointerEvents:'none'}} position={[site.x,7,site.z-site.direction*3]} center zIndexRange={[8,0]}><div className="mv-truck-label" role="tooltip">{site.name}</div></Html>}
+      <BuildingEntrance paused={props.paused} reduced={!!props.reducedMotion}><group onPointerOver={e=>{e.stopPropagation();setHoveredLocation(site.id);}} onPointerOut={()=>setHoveredLocation(null)} position={[site.x,0,site.z]} rotation={[0,site.direction===-1?Math.PI:0,0]}>{resolveLocationMeshType(site.icon)==='warehouse'?<Depot onSelect={()=>{if(!props.journey)props.onLocation(site.id);}}/>:<group scale={1.35}><LocationMesh x={0} z={0} location={{locationId:site.id,index:i,category:'depot',meshType:resolveLocationMeshType(site.icon),status:'active',changedAt:0,label:site.name}} showLocationLabels={false} onSelectLocation={props.onLocation}/></group>}</group></BuildingEntrance>
+      {props.showLabels && resolveLocationMeshType(site.icon)==='warehouse' && hoveredLocation===site.id && <Html style={{pointerEvents:'none'}} position={[site.x,7,site.z-site.direction*3]} center zIndexRange={[8,0]}><div className="mv-truck-label" role="tooltip">{site.name}</div></Html>}
       <Tree x={site.x-6.5} z={site.z-site.direction*2}/><Tree x={site.x+6} z={site.z+site.direction}/><Lamp x={site.x+6.7} z={site.roadZ-site.direction*3.5}/>
     </group>)}
     {(['standby','unknown'] as const).map(group=>{const parked=visible.filter(p=>p.vehicle.status===group);if(!parked.length)return null;const x=parked[0].x+10;const minZ=Math.min(...parked.map(p=>p.z));const depth=Math.max(...parked.map(p=>p.z))-minZ+5;const Icon=group==='standby'?ParkingCircle:CircleHelp;return <group key={group}>

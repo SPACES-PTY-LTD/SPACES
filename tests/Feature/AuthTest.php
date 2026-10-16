@@ -37,6 +37,43 @@ class AuthTest extends TestCase
         $this->assertNotSame($device->id, $replacement->id);
     }
 
+    public function test_refresh_survives_a_day_of_inactivity_and_rejects_reuse_and_expiry(): void
+    {
+        $user = \App\Models\User::factory()->create(['role' => 'super_admin']);
+        $login = app(\App\Services\AuthService::class)->login([
+            'email' => $user->email, 'password' => 'password', 'login_context' => 'admin',
+        ]);
+        \Illuminate\Support\Facades\Route::get('/_test/authenticated', fn () => response()->json(['ok' => true]))->middleware('auth.api');
+        $this->travel(25)->hours();
+        $this->withHeader('Authorization', 'Bearer '.$login['token'])
+            ->getJson('/_test/authenticated')->assertUnauthorized();
+        $refresh = $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $login['refresh_token']])
+            ->assertOk()->assertJsonPath('data.expires_in', 3600);
+        $this->assertNotEmpty($refresh->json('data.token'));
+        $this->withHeader('Authorization', 'Bearer '.$refresh->json('data.token'))
+            ->getJson('/_test/authenticated')->assertOk();
+        $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $login['refresh_token']])->assertUnauthorized();
+        $this->postJson('/api/v1/auth/refresh', ['refresh_token' => 'invalid'])->assertUnauthorized();
+        $this->postJson('/api/v1/auth/refresh', [])->assertUnprocessable();
+        $this->travel(31)->days();
+        $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $refresh->json('data.refresh_token')])->assertUnauthorized();
+    }
+
+    public function test_refresh_failure_rolls_back_rotation_and_can_be_retried(): void
+    {
+        $user = \App\Models\User::factory()->create();
+        $login = app(\App\Services\AuthService::class)->login(['email' => $user->email, 'password' => 'password']);
+        $failCreation = true;
+        \App\Models\RefreshToken::creating(function () use (&$failCreation) { if ($failCreation) throw new \RuntimeException('Storage unavailable'); });
+        try {
+            $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $login['refresh_token']])->assertStatus(503);
+            $this->assertDatabaseHas('refresh_tokens', ['token_hash' => hash('sha256', $login['refresh_token']), 'revoked_at' => null]);
+        } finally {
+            $failCreation = false;
+        }
+        $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $login['refresh_token']])->assertOk();
+    }
+
     public function test_register_login_logout(): void
     {
         $register = $this->postJson('/api/v1/auth/register', [

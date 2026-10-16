@@ -105,7 +105,7 @@ class AuthController extends Controller
         } catch (Throwable $e) {
             Log::error('Refresh failed', ['request_id' => ApiResponse::requestId(), 'error' => $e->getMessage()]);
 
-            return $this->apiError($e, 'REFRESH_FAILED', 'Unable to refresh token.', Response::HTTP_BAD_REQUEST);
+            return $this->apiError($e, 'REFRESH_FAILED', 'Unable to refresh token.', Response::HTTP_SERVICE_UNAVAILABLE);
         }
     }
 

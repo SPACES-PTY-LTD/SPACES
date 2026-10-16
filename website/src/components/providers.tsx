@@ -30,7 +30,7 @@ function AuthSessionBridge() {
 
   React.useEffect(() => {
     if (status !== "authenticated") return
-    if (!session?.authError) return
+    if (session?.authError !== "RefreshAccessTokenError") return
 
     void logoutStoredSession()
   }, [session?.authError, status])
@@ -40,7 +40,7 @@ function AuthSessionBridge() {
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <SessionProvider>
+    <SessionProvider refetchInterval={60} refetchOnWindowFocus refetchWhenOffline={false}>
       <AuthSessionBridge />
       {children}
     </SessionProvider>

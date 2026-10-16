@@ -146,32 +146,34 @@ class AuthService
 
     public function refresh(string $refreshToken): ?array
     {
-        $tokenHash = hash('sha256', $refreshToken);
-        $record = RefreshToken::where('token_hash', $tokenHash)->first();
+        return DB::transaction(function () use ($refreshToken) {
+            $tokenHash = hash('sha256', $refreshToken);
+            $record = RefreshToken::where('token_hash', $tokenHash)->lockForUpdate()->first();
 
-        if (! $record || $record->revoked_at || $record->expires_at->isPast()) {
-            return null;
-        }
+            if (! $record || $record->revoked_at || $record->expires_at->isPast()) {
+                return null;
+            }
 
-        $record->update([
-            'revoked_at' => now(),
-            'last_used_at' => now(),
-        ]);
+            $record->update([
+                'revoked_at' => now(),
+                'last_used_at' => now(),
+            ]);
 
-        $user = $record->user;
-        $merchantUuid = $record->meta['driver_merchant_uuid'] ?? null;
-        if ($merchantUuid && ! in_array($merchantUuid, array_column($this->driverMerchants($user->email), 'merchant_id'), true)) {
-            return null;
-        }
-        $accessToken = $this->createAccessToken($user, $merchantUuid);
-        $newRefresh = $this->createRefreshToken($user, ['type' => 'refresh', 'driver_merchant_uuid' => $merchantUuid]);
+            $user = $record->user;
+            $merchantUuid = $record->meta['driver_merchant_uuid'] ?? null;
+            if ($merchantUuid && ! in_array($merchantUuid, array_column($this->driverMerchants($user->email), 'merchant_id'), true)) {
+                return null;
+            }
+            $accessToken = $this->createAccessToken($user, $merchantUuid);
+            $newRefresh = $this->createRefreshToken($user, ['type' => 'refresh', 'driver_merchant_uuid' => $merchantUuid]);
 
-        return [
-            'user' => $user,
-            'token' => $accessToken,
-            'refresh_token' => $newRefresh,
-            'expires_in' => self::ACCESS_TTL_SECONDS,
-        ];
+            return [
+                'user' => $user,
+                'token' => $accessToken,
+                'refresh_token' => $newRefresh,
+                'expires_in' => self::ACCESS_TTL_SECONDS,
+            ];
+        });
     }
 
     private function createAccessToken(User $user, ?string $merchantUuid = null): string

@@ -29,21 +29,6 @@ export function isApiErrorResponse(value: unknown): value is ApiErrorResponse {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.example.com"
 
-type RefreshTokenResponse = {
-  success?: boolean
-  data?: {
-    token?: string
-    refresh_token?: string
-    expires_in?: number
-  }
-}
-
-const DEFAULT_ACCESS_TOKEN_TTL_MS = 60 * 60 * 1000
-
-function resolveAccessTokenExpiresAt(expiresIn?: number | null): number {
-  return Date.now() + (expiresIn ?? DEFAULT_ACCESS_TOKEN_TTL_MS / 1000) * 1000
-}
-
 function buildUrl(path: string, params?: ApiRequestOptions["params"]) {
   const url = new URL(path, API_BASE_URL)
   if (params) {
@@ -108,7 +93,7 @@ export async function apiFetch<T>(
     retry &&
     typeof window !== "undefined"
   ) {
-    const refreshedToken = await refreshBrowserAccessToken(options.refreshToken)
+    const refreshedToken = await refreshBrowserAccessToken()
     if (refreshedToken) {
       return apiFetch<T>(
         path,
@@ -223,17 +208,20 @@ async function resolveBrowserAccessToken(
   token?: string | null
 ): Promise<string | null> {
   const { getStoredAuthTokens } = await import("@/lib/auth-session-manager")
-  return getStoredAuthTokens().accessToken ?? token ?? null
+  const stored = getStoredAuthTokens()
+  if (stored.accessToken && stored.accessTokenExpiresAt &&
+      Date.now() >= stored.accessTokenExpiresAt - 30_000) {
+    return (await refreshBrowserAccessToken()) ?? stored.accessToken
+  }
+  return stored.accessToken ?? token ?? null
 }
 
-async function refreshBrowserAccessToken(
-  providedRefreshToken?: string | null
-): Promise<string | null> {
+async function refreshBrowserAccessToken(): Promise<string | null> {
   if (refreshRequest) {
     return refreshRequest
   }
 
-  refreshRequest = performBrowserTokenRefresh(providedRefreshToken)
+  refreshRequest = performBrowserTokenRefresh()
 
   try {
     return await refreshRequest
@@ -242,87 +230,7 @@ async function refreshBrowserAccessToken(
   }
 }
 
-async function performBrowserTokenRefresh(
-  providedRefreshToken?: string | null
-): Promise<string | null> {
-  const [{ getStoredAuthTokens, logoutStoredSession, updateStoredSession }, auth] =
-    await Promise.all([
-      import("@/lib/auth-session-manager"),
-      import("next-auth/react"),
-    ])
-
-  const session = await auth.getSession()
-  const storedTokens = getStoredAuthTokens()
-
-  // getSession() can refresh and rotate the token through NextAuth. If it did,
-  // use that result instead of submitting the now-revoked browser token again.
-  if (
-    session?.accessToken &&
-    session.accessToken !== storedTokens.accessToken
-  ) {
-    await updateStoredSession({
-      accessToken: session.accessToken,
-      refreshToken: session.refreshToken,
-      accessTokenExpiresAt: session.accessTokenExpiresAt,
-      authError: session.authError,
-    })
-    return session.accessToken
-  }
-
-  const refreshToken =
-    session?.refreshToken ??
-    storedTokens.refreshToken ??
-    providedRefreshToken ??
-    null
-
-  if (!refreshToken) {
-    return null
-  }
-
-  let response: Response
-  try {
-    response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        refresh_token: refreshToken,
-      }),
-    })
-  } catch {
-    return null
-  }
-
-  if (!response.ok) {
-    //Log the info the response body if the refresh request failed, to help debugging issues related to token refresh
-    console.error("Failed to refresh access token", {
-      status: response.status,
-      statusText: response.statusText,
-      responseBody: await response.text().catch(() => "<Failed to read response body>"),
-    })
-
-    if (response.status === 400 || response.status === 401) {
-      await logoutStoredSession()
-    }
-    return null
-  }
-
-  const payload = (await response.json()) as RefreshTokenResponse
-  const nextAccessToken = payload.data?.token ?? null
-  const nextRefreshToken = payload.data?.refresh_token ?? refreshToken
-  const nextAccessTokenExpiresAt = resolveAccessTokenExpiresAt(payload.data?.expires_in)
-
-  if (!nextAccessToken) {
-    return null
-  }
-
-  await updateStoredSession({
-    accessToken: nextAccessToken,
-    refreshToken: nextRefreshToken,
-    accessTokenExpiresAt: nextAccessTokenExpiresAt,
-    authError: undefined,
-  })
-
-  return nextAccessToken
+async function performBrowserTokenRefresh(): Promise<string | null> {
+  const { renewBrowserSession } = await import("@/lib/renew-session")
+  return renewBrowserSession(true)
 }

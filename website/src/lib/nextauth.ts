@@ -50,17 +50,17 @@ async function performAccessTokenRefresh(token: JWT): Promise<JWT> {
     if (!response.ok) {
       return {
         ...token,
-        authError: "RefreshAccessTokenError",
+        authError: response.status === 401 ? "RefreshAccessTokenError" : "RefreshAccessTokenUnavailable",
       }
     }
 
     const payload = (await response.json()) as { data?: AuthPayload }
     const auth = payload.data
 
-    if (!auth?.token) {
+    if (!auth?.token || !auth.refresh_token) {
       return {
         ...token,
-        authError: "RefreshAccessTokenError",
+        authError: "RefreshAccessTokenUnavailable",
       }
     }
 
@@ -74,7 +74,7 @@ async function performAccessTokenRefresh(token: JWT): Promise<JWT> {
   } catch {
     return {
       ...token,
-      authError: "RefreshAccessTokenError",
+      authError: "RefreshAccessTokenUnavailable",
     }
   }
 }
@@ -85,6 +85,9 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
     return { ...token, authError: "RefreshAccessTokenError" }
   }
 
+  for (const [key, result] of refreshResults) {
+    if (result.cachedUntil <= Date.now()) refreshResults.delete(key)
+  }
   const cached = refreshResults.get(refreshToken)
   if (cached && cached.cachedUntil > Date.now()) {
     return { ...token, ...cached.token }
@@ -117,6 +120,7 @@ async function refreshAccessToken(token: JWT): Promise<JWT> {
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
   },
   providers: [
     CredentialsProvider({
@@ -191,18 +195,6 @@ export const authOptions: NextAuthOptions = {
         if (session.user?.role) {
           token.role = session.user.role
         }
-        if ("accessToken" in session) {
-          token.accessToken = session.accessToken
-        }
-        if ("refreshToken" in session) {
-          token.refreshToken = session.refreshToken
-        }
-        if ("accessTokenExpiresAt" in session) {
-          token.accessTokenExpiresAt = session.accessTokenExpiresAt
-        }
-        if ("authError" in session) {
-          token.authError = session.authError
-        }
         if (session.merchants) {
           token.merchants = session.merchants
           token.merchantsLoaded = true
@@ -228,9 +220,10 @@ export const authOptions: NextAuthOptions = {
       }
 
       if (
-        token.accessToken &&
-        token.accessTokenExpiresAt &&
-        Date.now() >= Number(token.accessTokenExpiresAt) - ACCESS_TOKEN_REFRESH_BUFFER_MS
+        (trigger === "update" && session?.forceRefresh === true) ||
+        (token.accessToken &&
+        (!token.accessTokenExpiresAt ||
+          Date.now() >= Number(token.accessTokenExpiresAt) - ACCESS_TOKEN_REFRESH_BUFFER_MS))
       ) {
         token = await refreshAccessToken(token)
       }

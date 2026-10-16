@@ -23,7 +23,9 @@ class ApiAuthMiddleware
         }
 
         $personalToken = PersonalAccessToken::findToken($token);
-        if ($personalToken && $personalToken->tokenable) {
+        if ($personalToken && $personalToken->tokenable
+            && (! $personalToken->expires_at || $personalToken->expires_at->isFuture())
+            && (! config('sanctum.expiration') || $personalToken->created_at->gt(now()->subMinutes(config('sanctum.expiration'))))) {
             $user = $personalToken->tokenable;
             $user->withAccessToken($personalToken);
             Auth::setUser($user);

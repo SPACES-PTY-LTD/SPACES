@@ -62,5 +62,8 @@ export async function logoutStoredSession() {
 
   if (handlers) {
     await handlers.logout()
+  } else {
+    const { signOut } = await import("next-auth/react")
+    await signOut({ callbackUrl: "/auth/login" })
   }
 }

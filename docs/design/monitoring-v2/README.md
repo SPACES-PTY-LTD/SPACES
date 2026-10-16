@@ -101,3 +101,27 @@ Vehicle and location hover now share a canvas-scoped pointer cursor. The existin
 Buildings rise over 650 ms when mounted. Vehicles enter from the location road via the side aisle and turn into their assigned bay. A changed location/status drives them back to the old road before switching to the new schematic position; unrelated sites and the elevated highway are never joined by a straight flying interpolation. Departures remain visible briefly through status filters. Filter/layout changes do not simulate departures; missing API records are removed without inventing one. Pause freezes motion and reduced motion settles immediately. Selection labels/rings follow the vehicle. Movements are illustrative, not measured GPS routes; vehicles do not perform collision avoidance.
 
 Verification: five focused motion tests cover arrival, filtered departure, opposite-side yards, pause/reduced motion, and filter/layout stability. TypeScript and focused lint passed. The 150-vehicle/25-location preview loaded successfully; `verification/26-yard-motion.png` captures the settled scene. Live production arrival/departure timing has not been verified.
+
+### Building-only hover — 2026-10-16
+
+Location hover targets the building group, excluding the outer yard, trees and lamps. Shared location meshes retain their own hover name; only V2 warehouses receive the custom name label, preventing duplicate labels.
+
+### Vehicle-free location models — 2026-10-16
+
+Removed decorative transport from staging-area, fuel-depot, sasol-depot, mine, weighbridge, seaport, airport-cargo and rail-freight. Infrastructure remains; fleet instances are the only vehicles shown by the monitor. Eight corresponding public location-type images were regenerated from the shared models and visually checked. Older verification screenshots are historical captures and may show the previous decoration. TypeScript and focused lint passed.
+
+### Attention bounce — 2026-10-16
+
+The same speeding/overdue predicate used for red vehicles now adds a gentle vertical attention cue: a two-second cosine cycle between zero and 0.24 scene units. Pause freezes the clock, reduced motion removes the offset, and clearing attention returns the vehicle to its base height. The selection ring remains on the yard/road.
+
+### Active filter badge — 2026-10-16
+
+Filters displays a blue count for non-empty search, status, location, location type and alert values. Count derives from the existing URL filter state, disappears at zero and is announced in the button name. Camera/view/selection parameters are excluded.
+
+### Fleet drawer — 2026-10-16
+
+All Fleet list entry points open the shared modal Sheet from the right. The filtered fleet scrolls independently under a fixed title/count; narrow screens use full width. Escape, backdrop and Close dismiss it. Vehicle selection closes the drawer and opens tracking. Radix traps focus; dismissal restores the originating control where available.
+
+### Transport landmark exceptions — 2026-10-16
+
+Rail freight retains its train, seaport its ship, and airport cargo its aircraft, as requested. These three model previews match the restored geometry. The five road-truck removals remain in place. This supersedes the blanket transport removal above.

@@ -41,3 +41,7 @@ body.monitor-v2-active{touch-action:pan-x pan-y}
 @media(prefers-reduced-motion:reduce){.mv-loading-truck{animation:none;transform:translateX(145px)}.mv-scene-loading{transition:none}}
 
 .mv-scene-message{z-index:26;max-width:calc(100% - 24px);white-space:normal;text-align:center}
+
+.mv-filter-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#1463ff;color:#fff;font-size:11px;font-weight:700;line-height:1;flex-shrink:0}
+
+.monitor-v2.mv-fleet-drawer{min-height:0;height:100dvh;gap:0;padding:0;overflow:hidden}.mv-fleet-drawer-header{flex-shrink:0;padding:24px 48px 20px 24px;border-bottom:1px solid var(--mv-line)}.mv-fleet-drawer-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 24px}.mv-fleet-drawer .mv-row>svg{flex-shrink:0}

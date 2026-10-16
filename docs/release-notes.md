@@ -1,5 +1,68 @@
 # Release Notes
 
+## 2026-10-16 | Version: location-transport-landmarks
+
+- **Summary:** Retain transport landmarks for rail freight, seaport and airport cargo.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Restore the decorative train, ship and aircraft in these three shared models and regenerate their preview PNGs. Decorative road trucks remain removed from the other five models.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused model lint; regenerate and inspect all three preview images.
+
+## 2026-10-16 | Version: monitoring-v2-fleet-drawer
+
+- **Summary:** Open Fleet list in a right-side drawer instead of a bottom section.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Modal drawer has independent scrolling, a persistent heading/count, close button, Escape/backdrop dismissal and focus management. It fills narrow screens. Selecting a vehicle closes it and opens vehicle tracking. Loading and WebGL fallback entry points use the same drawer.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused workspace lint passed. Browser verified independent scroll, Escape dismissal, focus restoration and vehicle selection; screenshot saved.
+
+## 2026-10-16 | Version: monitoring-v2-filter-count
+
+- **Summary:** Show the active filter count on the Filters button.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** A blue count badge includes search, status, location, location type and alert filters. It updates from URL state, disappears when cleared, and is included in the button's accessible name. Camera and selected entities are not filters.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused workspace ESLint passed. Browser verified counts of one and two, then zero after Clear filters; screenshot saved.
+
+## 2026-10-16 | Version: monitoring-v2-attention-bounce
+
+- **Summary:** Gently bounce vehicles requiring attention.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Speeding and overdue-wait vehicles retain their red highlight and rise up to 0.24 scene units on a smooth two-second cycle. Pause freezes the cycle; reduced motion disables it. Vehicles never bounce below their road or yard surface.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused scene ESLint; reviewed bounce bounds and existing attention predicate.
+
+## 2026-10-16 | Version: location-models-without-decorative-vehicles
+
+- **Summary:** Remove built-in decorative vehicles from location models and regenerate their preview images.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Staging area, fuel depot, Sasol depot, mine and weighbridge no longer contain static trucks. Seaport, airport cargo and rail freight no longer contain static ships, planes or trains. Shared V1/V2 models and all eight picker preview PNGs match; real fleet vehicles remain unchanged.
+- **Breaking Changes:** None.
+- **Verification:** TypeScript and focused ESLint pass. Regenerated eight transparent 512px PNGs from the development renderer and visually checked each for leftover vehicle geometry.
+
+## 2026-10-16 | Version: admin-session-refresh-recovery
+
+- **Summary:** Repair admin session renewal after access-token expiry and temporary refresh outages.
+- **API Changes:** Refresh rotation is transactional and locks the consumed token. Unexpected refresh failures return 503; invalid/reused/expired refresh tokens still return 401.
+- **Database Changes:** None.
+- **Behavior Changes:** Server-rendered admin pages renew through a cookie-saving session recovery page and return to the original admin URL. Browser requests proactively renew and retry 401 responses once through NextAuth; JSON and multipart uploads share this path. Polling/focus checks renew active sessions. Temporary outages preserve credentials; rejected refresh credentials require login. Custom API authentication now enforces access-token expiry. Auth routes remain reachable on the admin hostname.
+- **Breaking Changes:** Expired personal access tokens previously accepted by custom API authentication now receive 401, matching their existing expiry contract.
+- **Verification:** Seven Laravel auth/driver-login tests (63 assertions), seven frontend auth regression tests, TypeScript and focused ESLint. Endpoint tests simulate 25 hours of inactivity, refresh reuse/expiry and rollback after storage failure. No production credentials used or deployment performed; multi-instance refresh races are not covered by the process-local NextAuth deduplication cache.
+
+## 2026-10-16 | Version: monitoring-v2-building-hover-only
+
+- **Summary:** Keep a single location name on building hover.
+- **API Changes:** None.
+- **Database Changes:** None.
+- **Behavior Changes:** Remove location-wide hover targeting from yards, trees and lamps. Non-warehouse models retain their own building label; V2 warehouses use a single compact label. The pointer cursor follows building hover.
+- **Breaking Changes:** None.
+- **Verification:** Focused ESLint; inspected warehouse and shared location-model label paths. Full TypeScript check is blocked by existing errors in src/lib/auth.ts (session callbacks).
+
 ## 2026-10-15 | Version: monitoring-v2-yard-motion
 
 - **Summary:** Animate buildings and vehicle arrivals/departures at locations.

@@ -1,5 +1,6 @@
 import { AdminLinks } from "@/lib/routes/admin"
-import { getServerSession } from "next-auth"
+import { getServerSession, type NextAuthOptions } from "next-auth"
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import type { Merchant, Role } from "@/lib/types"
 import { authOptions } from "@/lib/nextauth"
@@ -21,11 +22,23 @@ export type Session = {
 
 export async function getSession(): Promise<Session | null> {
   
-  const session = await getServerSession(authOptions)
+  // Server Components cannot persist rotated cookies. Renew in the browser first.
+  const readOnlyOptions: NextAuthOptions = {
+    ...authOptions,
+    callbacks: { ...authOptions.callbacks, jwt: async ({ token }) => token },
+  }
+  const session = await getServerSession(readOnlyOptions)
   if (!session?.accessToken) {
     return null
   }
   
+  if (session.authError === "RefreshAccessTokenError") return null
+  if (!session.accessTokenExpiresAt || Date.now() >= session.accessTokenExpiresAt - 30_000) {
+    const path = (await headers()).get("x-auth-return-path") ?? "/admin"
+    const returnTo = path.startsWith("/admin") ? path : "/admin"
+    redirect(`/auth/refresh?returnTo=${encodeURIComponent(returnTo)}`)
+  }
+
   return {
     accessToken: session.accessToken,
     refreshToken: session.refreshToken,

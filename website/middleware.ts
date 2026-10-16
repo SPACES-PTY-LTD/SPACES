@@ -8,6 +8,7 @@ export function middleware(request: NextRequest) {
 
   const allowedPaths = [
     "/admin",
+    "/auth",
     "/api",
     "/invites",
     "/_next/static",
@@ -20,7 +21,9 @@ export function middleware(request: NextRequest) {
   console.log(`Middleware: Hostname - ${hostname}, Pathname - ${pathname}`);
 
   if (hostname !== ADMIN_HOST || allowedPaths.some(path => pathname.startsWith(path))) {
-    return NextResponse.next()
+    const headers = new Headers(request.headers)
+    headers.set("x-auth-return-path", pathname + request.nextUrl.search)
+    return NextResponse.next({ request: { headers } })
   }
 
   const redirectUrl = request.nextUrl.clone()

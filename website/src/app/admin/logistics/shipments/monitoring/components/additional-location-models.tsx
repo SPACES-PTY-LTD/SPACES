@@ -49,15 +49,6 @@ function Crane({ at = [0, 0, 0], height = 3.2 }: { at?: V3; height?: number }) {
     <Block at={[0.12, height - 0.35, 0.26]} size={[0.28, 0.25, 0.02]} color={glass} />
   </group>
 }
-function MiniTruck({ at, color = orange }: { at: V3; color?: string }) {
-  return <group position={at}>
-    <Block at={[0, 0.35, 0]} size={[1.35, 0.16, 0.75]} color={steel} />
-    <RoundBlock at={[0.43, 0.75, 0]} size={[0.6, 0.7, 0.75]} color={color} radius={0.06} />
-    <Block at={[0.74, 0.86, 0]} size={[0.025, 0.25, 0.55]} color={glass} />
-    <Block at={[-0.35, 0.78, 0]} size={[0.95, 0.55, 0.75]} color={color} />
-    {[-0.48, 0.43].flatMap(x => [-0.42, 0.42].map(z => <Cylinder key={`${x}-${z}`} at={[x, 0.3, z]} radius={0.25} height={0.14} rotation={[Math.PI / 2, 0, 0]} color="#1e293b" />))}
-  </group>
-}
 function Building({ color = cream }: { color?: string }) {
   return <group>
     <Block at={[0, 1, -1.4]} size={[4.6, 1.8, 2.5]} color={color} />
@@ -114,7 +105,6 @@ function RailFreight() {
 function Mine() {
   return <><Pad color="#bda281" />
     {[{w:5.2,h:0.28,z:-1.2},{w:4.2,h:0.52,z:-1.7},{w:3.1,h:0.76,z:-2.1},{w:1.9,h:1,z:-2.45}].map(({w,h,z}) => <Block key={w} at={[-0.2, h/2+0.1, z]} size={[w, h, 0.72]} color="#b58b61" />)}
-    <MiniTruck at={[1.2, 0.1, 0.4]} />
     <Beam from={[-2, 0.4, -0.4]} to={[-2, 1.6, -0.4]} color={orange} width={0.2} />
     <Beam from={[-2, 1.6, -0.4]} to={[-0.8, 0.7, -0.4]} color={orange} width={0.2} />
     <Block at={[-0.7, 0.55, -0.4]} size={[0.5, 0.45, 0.5]} color={steel} />
@@ -182,7 +172,6 @@ function Construction() {
 function Weighbridge() {
   return <><Pad /><RoundBlock at={[0,0.2,-0.45]} size={[4.5,0.2,1.65]} color={steel} radius={0.05} />
     {[-1.8,-1.2,-0.6,0,0.6,1.2,1.8].map(x => <Block key={x} at={[x,0.315,-0.45]} size={[0.05,0.025,1.5]} color="#94a3b8" />)}
-    <MiniTruck at={[0,0.35,-0.45]} color="#0284c7" />
     <Block at={[1.8,0.8,-2.1]} size={[1.15,1.4,1.05]} color={cream} /><Block at={[1.8,1.56,-2.1]} size={[1.35,0.15,1.25]} color="#0284c7" />
     <Block at={[1.8,1.12,-1.55]} size={[0.75,0.45,0.04]} color={glass} />
     <Block at={[-1.6,1.2,-2]} size={[1.1,0.6,0.1]} color="#172033" /><Beam from={[-1.6,0.1,-2]} to={[-1.6,0.95,-2]} width={0.08} />
@@ -249,15 +238,6 @@ function FuelDepot() {
     <RoundBlock at={[2, 0.5, -1.65]} size={[0.85, 0.8, 0.9]} color="#1d4ed8" radius={0.08} />
     <Block at={[2, 0.62, -1.185]} size={[0.45, 0.25, 0.03]} color="#172033" />
     <Beam from={[2, 0.2, -0.2]} to={[2, 0.5, -1.3]} color="#ea580c" width={0.1} />
-    <group position={[0.1, 0.1, 0.65]}>
-      <Block at={[0, 0.32, 0]} size={[2.9, 0.12, 0.75]} color={steel} />
-      <Cylinder at={[-0.35, 0.85, 0]} radius={0.38} height={1.9} rotation={[0, 0, Math.PI / 2]} color="#e2e8f0" />
-      {[-0.95, 0.3].map(x => <Cylinder key={x} at={[x, 0.85, 0]} radius={0.39} height={0.05} rotation={[0, 0, Math.PI / 2]} color="#94a3b8" />)}
-      <RoundBlock at={[1.13, 0.7, 0]} size={[0.75, 0.85, 0.8]} color="#0284c7" radius={0.075} />
-      <Block at={[1.515, 0.87, 0]} size={[0.025, 0.3, 0.59]} color={glass} />
-      <Block at={[1.12, 0.87, 0.41]} size={[0.4, 0.28, 0.025]} color={glass} />
-      {[-1.05, -0.55, 1.05].flatMap(x => [-0.43, 0.43].map(z => <Cylinder key={`${x}-${z}`} at={[x, 0.27, z]} radius={0.23} height={0.14} rotation={[Math.PI / 2, 0, 0]} color="#1e293b" />))}
-    </group>
     {[-2.4, 0.6].map(x => <Beam key={x} from={[x, 0.1, 0.8]} to={[x, 1.7, 0.8]} color={orange} width={0.09} />)}
     <Beam from={[-2.4, 1.7, 0.8]} to={[0.6, 1.7, 0.8]} color={orange} width={0.09} />
     <Hose points={[[-0.4, 1.7, 0.8], [-0.4, 1.45, 0.8], [-0.25, 1.25, 0.65]]} radius={0.045} />
@@ -269,15 +249,6 @@ function StagingArea() {
     <Block at={[0, 0.106, -0.75]} size={[5.7, 0.015, 3.1]} color="#667587" />
     {[-2.65, -0.85, 0.85, 2.65].map(x => <Block key={x} at={[x, 0.12, -0.75]} size={[0.055, 0.015, 3]} color={cream} />)}
     <Block at={[0, 0.12, -2.25]} size={[5.35, 0.015, 0.055]} color={cream} />
-    {[-1.75, 0].map((x, i) => <group key={x} position={[x, 0.13, -0.8]} rotation={[0, -Math.PI / 2, 0]}>
-      <Block at={[-0.2, 0.27, 0]} size={[2.65, 0.13, 0.75]} color={steel} />
-      <RoundBlock at={[-0.45, 0.83, 0]} size={[1.85, 1.02, 0.8]} radius={0.05} color={i ? "#e2e8f0" : "#cbd5e1"} />
-      <Block at={[-0.45, 0.46, 0.414]} size={[1.75, 0.075, 0.025]} color={i ? "#0284c7" : "#ea580c"} />
-      <RoundBlock at={[0.98, 0.71, 0]} size={[0.72, 0.86, 0.8]} radius={0.06} color={i ? "#0284c7" : "#f59e0b"} />
-      <Block at={[1.355, 0.89, 0]} size={[0.025, 0.29, 0.57]} color={glass} />
-      <Block at={[0.98, 0.87, 0.413]} size={[0.44, 0.27, 0.025]} color={glass} />
-      {[-1.1, -0.65, 0.93].flatMap(wheelX => [-0.43, 0.43].map(z => <Cylinder key={`${wheelX}-${z}`} at={[wheelX, 0.25, z]} radius={0.22} height={0.12} rotation={[Math.PI / 2, 0, 0]} color="#1e293b" />))}
-    </group>)}
     <RoundBlock at={[1.8, 0.65, -2.55]} size={[1.1, 1.1, 0.75]} radius={0.045} color={cream} />
     <RoundBlock at={[1.8, 1.25, -2.55]} size={[1.25, 0.16, 0.85]} radius={0.06} color="#1d4ed8" />
     <Block at={[1.8, 0.9, -2.157]} size={[0.75, 0.32, 0.025]} color={glass} />
@@ -338,7 +309,6 @@ function SasolDepot() {
     <RoundBlock at={[-0.8, 1.6, 0.15]} size={[3.6, 0.2, 1]} radius={0.08} color={blue} />
     {[-2.35, 0.75].map(x => <Beam key={x} from={[x, 0.1, -0.1]} to={[x, 1.5, -0.1]} color={steel} width={0.1} />)}
     <Hose points={[[-0.8, 1.5, 0.2], [-0.8, 1.1, 0.4], [-0.4, 0.65, 0.4]]} />
-    <MiniTruck at={[1.5, 0.1, 0.65]} color={blue} />
     <Block at={[-0.8, 0.12, 0.5]} size={[2.8, 0.025, 0.055]} color="#eab308" />
   </>
 }
