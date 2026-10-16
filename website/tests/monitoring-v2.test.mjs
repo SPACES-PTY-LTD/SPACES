@@ -101,3 +101,40 @@ test('small mixed grids use multiple road rows and remain stable as locations ar
   for(const site of initial.sites){const next=expanded.sites.find(s=>s.id===site.id);assert.equal(next.x,site.x);assert.equal(next.z,site.z);}
  }
 });
+test('road markings stop at junction footprints, including overlapping and endpoint gaps',()=>{
+ assert.deepEqual(m.roadMarkingSegments(-10,10,[{at:0,radius:2.6}]),[[-10,-2.6],[2.6,10]]);
+ assert.deepEqual(m.roadMarkingSegments(-10,10,[{at:-10,radius:4.3},{at:10,radius:4.3}]),[[-5.7,5.7]]);
+ assert.deepEqual(m.roadMarkingSegments(-10,10,[{at:0,radius:3},{at:2,radius:3}]),[[-10,-3],[5,10]]);
+ assert.deepEqual(m.roadMarkingSegments(-2,2,[{at:0,radius:4.3}]),[]);
+});
+
+test('Mini fits 1, 4, 7 and 25 stable locations with 105 and 1000 side-parked vehicles',()=>{
+ for(const count of [105,1000])for(const locations of [1,4,7,25]){
+  const fleet=m.normalizeFleet(Array.from({length:count},(_,i)=>row(`v-${i}`,'at_location',{monitoring:{status:'at_location',location:{location_id:`l-${i%locations}`,name:`Location ${i%locations}`}}})));
+  const registry=new m.SlotRegistry(),layout=m.layoutFleet(fleet,registry,'mini');
+  assert.equal(layout.sites.length,locations);assert.equal(layout.placements.length,count);
+  assert.ok(layout.crossStreets.every(c=>c.x<Math.max(...layout.sites.map(s=>s.x+s.yardWidth))),'no disconnected streets beyond partial blocks');
+  assert.deepEqual(m.layoutFleet([...fleet].reverse(),registry,'mini').placements.slice().sort((a,b)=>a.vehicle.id.localeCompare(b.vehicle.id)),layout.placements);
+  for(const p of layout.placements){
+   const s=layout.sites.find(s=>s.id===p.vehicle.locationId);
+   assert.ok(p.x-1>s.x+2.5,'parking clears building');
+   assert.ok(p.x+1<s.x+s.yardWidth,'parking fits yard width');
+   assert.ok(p.z+.5<s.z+s.yardDepth,'parking fits yard depth');
+   assert.ok(layout.roads.every(z=>Math.abs(p.z-z)>2),'parking clears horizontal roads');
+   assert.ok(layout.crossStreets.every(c=>p.z<c.from || p.z>c.to || Math.abs(p.x-c.x)>2),'parking clears cross streets');
+  }
+  const occupied=new Set(layout.placements.map(p=>`${p.x}:${p.z}`));assert.equal(occupied.size,count);
+  for(let i=0;i<layout.placements.length;i++)for(let j=i+1;j<layout.placements.length;j++){
+   const a=layout.placements[i],b=layout.placements[j];assert.ok(Math.abs(a.x-b.x)>2 || Math.abs(a.z-b.z)>1,'vehicles do not overlap');
+  }
+ }
+});
+test('Mini perimeter transit and standby/unknown areas remain separate',()=>{
+ const fleet=m.normalizeFleet(Array.from({length:1000},(_,i)=>row(`v-${i}`,['in_transit','standby','unknown','at_location'][i%4])));
+ const layout=m.layoutFleet(fleet,new m.SlotRegistry(),'mini');
+ for(const p of layout.placements){
+  if(p.vehicle.status==='in_transit')assert.ok(p.z<-10);
+  if(['standby','unknown'].includes(p.vehicle.status))assert.ok(p.z>layout.roads.at(-1)+4);
+ }
+ assert.equal(new Set(layout.placements.map(p=>`${p.x}:${p.z}`)).size,1000);
+});

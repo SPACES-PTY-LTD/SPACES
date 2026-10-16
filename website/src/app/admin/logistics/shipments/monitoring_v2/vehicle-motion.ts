@@ -1,12 +1,13 @@
 import type { Placement, SitePlacement } from './model';
 
 type Point = {x:number;y:number;z:number; jump?:boolean};
-type Site = Pick<SitePlacement,'x'|'z'|'roadZ'|'direction'>;
+type Site = Pick<SitePlacement,'x'|'z'|'roadZ'|'direction'|'entrance'|'aisleOffset'>;
 type Motion = {position:Point;rotation:number;location:string|null;site?:Site;target:Point;path:Point[];visible:boolean;departing:boolean};
 const point=(p:Placement):Point=>({x:p.x,y:p.y??0,z:p.z});
 const same=(a:Point,b:Point)=>a.x===b.x && a.y===b.y && a.z===b.z;
-const entrance=(s:Site):Point=>({x:s.x+6,y:0,z:s.roadZ});
-const aisle=(s:Site,p:Point):Point=>({x:s.x+6,y:0,z:p.z});
+const entrance=(s:Site):Point=>({x:s.entrance?.x??s.x+6,y:0,z:s.entrance?.z??s.roadZ});
+const approach=(s:Site,p:Point):Point=>({x:s.aisleOffset!==undefined?p.x+s.aisleOffset:s.x+6,y:0,z:s.roadZ});
+const aisle=(s:Site,p:Point):Point=>({x:s.aisleOffset!==undefined?p.x+s.aisleOffset:s.x+6,y:0,z:p.z});
 
 /** Schematic yard movements only: never interpolate across unrelated locations. */
 export class VehicleMotion {
@@ -18,11 +19,11 @@ export class VehicleMotion {
     const target=point(p),location=site && p.vehicle.status==='at_location'?p.vehicle.locationId:null;
     let s=this.states.get(p.vehicle.id);
     if(!s){
-      s={position:location && site?entrance(site):target,rotation:p.rotation,location,site,target,path:location && site?[aisle(site,target),target]:[],visible,departing:false};
+      s={position:location && site?entrance(site):target,rotation:p.rotation,location,site,target,path:location && site?[approach(site,target),aisle(site,target),target]:[],visible,departing:false};
       this.states.set(p.vehicle.id,s);
     }else if(s.location!==location){
-      const departure=s.location && s.site?[aisle(s.site,s.position),entrance(s.site)]:[];
-      const arrival=location && site?[{...entrance(site),jump:true},aisle(site,target),target]:[{...target,jump:true}];
+      const departure=s.location && s.site?[aisle(s.site,s.position),approach(s.site,s.position),entrance(s.site)]:[];
+      const arrival=location && site?[{...entrance(site),jump:true},approach(site,target),aisle(site,target),target]:[{...target,jump:true}];
       s.departing=departure.length>0 && s.visible;
       s.path=[...departure,...arrival];s.location=location;s.site=site;s.target=target;
     }else if(!same(s.target,target)){

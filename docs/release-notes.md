@@ -1,5 +1,40 @@
 # Release Notes
 
+## 2026-10-16 | Version: monitoring-v2-mini
+- Summary: Add an optional Mini road layout with a flat, compact fleet scene.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Mini is the fourth road-layout option; Mixed Grid remains the default. Orthographic top-down pan, zoom and flat rotation replace camera presets while Mini is active. Bright low buildings, instanced compact vehicles and bay markings, expandable side parking, mixed blocks and a flat perimeter road retain vehicle/location selection, yellow alert badges, KPI focus and drawers. Explicit entrance/aisle motion supports Mini; shared motion state prevents layout switches replaying arrivals. Leaving Mini restores the previous standard camera preset. No shadows; existing paused/hidden-tab rendering policies remain.
+- Breaking Changes: None.
+- Verification: TypeScript and focused lint pass; 21 layout/motion tests pass, including 105/1,000 vehicles at 1/4/7/25 locations, clearance, stable reorder and explicit aisle paths. Browser checks cover all 26 catalog types plus missing/unsupported fallbacks, 105 and 1,000 vehicles, flat rotation, detail/back navigation, KPI highway focus, both drawers, pause and all four layouts. Overview/detail captures saved. Physical touch/pinch and real-device narrow-screen checks remain; the browser viewport override scaled the desktop surface instead of exercising CSS breakpoints.
+
+## 2026-10-16 | Version: monitoring-v2-clickable-alerts
+- Summary: Open vehicle information by clicking its attention badge.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Scene badge backgrounds are clickable and map to their vehicle; hovering shows the vehicle pointer/label. Hit bounds update with badge motion.
+- Breaking Changes: None.
+- Verification: Focused scene lint, TypeScript and diff whitespace check.
+
+
+## 2026-10-16 | Version: monitoring-v2-flush-junctions
+- Summary: Make intersection surfaces flush and correct connecting road markings.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace raised junction slabs with coplanar asphalt. Cut edge lines and centre dashes around junctions, lower roundabout markings, and align stop/give-way lines and signals with left-hand approach lanes.
+- Breaking Changes: None.
+- Verification: Focused lint, TypeScript and road-marking regression tests.
+
+
+## 2026-10-16 | Version: monitoring-v2-remove-motion-caption
+- Summary: Remove the general illustrative-motion message from the scene.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Hide the general motion/GPS caption; retain location/standby captions and the paused indicator.
+- Breaking Changes: None.
+- Verification: Focused workspace lint and diff whitespace check.
+
+
 ## 2026-10-16 | Version: monitoring-v2-kpi-padding-2px
 - Summary: Set KPI container vertical padding to 2px.
 - API Changes: None.

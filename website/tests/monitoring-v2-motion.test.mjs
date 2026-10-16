@@ -23,3 +23,14 @@ test('animation work stops at rest but continues for filtered departures',()=>{
  settle(m,road,undefined,false);assert.equal(m.isAnimating('a'),false);
  m.prune(new Set());assert.equal(m.isAnimating('a'),false);
 });
+test('Mini arrival and departure use road approach and the explicit side aisle',()=>{
+ const m=new VehicleMotion(),s={x:0,z:0,roadZ:-6,direction:1,entrance:{x:6,z:-6},aisleOffset:1.65};
+ const p={...bay,x:9.5,z:5.4,rotation:0};
+ let r=m.step(p,s,true,0,false,false);assert.deepEqual(r.position,{x:6,y:0,z:-6});
+ for(let i=0;i<160;i++){
+  r=m.step(p,s,true,.05,false,false);
+  assert.ok(r.position.z===-6 || Math.abs(r.position.x-11.15)<.001 || r.position.z===5.4,'moves along approach, aisle, then bay');
+ }
+ assert.deepEqual(r.position,{x:9.5,y:0,z:5.4});
+ const departure=m.step(road,undefined,false,.05,false,false);assert.ok(departure.position.x>9.5);assert.equal(departure.visible,true);
+});

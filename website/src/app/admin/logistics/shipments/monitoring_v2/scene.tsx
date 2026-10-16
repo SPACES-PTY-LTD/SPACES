@@ -2,11 +2,12 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Html, MapControls, useCursor } from '@react-three/drei';
 import { Component, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Color, MOUSE, TOUCH, Object3D, Quaternion, Vector3, type Group, type InstancedMesh } from 'three';
+import { BoxGeometry, Color, MOUSE, TOUCH, Object3D, Quaternion, Vector3, type Group, type InstancedMesh } from 'three';
 import type { OrbitControls as Controls } from 'three-stdlib';
 import { REFINED_TRUCK_GEOMETRIES } from '../monitoring/components/refined-truck-geometry';
 import { createAttentionIcons } from './attention-icons';
 import { VehicleMotion } from './vehicle-motion';
+import { MiniEnvironment } from './mini-scene';
 import { Depot } from './depot';
 import { HIGHWAY_HEIGHT } from './highway';
 import { HighwayRamp } from './highway-ramp';
@@ -14,25 +15,27 @@ import { LocationMesh } from '../monitoring/components/location-meshes';
 import { resolveLocationMeshType } from '@/lib/location-type-icons';
 import { ParkingCircle, CircleHelp } from 'lucide-react';
 import { StreetIntersection } from './street-junction';
-import { streetFurniture, layoutFleet, SlotRegistry, waiting, type MonitorVehicle, type CameraView, type Placement } from './model';
+import { roadMarkingSegments, streetFurniture, layoutFleet, SlotRegistry, waiting, type MonitorVehicle, type CameraView, type Placement, type RoadLayout, type SitePlacement } from './model';
 
 const parts=Object.keys(REFINED_TRUCK_GEOMETRIES) as (keyof typeof REFINED_TRUCK_GEOMETRIES)[];
 const colours:Record<string,string>={dark:'#26313d',windows:'#426b82',metal:'#a9b4c2',tyres:'#18212a',lights:'#fff1d5',rearLights:'#be2932',painted:'#e2e8ef'};
-type SceneProps={locationsFocus?:boolean;highwayFocus?:boolean;reducedMotion?:boolean;onReady:()=>void;roadLayout:'single'|'multiple'|'mixed';interactionMode:'pan'|'rotate';fleet:MonitorVehicle[];visibleIds:Set<string>;selected:string|null;location:string|null;camera:CameraView;zoom:number;focus:number;paused:boolean;showLabels:boolean;group?:'standby'|'unknown';now:number;onVehicle:(id:string)=>void;onLocation:(id:string)=>void;onGroup:(group:string)=>void;onFailure:()=>void;journey?:{from:string;to:string}|null;onPerformance?:(fps:number)=>void};
-function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance,hover,setHover,sites,visibleIds,reducedMotion}:Pick<SceneProps,'selected'|'paused'|'now'|'onVehicle'|'onPerformance'|'visibleIds'|'reducedMotion'> & {sites:{id:string;x:number;z:number;roadZ:number;direction:number}[];placements:Placement[];hover:string|null;setHover:(id:string|null)=>void}) {
+type SceneProps={locationsFocus?:boolean;highwayFocus?:boolean;reducedMotion?:boolean;onReady:()=>void;roadLayout:RoadLayout;interactionMode:'pan'|'rotate';fleet:MonitorVehicle[];visibleIds:Set<string>;selected:string|null;location:string|null;camera:CameraView;zoom:number;focus:number;paused:boolean;showLabels:boolean;group?:'standby'|'unknown';now:number;onVehicle:(id:string)=>void;onLocation:(id:string)=>void;onGroup:(group:string)=>void;onFailure:()=>void;journey?:{from:string;to:string}|null;onPerformance?:(fps:number)=>void};
+const miniGeometry={painted:new BoxGeometry(1.9,.55,.9).translate(0,.4,0),windows:new BoxGeometry(.5,.08,.75).translate(-.4,.72,0)};
+function FleetMeshes({motion,mini=false,placements,selected,paused,now,onVehicle,onPerformance,hover,setHover,sites,visibleIds,reducedMotion}:Pick<SceneProps,'selected'|'paused'|'now'|'onVehicle'|'onPerformance'|'visibleIds'|'reducedMotion'> & {motion:VehicleMotion;mini?:boolean;sites:Pick<SitePlacement,'id'|'x'|'z'|'roadZ'|'direction'|'entrance'|'aisleOffset'>[];placements:Placement[];hover:string|null;setHover:(id:string|null)=>void}) {
+  const renderedParts=mini?(['painted','windows'] as const):parts;
   const refs=useRef<Partial<Record<keyof typeof REFINED_TRUCK_GEOMETRIES,InstancedMesh>>>({});
   const iconMeshes=useRef<Partial<Record<'background'|'clock'|'speed',InstancedMesh>>>({});
   const icons=useMemo(()=>createAttentionIcons(),[]);
   const iconOffset=useMemo(()=>new Vector3(),[]);
   useEffect(()=>()=>{Object.values(icons).forEach(geometry=>geometry.dispose());},[icons]);
   const clock=useRef(0);const frames=useRef({time:0,count:0}); const object=useMemo(()=>new Object3D(),[]);const colour=useMemo(()=>new Color(),[]);
-  const [motion]=useState(()=>new VehicleMotion());
   useEffect(()=>motion.prune(new Set(placements.map(p=>p.vehicle.id))),[motion,placements]);
   const cached=useRef<string[]>([]);
   const lastCamera=useMemo(()=>new Quaternion(),[]);
   const prepared=useMemo(()=>{
     const byId=new Map(sites.map(site=>[site.id,site]));
     let speed=0,clock=0,background=0;
+    const badgeVehicles:string[]=[];
     const rows=placements.map(p=>{
       const overdue=waiting(p.vehicle,now).overdue,alert=p.vehicle.speeding||overdue;
       const visible=visibleIds.has(p.vehicle.id),site=p.vehicle.locationId?byId.get(p.vehicle.locationId):undefined;
@@ -40,11 +43,13 @@ function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance,hov
       const speedIndex=p.vehicle.speeding?speed++:-1,clockIndex=overdue?clock++:-1;
       const backgroundIndex=background;
       background+=(p.vehicle.speeding?1:0)+(overdue?1:0);
-      const signature=JSON.stringify([p.vehicle.id,p.x,p.y,p.z,p.rotation,p.vehicle.status,p.vehicle.locationId,visible,tint,overdue,site?.x,site?.z,site?.roadZ,site?.direction,placements.length,speedIndex,clockIndex,backgroundIndex,!!reducedMotion]);
+      if(p.vehicle.speeding)badgeVehicles.push(p.vehicle.id);
+      if(overdue)badgeVehicles.push(p.vehicle.id);
+      const signature=JSON.stringify([p.vehicle.id,p.x,p.y,p.z,p.rotation,p.vehicle.status,p.vehicle.locationId,visible,tint,overdue,site?.x,site?.z,site?.roadZ,site?.direction,site?.aisleOffset,site?.entrance?.x,site?.entrance?.z,mini,placements.length,speedIndex,clockIndex,backgroundIndex,!!reducedMotion]);
       return {p,overdue,alert,visible,site,tint,signature,speed:speedIndex,clock:clockIndex,background:backgroundIndex};
     });
-    return {rows,speed,clock,background};
-  },[placements,sites,visibleIds,now,selected,hover,reducedMotion]);
+    return {rows,speed,clock,background,badgeVehicles};
+  },[placements,sites,visibleIds,now,selected,hover,reducedMotion,mini]);
   useEffect(()=>{cached.current=[];},[prepared.speed,prepared.clock,prepared.background,placements.length]);
   useFrame(({camera},delta)=>{
     frames.current.time+=delta;frames.current.count++;if(frames.current.time>=2){onPerformance?.(Math.round(frames.current.count/frames.current.time));frames.current={time:0,count:0};}
@@ -64,7 +69,7 @@ function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance,hov
       const bounce=alert && !reducedMotion? .12*(1-Math.cos(clock.current*Math.PI)):0;
       object.position.set(state.position.x+(moving?x-p.x:0),state.position.y+bounce,state.position.z);
       object.rotation.set(0,state.rotation,0);object.scale.setScalar(state.visible?1:0);object.updateMatrix();
-      for(const part of parts) refs.current[part]?.setMatrixAt(i,object.matrix);
+      for(const part of renderedParts) refs.current[part]?.setMatrixAt(i,object.matrix);
       colour.set(row.tint);
       refs.current.painted?.setColorAt(i,colour);
       if(!alert)continue;
@@ -74,22 +79,25 @@ function FleetMeshes({placements,selected,paused,now,onVehicle,onPerformance,hov
       for(const [j,kind] of (['speed','clock'] as const).entries()){
         if(row[kind]<0)continue;
         const enabled=state.visible;
-        iconOffset.set(both?(j===0?-.4875:.4875):0,0,0).applyQuaternion(camera.quaternion);
+        iconOffset.set(both?(j===0?-.4875:.4875):0,mini?1.15:0,0).applyQuaternion(camera.quaternion);
         object.position.set(state.position.x+(moving?x-p.x:0)+iconOffset.x,state.position.y+bounce+2.8+iconOffset.y,state.position.z+iconOffset.z);
         object.quaternion.copy(camera.quaternion);object.scale.setScalar(enabled?.75:0);object.updateMatrix();
         iconMeshes.current.background?.setMatrixAt(backgroundIndex++,object.matrix);
         iconMeshes.current[kind]?.setMatrixAt(row[kind],object.matrix);
       }
     }
-    for(const mesh of Object.values(iconMeshes.current))if(mesh && iconsDirty)mesh.instanceMatrix.needsUpdate=true;
-    for(const part of parts){const mesh=refs.current[part];if(mesh && trucksDirty){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}}
+    for(const mesh of Object.values(iconMeshes.current))if(mesh && iconsDirty){mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();}
+    for(const part of renderedParts){const mesh=refs.current[part];if(mesh && trucksDirty){mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;}}
   });
   const active=placements.find(p=>visibleIds.has(p.vehicle.id) && p.vehicle.id===(hover || selected));
   return <>
-    {(['background','clock','speed'] as const).map(kind=>prepared[kind]>0 && <instancedMesh key={`attention-${kind}-${prepared[kind]}`} ref={mesh=>{if(mesh)iconMeshes.current[kind]=mesh;else delete iconMeshes.current[kind];}} args={[icons[kind],undefined,prepared[kind]]} frustumCulled={false} raycast={()=>null}>
+    {(['background','clock','speed'] as const).map(kind=>prepared[kind]>0 && <instancedMesh key={`attention-${kind}-${prepared[kind]}`} ref={mesh=>{if(mesh)iconMeshes.current[kind]=mesh;else delete iconMeshes.current[kind];}} args={[icons[kind],undefined,prepared[kind]]} frustumCulled={false} {...(kind==='background'?{}:{raycast:()=>null})}
+      onClick={e=>{e.stopPropagation();const id=e.instanceId===undefined?undefined:prepared.badgeVehicles[e.instanceId];if(id)onVehicle(id);}}
+      onPointerMove={e=>{e.stopPropagation();const id=e.instanceId===undefined?undefined:prepared.badgeVehicles[e.instanceId];if(id)setHover(id);}}
+      onPointerOut={()=>setHover(null)}>
       <meshBasicMaterial color={kind==='background'?'#facc15':'#422006'} toneMapped={false}/>
     </instancedMesh>)}
-    {parts.map(part=><instancedMesh key={`${part}-${placements.length}`} ref={mesh=>{if(mesh)refs.current[part]=mesh;}} args={[REFINED_TRUCK_GEOMETRIES[part],undefined,placements.length]} frustumCulled={false} castShadow={placements.length<250} receiveShadow
+    {renderedParts.map(part=><instancedMesh key={`${part}-${placements.length}`} ref={mesh=>{if(mesh)refs.current[part]=mesh;}} args={[mini?miniGeometry[part as keyof typeof miniGeometry]:REFINED_TRUCK_GEOMETRIES[part],undefined,placements.length]} frustumCulled={false} castShadow={placements.length<250} receiveShadow
       onClick={e=>{e.stopPropagation();if(e.instanceId!==undefined)onVehicle(placements[e.instanceId].vehicle.id);}}
       onPointerMove={e=>{e.stopPropagation();if(e.instanceId!==undefined)setHover(placements[e.instanceId].vehicle.id);}}
       onPointerOut={()=>setHover(null)}>
@@ -114,8 +122,9 @@ function BuildingEntrance({children,paused,reduced}:{children:ReactNode;paused:b
   });
   return <group ref={ref} scale={[1,reduced?1:.03,1]}>{children}</group>;
 }
-function Road({x=0,y=0,z,width,depth=5,moving=false,paused=false}:{x?:number;y?:number;z:number;width:number;depth?:number;moving?:boolean;paused?:boolean}) {
+function Road({x=0,y=0,z,width,depth=5,moving=false,paused=false,gaps=[]}:{gaps?:{at:number;radius:number}[];x?:number;y?:number;z:number;width:number;depth?:number;moving?:boolean;paused?:boolean}) {
   const dividers=useRef<Group>(null);
+  const edgeSegments=roadMarkingSegments(-width/2,width/2,gaps);
   const travel=useRef(0);
   useFrame((_,delta)=>{
     if(!moving || paused || !dividers.current)return;
@@ -128,8 +137,8 @@ function Road({x=0,y=0,z,width,depth=5,moving=false,paused=false}:{x?:number;y?:
   });
   return <group position={[x,y,z]}>
     <mesh receiveShadow position={[0,-.12,0]}><boxGeometry args={[width,.22,depth]}/><meshStandardMaterial color="#8d97a5" roughness={.95}/></mesh>
-    {[-1,1].map(side=><mesh key={side} position={[0,.005,side*(depth/2-.15)]}><boxGeometry args={[width,.015,.055]}/><meshBasicMaterial color="#f9fafb"/></mesh>)}
-    <group ref={dividers}>{Array.from({length:Math.floor((width-1.1)/2)+1},(_,i)=><mesh key={i} position={[-width/2+i*2+.55,.012,0]}><boxGeometry args={[1.1,.02,.07]}/><meshBasicMaterial color="#f8fafc"/></mesh>)}</group>
+    {[-1,1].flatMap(side=>edgeSegments.map(([a,b])=><mesh key={`${side}:${a}`} position={[(a+b)/2,.005,side*(depth/2-.15)]}><boxGeometry args={[b-a,.015,.055]}/><meshBasicMaterial color="#f9fafb"/></mesh>))}
+    <group ref={dividers}>{Array.from({length:Math.floor((width-1.1)/2)+1},(_,i)=>-width/2+i*2+.55).filter(at=>gaps.every(g=>Math.abs(at-g.at)>g.radius+.55)).map((at,i)=><mesh key={i} position={[at,.012,0]}><boxGeometry args={[1.1,.02,.07]}/><meshBasicMaterial color="#f8fafc"/></mesh>)}</group>
   </group>;
 }
 function Tree({x,z}:{x:number;z:number}) { return <group position={[x,0,z]}><mesh position={[0,.65,0]} castShadow><cylinderGeometry args={[.12,.18,1.3,6]}/><meshStandardMaterial color="#766955"/></mesh><mesh position={[0,1.7,0]} castShadow><icosahedronGeometry args={[.8,1]}/><meshStandardMaterial color="#89a76c" roughness={1}/></mesh><mesh position={[.15,2.2,0]} castShadow><icosahedronGeometry args={[.57,1]}/><meshStandardMaterial color="#94af75" roughness={1}/></mesh></group>; }
@@ -174,13 +183,14 @@ function Camera({locationsFocus,highwayFocus,roadY=0,camera,zoom,focus,selected,
     onStart={cancelCameraMotion} onChange={keepAboveGround}/>;
 }
 function World(props:SceneProps) {
+  const [motion]=useState(()=>new VehicleMotion());
   const renderedFrames=useRef(0);
   // The second frame starts only after the first scene frame has rendered.
   useFrame(({invalidate})=>{if(renderedFrames.current<2){if(++renderedFrames.current===2)props.onReady();else invalidate();}});
   const [registry]=useState(()=>new SlotRegistry());
   const [hoveredVehicle,setHoveredVehicle]=useState<string|null>(null);
   const [hoveredLocation,setHoveredLocation]=useState<string|null>(null);
-  const layout=useMemo(()=>layoutFleet(props.fleet,registry,props.journey?'single':props.roadLayout),[props.fleet,registry,props.roadLayout,props.journey]);
+  const layout=useMemo(()=>layoutFleet(props.fleet,registry,props.roadLayout==='mini'?'mini':props.journey?'single':props.roadLayout),[props.fleet,registry,props.roadLayout,props.journey]);
   const sites=props.journey?[{id:'journey-from',name:props.journey.from,address:'Collection',icon:'warehouse',vehicles:[],x:-19,z:0,direction:1,roadZ:10},{id:'journey-to',name:props.journey.to,address:'Destination',icon:'warehouse',vehicles:[],x:19,z:0,direction:1,roadZ:10}]:layout.sites;
   const placements=props.journey?layout.placements.filter(p=>p.vehicle.id===props.selected).map(p=>({...p,x:0,y:0,z:10,rotation:0})):layout.placements.map(p=>({...p,y:p.vehicle.status==='in_transit'?HIGHWAY_HEIGHT:0}));
   const visible=placements.filter(p=>props.visibleIds.has(p.vehicle.id));
@@ -202,19 +212,23 @@ function World(props:SceneProps) {
   const locationMinX=Math.min(0,...locationPoints.map(p=>p.x-14)),locationMaxX=Math.max(0,...locationPoints.map(p=>p.x+14));
   const locationMinZ=Math.min(0,...locationPoints.map(p=>p.z-14)),locationMaxZ=Math.max(0,...locationPoints.map(p=>p.z+14));
   const furniture=compact?streetFurniture(roads,streetMin,streetMax,sites,placements,layout.crossStreets):null;
+  const gapsFor=(x:number,z:number,vertical=false)=>(furniture?.junctions ?? []).filter(j=>Math.abs(vertical?j.x-x:j.z-z)<.01).map(j=>({at:vertical?z-j.z:j.x-x,radius:j.kind==='roundabout'?4.3:2.6}));
   const {gl}=useThree();const onFailure=props.onFailure;
   useCursor(visible.some(p=>p.vehicle.id===hoveredVehicle) || visibleSites.some(s=>s.id===hoveredLocation), 'pointer', 'auto', gl.domElement);
   useEffect(()=>{const canvas=gl.domElement;const lost=(e:Event)=>{e.preventDefault();onFailure();};canvas.addEventListener('webglcontextlost',lost);return()=>canvas.removeEventListener('webglcontextlost',lost);},[gl,onFailure]);
+  if(props.roadLayout==='mini')return <MiniEnvironment sites={layout.sites} placements={layout.placements} roads={layout.roads} crossStreets={layout.crossStreets} {...props} mode={props.interactionMode} hover={hoveredLocation} setHover={setHoveredLocation}>
+    <FleetMeshes motion={motion} key="mini" mini hover={hoveredVehicle} setHover={setHoveredVehicle} placements={layout.placements} sites={layout.sites} {...props}/>
+  </MiniEnvironment>;
   return <>
     <color attach="background" args={['#f3f6fa']}/><ambientLight intensity={.6}/><hemisphereLight args={['#ffffff','#cbd3df',.6]}/>
     <directionalLight position={[-25,50,20]} intensity={2}/>
     <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.3,0]} receiveShadow><planeGeometry args={[2000,2000]}/><meshBasicMaterial color="#f3f6fa" toneMapped={false}/></mesh>
-    {roads.map(z=><Road key={z} x={streetCentre} z={z} width={streetMax-streetMin}/>)}
-    {roads.length>1 && [streetMin,streetMax].map(x=><group key={x} position={[x,0,(frontZ+lastRoad)/2]} rotation={[0,Math.PI/2,0]}><Road z={0} width={lastRoad-frontZ+5}/></group>)}
-    {compact && layout.crossStreets.map(s=><group key={`${s.x}:${s.from}`} position={[s.x,0,(s.from+s.to)/2]} rotation={[0,Math.PI/2,0]}><Road z={0} width={s.to-s.from+5}/></group>)}
+    {roads.map(z=><Road key={z} x={streetCentre} z={z} width={streetMax-streetMin} gaps={gapsFor(streetCentre,z)}/>)}
+    {roads.length>1 && [streetMin,streetMax].map(x=><group key={x} position={[x,0,(frontZ+lastRoad)/2]} rotation={[0,Math.PI/2,0]}><Road z={0} width={lastRoad-frontZ+5} gaps={gapsFor(x,(frontZ+lastRoad)/2,true)}/></group>)}
+    {compact && layout.crossStreets.map(s=><group key={`${s.x}:${s.from}`} position={[s.x,0,(s.from+s.to)/2]} rotation={[0,Math.PI/2,0]}><Road z={0} width={s.to-s.from+5} gaps={gapsFor(s.x,(s.from+s.to)/2,true)}/></group>)}
     <Road x={centre} y={HIGHWAY_HEIGHT} moving paused={props.paused} z={highwayZ} width={width} depth={highwayDepth}/>
     {Array.from({length:Math.ceil(width/12)},(_,i)=><group key={`pier-${i}`}>{[-1,1].map(side=><mesh key={side} position={[minX+6+i*12,HIGHWAY_HEIGHT/2-.15,highwayZ+side*highwayDepth*.3]} castShadow><boxGeometry args={[.8,HIGHWAY_HEIGHT,.8]}/><meshStandardMaterial color="#bbc3ce"/></mesh>)}</group>)}
-    {compact && streetMax<maxX && <Road x={(streetMax+maxX)/2} z={frontZ} width={maxX-streetMax}/>}
+    {compact && streetMax<maxX && <Road x={(streetMax+maxX)/2} z={frontZ} width={maxX-streetMax} gaps={gapsFor((streetMax+maxX)/2,frontZ)}/>}
     {furniture?.junctions.map(j=><StreetIntersection key={`${j.x}:${j.z}`} junction={j}/>)}
     {furniture?.trees.map(t=><Tree key={`verge-${t.x}:${t.z}`} x={t.x} z={t.z}/>)}
     <HighwayRamp x={maxX} frontZ={frontZ} highwayZ={-12} highwayDepth={5}/>
@@ -231,7 +245,7 @@ function World(props:SceneProps) {
       {parked.map(p=><mesh key={p.vehicle.id} position={[p.x+1.4,.01,p.z]}><boxGeometry args={[.045,.02,2.6]}/><meshBasicMaterial color="white"/></mesh>)}
     </group>;})}
     {!compact && Array.from({length:8},(_,i)=><Tree key={i} x={-35+i*11} z={frontZ*2+8+(i%2)*3}/>)}
-    <FleetMeshes hover={hoveredVehicle} setHover={setHoveredVehicle} placements={placements} sites={sites} {...props}/>
+    <FleetMeshes motion={motion} hover={hoveredVehicle} setHover={setHoveredVehicle} placements={placements} sites={sites} {...props}/>
     {props.journey && <group><mesh position={[0,.04,10]}><boxGeometry args={[38,.04,.13]}/><meshBasicMaterial color="#1463ff" toneMapped={false}/></mesh>{[-19,19].map(x=><mesh key={x} position={[x,.04,5.7]}><boxGeometry args={[.13,.04,8.6]}/><meshBasicMaterial color="#1463ff" toneMapped={false}/></mesh>)}</group>}
     <Camera locationsFocus={props.locationsFocus} highwayFocus={props.highwayFocus} roadY={props.highwayFocus?HIGHWAY_HEIGHT:0} compact={compact} centreX={props.locationsFocus?(locationMinX+locationMaxX)/2:props.highwayFocus?centre:compact?streetCentre:0} interactionMode={props.interactionMode} roadZ={props.locationsFocus?(locationMinZ+locationMaxZ)/2:props.highwayFocus?highwayZ:(frontZ+lastRoad)/2} extent={props.locationsFocus?Math.max(55,Math.hypot(locationMaxX-locationMinX,locationMaxZ-locationMinZ)*1.2):props.highwayFocus?Math.max(55,width,highwayDepth*2):Math.max(80,(lastRoad-frontZ)*1.5)} paused={props.paused} camera={props.camera} zoom={props.zoom} focus={props.focus} selected={props.journey||props.location||props.group?null:props.selected} location={groupSite?'__group':props.location} placements={placements} sites={groupSite?[...sites,groupSite]:sites}/>
   </>;

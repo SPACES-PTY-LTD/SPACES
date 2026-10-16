@@ -195,3 +195,32 @@ Disable WebGL shadows completely. Hidden tabs use no rendering loop and suppress
 The KPI strip is a white rounded panel with 20px side margins (12px on small screens). The workspace and header share the canvas background #f3f6fa. Stats retain their single-row horizontal scrolling. Drawer and detail surfaces stay white.
 
 KPI panel vertical padding is 2px on desktop and mobile, with no fixed minimum height.
+
+The general “Illustrative motion · actual GPS in vehicle details” scene caption is removed. Location/standby context captions and the paused indicator remain.
+
+### Flush intersections and markings — 2026-10-16
+
+Intersection asphalt shares the road surface height (-0.01), with polygon depth bias rather than a raised masking slab. Edge lines are split and centre dashes excluded across junction footprints on horizontal and connecting roads. Roundabout markings use the same low paint height. Stop lines, give-way markings and signals sit on left-hand approach lanes.
+
+### Clickable attention badges — 2026-10-16
+
+Clicking either scene attention badge selects its truck through the existing vehicle-selection flow. The full circular badge is the hit target; hovering uses the vehicle pointer/label. Badge hit bounds refresh with motion and each instance maps to its vehicle ID, including paired alerts.
+
+
+## Mini layout — 2026-10-16
+
+Implemented as the fourth **Road layout** choice, with Mixed Grid still the initial default. This is a scene style, not a fourth perspective preset. Local state persists through detail navigation; it is not serialized in the URL. Leaving Mini restores the standard preset selected before entering it.
+
+Mini uses an orthographic camera locked to the ground normal. Drag mode supports pan or flat rotation; wheel/two-finger zoom, right-drag rotation and Reset view remain available. Overview/Road/Top controls are hidden. Reset fits the current focus and restores Pan. Location/vehicle detail limits zoom-out relative to the fitted extent. KPI actions retain Mini while changing focus.
+
+Stable location slots fill blocks of one, two and three facilities, with connected pale capsule roads and contrasting edges. Low colourful buildings use the catalog's fixed order for palette and roof motifs, including a warehouse fallback. Parking sits beside each building; each column has its own access aisle connected to the frontage road. The largest retained yard population determines block spacing, preventing shrinkage on refresh. Transit uses a separate flat perimeter road; standby/unknown keep separate parking areas. Isolated locations include relevant standby vehicles in their fitted bounds.
+
+Vehicles use two instanced low-poly parts; bay markings are also instanced. Grey vehicles, blue selection, red attention and clickable yellow scene badges use the existing interaction logic. Shared motion state survives style switches, while optional entrance/aisle configuration routes real arrivals and departures through Mini's side parking. Existing layouts retain their geometry and original default paths. Shadows remain disabled and stationary caching, hidden-tab suspension and paused demand rendering are retained.
+
+### Acceptance and implementation status
+- Implemented: fourth local dropdown option, top-down controls, simplified models, expandable parking/mixed roads, detail/KPI/drawer continuity and motion interfaces.
+- Automated: 21 layout/motion checks pass, including 1/4/7/25 locations with 105/1,000 vehicles, no parked-vehicle/road/building overlap, stable reordered positions, perimeter separation and Mini aisle motion. TypeScript and focused lint pass.
+- Browser: all 26 catalog types and two fallbacks rendered without console errors; 105-vehicle and 1,000-vehicle scenes, flat drag rotation, building detail/back navigation, highway KPI focus, Fleet list/Info drawers, pause and four-layout switching checked. Captures: `verification/38-mini-1000-overview.png`, `verification/39-mini-detail.png`.
+- Remaining device verification: physical touch/pinch, real narrow-screen breakpoints and hidden-tab GPU measurements. The available viewport override scaled the desktop view rather than changing its CSS viewport. Existing reduced-motion and hidden-tab policies are reused; motion pause/reduced-motion behavior is regression-tested.
+
+Revision: 2026-10-16 — implemented the approved Mini plan; no driver-dashboard lifecycle/API changes.

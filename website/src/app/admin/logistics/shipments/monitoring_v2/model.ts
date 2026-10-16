@@ -2,6 +2,7 @@ import type { VehicleActivity } from '@/lib/types';
 
 export type MonitorStatus = 'in_transit' | 'at_location' | 'standby' | 'unknown';
 export type MonitorView = 'overview' | 'vehicle' | 'location' | 'attention' | 'shipment' | 'standby';
+export type RoadLayout = 'single' | 'multiple' | 'mixed' | 'mini';
 export type CameraView = 'overview' | 'road' | 'top';
 export type MonitorVehicle = {
   id: string; plate: string; status: MonitorStatus; locationId: string | null;
@@ -72,13 +73,16 @@ export function filterFleet(fleet: MonitorVehicle[], f: FleetFilter, now: number
 }
 // Slots are retained for the lifetime of a merchant workspace, including filtered vehicles.
 export class SlotRegistry {
+  private maxima = new Map<string,number>();
+  retainMaximum(key:string,value:number){const max=Math.max(this.maxima.get(key)??0,value);this.maxima.set(key,max);return max;}
   private groups = new Map<string, Map<string,number>>();
   size(group:string) { return this.groups.get(group)?.size ?? 0; }
   slot(group: string,id: string) { let slots=this.groups.get(group); if(!slots){slots=new Map();this.groups.set(group,slots);} if(!slots.has(id)) slots.set(id,slots.size); return slots.get(id)!; }
 }
 export type Placement = { vehicle: MonitorVehicle; x:number; y?:number; z:number; rotation:number };
-export type SitePlacement = MonitorLocation & { x:number; z:number; direction:number; roadZ:number; block?:number };
-export function layoutFleet(fleet: MonitorVehicle[], registry: SlotRegistry, roadLayout:'single'|'multiple'|'mixed'='single') {
+export type SitePlacement = MonitorLocation & { x:number; z:number; direction:number; roadZ:number; block?:number; entrance?:{x:number;z:number}; aisleOffset?:number; yardWidth?:number; yardDepth?:number };
+export function layoutFleet(fleet: MonitorVehicle[], registry: SlotRegistry, roadLayout:RoadLayout='single') {
+  if(roadLayout==='mini')return layoutMiniFleet(fleet,registry);
   const locations=locationsFor(fleet);
   // Reserve slots before sizing the yards so refreshes cannot shrink across survivors.
   for(const vehicle of fleet) if(vehicle.status==='at_location' && vehicle.locationId) registry.slot(vehicle.locationId,vehicle.id);
@@ -155,4 +159,58 @@ export function streetFurniture(roads:number[],minX:number,maxX:number,sites:Sit
     }
   }
   return {junctions,trees};
+}
+
+// Remove junction footprints from painted lines rather than covering them with raised asphalt.
+export function roadMarkingSegments(start:number,end:number,gaps:{at:number;radius:number}[]){
+  let segments:[number,number][]=[[start,end]];
+  for(const {at,radius} of gaps)segments=segments.flatMap(([a,b])=>{
+    const low=at-radius,high=at+radius;
+    if(high<=a || low>=b)return [[a,b] as [number,number]];
+    return [...(low>a?[[a,low] as [number,number]]:[]),...(high<b?[[high,b] as [number,number]]:[])];
+  });
+  return segments;
+}
+
+/** Stable slots, separated side bays and access aisles; dimensions never shrink on refresh. */
+export function layoutMiniFleet(fleet:MonitorVehicle[],registry:SlotRegistry) {
+  const locations=locationsFor(fleet);
+  for(const l of locations)registry.slot('locations',l.id);
+  for(const v of fleet)registry.slot(v.status==='at_location' && v.locationId?v.locationId:v.status,v.id);
+  const capacity=registry.retainMaximum('mini-capacity',Math.max(1,...locations.map(l=>registry.size(l.id))));
+  const parkingRows=Math.max(3,Math.ceil(Math.sqrt(capacity)));
+  const parkingColumns=Math.ceil(capacity/parkingRows);
+  const cellWidth=12+parkingColumns*4.5,cellDepth=10+parkingRows*1.8;
+  const slots:{x:number;z:number;block:number}[]=[],crossStreets:{x:number;from:number;to:number}[]=[];
+  const rows=Math.max(1,Math.ceil(registry.size('locations')/6));
+  const roads=Array.from({length:rows+1},(_,i)=>i*cellDepth-6);
+  for(let row=0;row<rows;row++){
+    let x=0;
+    for(let block=0;block<3;block++){
+      const count=[1,2,3][(row+block)%3];
+      for(let col=0;col<count;col++)slots.push({x:x+col*cellWidth,z:row*cellDepth,block:row*3+block});
+      x+=count*cellWidth+6;
+      if(block<2 && slots.length<registry.size('locations'))crossStreets.push({x:x-9,from:roads[row],to:roads[row+1]});
+    }
+  }
+  const sites:SitePlacement[]=locations.map(l=>{
+    const slot=slots[registry.slot('locations',l.id)];
+    return {...l,...slot,direction:1,roadZ:slot.z-6,entrance:{x:slot.x+6,z:slot.z-6},aisleOffset:1.65,yardWidth:cellWidth-6,yardDepth:cellDepth-6};
+  });
+  const byId=new Map(sites.map(s=>[s.id,s]));
+  const width=Math.max(cellWidth,...sites.map(s=>s.x+cellWidth));
+  const transitColumns=Math.max(8,Math.floor(width/3));
+  const transitRows=Math.max(1,Math.ceil(registry.size('in_transit')/transitColumns));
+  const parkingStart=roads[roads.length-1]+8;
+  const standbyRows=Math.max(1,Math.ceil(registry.size('standby')/transitColumns));
+  const placements:Placement[]=fleet.map(vehicle=>{
+    const site=vehicle.locationId?byId.get(vehicle.locationId):undefined;
+    if(vehicle.status==='at_location' && site){
+      const n=registry.slot(vehicle.locationId!,vehicle.id);
+      return {vehicle,x:site.x+5+Math.floor(n/parkingRows)*4.5,z:site.z+(n%parkingRows)*1.8,rotation:0};
+    }
+    const n=registry.slot(vehicle.status,vehicle.id);
+    return {vehicle,x:(n%transitColumns)*3,z:vehicle.status==='in_transit'?-14-Math.floor(n/transitColumns)*2:parkingStart+(vehicle.status==='unknown'?standbyRows*2+7:0)+Math.floor(n/transitColumns)*2,rotation:0};
+  });
+  return {sites,placements,roads,roadZ:roads[0],crossStreets,transitRows};
 }
