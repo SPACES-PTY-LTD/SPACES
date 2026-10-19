@@ -107,4 +107,6 @@ test("replay retains linked location identity independently of the display title
   assert.equal(event.role, "Location visit")
   const unknown = buildReplayModel(null, [{ entered_at: at(0), event_type: "stopped" }])
   assert.equal(unknown.events[0].locationId, undefined)
+  const unlinked = buildReplayModel(null, [{ entered_at: at(0), event_type: "stopped", location: { location_id: null } }])
+  assert.equal(unlinked.events[0].locationId, undefined)
 })

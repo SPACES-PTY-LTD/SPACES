@@ -109,3 +109,9 @@ test("popup location button selects the linked ID without interpreting its name 
     assert.deepEqual(selected, { id: "depot-1", label: name })
   } finally { globalThis.document = original }
 })
+
+test("nullable location IDs remain unlinked markers", () => {
+  const [marker] = buildRunMapMarkers([{ ...stop, location: { location_id: null, name: "Unlinked stop" } }], null)
+  assert.equal(marker.locationId, undefined)
+  assert.match(marker.title, /Unlinked stop/)
+})

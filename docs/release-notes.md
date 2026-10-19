@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-10-19 | Version: run-location-id-build-fix
+- Summary: Fix the production TypeScript build failure caused by nullable run location IDs.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Map markers and replay events normalize null location IDs to undefined, preserving unlinked locations without creating invalid detail links.
+- Breaking Changes: None.
+- Verification: Confirmed the failure in DigitalOcean build logs. Full TypeScript check, focused lint and 21 map/replay regression tests pass, including nullable-location cases. Full Next.js production build passes; existing non-blocking unused-variable and workspace-lockfile warnings remain.
+
 ## 2026-10-19 | Version: schedule-vehicle-details-drawer
 - Summary: Open full vehicle details from Schedule truck names and icons.
 - API Changes: None; existing scoped vehicle endpoint is reused.

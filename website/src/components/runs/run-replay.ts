@@ -85,7 +85,7 @@ export function buildReplayModel(track: RunTrack | null, stops: ShipmentStop[], 
     const hasInterval = Number.isFinite(end) && end > start
     const detail = type === "speeding" ? [stop.speed_kph != null ? `${stop.speed_kph} km/h` : "Speed not recorded", stop.speed_limit_kph != null ? `Limit ${stop.speed_limit_kph} km/h` : null].filter(Boolean).join(" · ")
       : hasInterval ? `${type === "entered_location" ? "At location" : "Stopped"} ${durationText(end - start)}${estimated ? " (estimated)" : ""}` : "Duration not recorded"
-    events.push({ start, end: hasInterval ? end : start, type, title: `${role} · ${name}`, role, locationId: stop.location?.location_id, locationName: name, detail,
+    events.push({ start, end: hasInterval ? end : start, type, title: `${role} · ${name}`, role, locationId: stop.location?.location_id ?? undefined, locationName: name, detail,
       position: point(stop.latitude ?? stop.location?.latitude, stop.longitude ?? stop.location?.longitude, start),
       priority: type === "speeding" ? 5 : type === "shipment_delivery" ? 4 : type === "shipment_collection" ? 3 : 2 })
   }

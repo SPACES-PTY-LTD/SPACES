@@ -111,7 +111,7 @@ export function buildRunMapMarkers(stops: ShipmentStop[], track: RunTrack | null
     if (stop.speed_kph != null) rows.push(["Recorded speed", `${stop.speed_kph} km/h`])
     if (stop.speed_limit_kph != null) rows.push(["Speed limit", `${stop.speed_limit_kph} km/h`])
     rows.push(coordinates(point))
-    return [{ locationId: location?.location_id, observedAt: stop.entered_at ?? stop.occurred_at, position: point, label: String(index + 1), type, title: `${eventLabel(type)} · ${location?.name || location?.company || "Unknown location"}`, rows }]
+    return [{ locationId: location?.location_id ?? undefined, observedAt: stop.entered_at ?? stop.occurred_at, position: point, label: String(index + 1), type, title: `${eventLabel(type)} · ${location?.name || location?.company || "Unknown location"}`, rows }]
   })
   const knownIds = new Set(stops.map(stop => stop.activity_id).filter(Boolean))
   const speeding = activities.filter(activity => activity.event_type === "speeding" && (!activity.activity_id || !knownIds.has(activity.activity_id)))
