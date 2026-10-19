@@ -93,3 +93,19 @@ test("coincident observations share a pin while filters reveal remaining types",
   assert.deepEqual([...visibleRunMapMarkers([...all, car])], [car, nearby])
   assert.deepEqual([...visibleRunMapMarkers([...all, car], [], true)], [markers[0], nearby])
 })
+
+test("popup location button selects the linked ID without interpreting its name as HTML", () => {
+  const original = globalThis.document
+  globalThis.document = { createElement: tag => ({ tag, style: {}, children: [], attributes: {}, listeners: {}, append(...children) { this.children.push(...children) }, setAttribute(key, value) { this.attributes[key] = value }, addEventListener(key, fn) { this.listeners[key] = fn }, set innerHTML(_) { throw Error("Unsafe HTML") } }) }
+  try {
+    const name = "Depot <West>"
+    const markers = buildRunMapMarkers([{ ...stop, location: { location_id: "depot-1", name } }], null)
+    let selected
+    const content = markerDetails(markers, (id, label) => { selected = { id, label } })
+    const list = content.children[0].children[1]
+    const button = list.children.flatMap(child => child.children).find(child => child.tag === "button")
+    assert.equal(button.textContent, name)
+    button.listeners.click()
+    assert.deepEqual(selected, { id: "depot-1", label: name })
+  } finally { globalThis.document = original }
+})

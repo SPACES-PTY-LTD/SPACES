@@ -22,7 +22,7 @@ import {
 import { isApiErrorResponse } from "@/lib/api/client"
 import { listLocations, updateLocation, type LocationPayload } from "@/lib/api/locations"
 import { loadGoogleMaps } from "@/lib/googleMapsLoader"
-import type { ApiListResponse, Location } from "@/lib/types"
+import type { ApiListResponse, Location, LocationType } from "@/lib/types"
 
 type LatLngLiteral = google.maps.LatLngLiteral
 
@@ -272,12 +272,16 @@ export function LocationsGeofencePageContent({
   initialLocations,
   initialMeta,
   initialError,
+  locationTypes,
+  locationTypesError,
 }: {
   accessToken: string
   merchantId?: string | null
   initialLocations: Location[]
   initialMeta?: ApiListResponse<Location>["meta"]
   initialError?: string | null
+  locationTypes: LocationType[]
+  locationTypesError?: string | null
 }) {
   const initialPerPage = React.useMemo(
     () => normalizeMeta(initialMeta)?.per_page ?? 100,
@@ -292,6 +296,8 @@ export function LocationsGeofencePageContent({
   const [geofenceFilter, setGeofenceFilter] = React.useState<GeofenceFilter>("all")
   const [activeGeofenceFilter, setActiveGeofenceFilter] =
     React.useState<GeofenceFilter>("all")
+  const [locationTypeFilter, setLocationTypeFilter] = React.useState("all")
+  const [activeLocationTypeFilter, setActiveLocationTypeFilter] = React.useState("all")
   const [loadingError, setLoadingError] = React.useState<string | null>(
     initialError ?? null
   )
@@ -313,7 +319,7 @@ export function LocationsGeofencePageContent({
   }, [])
 
   const runLocationQuery = React.useCallback(
-    async (search: string | undefined, filter: GeofenceFilter) => {
+    async (search: string | undefined, filter: GeofenceFilter, typeFilter: string) => {
       setSearching(true)
       setLoadingError(null)
       const response = await listLocations(accessToken, {
@@ -322,6 +328,7 @@ export function LocationsGeofencePageContent({
         per_page: initialPerPage,
         search,
         geofence_status: filter === "all" ? undefined : filter,
+        location_type_id: typeFilter === "all" ? undefined : typeFilter,
         sort_by: "name",
         sort_dir: "asc",
       })
@@ -334,6 +341,7 @@ export function LocationsGeofencePageContent({
 
       setActiveSearch(search)
       setActiveGeofenceFilter(filter)
+      setActiveLocationTypeFilter(typeFilter)
       setLocations(response.data)
       setMeta(normalizeMeta(response.meta))
       setSelectedLocationId(null)
@@ -342,8 +350,11 @@ export function LocationsGeofencePageContent({
     [accessToken, initialPerPage, merchantId]
   )
 
+  const filtersPending = searching || searchTerm.trim() !== (activeSearch ?? "") ||
+    geofenceFilter !== activeGeofenceFilter || locationTypeFilter !== activeLocationTypeFilter
+
   const handleLoadMore = React.useCallback(async () => {
-    if (!meta || loadingMore || !hasMore) return
+    if (!meta || loadingMore || !hasMore || filtersPending) return
 
     setLoadingMore(true)
     setLoadingError(null)
@@ -352,6 +363,7 @@ export function LocationsGeofencePageContent({
       page: meta.current_page + 1,
       per_page: meta.per_page,
       search: activeSearch,
+      location_type_id: activeLocationTypeFilter === "all" ? undefined : activeLocationTypeFilter,
       geofence_status:
         activeGeofenceFilter === "all" ? undefined : activeGeofenceFilter,
       sort_by: "name",
@@ -370,8 +382,10 @@ export function LocationsGeofencePageContent({
   }, [
     accessToken,
     activeGeofenceFilter,
+    activeLocationTypeFilter,
     activeSearch,
     hasMore,
+    filtersPending,
     loadingMore,
     merchantId,
     meta,
@@ -381,13 +395,14 @@ export function LocationsGeofencePageContent({
     const normalizedSearch = searchTerm.trim() || undefined
     if (
       normalizedSearch === activeSearch &&
-      geofenceFilter === activeGeofenceFilter
+      geofenceFilter === activeGeofenceFilter &&
+      locationTypeFilter === activeLocationTypeFilter
     ) {
       return
     }
 
     const timeoutId = window.setTimeout(() => {
-      void runLocationQuery(normalizedSearch, geofenceFilter)
+      void runLocationQuery(normalizedSearch, geofenceFilter, locationTypeFilter)
     }, 350)
 
     return () => {
@@ -395,8 +410,10 @@ export function LocationsGeofencePageContent({
     }
   }, [
     activeGeofenceFilter,
+    activeLocationTypeFilter,
     activeSearch,
     geofenceFilter,
+    locationTypeFilter,
     runLocationQuery,
     searchTerm,
   ])
@@ -434,20 +451,44 @@ export function LocationsGeofencePageContent({
       <aside className="flex w-full max-w-sm flex-col border-r bg-background">
         <div className="border-b p-3">
           <div className="space-y-2">
-            <Select
-              value={geofenceFilter}
-              onValueChange={(value) => setGeofenceFilter(value as GeofenceFilter)}
-              disabled={searching}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Filter geofences" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All locations</SelectItem>
-                <SelectItem value="with">With geofences</SelectItem>
-                <SelectItem value="without">Have no geofences</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                value={geofenceFilter}
+                onValueChange={(value) => setGeofenceFilter(value as GeofenceFilter)}
+                disabled={searching || loadingMore}
+              >
+                <SelectTrigger className="w-full min-w-0" aria-label="Geofence status">
+                  <SelectValue placeholder="Filter geofences" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All locations</SelectItem>
+                  <SelectItem value="with">With geofences</SelectItem>
+                  <SelectItem value="without">Have no geofences</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={locationTypeFilter}
+                onValueChange={setLocationTypeFilter}
+                disabled={searching || loadingMore || Boolean(locationTypesError)}
+              >
+                <SelectTrigger className="w-full min-w-0" aria-label="Location type">
+                  <SelectValue placeholder="Location type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All location types</SelectItem>
+                  {locationTypes.filter((type) => type.location_type_id).map((type) => (
+                    <SelectItem key={type.location_type_id} value={type.location_type_id!}>
+                      {type.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {locationTypesError ? (
+              <p role="status" className="text-xs text-destructive">
+                Unable to load location types: {locationTypesError}
+              </p>
+            ) : null}
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -455,7 +496,7 @@ export function LocationsGeofencePageContent({
                 onChange={(event) => setSearchTerm(event.target.value)}
                 placeholder="Search locations"
                 className="pl-9"
-                disabled={searching}
+                disabled={searching || loadingMore}
               />
             </div>
           </div>
@@ -508,7 +549,7 @@ export function LocationsGeofencePageContent({
             <div className="p-4 text-sm text-muted-foreground">No locations found.</div>
           ) : null}
 
-          {hasMore && !loadingMore && !searching ? (
+          {hasMore && !loadingMore && !filtersPending ? (
             <div className="p-3">
               <Button
                 type="button"

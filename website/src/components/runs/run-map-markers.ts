@@ -6,6 +6,7 @@ export type RunMapMarker = {
   label?: string
   observedAt?: string | null
   type: string
+  locationId?: string
   title: string
   rows: [string, string][]
 }
@@ -110,7 +111,7 @@ export function buildRunMapMarkers(stops: ShipmentStop[], track: RunTrack | null
     if (stop.speed_kph != null) rows.push(["Recorded speed", `${stop.speed_kph} km/h`])
     if (stop.speed_limit_kph != null) rows.push(["Speed limit", `${stop.speed_limit_kph} km/h`])
     rows.push(coordinates(point))
-    return [{ observedAt: stop.entered_at ?? stop.occurred_at, position: point, label: String(index + 1), type, title: `${eventLabel(type)} · ${location?.name || location?.company || "Unknown location"}`, rows }]
+    return [{ locationId: location?.location_id, observedAt: stop.entered_at ?? stop.occurred_at, position: point, label: String(index + 1), type, title: `${eventLabel(type)} · ${location?.name || location?.company || "Unknown location"}`, rows }]
   })
   const knownIds = new Set(stops.map(stop => stop.activity_id).filter(Boolean))
   const speeding = activities.filter(activity => activity.event_type === "speeding" && (!activity.activity_id || !knownIds.has(activity.activity_id)))
@@ -140,7 +141,7 @@ export function buildRunMapMarkers(stops: ShipmentStop[], track: RunTrack | null
 }
 
 // Use textContent so provider/location text is never interpreted as HTML.
-export function markerDetails(markers: RunMapMarker[]) {
+export function markerDetails(markers: RunMapMarker[], onLocation?: (id: string, name: string) => void) {
   const content = document.createElement("div")
   content.style.cssText = "max-width:320px;max-height:300px;overflow:auto;color:#0f172a;font:13px/1.5 system-ui;overflow-wrap:anywhere"
   markers.forEach(marker => {
@@ -158,7 +159,15 @@ export function markerDetails(markers: RunMapMarker[]) {
       term.textContent = label
       const detail = document.createElement("dd")
       detail.style.margin = "0"
-      detail.textContent = value
+      if (label === "Location" && marker.locationId && onLocation) {
+        const button = document.createElement("button")
+        button.type = "button"
+        button.textContent = value
+        button.setAttribute("aria-label", `View location details for ${value}`)
+        button.style.cssText = "text-decoration:underline;text-underline-offset:4px;color:#2563eb;cursor:pointer;text-align:left"
+        button.addEventListener("click", () => onLocation(marker.locationId!, value))
+        detail.append(button)
+      } else detail.textContent = value
       list.append(term, detail)
     })
     section.append(list)

@@ -1,5 +1,29 @@
 # Release Notes
 
+## 2026-10-19 | Version: stops-analysis-drawer-sorting
+- Summary: Make stop-analysis location drawer tables sortable using the shared DataTable.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Vehicle statistics and recorded visits sort independently by clicking column headers without navigating or changing report filters. Raw numbers and timestamps determine order; missing values remain last. Existing DataTable consumers retain URL-based sorting.
+- Breaking Changes: None.
+- Verification: Three sorting regression tests pass (numeric/null ordering, timezone-aware dates and stable natural labels); three changed TypeScript files pass syntax transpilation; diff whitespace check passes. Full type/lint and browser checks remain pending with frontend dependencies absent.
+
+## 2026-10-19 | Version: geofence-location-type-filter
+- Summary: Add a location-type dropdown beside the geofence-status dropdown.
+- API Changes: None; use existing merchant location types and location_type_id filtering.
+- Database Changes: None.
+- Behavior Changes: Type selection combines with search and geofence status for the list and map, resets pagination/selection, and persists when loading more. All location types clears the type restriction. Failed type loading displays an error; pagination is blocked while filters change.
+- Breaking Changes: None.
+- Verification: Both changed TSX files pass syntax transpilation; diff whitespace check passes. Reviewed initial and paginated query parameters against the existing backend filter. Full type/lint and browser verification remain pending because frontend dependencies are absent.
+
+## 2026-10-19 | Version: runs-location-detail-links
+- Summary: Open location details directly from run location mentions.
+- API Changes: None; reuse the existing scoped location endpoint.
+- Database Changes: None.
+- Behavior Changes: Timeline location names, map popup Location rows, origin/destination and speeding-event locations open the existing details/geofence drawer. Unknown locations remain text. Replay retains location identity independently of the title; run and timeline context remain in place.
+- Breaking Changes: None.
+- Verification: 20 replay/map-marker tests pass using cached TypeScript in a temporary test runner; TS/TSX syntax transpilation and diff whitespace check pass. Full app type/lint and authenticated UI verification remain unavailable with frontend dependencies absent.
+
 ## 2026-10-19 | Version: runs-distance-column-info
 - Summary: Explain the Runs table distance sources in column help.
 - API Changes: None.

@@ -12,7 +12,10 @@ import { AdminRoute } from "@/lib/routes/admin"
 import { cn } from "@/lib/utils"
 import type { Location } from "@/lib/types"
 
-export function LocationDetailsDrawer({ locationId, label, accessToken, merchantId, children, className }: {
+export function LocationDetailsDrawer({ locationId, label, accessToken, merchantId, children, className, open: controlledOpen, onOpenChange, hideTrigger = false }: {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  hideTrigger?: boolean
   locationId: string
   label: string
   accessToken: string
@@ -20,7 +23,9 @@ export function LocationDetailsDrawer({ locationId, label, accessToken, merchant
   children?: ReactNode
   className?: string
 }) {
-  const [open, setOpen] = useState(false)
+  const [localOpen, setLocalOpen] = useState(false)
+  const open = controlledOpen ?? localOpen
+  const setOpen = onOpenChange ?? setLocalOpen
   const [location, setLocation] = useState<Location | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
@@ -61,11 +66,11 @@ export function LocationDetailsDrawer({ locationId, label, accessToken, merchant
     setError(null)
     setOpen(value)
   }}>
-    <DrawerTrigger asChild>
+    {!hideTrigger && <DrawerTrigger asChild>
       <button type="button" className={cn("rounded-sm text-left font-medium underline underline-offset-4 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)} aria-label={`View location details for ${label}`}>
         {children ?? label}
       </button>
-    </DrawerTrigger>
+    </DrawerTrigger>}
     <DrawerContent side="right" className="sm:w-[min(90vw,720px)]">
       <DrawerHeader className="pr-12">
         <DrawerTitle>{location?.name || location?.company || label}</DrawerTitle>

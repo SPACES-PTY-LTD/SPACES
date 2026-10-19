@@ -98,3 +98,13 @@ test("route keeps invalid samples and long gaps broken, including during a stop"
   assert.deepEqual(replayRouteAt(model, ms(10)), [model.segments[0], model.segments[1], []])
   assert.deepEqual(replayRouteAt(buildReplayModel(null, [{ occurred_at: at(0) }]), null), [])
 })
+
+test("replay retains linked location identity independently of the display title", () => {
+  const model = buildReplayModel(null, [{ entered_at: at(0), exited_at: at(10), event_type: "entered_location", location: { location_id: "depot-1", name: "Depot · West" } }])
+  const event = replayAt(model, ms(5)).event
+  assert.equal(event.locationId, "depot-1")
+  assert.equal(event.locationName, "Depot · West")
+  assert.equal(event.role, "Location visit")
+  const unknown = buildReplayModel(null, [{ entered_at: at(0), event_type: "stopped" }])
+  assert.equal(unknown.events[0].locationId, undefined)
+})

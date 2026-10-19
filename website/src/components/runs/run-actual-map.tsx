@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { loadGoogleMaps } from "@/lib/googleMapsLoader"
 import { getRunTrack, type RunTrack } from "@/lib/api/runs"
 import { isApiErrorResponse } from "@/lib/api/client"
+import { LocationDetailsDrawer } from "@/components/locations/location-details-drawer"
 import { RunTripTimeline } from "./run-trip-timeline"
 import { RunGeofences } from "./run-geofences"
 import { buildReplayModel, loadTrackPages, replayAt, replayRouteAt } from "./run-replay"
@@ -14,10 +15,11 @@ import { ChevronDown, Filter, RefreshCw } from "lucide-react"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { buildRunMapMarkers, eventLabel, markerDetails, markerAppearance, latestStopMarker, visibleRunMapMarkers, type RunMapMarker } from "./run-map-markers"
 
-type Props = { runId: string; accessToken?: string | null; stops: ShipmentStop[]; activities?: ShipmentStop[]; tripStart?: string | null; tripEnd?: string | null }
+type Props = { merchantId?: string | null; runId: string; accessToken?: string | null; stops: ShipmentStop[]; activities?: ShipmentStop[]; tripStart?: string | null; tripEnd?: string | null }
 
-export function RunActualMap({ runId, accessToken, stops, activities, tripStart, tripEnd }: Props) {
+export function RunActualMap({ runId, accessToken, stops, activities, tripStart, tripEnd, merchantId }: Props) {
   const router = useRouter()
+  const [selectedLocation, setSelectedLocation] = React.useState<{ id: string; name: string } | null>(null)
   const [refreshingDetails, startRefresh] = React.useTransition()
   const [refreshVersion, setRefreshVersion] = React.useState(0)
   const [mapElement, setMapElement] = React.useState<HTMLDivElement | null>(null)
@@ -166,7 +168,7 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
         listeners.push(marker.addListener("click", () => {
           // Include overlapping events/visits so a pin cannot conceal another stop's details.
           const atPosition = markers.filter(other => other.position.lat === item.position.lat && other.position.lng === item.position.lng && !hiddenRef.current.includes(other.type))
-          details.setContent(markerDetails(atPosition))
+          details.setContent(markerDetails(atPosition, accessToken ? (id, name) => setSelectedLocation({ id, name }) : undefined))
           details.open({ map, anchor: marker })
         }))
         return { marker, item }
@@ -176,7 +178,7 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
       setMapRevision(value => value + 1)
     }).catch(() => { if (!cancelled) setMapError("Map unavailable. Try again.") })
     return () => { cancelled = true; listeners.forEach(listener => listener.remove()); infoWindow.current?.close(); infoWindow.current = null; markerHandles.current = []; replayCar.current = null; routeLines.current = []; overlays.forEach(overlay => overlay.setMap(null)) }
-  }, [mapElement, track, model, markers, hasMap, retry, key])
+  }, [mapElement, track, model, markers, hasMap, retry, key, accessToken])
   const refreshLatest = () => {
     if (loading || refreshingDetails) return
     setRetry(value => value + 1)
@@ -188,6 +190,7 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
   </Button>
   const stale = track?.active && track.latest_observed_at && checkedAt - Date.parse(track.latest_observed_at) > 300000
   return <div ref={container} className="space-y-3">
+    {selectedLocation && accessToken && <LocationDetailsDrawer key={selectedLocation.id} locationId={selectedLocation.id} label={selectedLocation.name} accessToken={accessToken} merchantId={merchantId} open hideTrigger onOpenChange={open => { if (!open) setSelectedLocation(null) }} />}
       {(error || stale) && <p role="status" className="text-sm text-amber-700">{error ? `${track ? "Showing previous data. " : ""}${error}` : "Tracking is stale; showing the last recorded route."}</p>}
       {mapError && <p role="alert" className="text-sm text-destructive">{mapError}</p>}
       {!hasTrack && <p role="status" className="text-sm text-muted-foreground">{track?.status === "disabled" ? "Recorded route display is not enabled." : track ? "No GPS history recorded for this run. The route taken is unavailable." : error ? "Route unavailable." : "Loading recorded route…"}</p>}
@@ -214,9 +217,9 @@ export function RunActualMap({ runId, accessToken, stops, activities, tripStart,
         </div>
         {shownCount === 0 && markers.length > 0 && <p role="status" className="absolute bottom-16 left-3 rounded bg-background px-3 py-2 text-xs shadow">Event markers hidden. Use Marker types to show them.</p>}
         </div>
-        <RunTripTimeline key={key} tripStart={tripStart} tripEnd={tripEnd} model={model} selected={selected} onSelect={time => setSelection({ key, time })} loading={loading} error={error} onRetry={() => setRetry(value => value + 1)} limited={track?.source === "limited_history"} />
+        <RunTripTimeline accessToken={accessToken} merchantId={merchantId} key={key} tripStart={tripStart} tripEnd={tripEnd} model={model} selected={selected} onSelect={time => setSelection({ key, time })} loading={loading} error={error} onRetry={() => setRetry(value => value + 1)} limited={track?.source === "limited_history"} />
       </div> : <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">No mapped positions available.</div>}
-      {!hasMap && <RunTripTimeline key={key} tripStart={tripStart} tripEnd={tripEnd} model={model} selected={selected} onSelect={time => setSelection({ key, time })} loading={loading} error={error} onRetry={() => setRetry(value => value + 1)} limited={track?.source === "limited_history"} />}
+      {!hasMap && <RunTripTimeline accessToken={accessToken} merchantId={merchantId} key={key} tripStart={tripStart} tripEnd={tripEnd} model={model} selected={selected} onSelect={time => setSelection({ key, time })} loading={loading} error={error} onRetry={() => setRetry(value => value + 1)} limited={track?.source === "limited_history"} />}
       <div className="flex flex-wrap gap-2">
         {!hasMap && refreshButton}
         {(error || mapError || stale) && <Button variant="outline" onClick={() => setRetry(v => v + 1)}>Retry</Button>}

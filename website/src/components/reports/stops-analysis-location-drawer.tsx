@@ -1,8 +1,10 @@
 "use client"
 
+import * as React from "react"
+import { DataTable } from "@/components/common/data-table"
+import { sortStopAnalysisRows } from "./stops-analysis-sort"
 import Link from "next/link"
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import type { StopAnalysisRow, StopAnalysisVehicle, StopAnalysisVisit } from "./stops-analysis-visits"
 
@@ -20,6 +22,9 @@ function minutes(value: number | null) {
 }
 
 export function StopAnalysisLocationDrawer({ row, rangeLabel }: { row: StopAnalysisTableRow; rangeLabel: string }) {
+  const [vehicleSort, setVehicleSort] = React.useState({ key: "visitCount", direction: "desc" as "asc" | "desc" })
+  const [visitSort, setVisitSort] = React.useState({ key: "enteredAt", direction: "desc" as "asc" | "desc" })
+  const visits = row.visits.map(visit => ({ ...visit, status: visit.exitedAt ? "Completed" : "Open" }))
   return <Drawer>
     <DrawerTrigger asChild>
       <button type="button" className="rounded-sm text-left underline underline-offset-4 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`View stop analysis for ${row.locationName}`}>{row.locationName}</button>
@@ -46,40 +51,36 @@ export function StopAnalysisLocationDrawer({ row, rangeLabel }: { row: StopAnaly
         </dl>
         <section className="space-y-3" aria-label="Vehicle statistics">
           <h2 className="font-semibold">Vehicles</h2>
-          <Table className="min-w-[750px] table-auto">
-            <TableHeader><TableRow>
-              {["Vehicle", "Visits", "Completed dwell", "Avg dwell", "Max dwell", "Open visits"].map(label => <TableHead key={label}>{label}</TableHead>)}
-            </TableRow></TableHeader>
-            <TableBody>
-              {row.vehicles.map(vehicle => <TableRow key={vehicle.vehicleId}>
-                <TableCell className="font-medium">{vehicle.vehicleLabel}</TableCell>
-                <TableCell>{vehicle.visitCount}</TableCell>
-                <TableCell>{minutes(vehicle.totalDwellMinutes)}</TableCell>
-                <TableCell>{minutes(vehicle.averageDwellMinutes)}</TableCell>
-                <TableCell>{minutes(vehicle.maxDwellMinutes)}</TableCell>
-                <TableCell>{vehicle.openVisits}</TableCell>
-              </TableRow>)}
-              {!row.vehicles.length && <TableRow><TableCell colSpan={6}>No vehicles recorded for this period.</TableCell></TableRow>}
-            </TableBody>
-          </Table>
+          <DataTable
+            data={sortStopAnalysisRows(row.vehicles, vehicleSort.key, vehicleSort.direction)}
+            enableSorting
+            sorting={{ ...vehicleSort, onChange: (key, direction) => setVehicleSort({ key, direction }) }}
+            emptyMessage="No vehicles recorded for this period."
+            columns={[
+              { key: "vehicleLabel", label: "Vehicle" },
+              { key: "visitCount", label: "Visits" },
+              { key: "totalDwellMinutes", label: "Completed dwell", customValue: vehicle => minutes(vehicle.totalDwellMinutes) },
+              { key: "averageDwellMinutes", label: "Avg dwell", customValue: vehicle => minutes(vehicle.averageDwellMinutes) },
+              { key: "maxDwellMinutes", label: "Max dwell", customValue: vehicle => minutes(vehicle.maxDwellMinutes) },
+              { key: "openVisits", label: "Open visits" },
+            ]}
+          />
         </section>
         <section className="space-y-3" aria-label="Recorded visits">
           <h2 className="font-semibold">Recorded visits</h2>
-          <Table className="min-w-[750px] table-auto">
-            <TableHeader><TableRow>
-              {["Vehicle", "Entered", "Exited", "Dwell", "Status"].map(label => <TableHead key={label}>{label}</TableHead>)}
-            </TableRow></TableHeader>
-            <TableBody>
-              {row.visits.map((visit, index) => <TableRow key={`${visit.vehicleId}-${visit.enteredAt}-${index}`}>
-                <TableCell className="font-medium">{visit.vehicleLabel}</TableCell>
-                <TableCell className="whitespace-nowrap">{visit.entryDisplay}</TableCell>
-                <TableCell className="whitespace-nowrap">{visit.exitedAt ? visit.exitDisplay : "No recorded exit"}</TableCell>
-                <TableCell className="whitespace-nowrap">{minutes(visit.dwellMinutes)}</TableCell>
-                <TableCell><Badge variant="outline">{visit.exitedAt ? "Completed" : "Open"}</Badge></TableCell>
-              </TableRow>)}
-              {!row.visits.length && <TableRow><TableCell colSpan={5}>No visits recorded for this period.</TableCell></TableRow>}
-            </TableBody>
-          </Table>
+          <DataTable
+            data={sortStopAnalysisRows(visits, visitSort.key, visitSort.direction)}
+            enableSorting
+            sorting={{ ...visitSort, onChange: (key, direction) => setVisitSort({ key, direction }) }}
+            emptyMessage="No visits recorded for this period."
+            columns={[
+              { key: "vehicleLabel", label: "Vehicle" },
+              { key: "enteredAt", label: "Entered", customValue: visit => visit.entryDisplay },
+              { key: "exitedAt", label: "Exited", customValue: visit => visit.exitedAt ? visit.exitDisplay : "No recorded exit" },
+              { key: "dwellMinutes", label: "Dwell", customValue: visit => minutes(visit.dwellMinutes) },
+              { key: "status", label: "Status", customValue: visit => <Badge variant="outline">{visit.status}</Badge> },
+            ]}
+          />
         </section>
         <p className="text-xs text-muted-foreground">These statistics use the same loaded records as the report. Repeated entries count once until a recorded exit and re-entry. Dwell includes completed visits only; open visits have no confirmed duration.</p>
       </div>

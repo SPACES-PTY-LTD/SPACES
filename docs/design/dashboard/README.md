@@ -1,7 +1,7 @@
 # Driver dashboard plan
 
-Version: 2.276
-Last updated: 2026-10-15
+Version: 2.277
+Last updated: 2026-10-19
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
 ## Purpose and maintenance
@@ -1652,6 +1652,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-19 | 2.277 | Link run timeline, map popup, route endpoints and speeding locations to the shared location-details drawer. |
 | 2026-10-15 | 2.276 | Add building entrances and schematic vehicle yard arrival/departure motion. |
 | 2026-10-15 | 2.275 | Illustrated scene preparation with real first-frame readiness, slow-load copy and fleet-list access. |
 | 2026-10-15 | 2.274 | Bound location camera zoom-out to yard size; pulse Back to overview three times with reduced-motion support. |
@@ -2032,3 +2033,10 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 | 2026-09-16 | 1.2 | Fixed Step 3 and review layout: removed embedded duplicate action buttons, separated the information header, and kept locations and one primary action in a flowing vertical layout. Figma/documentation only. |
 | 2026-09-16 | 1.1 | Created this canonical README; added Step 3 collection and planned end selection, review persistence and full-trip routing requirements. Figma updated; no mobile/API runtime changes in this documentation task. |
 | 2026-09-16 | 1.0 | Prior approved Figma dashboard plan: map/sheet states, run lifecycle, timeline filters, document reminders, upload/review and error recovery. Recorded here retrospectively. |
+
+
+### Run location details drawer — 2.277
+
+Implementation status: implemented locally. Saved location names in the run trip timeline, map popup Location row, origin/destination header and speeding events open the shared right-side location-details drawer. Shipment locations and recorded stops retain their existing drawer links. Unknown/unlinked locations remain plain text. Replay events retain the location ID separately from their display title; no name matching or fabricated IDs. Requests use the run's access token and merchant scope, with the existing loading/error/retry states, geofence and full-location-page link.
+
+Acceptance: linked names are keyboard-operable; opening/closing details retains replay selection and run context; missing IDs do not produce broken links. Twenty replay/map-marker tests pass (including retained IDs and safe popup button callbacks). Full application type/lint and authenticated browser checks remain pending because frontend dependencies are absent locally. No API/database changes or driver lifecycle changes.

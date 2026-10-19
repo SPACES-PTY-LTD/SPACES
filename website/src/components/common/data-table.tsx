@@ -283,6 +283,7 @@ export function DataTable<T extends Record<string, unknown>>({
   loading_error,
   meta,
   enableSorting = false,
+  sorting,
   sortableColumns,
   width = null,
   sortKeyMap,
@@ -309,6 +310,8 @@ export function DataTable<T extends Record<string, unknown>>({
     per_page: number,
     total: number,
   },
+  /** Controlled sorting for embedded tables; caller supplies sorted data. */
+  sorting?: { key: string; direction: "asc" | "desc"; onChange: (key: string, direction: "asc" | "desc") => void }
   enableSorting?: boolean
   sortableColumns?: Array<keyof T | string>
   width?: string | null
@@ -740,8 +743,8 @@ export function DataTable<T extends Record<string, unknown>>({
       (a, b) => a - b
     )
   }, [currentPageSize])
-  const currentSortBy = searchParams.get(sortByParam) ?? ""
-  const rawSortDir = (searchParams.get(sortDirParam) ?? "").toLowerCase()
+  const currentSortBy = sorting?.key ?? searchParams.get(sortByParam) ?? ""
+  const rawSortDir = sorting?.direction ?? (searchParams.get(sortDirParam) ?? "").toLowerCase()
   const currentSortDir: "asc" | "desc" | "" =
     rawSortDir === "asc" || rawSortDir === "desc" ? rawSortDir : ""
   const sortableColumnSet = React.useMemo(() => {
@@ -1325,6 +1328,8 @@ export function DataTable<T extends Record<string, unknown>>({
                   {columns.map((column, columnIndex) => (
                     <TableHead
                       key={String(column.key)}
+                      aria-sort={enableSorting && currentSortBy === (sortKeyMap?.[String(column.key)] ?? String(column.key))
+                        ? currentSortDir === "desc" ? "descending" : "ascending" : undefined}
                       ref={
                         columnIndex < stickyLeadingColumnCount
                           ? (node) => registerFrozenHeaderCell(columnIndex, node)
@@ -1350,23 +1355,19 @@ export function DataTable<T extends Record<string, unknown>>({
                             const columnKey = String(column.key)
                             const sortKey = sortKeyMap?.[columnKey] ?? columnKey
                             const isActive = currentSortBy === sortKey
-                            return (
-                              <Link
-                                href={buildSortHref(column)}
-                                className="inline-flex items-center gap-1 text-foreground hover:text-primary"
-                              >
-                                <span>{column.label}</span>
-                                {isActive ? (
-                                  currentSortDir === "desc" ? (
-                                    <ArrowDown className="h-3.5 w-3.5" />
-                                  ) : (
-                                    <ArrowUp className="h-3.5 w-3.5" />
-                                  )
-                                ) : (
-                                  <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                                )}
-                              </Link>
-                            )
+                            const content = <>
+                              <span>{column.label}</span>
+                              {isActive ? (
+                                currentSortDir === "desc" ? <ArrowDown className="h-3.5 w-3.5" /> : <ArrowUp className="h-3.5 w-3.5" />
+                              ) : <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />}
+                            </>
+                            const className = "inline-flex items-center gap-1 text-foreground hover:text-primary"
+                            return sorting ? (
+                              <button type="button" className={className}
+                                onClick={() => sorting.onChange(sortKey, isActive && currentSortDir === "asc" ? "desc" : "asc")}>
+                                {content}
+                              </button>
+                            ) : <Link href={buildSortHref(column)} className={className}>{content}</Link>
                           })()
                         ) : (
                           column.label

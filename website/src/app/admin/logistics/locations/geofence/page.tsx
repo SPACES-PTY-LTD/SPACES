@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/layout/page-header"
 import { LocationsGeofencePageContent } from "@/components/locations/locations-geofence-page-content"
 import { isApiErrorResponse } from "@/lib/api/client"
+import { listLocationTypes } from "@/lib/api/location-types"
 import { listLocations } from "@/lib/api/locations"
 import { getScopedMerchantId, requireAuth } from "@/lib/auth"
 
@@ -8,15 +9,18 @@ export default async function LocationsGeofencePage() {
   const session = await requireAuth()
   const merchantId = getScopedMerchantId(session) ?? session.selected_merchant?.merchant_id
   const canLoad = Boolean(merchantId)
-  const response = canLoad
-    ? await listLocations(session.accessToken, {
-        merchant_id: merchantId,
-        page: 1,
-        per_page: 100,
-        sort_by: "name",
-        sort_dir: "asc",
-      })
-    : null
+  const [response, typesResponse] = merchantId
+    ? await Promise.all([
+        listLocations(session.accessToken, {
+          merchant_id: merchantId,
+          page: 1,
+          per_page: 100,
+          sort_by: "name",
+          sort_dir: "asc",
+        }),
+        listLocationTypes(session.accessToken, { merchant_id: merchantId }),
+      ])
+    : [null, null]
   const isError = response ? isApiErrorResponse(response) : false
   const errorMessage =
     response && isApiErrorResponse(response) ? response.message : null
@@ -39,6 +43,8 @@ export default async function LocationsGeofencePage() {
         initialLocations={data?.data ?? []}
         initialMeta={data?.meta}
         initialError={loadingError}
+        locationTypes={typesResponse && !isApiErrorResponse(typesResponse) ? typesResponse.data : []}
+        locationTypesError={typesResponse && isApiErrorResponse(typesResponse) ? typesResponse.message : null}
       />
     </div>
   )

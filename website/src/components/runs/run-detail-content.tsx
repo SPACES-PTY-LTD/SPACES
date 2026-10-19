@@ -100,12 +100,12 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
       {!embedded && <Breadcrumbs items={[{ label: "Runs", href: AdminLinks.runs }, { label: runLabel }]} />}
       <PageHeader
         title={`Run ${runLabel}`}
-        description={`${runLocationLabel(run.origin, "Unknown origin")} → ${runLocationLabel(run.destination, "Unknown destination")}`}
+        description={<>{run.origin?.location_id ? <LocationDetailsDrawer locationId={run.origin.location_id} label={runLocationLabel(run.origin, "Origin")} accessToken={session.accessToken} merchantId={run.merchant_id} /> : "Unknown origin"} → {run.destination?.location_id ? <LocationDetailsDrawer locationId={run.destination.location_id} label={runLocationLabel(run.destination, "Destination")} accessToken={session.accessToken} merchantId={run.merchant_id} /> : "Unknown destination"}</>}
         actions={<div className="flex items-center gap-2"><StatusBadge status={run.status ?? "unknown"} /><AdminRunActions key={run.run_id + session.user.uuid} run={run} token={session.accessToken} /></div>}
       />
 
       {run.end_request && <RunEndReview key={run.end_request.request_id + run.end_request.status} runId={run.run_id} active={run.status === "in_progress"} request={run.end_request} canReview={run.can_review_end_request === true} accessToken={session.accessToken} unfinished={Math.max(0, (stats?.shipment_count ?? run.shipment_count ?? 0) - (stats?.completed_shipments ?? 0) - (stats?.failed_shipments ?? 0))} />}
-      <RunActualMap tripStart={run.started_at} tripEnd={run.completed_at} runId={run.run_id} accessToken={session.accessToken} stops={timedStops} activities={timedActivities} />
+      <RunActualMap merchantId={run.merchant_id} tripStart={run.started_at} tripEnd={run.completed_at} runId={run.run_id} accessToken={session.accessToken} stops={timedStops} activities={timedActivities} />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <RunActiveDurationCard key={run.run_id + (run.started_at ?? "")} status={run.status} startedAt={run.started_at} completedAt={run.completed_at} initialNow={initialNow} />
@@ -189,7 +189,7 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
                 <TableBody>
                   {(safety?.speeding_events ?? []).length ? safety!.speeding_events.map((event) => (
                     <TableRow key={event.activity_id}>
-                      <TableCell>{dateTime(event.occurred_at)}</TableCell><TableCell>{speed(event.speed_kph)}</TableCell><TableCell>{speed(event.speed_limit_kph)}</TableCell><TableCell>{event.location?.name ?? (event.latitude != null && event.longitude != null ? `${event.latitude}, ${event.longitude}` : "-")}</TableCell>
+                      <TableCell>{dateTime(event.occurred_at)}</TableCell><TableCell>{speed(event.speed_kph)}</TableCell><TableCell>{speed(event.speed_limit_kph)}</TableCell><TableCell>{event.location?.location_id ? <LocationDetailsDrawer locationId={event.location.location_id} label={event.location.name || event.location.company || "Location"} accessToken={session.accessToken} merchantId={run.merchant_id} /> : event.location?.name ?? (event.latitude != null && event.longitude != null ? `${event.latitude}, ${event.longitude}` : "-")}</TableCell>
                     </TableRow>
                   )) : <TableRow><TableCell colSpan={4} className="py-8 text-center text-muted-foreground">No speeding events were recorded. Other safety event types are not available from the current telemetry.</TableCell></TableRow>}
                 </TableBody>

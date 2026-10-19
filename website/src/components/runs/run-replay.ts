@@ -2,7 +2,7 @@ import type { RunTrack } from "@/lib/api/runs"
 import type { ShipmentStop } from "@/lib/types"
 
 export type ReplayPoint = { lat: number; lng: number; time: number }
-export type ReplayEvent = { start: number; end: number; type: string; title: string; detail: string; position: ReplayPoint | null; priority: number }
+export type ReplayEvent = { start: number; end: number; type: string; title: string; role?: string; locationId?: string; locationName?: string; detail: string; position: ReplayPoint | null; priority: number }
 export type ReplayModel = { start: number; end: number; segments: ReplayPoint[][]; events: ReplayEvent[]; gaps: { start: number; end: number }[] }
 export const replayGapMs = 300_000
 const timestamp = (value?: string | null) => value ? Date.parse(value) : NaN
@@ -85,7 +85,7 @@ export function buildReplayModel(track: RunTrack | null, stops: ShipmentStop[], 
     const hasInterval = Number.isFinite(end) && end > start
     const detail = type === "speeding" ? [stop.speed_kph != null ? `${stop.speed_kph} km/h` : "Speed not recorded", stop.speed_limit_kph != null ? `Limit ${stop.speed_limit_kph} km/h` : null].filter(Boolean).join(" · ")
       : hasInterval ? `${type === "entered_location" ? "At location" : "Stopped"} ${durationText(end - start)}${estimated ? " (estimated)" : ""}` : "Duration not recorded"
-    events.push({ start, end: hasInterval ? end : start, type, title: `${role} · ${name}`, detail,
+    events.push({ start, end: hasInterval ? end : start, type, title: `${role} · ${name}`, role, locationId: stop.location?.location_id, locationName: name, detail,
       position: point(stop.latitude ?? stop.location?.latitude, stop.longitude ?? stop.location?.longitude, start),
       priority: type === "speeding" ? 5 : type === "shipment_delivery" ? 4 : type === "shipment_collection" ? 3 : 2 })
   }

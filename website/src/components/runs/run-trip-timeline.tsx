@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { LocationDetailsDrawer } from "@/components/locations/location-details-drawer"
 import { CalendarRange } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -10,14 +11,14 @@ import { replayAt, type ReplayModel } from "./run-replay"
 import styles from "./run-trip-timeline.module.css"
 import { validateTripRange } from "./run-time-range"
 
-type Props = { model: ReplayModel | null; selected: number | null; onSelect: (time: number | null) => void; loading: boolean; error: string | null; onRetry: () => void; limited: boolean; tripStart?: string | null; tripEnd?: string | null }
+type Props = { accessToken?: string | null; merchantId?: string | null; model: ReplayModel | null; selected: number | null; onSelect: (time: number | null) => void; loading: boolean; error: string | null; onRetry: () => void; limited: boolean; tripStart?: string | null; tripEnd?: string | null }
 function localParts(time: number) {
   const date = new Date(time)
   const pad = (value: number) => String(value).padStart(2, "0")
   return { date: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`, time: `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` }
 }
 
-export function RunTripTimeline({ model: fullModel, selected, onSelect, loading, error, onRetry, limited, tripStart, tripEnd }: Props) {
+export function RunTripTimeline({ model: fullModel, selected, onSelect, loading, error, onRetry, limited, tripStart, tripEnd, accessToken, merchantId }: Props) {
   const startAt = tripStart ? Date.parse(tripStart) : NaN
   const endAt = tripEnd ? Date.parse(tripEnd) : NaN
   const lower = fullModel ? (Number.isFinite(startAt) ? startAt : fullModel.start) : 0
@@ -98,7 +99,7 @@ export function RunTripTimeline({ model: fullModel, selected, onSelect, loading,
     </> : <p className="py-5 text-sm text-muted-foreground">{loading ? "Preparing the timeline…" : model ? "Only one recorded time is available." : "No timestamped activity is available for replay."}</p>}
     <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
       <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ backgroundColor: selected !== null && state?.event ? markerAppearance(state.event.type).color : "#64748b" }} />
-      <strong className="font-semibold">{selected === null ? "Latest view" : state?.title}</strong>
+      <strong className="font-semibold">{selected === null ? "Latest view" : state?.event?.locationId && accessToken ? <>{state.event.role} · <LocationDetailsDrawer key={state.event.locationId} locationId={state.event.locationId} label={state.event.locationName || "Location"} accessToken={accessToken} merchantId={merchantId} /></> : state?.title}</strong>
       <span className="text-xs text-muted-foreground sm:border-l sm:pl-3">{selected === null ? "Drag the timeline to explore the trip" : state?.detail}{selected !== null && state?.event && state.event.end > state.event.start ? ` · ${clock(state.event.start)}–${clock(state.event.end)}` : ""}</span>
     </div>
   </section>
