@@ -1,5 +1,7 @@
 "use client"
 
+import { parcelUnits, unitLabel, parcelMeasurements, measuredUnit, parcelQuantityError } from "@/lib/shipment-parcel-units"
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 import * as React from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -22,10 +24,12 @@ import { Trash } from "lucide-react"
 
 const emptyParcel = (): ShipmentParcelInput => ({
   title: "",
-  weight_kg: 1,
-  length_cm: 10,
-  width_cm: 10,
-  height_cm: 10,
+  quantity: "1",
+  quantity_unit: "units",
+  weight_kg: 0,
+  length_cm: 0,
+  width_cm: 0,
+  height_cm: 0,
 })
 
 export type ShipmentQuoteFormValues = {
@@ -189,8 +193,8 @@ export function ShipmentQuoteDialog({
       setError("Collection date must be in the future.")
       return
     }
-    const invoicedAtIso = includeInvoicedAt && invoicedAt ? toIsoDateTime(invoicedAt) : undefined
-    if (includeInvoicedAt && invoicedAt && !invoicedAtIso) {
+    const invoicedAtIso = includeInvoicedAt && invoiceInvoiceNumber.trim() && invoicedAt ? toIsoDateTime(invoicedAt) : undefined
+    if (includeInvoicedAt && invoiceInvoiceNumber.trim() && invoicedAt && !invoicedAtIso) {
       setError("Invoiced at is invalid.")
       return
     }
@@ -202,6 +206,9 @@ export function ShipmentQuoteDialog({
       setError("Each parcel needs a title.")
       return
     }
+
+    const quantityError = parcelQuantityError(parcels)
+    if (quantityError) { setError(quantityError); return }
 
     setLoading(true)
     try {
@@ -272,7 +279,7 @@ export function ShipmentQuoteDialog({
               />
             </div>
           </div>
-          {includeInvoicedAt ? (
+          {includeInvoicedAt && invoiceInvoiceNumber.trim() ? (
             <div className="grid gap-2">
               <Label>Invoiced at</Label>
               <Input
@@ -358,6 +365,18 @@ export function ShipmentQuoteDialog({
                     />
                   </div>
                   <div className="grid gap-2">
+                    <Label htmlFor={`parcel-quantity-${index}`}>Quantity</Label>
+                    <Input id={`parcel-quantity-${index}`} type="number" min={measuredUnit(parcel.quantity_unit ?? "units") ? "0.001" : "1"} step={measuredUnit(parcel.quantity_unit ?? "units") ? "any" : "1"}
+                      value={parcel.quantity ?? 1} onChange={event => updateParcel(index, "quantity", event.target.value)} />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor={`parcel-unit-${index}`}>Unit type</Label>
+                    <Select value={parcel.quantity_unit ?? "units"} onValueChange={value => updateParcel(index, "quantity_unit", value)}>
+                      <SelectTrigger id={`parcel-unit-${index}`} className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>{parcelUnits.map(unit => <SelectItem key={unit} value={unit}>{unitLabel(unit)}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  {parcelMeasurements(parcel.quantity_unit).weight && <div className="grid gap-2">
                     <Label>Weight (kg)</Label>
                     <Input
                       type="number"
@@ -368,8 +387,8 @@ export function ShipmentQuoteDialog({
                         updateParcel(index, "weight_kg", event.target.value)
                       }
                     />
-                  </div>
-                  <div className="grid gap-2">
+                  </div>}
+                  {parcelMeasurements(parcel.quantity_unit).dimensions && <><div className="grid gap-2">
                     <Label>Length (cm)</Label>
                     <Input
                       type="number"
@@ -404,7 +423,7 @@ export function ShipmentQuoteDialog({
                         updateParcel(index, "height_cm", event.target.value)
                       }
                     />
-                  </div>
+                  </div></>}
                 </div>
               </div>
             ))}

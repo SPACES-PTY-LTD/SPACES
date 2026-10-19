@@ -1,3 +1,4 @@
+import { restoreParcelLines } from "@/lib/shipment-parcel-units"
 import Link from "next/link"
 import moment from "moment"
 import { AdminRoute } from "@/lib/routes/admin"
@@ -187,13 +188,7 @@ export function ShipmentDetailView({
                 dropoffLocation: toEditableLocation(
                   shipment.dropoff_location ?? shipment.dropoff_address
                 ),
-                parcels: parcels.map((parcel) => ({
-                  title: parcel.contents_description ?? "",
-                  weight_kg: Number(parcel.weight_kg ?? parcel.weight ?? 0),
-                  length_cm: Number(parcel.length_cm ?? 0),
-                  width_cm: Number(parcel.width_cm ?? 0),
-                  height_cm: Number(parcel.height_cm ?? 0),
-                })),
+                parcels: restoreParcelLines(parcels, shipment.metadata),
               }}
               onEditSubmit={onEditSubmit}
             />

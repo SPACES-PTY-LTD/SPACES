@@ -21,8 +21,9 @@ export type AssignShipmentVehiclePayload = {
 
 export type UpdateShipmentPayload = Omit<
   Partial<Shipment>,
-  "pickup_address" | "dropoff_address"
+  "pickup_address" | "dropoff_address" | "parcels"
 > & {
+  parcels?: CreateShipmentPayload["parcels"]
   pickup_location_id?: string
   dropoff_location_id?: string
   pickup_address?: CreateShipmentPayload["pickup_address"]

@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.278
+Version: 2.279
 Last updated: 2026-10-19
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -1652,6 +1652,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-19 | 2.279 | Reuse the shared web shipment form for quantity/unit controls, mobile-equivalent measurements and invoice-date visibility; consolidate edit payloads. |
 | 2026-10-19 | 2.278 | Add historical automation explanations to Recorded stops and remove its redundant card border. |
 | 2026-10-19 | 2.277 | Link run timeline, map popup, route endpoints and speeding locations to the shared location-details drawer. |
 | 2026-10-15 | 2.276 | Add building entrances and schematic vehicle yard arrival/departure motion. |
@@ -2048,3 +2049,12 @@ Acceptance: linked names are keyboard-operable; opening/closing details retains 
 Implementation status: implemented locally. Recorded stops retains a heading and the DataTable border without an outer card. An Automation column after Event shows Explain only for supported recorded actions in that stop’s metadata. Its shadcn popover lists entry/exit executions in stored order, historical conditions and execution times. Missing details are explicitly unavailable; current settings and other visits never supply inferred rules. Recorded invocation does not establish that a new run or shipment was created. Existing mobile Figma flows are unaffected by this admin-only change.
 
 Acceptance: no-action rows show a dash; separate entry/exit actions remain visible; malformed metadata is safe; the popover is viewport-constrained, scrollable and uses standard keyboard/dismissal handling. Four metadata/formatting tests and syntax checks pass. Full type/lint and browser interaction verification remain pending because frontend dependencies are absent. No API/database changes.
+
+
+### Shared admin shipment quantities — 2.279
+
+Implemented locally: all standard web create/edit entry points (shipment list, Schedule, run creation, shipment detail and dashboard drawer) use ShipmentQuoteDialog. The quote flow shares its parcel editor. Quantity and Unit type follow mobile’s eleven units and measurement visibility; switching units preserves hidden measurements. Packaging quantities expand into physical parcels (integer 1–100 per line, 500 total); measured quantities create one parcel, with kilograms/tonnes supplying mass. Positive measured quantities allow decimals up to 1,000,000, or 9,999.999 tonnes. Units is the default. Optional zero measurements serialize as null.
+
+Create and edit payloads share parcel normalization; both edit surfaces use one update payload builder. Existing shipment metadata is preserved, with admin_parcel_lines and admin_parcel_signature retaining editor groups. Reopen restores groups only when they match persisted parcels; matching mobile delivery_note_items can restore imported quantity/unit groups, otherwise individual parcels remain intact. Invoiced at is visible and submitted only with a nonblank invoice number. Mobile implementation and its Figma flows remain unchanged.
+
+Acceptance/status: five focused regression tests pass for visibility, expansion/conversion, validation, snapshot round-trip and imported groups. Syntax and whitespace checks pass. Full type/lint and interactive verification remain pending because frontend dependencies are absent; attempted TypeScript reports missing dependency types. No database migration or new endpoint.

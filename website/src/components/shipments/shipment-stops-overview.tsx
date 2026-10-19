@@ -552,11 +552,12 @@ export function ShipmentStopsOverview({
                     }
                   >
                     <div className="relative flex min-w-8 flex-col items-center self-stretch">
+                      {/* Connect marker centres across the row’s py-3 padding and 1px border. */}
                       {index > 0 ? (
-                        <div className="absolute left-1/2 -top-px bottom-1/2 w-[2px] -translate-x-1/2 bg-border" />
+                        <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[calc(-0.75rem-1px)] h-[calc(1.75rem+1px)] w-[2px] -translate-x-1/2 bg-border" />
                       ) : null}
                       {index < orderedStops.length - 1 ? (
-                        <div className="absolute left-1/2 top-1/2 -bottom-px w-[2px] -translate-x-1/2 bg-border" />
+                        <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-4 bottom-[calc(-0.75rem-1px)] w-[2px] -translate-x-1/2 bg-border" />
                       ) : null}
                       <div
                         className={cn(

@@ -1,3 +1,4 @@
+import { shipmentParcelPayload } from "@/lib/shipment-parcel-units"
 import { AdminLinks, AdminRoute } from "@/lib/routes/admin"
 import { DataTable } from "@/components/common/data-table"
 import { PageHeader } from "@/components/layout/page-header"
@@ -115,14 +116,7 @@ export default async function QuotesPage({ searchParams }: QuotesPageProps) {
         collection_date: values.collectionDate,
         pickup_address: toShipmentAddress(values.pickupLocation),
         dropoff_address: toShipmentAddress(values.dropoffLocation),
-        parcels: values.parcels.map((parcel) => ({
-          weight: parcel.weight_kg,
-          weight_measurement: "kg",
-          length_cm: parcel.length_cm,
-          width_cm: parcel.width_cm,
-          height_cm: parcel.height_cm,
-          contents_description: parcel.title || undefined,
-        })),
+        parcels: shipmentParcelPayload(values.parcels),
       },
       session.accessToken
     )

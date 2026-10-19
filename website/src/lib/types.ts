@@ -376,6 +376,8 @@ export interface ShipmentStop {
 }
 
 export type ShipmentParcelInput = {
+  quantity?: number | string
+  quantity_unit?: string
   title: string
   weight_kg: number
   length_cm: number
@@ -384,15 +386,16 @@ export type ShipmentParcelInput = {
 }
 
 export type CreateShipmentParcelPayload = {
-  weight: number
+  weight: number | null
   weight_measurement: "kg"
-  length_cm: number
-  width_cm: number
-  height_cm: number
+  length_cm: number | null
+  width_cm: number | null
+  height_cm: number | null
   contents_description?: string
 }
 
 export type CreateShipmentPayload = {
+  metadata?: Record<string, unknown>
   priority?: "low" | "normal" | "high" | "urgent"
   merchant_id: UUID
   merchant_order_ref: string

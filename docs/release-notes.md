@@ -1,5 +1,21 @@
 # Release Notes
 
+## 2026-10-19 | Version: shared-shipment-quantity-units
+- Summary: Add quantity and unit selection consistently across web shipment create/edit forms.
+- API Changes: Existing endpoints receive normalized physical parcels and editor grouping in shipment metadata; no new endpoint.
+- Database Changes: None.
+- Behavior Changes: Shared form follows mobile measurement visibility and quantity limits, preserves hidden values, expands packaging counts, converts tonnes to kilograms and restores matching saved/imported groups. Both edit surfaces share one payload builder. Invoiced at appears and submits only with an invoice number. Quote creation also uses the shared parcel normalization.
+- Breaking Changes: None.
+- Verification: Five focused tests pass; changed TypeScript syntax and diff whitespace checks pass. Full type/lint and browser checks remain blocked by missing frontend dependencies; attempted TypeScript confirms unavailable dependency types.
+
+## 2026-10-19 | Version: shipment-stop-timeline-connectors
+- Summary: Connect shipment timeline markers continuously and stop the line at the final marker.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Anchor connectors to the marker centre rather than half the variable-height row, extending through row padding and borders. First/last markers omit outward segments; a single marker has no connector.
+- Breaking Changes: None.
+- Verification: Syntax transpilation and diff whitespace check pass; checked connector geometry for variable-height, first, last and single rows. Browser verification remains pending with frontend dependencies absent.
+
 ## 2026-10-19 | Version: recorded-stops-empty-type
 - Summary: Leave missing location types blank in Recorded stops.
 - API Changes: None.
