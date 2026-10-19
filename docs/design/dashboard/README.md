@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.279
+Version: 2.281
 Last updated: 2026-10-19
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -1652,6 +1652,8 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-19 | 2.281 | Add recorded event latitude and longitude to the run Recorded stops table. |
+| 2026-10-19 | 2.280 | Route dashboard shipment KPI links to the shipments report with matching status filters. |
 | 2026-10-19 | 2.279 | Reuse the shared web shipment form for quantity/unit controls, mobile-equivalent measurements and invoice-date visibility; consolidate edit payloads. |
 | 2026-10-19 | 2.278 | Add historical automation explanations to Recorded stops and remove its redundant card border. |
 | 2026-10-19 | 2.277 | Link run timeline, map popup, route endpoints and speeding locations to the shared location-details drawer. |
@@ -2058,3 +2060,15 @@ Implemented locally: all standard web create/edit entry points (shipment list, S
 Create and edit payloads share parcel normalization; both edit surfaces use one update payload builder. Existing shipment metadata is preserved, with admin_parcel_lines and admin_parcel_signature retaining editor groups. Reopen restores groups only when they match persisted parcels; matching mobile delivery_note_items can restore imported quantity/unit groups, otherwise individual parcels remain intact. Invoiced at is visible and submitted only with a nonblank invoice number. Mobile implementation and its Figma flows remain unchanged.
 
 Acceptance/status: five focused regression tests pass for visibility, expansion/conversion, validation, snapshot round-trip and imported groups. Syntax and whitespace checks pass. Full type/lint and interactive verification remain pending because frontend dependencies are absent; attempted TypeScript reports missing dependency types. No database migration or new endpoint.
+
+
+### Admin dashboard shipment report links — 2.280
+
+Implemented locally: the five shipment KPI cards open the shipments report. Total shipments is unfiltered; In-transit bookings, At delivery location and Delivered shipments pass shipment_status=in_transit, at_delivery_location and delivered respectively. Pending shipments passes draft, matching the dashboard counter definition. Merchant scope continues to come from the selected session merchant. Counts and other KPI links are unchanged; booking-based counters may differ from shipment-based report totals. Mobile Figma flows are unaffected.
+
+Acceptance: all five destinations use the report route and its shipment_status parameter; total has no status restriction and pending selects draft. Validation is recorded in release notes.
+
+
+### Recorded stop coordinates — 2.281
+
+Implemented locally: Latitude and Longitude columns follow Time in the run Recorded stops table, showing event coordinates to six decimal places. Missing/non-finite values show a dash; zero and negative coordinates remain valid. Saved-location coordinates are not substituted. Acceptance: both columns appear for every run using the shared table, with existing links, automation and duration retained. Verification is recorded in release notes. Admin-only change; mobile Figma flows are unaffected.

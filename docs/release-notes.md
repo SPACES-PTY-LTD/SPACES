@@ -1,5 +1,21 @@
 # Release Notes
 
+## 2026-10-19 | Version: recorded-stop-coordinate-columns
+- Summary: Add Latitude and Longitude to run Recorded stops tables.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Display event coordinates to six decimal places after Time; missing or non-finite coordinates show a dash, with no substitution of saved location coordinates. Zero coordinates remain visible.
+- Breaking Changes: None.
+- Verification: Focused lint, TypeScript and diff whitespace checks pass; reviewed missing, zero and negative coordinate rendering.
+
+## 2026-10-19 | Version: dashboard-shipment-report-links
+- Summary: Send dashboard shipment KPI cards to the shipments report.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Total opens the unfiltered report; in-transit, at-delivery and delivered use matching shipment_status filters. Pending uses draft to match its counter. Existing merchant scope and KPI values remain unchanged.
+- Breaking Changes: None.
+- Verification: Checked all five route/status mappings against report parameters and dashboard counter definitions; focused lint and TypeScript checks pass.
+
 ## 2026-10-19 | Version: run-location-id-build-fix
 - Summary: Fix the production TypeScript build failure caused by nullable run location IDs.
 - API Changes: None.

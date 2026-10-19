@@ -40,6 +40,8 @@ export function RecordedStopsTable({ stops, activities, accessToken, merchantId,
       { key: "event", label: "Event", className: "capitalize" },
       { key: "automation", label: "Automation", customValue: row => <RecordedStopAutomationPopover metadata={row.stop.metadata} /> },
       { key: "occurredAt", label: "Time", type: "date_time" },
+      { key: "latitude", label: "Latitude", description: "Latitude recorded for this stop event.", customValue: row => row.stop.latitude != null && Number.isFinite(row.stop.latitude) ? row.stop.latitude.toFixed(6) : "—" },
+      { key: "longitude", label: "Longitude", description: "Longitude recorded for this stop event.", customValue: row => row.stop.longitude != null && Number.isFinite(row.stop.longitude) ? row.stop.longitude.toFixed(6) : "—" },
       { key: "duration", label: "Duration", className: "min-w-[240px] whitespace-normal", customValue: row => <RunStopDuration stop={row.stop} activities={activities} initialNow={initialNow} /> },
     ]}
   />

@@ -71,27 +71,27 @@ export default async function AdminDashboardPage() {
     {
       label: "Total shipments",
       value: formatter.format(stats.total_shipments),
-      href: AdminLinks.shipments,
+      href: AdminLinks.reportsShipments,
     },
     {
       label: "In-transit bookings",
       value: formatter.format(stats.in_transit_bookings),
-      href: withAdminQuery(AdminLinks.shipments, { status: "in_transit" }),
+      href: withAdminQuery(AdminLinks.reportsShipments, { shipment_status: "in_transit" }),
     },
     {
       label: "At delivery location",
       value: formatter.format(stats.at_delivery_location_bookings ?? 0),
-      href: withAdminQuery(AdminLinks.shipments, { status: "at_delivery_location" }),
+      href: withAdminQuery(AdminLinks.reportsShipments, { shipment_status: "at_delivery_location" }),
     },
     {
       label: "Delivered shipments",
       value: formatter.format(stats.delivered_shipments),
-      href: withAdminQuery(AdminLinks.shipments, { status: "delivered" }),
+      href: withAdminQuery(AdminLinks.reportsShipments, { shipment_status: "delivered" }),
     },
     {
       label: "Pending shipments",
       value: formatter.format(stats.pending_shipments),
-      href: withAdminQuery(AdminLinks.shipments, { status: "pending" }),
+      href: withAdminQuery(AdminLinks.reportsShipments, { shipment_status: "draft" }),
     },
     {
       label: "Total fleet",
