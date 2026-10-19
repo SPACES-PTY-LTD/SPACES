@@ -1,5 +1,21 @@
 # Release Notes
 
+## 2026-10-19 | Version: recorded-stops-empty-type
+- Summary: Leave missing location types blank in Recorded stops.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Missing or whitespace-only types render an empty cell instead of a Type not set badge; named types retain their badges.
+- Breaking Changes: None.
+- Verification: Syntax transpilation and diff whitespace check pass; reviewed conditional rendering for empty and named types.
+
+## 2026-10-19 | Version: recorded-stop-automation-explanations
+- Summary: Explain recorded automation rules from the run’s Recorded stops table.
+- API Changes: None; use existing stop metadata.
+- Database Changes: None.
+- Behavior Changes: Remove the redundant outer card; add Automation after Event. Explain opens a bounded shadcn popover with historical actions, triggers, conditions and timestamps. Rows without valid actions show a dash. Missing details stay explicit, and invocation is not represented as confirmed run/shipment creation.
+- Breaking Changes: None.
+- Verification: Four parser/formatting tests and four TypeScript syntax checks pass; diff whitespace check passes. Full type/lint and interactive browser checks remain pending with frontend dependencies absent.
+
 ## 2026-10-19 | Version: stops-analysis-drawer-sorting
 - Summary: Make stop-analysis location drawer tables sortable using the shared DataTable.
 - API Changes: None.

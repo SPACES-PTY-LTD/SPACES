@@ -198,12 +198,10 @@ export async function RunDetailContent({ runId, embedded = false }: { runId: str
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><CardTitle>Recorded stops</CardTitle></CardHeader>
-          <CardContent>
-            <RecordedStopsTable stops={timedStops} activities={timedActivities} accessToken={session.accessToken} merchantId={run.merchant_id} initialNow={initialNow} />
-          </CardContent>
-        </Card>
+        <section className="space-y-4" aria-labelledby="recorded-stops-title">
+          <h2 id="recorded-stops-title" className="font-semibold">Recorded stops</h2>
+          <RecordedStopsTable stops={timedStops} activities={timedActivities} accessToken={session.accessToken} merchantId={run.merchant_id} initialNow={initialNow} />
+        </section>
       </div>
     </div>
   )

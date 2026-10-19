@@ -1,6 +1,6 @@
 # Driver dashboard plan
 
-Version: 2.277
+Version: 2.278
 Last updated: 2026-10-19
 Status: Core mobile/API implementation is complete. GPS history and recorded maps are implemented with backend rollout flags; mobile Plan Route / Actual / All controls are visible. Targeted verification is recorded below; native GPS-map interaction, production load, live AI and physical-camera checks remain release gates.
 
@@ -1652,6 +1652,7 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 
 | Date | Version | Change |
 | --- | --- | --- |
+| 2026-10-19 | 2.278 | Add historical automation explanations to Recorded stops and remove its redundant card border. |
 | 2026-10-19 | 2.277 | Link run timeline, map popup, route endpoints and speeding locations to the shared location-details drawer. |
 | 2026-10-15 | 2.276 | Add building entrances and schematic vehicle yard arrival/departure motion. |
 | 2026-10-15 | 2.275 | Illustrated scene preparation with real first-frame readiness, slow-load copy and fleet-list access. |
@@ -2040,3 +2041,10 @@ Additional cost presentation (1.74, implemented locally): use a soft expense not
 Implementation status: implemented locally. Saved location names in the run trip timeline, map popup Location row, origin/destination header and speeding events open the shared right-side location-details drawer. Shipment locations and recorded stops retain their existing drawer links. Unknown/unlinked locations remain plain text. Replay events retain the location ID separately from their display title; no name matching or fabricated IDs. Requests use the run's access token and merchant scope, with the existing loading/error/retry states, geofence and full-location-page link.
 
 Acceptance: linked names are keyboard-operable; opening/closing details retains replay selection and run context; missing IDs do not produce broken links. Twenty replay/map-marker tests pass (including retained IDs and safe popup button callbacks). Full application type/lint and authenticated browser checks remain pending because frontend dependencies are absent locally. No API/database changes or driver lifecycle changes.
+
+
+### Recorded stop automation explanations — 2.278
+
+Implementation status: implemented locally. Recorded stops retains a heading and the DataTable border without an outer card. An Automation column after Event shows Explain only for supported recorded actions in that stop’s metadata. Its shadcn popover lists entry/exit executions in stored order, historical conditions and execution times. Missing details are explicitly unavailable; current settings and other visits never supply inferred rules. Recorded invocation does not establish that a new run or shipment was created. Existing mobile Figma flows are unaffected by this admin-only change.
+
+Acceptance: no-action rows show a dash; separate entry/exit actions remain visible; malformed metadata is safe; the popover is viewport-constrained, scrollable and uses standard keyboard/dismissal handling. Four metadata/formatting tests and syntax checks pass. Full type/lint and browser interaction verification remain pending because frontend dependencies are absent. No API/database changes.

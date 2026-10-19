@@ -1,5 +1,6 @@
 "use client"
 
+import { RecordedStopAutomationPopover } from "./recorded-stop-automation-popover"
 import { DataTable } from "@/components/common/data-table"
 import { LocationDetailsDrawer } from "@/components/locations/location-details-drawer"
 import { Badge } from "@/components/ui/badge"
@@ -18,7 +19,7 @@ export function RecordedStopsTable({ stops, activities, accessToken, merchantId,
     id: stop.activity_id ?? String(index),
     sequence: index + 1,
     locationName: stop.location?.name || stop.location?.company || stop.shipment?.merchant_order_ref || "Recorded stop",
-    locationType: stop.location?.type?.title || "Type not set",
+    locationType: stop.location?.type?.title?.trim() || "",
     event: (stop.event_type ?? "stop").replaceAll("_", " "),
     occurredAt: stop.occurred_at,
     stop,
@@ -35,8 +36,9 @@ export function RecordedStopsTable({ stops, activities, accessToken, merchantId,
           ? <LocationDetailsDrawer locationId={row.stop.location.location_id} label={row.locationName} accessToken={accessToken} merchantId={merchantId} />
           : <RecordedStopDrawer stop={row.stop} label={row.locationName} accessToken={accessToken} merchantId={merchantId} />
       ) },
-      { key: "locationType", label: "Type", customValue: row => <Badge variant="outline">{row.locationType}</Badge> },
+      { key: "locationType", label: "Type", customValue: row => row.locationType ? <Badge variant="outline">{row.locationType}</Badge> : null },
       { key: "event", label: "Event", className: "capitalize" },
+      { key: "automation", label: "Automation", customValue: row => <RecordedStopAutomationPopover metadata={row.stop.metadata} /> },
       { key: "occurredAt", label: "Time", type: "date_time" },
       { key: "duration", label: "Duration", className: "min-w-[240px] whitespace-normal", customValue: row => <RunStopDuration stop={row.stop} activities={activities} initialNow={initialNow} /> },
     ]}
