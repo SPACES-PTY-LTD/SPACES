@@ -7,13 +7,13 @@ import type { OrbitControls } from 'three-stdlib';
 import { LOCATION_TYPE_ICONS } from '@/lib/location-type-icons';
 import type { Placement, SitePlacement } from './model';
 
-const palette=['#ff526e','#ffba38','#40bcd0','#9770d8','#42b38d','#f28b45'];
+const palette=['#b58e98','#c6ad79','#7ea8b2','#a298b7','#8aaa99','#bf9c84'];
 function Surface({x,z,width,depth,color,y=0}:{x:number;z:number;width:number;depth:number;color:string;y?:number}) {
   return <mesh position={[x,y,z]} rotation={[-Math.PI/2,0,0]}><planeGeometry args={[width,depth]}/><meshBasicMaterial color={color} toneMapped={false}/></mesh>;
 }
 /** Capsule roads share their height, so their unions have no raised junction seams. */
 function Street({x,z,length,vertical=false,width=3}:{x:number;z:number;length:number;vertical?:boolean;width?:number}) {
-  return <group position={[x,0,z]} rotation={[0,vertical?Math.PI/2:0,0]}>{[['#d8ceb7',width+.45,.005],['#fffdf5',width,.015]].map(([color,w,y])=><group key={color}>
+  return <group position={[x,0,z]} rotation={[0,vertical?Math.PI/2:0,0]}>{[['#cbd1d0',width+.45,.005],['#fafbf9',width,.015]].map(([color,w,y])=><group key={color}>
     <Surface x={0} z={0} width={length} depth={w as number} color={color as string} y={y as number}/>
     {[-1,1].map(side=><mesh key={side} rotation={[-Math.PI/2,0,0]} position={[side*length/2,y as number,0]}><circleGeometry args={[(w as number)/2,16]}/><meshBasicMaterial color={color as string} toneMapped={false}/></mesh>)}
   </group>)}</group>;
@@ -27,7 +27,7 @@ function MiniBays({placements,location}:{placements:Placement[];location:string|
     bays.forEach((p,i)=>{object.position.set(p.x,.03,p.z+.67);object.updateMatrix();mesh.current!.setMatrixAt(i,object.matrix);});
     mesh.current.instanceMatrix.needsUpdate=true;
   },[bays]);
-  return <instancedMesh ref={mesh} key={bays.length} args={[undefined,undefined,bays.length]} frustumCulled={false} raycast={()=>null}><boxGeometry args={[2.5,.02,.06]}/><meshBasicMaterial color="#fffdf5"/></instancedMesh>;
+  return <instancedMesh ref={mesh} key={bays.length} args={[undefined,undefined,bays.length]} frustumCulled={false} raycast={()=>null}><boxGeometry args={[2.5,.02,.06]}/><meshBasicMaterial color="#fafbf9"/></instancedMesh>;
 }
 function MiniCamera({points,focus,zoom,mode,isolated}:{points:{x:number;z:number}[];focus:string;zoom:number;mode:'pan'|'rotate';isolated:boolean}) {
   const camera=useRef<Camera>(null),controls=useRef<OrbitControls>(null);
@@ -64,7 +64,7 @@ export function MiniEnvironment({sites,placements,roads,crossStreets,location,se
     return locationsFocus?bounds:[...bounds,...placements];
   },[site,selectedPoint,group,placements,highwayFocus,transit,sites,locationsFocus]);
   return <>
-    <color attach="background" args={['#f6f0df']}/><ambientLight intensity={1.7}/><directionalLight position={[-20,40,15]} intensity={1.4}/>
+    <color attach="background" args={['#f1f3f2']}/><ambientLight intensity={1.7}/><directionalLight position={[-20,40,15]} intensity={1.4}/>
     {!location && <>
       {roads.map(z=><Street key={z} x={(left+right)/2} z={z} length={right-left}/>)}
       {[left,right].map(x=><Street key={x} x={x} z={(north+bottom)/2} length={bottom-north} vertical/>)}
@@ -78,18 +78,18 @@ export function MiniEnvironment({sites,placements,roads,crossStreets,location,se
       const parked=placements.filter(p=>p.vehicle.locationId===s.id && p.vehicle.status==='at_location');
       const aisles=[...new Set(parked.map(p=>p.x+1.65))];
       return <group key={s.id}>
-        <Surface x={s.x+(s.yardWidth??12)/2-2} z={s.z+(s.yardDepth??12)/2-3} width={s.yardWidth??12} depth={s.yardDepth??12} color="#e8dfc9" y={-.02}/>
+        <Surface x={s.x+(s.yardWidth??12)/2-2} z={s.z+(s.yardDepth??12)/2-3} width={s.yardWidth??12} depth={s.yardDepth??12} color="#e0e5e1" y={-.02}/>
         {aisles.map(x=><Street key={x} x={x} z={s.z+(s.yardDepth??12)/2-4} length={(s.yardDepth??12)+4} vertical width={1.2}/>)}
         <group position={[s.x,0,s.z+2]} onClick={e=>{e.stopPropagation();onLocation(s.id);}} onPointerOver={e=>{e.stopPropagation();setHover(s.id);}} onPointerOut={()=>setHover(null)}>
           <mesh position={[0,.3,0]}><boxGeometry args={[5,.6,5]}/><meshStandardMaterial color={color}/></mesh>
           <mesh position={[0,1,0]}><boxGeometry args={[3.8,1.4,3.8]}/><meshStandardMaterial color={color}/></mesh>
           {/* A fixed roof motif and colour identify each catalog type without detailed assets. */}
-          {Array.from({length:1+Math.floor(index/6)},(_,i)=><mesh key={i} position={[-1.15+(i%3)*1.15,1.82,-.9+Math.floor(i/3)*1.5]}>{index%2?<cylinderGeometry args={[.35,.35,.22,12]}/>:<boxGeometry args={[.65,.22,.85]}/>}<meshBasicMaterial color="#fff5d9"/></mesh>)}
+          {Array.from({length:1+Math.floor(index/6)},(_,i)=><mesh key={i} position={[-1.15+(i%3)*1.15,1.82,-.9+Math.floor(i/3)*1.5]}>{index%2?<cylinderGeometry args={[.35,.35,.22,12]}/>:<boxGeometry args={[.65,.22,.85]}/>}<meshBasicMaterial color="#eef1ed"/></mesh>)}
           {hover===s.id && <Html position={[0,3,0]} center style={{pointerEvents:'none'}}><div className="mv-truck-label">{s.name}</div></Html>}
         </group>
       </group>;
     })}
-    {(['standby','unknown'] as const).map(status=>{const ps=placements.filter(p=>p.vehicle.status===status && visibleIds.has(p.vehicle.id) && (!location || p.vehicle.locationId===location));if(!ps.length)return null;const minX=Math.min(...ps.map(p=>p.x)),maxX=Math.max(...ps.map(p=>p.x)),minZ=Math.min(...ps.map(p=>p.z)),maxZ=Math.max(...ps.map(p=>p.z));return <group key={status}><Surface x={(minX+maxX)/2} z={(minZ+maxZ)/2} width={maxX-minX+4} depth={maxZ-minZ+4} color={status==='standby'?'#dce6d3':'#e6ddda'} y={-.01}/><Html position={[(minX+maxX)/2,1,minZ-3]} center><button className="mv-area-label" onClick={()=>onGroup(status)}>{status==='standby'?'Standby':'Unknown location'}</button></Html></group>;})}
+    {(['standby','unknown'] as const).map(status=>{const ps=placements.filter(p=>p.vehicle.status===status && visibleIds.has(p.vehicle.id) && (!location || p.vehicle.locationId===location));if(!ps.length)return null;const minX=Math.min(...ps.map(p=>p.x)),maxX=Math.max(...ps.map(p=>p.x)),minZ=Math.min(...ps.map(p=>p.z)),maxZ=Math.max(...ps.map(p=>p.z));return <group key={status}><Surface x={(minX+maxX)/2} z={(minZ+maxZ)/2} width={maxX-minX+4} depth={maxZ-minZ+4} color={status==='standby'?'#dce5df':'#e3e1e5'} y={-.01}/><Html position={[(minX+maxX)/2,1,minZ-3]} center><button className="mv-area-label" onClick={()=>onGroup(status)}>{status==='standby'?'Standby':'Unknown location'}</button></Html></group>;})}
     {children}
     <MiniCamera points={points} focus={`${focus}:${location}:${selected}:${group}:${highwayFocus}:${locationsFocus}`} zoom={zoom} mode={mode} isolated={!!location || !!selected}/>
   </>;

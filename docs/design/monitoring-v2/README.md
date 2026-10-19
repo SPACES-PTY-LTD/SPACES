@@ -213,7 +213,7 @@ Implemented as the fourth **Road layout** choice, with Mixed Grid still the init
 
 Mini uses an orthographic camera locked to the ground normal. Drag mode supports pan or flat rotation; wheel/two-finger zoom, right-drag rotation and Reset view remain available. Overview/Road/Top controls are hidden. Reset fits the current focus and restores Pan. Location/vehicle detail limits zoom-out relative to the fitted extent. KPI actions retain Mini while changing focus.
 
-Stable location slots fill blocks of one, two and three facilities, with connected pale capsule roads and contrasting edges. Low colourful buildings use the catalog's fixed order for palette and roof motifs, including a warehouse fallback. Parking sits beside each building; each column has its own access aisle connected to the frontage road. The largest retained yard population determines block spacing, preventing shrinkage on refresh. Transit uses a separate flat perimeter road; standby/unknown keep separate parking areas. Isolated locations include relevant standby vehicles in their fitted bounds.
+Stable location slots fill blocks of one, two and three facilities, with connected pale capsule roads and contrasting edges. Low buildings in muted rose, ochre, teal, lavender, sage and clay use the catalog's fixed order for palette and roof motifs, including a warehouse fallback. Parking sits beside each building; each column has its own access aisle connected to the frontage road. The largest retained yard population determines block spacing, preventing shrinkage on refresh. Transit uses a separate flat perimeter road; standby/unknown keep separate parking areas. Isolated locations include relevant standby vehicles in their fitted bounds.
 
 Vehicles use two instanced low-poly parts; bay markings are also instanced. Grey vehicles, blue selection, red attention and clickable yellow scene badges use the existing interaction logic. Shared motion state survives style switches, while optional entrance/aisle configuration routes real arrivals and departures through Mini's side parking. Existing layouts retain their geometry and original default paths. Shadows remain disabled and stationary caching, hidden-tab suspension and paused demand rendering are retained.
 
@@ -224,3 +224,8 @@ Vehicles use two instanced low-poly parts; bay markings are also instanced. Grey
 - Remaining device verification: physical touch/pinch, real narrow-screen breakpoints and hidden-tab GPU measurements. The available viewport override scaled the desktop view rather than changing its CSS viewport. Existing reduced-motion and hidden-tab policies are reused; motion pause/reduced-motion behavior is regression-tested.
 
 Revision: 2026-10-16 — implemented the approved Mini plan; no driver-dashboard lifecycle/API changes.
+
+
+### Mini palette refinement — 2026-10-16
+
+User selected subtle colours inspired by the references. Implemented a muted building palette on a neutral mist-grey background, off-white roads, cool grey edges and soft sage yard surfaces. Roof details use a neutral off-white. Vehicle selection and attention colours retain their established contrast. This supersedes the initial bright palette and warm cream ground. Verification: focused Mini scene lint and visual preview; colour-only change.

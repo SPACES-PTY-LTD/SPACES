@@ -160,7 +160,7 @@ export default async function RunsPage({
           { key: "endRequestStatus", label: "End request", type: "status", link: "href", className: "w-[170px]" },
           { key: "effectiveStart", label: "Start", type: "date_time", link: "href", className: "w-[170px]" },
           { key: "runDuration", label: "Duration", link: "href", className: "w-[120px]" },
-          { key: "runDistance", label: "Distance", link: "href", className: "w-[140px]" },
+          { key: "runDistance", label: "Distance", description: "Distance uses the end odometer reading minus the start reading when both are available (shown without a label). Otherwise, it is calculated from recorded GPS points and marked (GPS). A dash means neither source has enough data.", link: "href", className: "w-[140px]" },
           { key: "additionalCostsLabel", label: "Additional costs", link: "href", className: "w-[180px]" },
           { key: "shipment_count", label: "Shipments", link: "href", className: "w-[110px]" },
           { key: "delivery_note_files", label: "Has Delivery Note File", type: "run_delivery_note_files", className: "w-[240px]" },

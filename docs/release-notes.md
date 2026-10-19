@@ -1,5 +1,21 @@
 # Release Notes
 
+## 2026-10-19 | Version: runs-distance-column-info
+- Summary: Explain the Runs table distance sources in column help.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: The Distance header now uses the existing info tooltip to explain odometer priority, the GPS label and unavailable distances. Available on hover and keyboard focus; sorting and values are unchanged.
+- Breaking Changes: None.
+- Verification: Diff whitespace check passed; confirmed reuse of the shared accessible column-description tooltip. Focused lint could not run because website/node_modules is absent.
+
+## 2026-10-16 | Version: monitoring-v2-mini-muted-palette
+- Summary: Soften Mini colours to follow the references more subtly.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Muted rose, ochre, teal, lavender, sage and clay buildings replace the saturated palette. Neutral mist-grey ground, off-white roads and soft yard colours replace the cream scheme. Vehicle and alert colours remain unchanged.
+- Breaking Changes: None.
+- Verification: Focused Mini scene lint and visual browser preview; colour-only changes.
+
 ## 2026-10-16 | Version: monitoring-v2-mini
 - Summary: Add an optional Mini road layout with a flat, compact fleet scene.
 - API Changes: None.
