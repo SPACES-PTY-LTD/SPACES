@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-10-19 | Version: schedule-vehicle-details-drawer
+- Summary: Open full vehicle details from Schedule truck names and icons.
+- API Changes: None; existing scoped vehicle endpoint is reused.
+- Database Changes: None.
+- Behavior Changes: Truck headers open a right-side drawer using the same server-rendered vehicle detail component as the full vehicle page, including map, information, actions, tags, files and activity. The authenticated embedded vehicle route carries Schedule’s merchant scope; closing retains the board and refreshes its data.
+- Breaking Changes: None.
+- Verification: Changed TypeScript syntax and diff whitespace checks pass; reviewed shared page/drawer rendering and merchant-scoped request flow. Full type/lint and browser validation remain pending with frontend dependencies absent.
+
 ## 2026-10-19 | Version: shared-shipment-quantity-units
 - Summary: Add quantity and unit selection consistently across web shipment create/edit forms.
 - API Changes: Existing endpoints receive normalized physical parcels and editor grouping in shipment metadata; no new endpoint.

@@ -65,7 +65,7 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
   const [plannedTime, setPlannedTime] = React.useState("")
   const [formError, setFormError] = React.useState<string | null>(null)
   const [searchOpen, setSearchOpen] = React.useState<Record<SearchColumn, boolean>>({ drivers: false, runs: false, shipments: false })
-  const [detail, setDetail] = React.useState<{ kind: "driver" | "shipment" | "run"; id: string } | null>(null)
+  const [detail, setDetail] = React.useState<{ kind: "driver" | "shipment" | "run" | "vehicle"; id: string } | null>(null)
   const [driverTarget, setDriverTarget] = React.useState<ScheduleRun | null>(null)
   const searchButtons = React.useRef<Partial<Record<SearchColumn, HTMLButtonElement | null>>>({})
   const operation = React.useRef(false)
@@ -322,7 +322,7 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
           {searchButton("runs", filters.truck_search)}</div></div>{searchInput("runs", "truck_search")}</div>
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-4">{loading && !data ? <ScheduleColumnSkeleton column="runs" /> : data?.trucks.map(truck => <div key={truck.vehicle_id} data-schedule-truck-row onDragOver={event => over(event, truck.vehicle_id, truck.can_create || truck.runs.some(run => !!selected && eligibleRun(selected, run)))} onDragLeave={() => setHover(null)}
           onDrop={event => { if (!dragging) return; event.preventDefault(); setDragging(false); setHover(null); if (selected) truckTarget(truck, selected) }} className={cn("grid grid-cols-[112px_minmax(0,1fr)] border-b @min-[1100px]:grid-cols-[144px_minmax(0,1fr)]", hover === truck.vehicle_id && "ring-2 ring-inset ring-primary")}>
-          <div className="min-w-0 border-r py-3 pr-2"><h3 className="flex items-start gap-1.5 text-[13px] font-medium"><Truck className="size-5 shrink-0 text-muted-foreground" /><span className="break-all">{truck.plate_number}</span></h3><p className="mt-1 text-[11px] text-muted-foreground">{truck.available ? "Available" : "In use"}</p>
+          <div className="min-w-0 border-r py-3 pr-2"><h3><button type="button" className="flex items-start gap-1.5 rounded-sm text-left text-[13px] font-medium hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring" aria-label={`View vehicle details for ${truck.plate_number}`} onClick={() => setDetail({ kind: "vehicle", id: truck.vehicle_id })}><Truck className="size-5 shrink-0 text-muted-foreground" /><span className="break-all">{truck.plate_number}</span></button></h3><p className="mt-1 text-[11px] text-muted-foreground">{truck.available ? "Available" : "In use"}</p>
             {truck.can_create && truck.runs.length > 0 && <Button variant="ghost" size="xs" className="mt-2" aria-label={`New run for ${truck.plate_number}`} disabled={busy} onClick={() => selected ? truckTarget(truck, selected) : openForm(truck)}><Plus className="size-3" />{selected ? "Choose run" : "New run"}</Button>}</div>
           <div className="min-w-0 space-y-2 p-2">{[...truck.runs.filter(run => run.status === "in_progress"), ...truck.runs.filter(run => run.status !== "in_progress" && run.overdue), ...truck.runs.filter(run => run.status !== "in_progress" && !run.overdue)].map(run => runCard(run, truck))}
             {!truck.runs.length && <div className="flex flex-wrap items-center gap-2 py-2 text-xs text-muted-foreground"><span>No runs planned</span>{truck.can_create && <Button variant="outline" size="sm" className="text-xs shadow-none" disabled={busy} onClick={() => selected ? truckTarget(truck, selected) : openForm(truck)}>New run</Button>}</div>}</div>
@@ -346,6 +346,12 @@ export function ScheduleBoard({ merchantId, token, timezone: initialTimezone }: 
       <DrawerContent side="right" className="gap-0 overflow-hidden sm:w-[min(96vw,1200px)]">
         <DrawerHeader className="shrink-0 border-b pr-12"><DrawerTitle>Run details</DrawerTitle><DrawerDescription>Run information, recorded telemetry and actions.</DrawerDescription></DrawerHeader>
         {detail?.kind === "run" && <iframe key={detail.id} title="Run details" src={`/admin/messages/attachments/run/${encodeURIComponent(detail.id)}`} className="min-h-0 w-full flex-1 border-0" />}
+      </DrawerContent>
+    </Drawer>
+    <Drawer open={detail?.kind === "vehicle"} onOpenChange={closeDetails}>
+      <DrawerContent side="right" className="sm:w-[min(96vw,1100px)]">
+        <DrawerHeader className="shrink-0 border-b pr-12"><DrawerTitle>Vehicle details</DrawerTitle><DrawerDescription>Vehicle information, location, files and activity.</DrawerDescription></DrawerHeader>
+        {detail?.kind === "vehicle" && <iframe key={`${merchantId}-${detail.id}`} title="Vehicle details" src={`/admin/messages/attachments/vehicle/${encodeURIComponent(detail.id)}?merchant_id=${encodeURIComponent(merchantId)}`} className="min-h-0 w-full flex-1 border-0" />}
       </DrawerContent>
     </Drawer>
     <Drawer open={detail?.kind === "driver"} onOpenChange={closeDetails}><DrawerContent side="right" className="sm:w-[min(96vw,1000px)]"><DrawerHeader className="sr-only"><DrawerTitle>Driver details</DrawerTitle><DrawerDescription>Driver profile and vehicle assignments.</DrawerDescription></DrawerHeader><div className="flex-1 overflow-y-auto p-4 pt-10">{detail?.kind === "driver" && <DriverDialogContent key={detail.id} driverId={detail.id} accessToken={token} merchantId={merchantId} />}</div></DrawerContent></Drawer>

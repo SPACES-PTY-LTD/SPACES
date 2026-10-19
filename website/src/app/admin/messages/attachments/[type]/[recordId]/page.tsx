@@ -1,3 +1,4 @@
+import { VehicleDetailContent } from "@/components/vehicles/vehicle-detail-content";
 import { notFound } from 'next/navigation';
 import { requireRole } from '@/lib/auth';
 import { RunDetailContent } from '@/components/runs/run-detail-content';
@@ -14,6 +15,10 @@ export default async function ConversationRecordPage({ params, searchParams }: {
         const { merchant_id } = await searchParams;
         // The driver API validates access to the requested conversation merchant.
         return <DriverDetailContent driverId={recordId} accessToken={session.accessToken} merchantId={merchant_id} embedded />;
+    }
+    if (type === 'vehicle') {
+        const { merchant_id } = await searchParams;
+        return <VehicleDetailContent vehicleId={recordId} accessToken={session.accessToken} merchantId={merchant_id} embedded />;
     }
     if (type === 'run') return <RunDetailContent runId={recordId} embedded />;
     if (type === 'shipment') {
