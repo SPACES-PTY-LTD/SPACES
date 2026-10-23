@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-10-23 | Version: node-22-23-4-security-runtime
+- Summary: Pin Spaces tooling and builds to the October 21 Node.js 22.23.4 LTS security release.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Root Vite, Next.js and Expo packages require Node >=22.23.4 <23, with exact .nvmrc pins and EAS build pins (including inherited profiles). Remote runtimes require separate verification and a later deployment; this change does not patch running servers.
+- Internal Changes: Install a checksum-verified, Git-ignored project-scoped macOS runtime; document setup and security scope. Lockfile dependency graphs are unchanged.
+- Breaking Changes: Older Node versions and other major versions fall outside the declared engine range; select the pinned runtime before installing/building.
+- Verification: Official advisory/release and SHA-256 checked; all locked dependency engines accept 22.23.4; all five EAS profiles resolve to the pin; package/lockfile metadata consistency and unchanged dependency graphs verified. Root and Expo npm ci pass; root Vite production build and website/Expo TypeScript checks pass on Node 22.23.4/npm 10.9.9. Website lint fails in unchanged tests/admin-run-actions.test.mjs:101 (1 error, 20 warnings); Expo lint fails with 7 existing source errors. Next.js production build passes (existing lint warnings and multiple-lockfile workspace-root warning). No native/EAS builds, production deployments or restarts performed.
+
 ## 2026-10-19 | Version: recorded-stop-coordinate-columns
 - Summary: Add Latitude and Longitude to run Recorded stops tables.
 - API Changes: None.

@@ -4,6 +4,7 @@ Production-grade REST API for a Pickup-Integrate-style logistics aggregator.
 
 ## Requirements
 - PHP 8.2+
+- Node.js 22.23.4 LTS (see [runtime setup and security scope](docs/node-runtime.md))
 - Composer
 - SQLite (local) or MySQL (production)
 

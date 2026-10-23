@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "node": "22.23.4",
       "developmentClient": true,
       "distribution": "internal",
       "environment": "development",
@@ -15,11 +16,13 @@
       "ios": { "simulator": true }
     },
     "preview": {
+      "node": "22.23.4",
       "distribution": "internal",
       "environment": "preview",
       "channel": "preview"
     },
     "production": {
+      "node": "22.23.4",
       "environment": "production",
       "channel": "production",
       "ios": { "autoIncrement": "buildNumber" }
