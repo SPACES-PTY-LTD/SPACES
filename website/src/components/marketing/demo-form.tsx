@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { DemoDatePicker } from "./demo-date-picker";
 import { CalendarDays, Check, CheckCircle2, Clock3 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -70,7 +71,7 @@ export function DemoForm({ manage = false, salesEmail }: { manage?: boolean; sal
         {step === "confirmation" && booking ? <div className="booking-confirmation" role="status"><CheckCircle2 className="confirmation-icon" size={36} aria-hidden="true" />
             {booking.status !== "cancelled" && <div className="appointment-summary"><strong>{dateLabel(booking.starts_at)}</strong><span>{time(booking.starts_at)} · 30 minutes · SAST (UTC+2)</span></div>}
             <p>{booking.status === "cancelled" ? "Your appointment has been cancelled. We’ll email an update." : manage ? "Your appointment has been rescheduled. We’ll email the updated details." : "We’ll email your confirmation and private appointment-management link. Your meeting link will be sent separately."}</p>
-            <a href="/platform">Explore the platform →</a>
+            <Link href="/platform">Explore the platform →</Link>
         </div> : <>
             {manage && !token ? <p className="notice">Open the private management link in your confirmation email to change your appointment.</p> : <>
                 <p className="booking-meta"><Clock3 size={15} aria-hidden="true" />30 minutes · South African Standard Time (UTC+2)</p>

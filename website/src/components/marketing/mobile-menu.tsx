@@ -22,10 +22,12 @@ export function MarketingNavigation({ items }: { items: NavItem[] }) {
     const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const clearLeave = () => { if (leaveTimer.current) clearTimeout(leaveTimer.current); };
     useEffect(() => () => { if (leaveTimer.current) clearTimeout(leaveTimer.current); }, []);
-    useEffect(() => {
+    const [previousPathname, setPreviousPathname] = useState(pathname);
+    if (previousPathname !== pathname) {
+        setPreviousPathname(pathname);
         setOpen(null);
         setMobile(false);
-    }, [pathname]);
+    }
     useEffect(() => {
         const outside = (event: PointerEvent) => {
             if (!root.current?.contains(event.target as Node)) {

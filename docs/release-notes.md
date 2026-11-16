@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-11-16 | Version: website-production-build-fixes
+- Summary: Fix the two marketing-component lint errors that blocked the website deployment build.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Use Next.js Link for the demo confirmation's platform destination. Reset open navigation menus when the pathname changes with a guarded render-time state adjustment instead of synchronous state updates in an effect; preserve click, touch and keyboard dismissal.
+- Breaking Changes: None.
+- Verification: `npm run build` in website completed successfully (compilation, lint/type checks, 113 generated pages and build tracing) on local Node 26.12.1; deployment's pinned Node 22.23.4 was not available locally. Twelve marketing navigation/booking tests and git diff --check passed. Updated the booking harness for Next.js Link and added pathname-change navigation coverage. Existing non-blocking unused-variable, image, workspace-root and metadataBase warnings remain. Not deployed; this build validation does not establish that the production data-purge runtime error is resolved.
+
 ## 2026-11-16 | Version: purge-gps-and-uploaded-files
 - Summary: Remove GPS history and managed uploads with purged merchant data.
 - API Changes: Existing purge results include deleted GPS history, receipt, entity-file and delivery-note-import row counts where applicable. Endpoint and request format unchanged.
