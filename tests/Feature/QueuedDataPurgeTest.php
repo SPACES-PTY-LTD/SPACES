@@ -143,13 +143,15 @@ class QueuedDataPurgeTest extends TestCase
         $purge->update(['status' => 'running']);
         $seen = [];
         app(DataPurgeService::class)->purge($this->owner, $this->merchant, ['activity_logs', 'api_call_logs'],
-            function ($done, $total, $current) use ($purge, &$seen) {
-                app(\App\Services\DataPurgeProgress::class)->write($purge->uuid, $done, $total, $current);
+            function ($done, $total, $current, $orderedTypes) use ($purge, &$seen) {
+                app(\App\Services\DataPurgeProgress::class)->write($purge->uuid, $done, $total, $current, $orderedTypes);
                 $seen[] = $purge->toStatus()['progress'];
             });
         $this->assertSame([0, 1, 2], array_column($seen, 'completed_types'));
         $this->assertSame(['api_call_logs', 'activity_logs', null], array_column($seen, 'current_type'));
         $this->assertSame([0, 33, 66], array_column($seen, 'percent'));
+        $this->assertSame([[], ['api_call_logs'], ['api_call_logs', 'activity_logs']], array_column($seen, 'processed_types'));
+        $this->assertSame(['api_call_logs', 'activity_logs'], $seen[0]['ordered_types']);
         $this->getJson($this->endpoint())->assertJsonPath('data.progress.completed_types', 2);
         $purge->update(['status' => 'failed']);
         $this->getJson($this->endpoint())->assertJsonPath('data.progress', null);

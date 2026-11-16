@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Loader2, Trash2 } from "lucide-react"
+import { CheckCircle2, Circle, Loader2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/layout/page-header"
 import { purgeMerchantData, getPurgeStatus, purgeDataTypes, type PurgeJobStatus, type PurgeDataType } from "@/lib/api/delete-data"
@@ -194,7 +194,29 @@ function MerchantDeleteDataManager({
               <CardDescription>Request {job.job_id}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p>{job.requested_types.map(formatTypeLabel).join(", ")}</p>
+              <ul aria-label="Deletion checklist" className="grid gap-2 sm:grid-cols-2">
+                {(job.progress?.ordered_types?.length ? job.progress.ordered_types : job.requested_types).map((type) => {
+                  const done = job.status === "completed"
+                    ? Boolean(job.result?.processed_types.includes(type))
+                    : job.status === "running" && Boolean(job.progress?.processed_types?.includes(type))
+                  const current = job.status === "running" && job.progress?.current_type === type
+                  const state = done ? "Done" : current ? "Deleting…"
+                    : job.status === "failed" ? "Not completed"
+                      : job.status === "running" && !job.progress?.ordered_types?.length ? "Awaiting progress" : "Waiting"
+                  return (
+                    <li key={type} className="flex items-center justify-between gap-3 rounded-md border border-current/10 bg-background/60 px-3 py-2 text-sm">
+                      <span className="flex items-center gap-2">
+                        {done ? <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-emerald-600" />
+                          : current ? <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin text-blue-600 motion-reduce:animate-none" />
+                            : <Circle aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                        {formatTypeLabel(type)}
+                      </span>
+                      <span className={done ? "font-medium text-emerald-700 dark:text-emerald-400" : current ? "font-medium text-blue-700 dark:text-blue-300" : "text-muted-foreground"}>{state}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+              {job.status === "running" ? <p className="text-xs text-muted-foreground">Done items have been processed. All changes are saved together when deletion completes.</p> : null}
               {job.status !== "failed" ? (
                 <div className="space-y-2">
                   <div role="progressbar" aria-label="Deletion progress" aria-valuemin={0} aria-valuemax={100}

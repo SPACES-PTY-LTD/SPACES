@@ -125,3 +125,20 @@ test('running progress is accessible and terminal failure stops polling', async 
   assert.ok(app.find(n => n.type === 'Card' && n.props.className?.includes('bg-red-50')));
   app.unmount();
 });
+
+test('checklist follows server execution order and distinguishes done, current and outstanding', async () => {
+  const progress = { completed_types: 1, total_types: 3, current_type: 'runs', percent: 25,
+    ordered_types: ['shipments', 'runs', 'vehicles'], processed_types: ['shipments'] };
+  const app = harness({ ...operation('running'), requested_types: ['vehicles', 'runs', 'shipments'], progress });
+  await app.settle();
+  assert.match(app.text, /Shipments Done Runs Deleting… Vehicles Waiting/);
+  app.setStatus(envelope({ ...operation('running'), requested_types: progress.ordered_types,
+    progress: { ...progress, completed_types: 3, current_type: null, processed_types: progress.ordered_types, percent: 75 } }));
+  await app.tick();
+  assert.match(app.text, /Shipments Done Runs Done Vehicles Done/);
+  assert.match(app.text, /Finalizing deletion/);
+  app.setStatus(envelope({ ...operation('failed'), requested_types: progress.ordered_types }));
+  await app.tick();
+  assert.match(app.text, /Shipments Not completed Runs Not completed Vehicles Not completed/);
+  app.unmount();
+});

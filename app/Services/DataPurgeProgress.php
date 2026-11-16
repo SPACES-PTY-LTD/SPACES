@@ -25,13 +25,15 @@ class DataPurgeProgress
         return Cache::store($name);
     }
 
-    public function write(string $uuid, int $done, int $total, ?string $type): void
+    public function write(string $uuid, int $done, int $total, ?string $type, array $orderedTypes = []): void
     {
         try {
             $this->store()->put('data-purge-progress:'.$uuid, [
                 'completed_types' => $done,
                 'total_types' => $total,
                 'current_type' => $type,
+                'ordered_types' => $orderedTypes,
+                'processed_types' => array_slice($orderedTypes, 0, $done),
                 // Reserve the final step for audit and transaction commit.
                 'percent' => (int) floor(100 * $done / ($total + 1)),
             ], now()->addHour());

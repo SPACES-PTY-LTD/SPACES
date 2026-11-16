@@ -53,7 +53,7 @@ class PurgeMerchantDataJob implements ShouldQueue
                     throw ValidationException::withMessages(['owner' => 'The requesting user is no longer the account owner.']);
                 }
                 $result = $service->purge($user, $merchant, $purge->types,
-                    fn (int $done, int $total, ?string $type) => app(\App\Services\DataPurgeProgress::class)->write($purge->uuid, $done, $total, $type)
+                    fn (int $done, int $total, ?string $type, array $orderedTypes) => app(\App\Services\DataPurgeProgress::class)->write($purge->uuid, $done, $total, $type, $orderedTypes)
                 );
                 $purge->update([
                     'status' => 'completed', 'result' => $result,

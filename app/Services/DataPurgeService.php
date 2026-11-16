@@ -78,10 +78,10 @@ class DataPurgeService
             $resourceIds = $this->resourceIdsForMerchant($merchant);
             $results = [];
             foreach ($orderedTypes as $type) {
-                $progress && $progress(count($results), count($orderedTypes), $type);
+                $progress && $progress(count($results), count($orderedTypes), $type, $orderedTypes);
                 $results[$type] = $this->purgeByType($merchant, $type, $resourceIds);
             }
-            $progress && $progress(count($results), count($orderedTypes), null);
+            $progress && $progress(count($results), count($orderedTypes), null, $orderedTypes);
 
             return $results;
         }, attempts: 3);

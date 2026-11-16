@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-11-16 | Version: deletion-status-checklist
+- Summary: Show completed, current and outstanding data types directly in the deletion status card.
+- API Changes: Running progress adds ordered_types and processed_types arrays from the server execution order, avoiding incorrect assumptions about selection order.
+- Database Changes: None.
+- Behavior Changes: Add a responsive checklist with Done, Deleting and Waiting labels and icons. Older progress payloads display Awaiting progress rather than guessing completed types. Failed operations clear done markers because their transaction rolled back; running cards explain that processed changes commit together. Existing five-second monitoring and finalization remain unchanged.
+- Breaking Changes: None. Restart workers after deploying the API to populate checklist progress.
+- Verification: PHP 8.4 purge/cleanup/merchant-deletion tests passed (29 tests, 164 assertions), along with five frontend monitoring tests. `npm run build` passed compilation, lint/type checks, 113-page generation and tracing on Node 26.12.1 with existing non-blocking warnings. Pint and git diff --check passed. No production deletion or deployment performed.
+
 ## 2026-11-16 | Version: deletion-progress-monitor
 - Summary: Make active deletion visible with a blue status card, spinner and measured data-type progress; use green for completion and red for failure.
 - API Changes: Job status adds nullable progress with completed_types, total_types, current_type and percent while running. Reserve the final step for audit/commit and use committed status for 100% completion.
