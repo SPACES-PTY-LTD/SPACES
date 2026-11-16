@@ -25,6 +25,15 @@ class DeleteMerchantFilesJob implements ShouldQueue
     public function handle(): void
     {
         collect($this->files)
+            ->filter(function (array $file): bool {
+                foreach (['entity_files', 'delivery_note_imports'] as $table) {
+                    if (\Illuminate\Support\Facades\DB::table($table)->where('disk', $file['disk'])->where('path', $file['path'])->exists()) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
             ->groupBy('disk')
             ->each(function ($files, string $disk): void {
                 $paths = $files
@@ -35,7 +44,9 @@ class DeleteMerchantFilesJob implements ShouldQueue
                     ->all();
 
                 if ($paths !== []) {
-                    Storage::disk($disk)->delete($paths);
+                    if (Storage::disk($disk)->delete($paths) === false) {
+                        throw new \RuntimeException('Unable to delete merchant files from disk '.$disk);
+                    }
                 }
             });
     }

@@ -145,7 +145,7 @@ export function DeleteDataManager({
       <Card>
         <CardHeader>
           <CardDescription>
-            Choose the data sets to purge for the selected merchant, then confirm with your password. Vehicle activity can now be deleted on its own without removing runs, vehicles, or locations.
+            Choose the data sets to purge for the selected merchant, then confirm with your password. Vehicle activity includes GPS history. Deleting shipments also removes delivery-note imports, including unconfirmed uploads. Associated uploaded files are queued for permanent removal after database deletion.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -227,7 +227,7 @@ export function DeleteDataManager({
 
           <div className="space-y-4">
             <div className="text-sm text-destructive">
-              This action cannot be undone.
+              This action cannot be undone. Runs and vehicles include their GPS history. Uploaded attachments for deleted records will also be removed; file cleanup may finish in the background.
             </div>
 
             <div className="space-y-2">

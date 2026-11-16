@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-11-16 | Version: purge-gps-and-uploaded-files
+- Summary: Remove GPS history and managed uploads with purged merchant data.
+- API Changes: Existing purge results include deleted GPS history, receipt, entity-file and delivery-note-import row counts where applicable. Endpoint and request format unchanged.
+- Database Changes: None.
+- Behavior Changes: Runs remove their merchant-scoped GPS history; vehicle activity removes merchant GPS history; deleted vehicles remove their history and receipts. Merged-sample receipts are removed by recorded intervals, with ambiguous receipts retained when surviving history overlaps. Shared vehicles with another merchant's history or attachments and drivers with another merchant's attachments are protected. Invalidate affected run-track cache versions after commit. Delete shipment/driver/vehicle attachment records including soft-deleted files; shipment purges also remove all merchant delivery-note imports (including standalone/unconfirmed uploads), while run purges remove only their linked imports. Queue disk/path cleanup after commit in batches; preserve retained file references and retry storage failures. Update page warnings to disclose expanded cleanup and background file deletion.
+- Breaking Changes: Purging shipments now also removes unconfirmed delivery-note imports. Vehicle activity now includes GPS history.
+- Verification: PHP 8.4 purge/cleanup/merchant-deletion suites passed (22 tests, 106 assertions): merchant isolation, merged receipts, shared vehicles, overlapping retained history, commit/rollback file safety, soft-deleted attachments, shared storage paths, import scope and storage failures. Pint and git diff --check passed. No production purge/deployment or live S3 verification performed. Legacy manually entered booking_pods.file_key values have no disk/managed-upload mapping and are not used to guess storage deletions; known uploaded attachments are covered. Cleanup uses the configured queue worker and requires failed-job monitoring/retry if storage remains unavailable.
+
 ## 2026-11-16 | Version: merchant-purge-lock-contention
 - Summary: Reduce the tracking-event delete lock footprint after the production shipment purge failed with MySQL error 1205.
 - API Changes: POST /api/v1/merchants/{merchant_uuid}/purge-data returns HTTP 409 with MERCHANT_DATA_PURGE_BUSY and retry guidance when database lock contention persists.

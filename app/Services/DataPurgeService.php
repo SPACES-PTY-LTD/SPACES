@@ -2,9 +2,16 @@
 
 namespace App\Services;
 
+use App\Jobs\DeleteMerchantFilesJob;
+use App\Models\Driver;
 use App\Models\Merchant;
+use App\Models\Shipment;
 use App\Models\User;
+use App\Models\Vehicle;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class DataPurgeService
@@ -129,7 +136,9 @@ class DataPurgeService
             ->all();
 
         if (empty($shipmentIds)) {
-            return ['deleted_rows' => 0, 'tables' => []];
+            $deleted = $this->purgeStoredRows(DB::table('delivery_note_imports')->where('merchant_id', $merchant->id));
+
+            return ['deleted_rows' => $deleted, 'tables' => ['delivery_note_imports' => $deleted]];
         }
 
         $quoteIds = DB::table('quotes')
@@ -142,7 +151,8 @@ class DataPurgeService
             ->pluck('id')
             ->all();
 
-        $tables = [];
+        $tables = $this->purgeEntityFiles($merchant, Shipment::class, $shipmentIds);
+        $tables['delivery_note_imports'] = $this->purgeStoredRows(DB::table('delivery_note_imports')->where('merchant_id', $merchant->id));
         $tables['tracking_events'] = $this->purgeShipmentTrackingEvents($shipmentIds);
         $tables['run_shipments'] = DB::table('run_shipments')->whereIn('shipment_id', $shipmentIds)->delete();
         $tables['booking_pods'] = empty($bookingIds) ? 0 : DB::table('booking_pods')->whereIn('booking_id', $bookingIds)->delete();
@@ -186,7 +196,8 @@ class DataPurgeService
             return ['deleted_rows' => 0, 'tables' => []];
         }
 
-        $tables = [];
+        $tables = $this->purgeGpsHistory($merchant, DB::table('vehicle_location_history')->where('merchant_id', $merchant->id)->whereIn('run_id', $runIds));
+        $tables['delivery_note_imports'] = $this->purgeStoredRows(DB::table('delivery_note_imports')->where('merchant_id', $merchant->id)->whereIn('run_id', $runIds));
         $tables['run_shipments'] = DB::table('run_shipments')->whereIn('run_id', $runIds)->delete();
         $tables['vehicle_activity'] = DB::table('vehicle_activity')->whereIn('run_id', $runIds)->delete();
         $tables['runs'] = DB::table('runs')->whereIn('id', $runIds)->delete();
@@ -200,7 +211,10 @@ class DataPurgeService
             ->where('merchant_id', $merchant->id)
             ->delete();
 
-        return ['deleted_rows' => $deleted, 'tables' => ['vehicle_activity' => $deleted]];
+        $tables = $this->purgeGpsHistory($merchant, DB::table('vehicle_location_history')->where('merchant_id', $merchant->id), true);
+        $tables['vehicle_activity'] = $deleted;
+
+        return ['deleted_rows' => array_sum($tables), 'tables' => $tables];
     }
 
     private function purgeRoutes(Merchant $merchant): array
@@ -237,7 +251,7 @@ class DataPurgeService
             return ['deleted_rows' => 0, 'tables' => []];
         }
 
-        $tables = [];
+        $tables = $this->purgeEntityFiles($merchant, Driver::class, $driverIds);
         $tables['driver_assignments'] = DB::table('driver_assignments')->whereIn('driver_id', $driverIds)->delete();
         $tables['driver_vehicles'] = DB::table('driver_vehicles')->whereIn('driver_id', $driverIds)->delete();
         $tables['drivers'] = DB::table('drivers')->whereIn('id', $driverIds)->delete();
@@ -261,7 +275,9 @@ class DataPurgeService
             return ['deleted_rows' => 0, 'tables' => []];
         }
 
-        $tables = [];
+        $tables = $this->purgeEntityFiles($merchant, Vehicle::class, $vehicleIds);
+        $tables += $this->purgeGpsHistory($merchant, DB::table('vehicle_location_history')->where('merchant_id', $merchant->id)->whereIn('vehicle_id', $vehicleIds));
+        $tables['vehicle_location_receipts'] += DB::table('vehicle_location_receipts')->whereIn('vehicle_id', $vehicleIds)->delete();
         $tables['driver_vehicles'] = DB::table('driver_vehicles')->whereIn('vehicle_id', $vehicleIds)->delete();
         $tables['vehicle_activity'] = DB::table('vehicle_activity')->whereIn('vehicle_id', $vehicleIds)->delete();
         $tables['vehicles'] = DB::table('vehicles')->whereIn('id', $vehicleIds)->delete();
@@ -358,6 +374,60 @@ class DataPurgeService
         return ['deleted_rows' => $deleted, 'tables' => ['activity_logs' => $deleted]];
     }
 
+    private function purgeEntityFiles(Merchant $merchant, string $model, array $ids): array
+    {
+        $deleted = $this->purgeStoredRows(DB::table('entity_files')
+            ->where('merchant_id', $merchant->id)
+            ->where('attachable_type', $model)
+            ->whereIn('attachable_id', $ids));
+
+        return ['entity_files' => $deleted];
+    }
+
+    private function purgeStoredRows(Builder $query): int
+    {
+        $deleted = 0;
+        (clone $query)->select(['id', 'disk', 'path'])->chunkById(250, function ($rows) use ($query, &$deleted) {
+            $files = $rows->map(fn ($row) => ['disk' => $row->disk, 'path' => $row->path])->all();
+            $deleted += (clone $query)->whereIn('id', $rows->pluck('id')->all())->delete();
+            DeleteMerchantFilesJob::dispatch($files)->afterCommit();
+        });
+
+        return $deleted;
+    }
+
+    private function purgeGpsHistory(Merchant $merchant, Builder $history, bool $allMerchantHistory = false): array
+    {
+        $runIds = (clone $history)->whereNotNull('run_id')->distinct()->pluck('run_id')->all();
+        // Receipts include merged stationary samples, not just first_sample_key.
+        // Keep ambiguous receipts if retained history covers the same vehicle/time.
+        $selectedIds = (clone $history)->select('id');
+        $receipts = DB::table('vehicle_location_receipts')
+            ->whereExists((clone $history)->selectRaw('1')
+                ->whereColumn('vehicle_location_history.vehicle_id', 'vehicle_location_receipts.vehicle_id')
+                ->whereColumn('vehicle_location_history.observed_at', '<=', 'vehicle_location_receipts.observed_at')
+                ->whereColumn('vehicle_location_history.last_seen_at', '>=', 'vehicle_location_receipts.observed_at'))
+            ->whereNotExists(DB::table('vehicle_location_history')->selectRaw('1')
+                ->whereNotIn('id', $selectedIds)
+                ->whereColumn('vehicle_location_history.vehicle_id', 'vehicle_location_receipts.vehicle_id')
+                ->whereColumn('vehicle_location_history.observed_at', '<=', 'vehicle_location_receipts.observed_at')
+                ->whereColumn('vehicle_location_history.last_seen_at', '>=', 'vehicle_location_receipts.observed_at'))
+            ->delete();
+        $deleted = $history->delete();
+        if ($allMerchantHistory) {
+            $receipts += DB::table('vehicle_location_receipts')
+                ->whereIn('vehicle_id', DB::table('vehicles')->select('id')->where('merchant_id', $merchant->id))
+                ->whereNotExists(DB::table('vehicle_location_history')->selectRaw('1')
+                    ->whereColumn('vehicle_location_history.vehicle_id', 'vehicle_location_receipts.vehicle_id'))
+                ->delete();
+        }
+        foreach ($runIds as $runId) {
+            DB::afterCommit(fn () => Cache::put('run-track-version:'.$runId, (string) Str::uuid(), now()->addYears(10)));
+        }
+
+        return ['vehicle_location_history' => $deleted, 'vehicle_location_receipts' => $receipts];
+    }
+
     private function resourceIdsForMerchant(Merchant $merchant): array
     {
         $merchantDriverIds = DB::table('drivers')
@@ -410,6 +480,8 @@ class DataPurgeService
 
     private function protectedDriverIds(Merchant $merchant, array $driverIds): array
     {
+        $fileIds = DB::table('entity_files')->where('attachable_type', Driver::class)
+            ->whereIn('attachable_id', $driverIds)->where('merchant_id', '!=', $merchant->id)->pluck('attachable_id')->all();
         $runIds = DB::table('runs')
             ->whereIn('driver_id', $driverIds)
             ->where('merchant_id', '!=', $merchant->id)
@@ -433,11 +505,15 @@ class DataPurgeService
             ->pluck('id')
             ->all();
 
-        return array_values(array_unique(array_merge($runIds, $bookingIds, $offerIds, $otherOwnedIds)));
+        return array_values(array_unique(array_merge($fileIds, $runIds, $bookingIds, $offerIds, $otherOwnedIds)));
     }
 
     private function protectedVehicleIds(Merchant $merchant, array $vehicleIds): array
     {
+        $historyIds = DB::table('vehicle_location_history')->whereIn('vehicle_id', $vehicleIds)
+            ->where('merchant_id', '!=', $merchant->id)->pluck('vehicle_id')->all();
+        $fileIds = DB::table('entity_files')->where('attachable_type', Vehicle::class)
+            ->whereIn('attachable_id', $vehicleIds)->where('merchant_id', '!=', $merchant->id)->pluck('attachable_id')->all();
         $runIds = DB::table('runs')
             ->whereIn('vehicle_id', $vehicleIds)
             ->where('merchant_id', '!=', $merchant->id)
@@ -477,6 +553,8 @@ class DataPurgeService
             ->all();
 
         return array_values(array_unique(array_merge(
+            $historyIds,
+            $fileIds,
             $runIds,
             $activityIds,
             $otherDriverIds,
