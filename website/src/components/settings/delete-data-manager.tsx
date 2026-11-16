@@ -4,7 +4,7 @@ import * as React from "react"
 import { CheckCircle2, Circle, Loader2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/layout/page-header"
-import { purgeMerchantData, getPurgeStatus, purgeDataTypes, type PurgeJobStatus, type PurgeDataType } from "@/lib/api/delete-data"
+import { purgeMerchantData, getPurgeStatus, cancelPurge, purgeDataTypes, type PurgeJobStatus, type PurgeDataType } from "@/lib/api/delete-data"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -57,6 +57,7 @@ function MerchantDeleteDataManager({
   const [selectedTypes, setSelectedTypes] = React.useState<PurgeDataType[]>([])
   const [password, setPassword] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
+  const [cancelling, setCancelling] = React.useState(false)
   const [job, setJob] = React.useState<PurgeJobStatus | null>(null)
   const [monitoringError, setMonitoringError] = React.useState<string | null>(null)
   const [checkingStatus, setCheckingStatus] = React.useState(true)
@@ -138,6 +139,27 @@ function MerchantDeleteDataManager({
     setConfirmOpen(true)
   }
 
+  async function cancelDeletion() {
+    if (!merchantId || !job || !active || cancelling || job.cancel_requested) return
+    requestVersion.current++
+    requestInFlight.current = true
+    setCancelling(true)
+    try {
+      const response = await cancelPurge(merchantId, job.job_id, accessToken)
+      if (isApiErrorResponse(response)) {
+        toast.error(response.message || "Unable to request cancellation.")
+      } else {
+        setJob(response.data)
+      }
+    } catch {
+      toast.error("Unable to confirm cancellation. Checking status…")
+    } finally {
+      requestInFlight.current = false
+      setCancelling(false)
+      setMonitorVersion((value) => value + 1)
+    }
+  }
+
   async function confirmDelete() {
     if (!merchantId || busy || !validateForm()) return
     requestVersion.current++
@@ -183,13 +205,15 @@ function MerchantDeleteDataManager({
         {job ? (
           <Card className={job.status === "completed"
             ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+            : job.status === "cancelled"
+              ? "border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900"
             : job.status === "failed"
               ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
               : "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 {active ? <Loader2 className="h-5 w-5 animate-spin text-blue-600 motion-reduce:animate-none" aria-hidden="true" /> : null}
-                Deletion {job.status}
+                {job.cancel_requested ? "Cancellation requested" : `Deletion ${job.status}`}
               </CardTitle>
               <CardDescription>Request {job.job_id}</CardDescription>
             </CardHeader>
@@ -201,7 +225,7 @@ function MerchantDeleteDataManager({
                     : job.status === "running" && Boolean(job.progress?.processed_types?.includes(type))
                   const current = job.status === "running" && job.progress?.current_type === type
                   const state = done ? "Done" : current ? "Deleting…"
-                    : job.status === "failed" ? "Not completed"
+                    : job.status === "failed" || job.status === "cancelled" ? "Not completed"
                       : job.status === "running" && !job.progress?.ordered_types?.length ? "Awaiting progress" : "Waiting"
                   return (
                     <li key={type} className="flex items-center justify-between gap-3 rounded-md border border-current/10 bg-background/60 px-3 py-2 text-sm">
@@ -217,7 +241,7 @@ function MerchantDeleteDataManager({
                 })}
               </ul>
               {job.status === "running" ? <p className="text-xs text-muted-foreground">Done items have been processed. All changes are saved together when deletion completes.</p> : null}
-              {job.status !== "failed" ? (
+              {job.status !== "failed" && job.status !== "cancelled" ? (
                 <div className="space-y-2">
                   <div role="progressbar" aria-label="Deletion progress" aria-valuemin={0} aria-valuemax={100}
                     aria-valuenow={job.status === "completed" ? 100 : job.status === "queued" ? 0 : job.progress?.percent}
@@ -241,6 +265,19 @@ function MerchantDeleteDataManager({
               {job.status === "queued" ? <p>Waiting for a background worker. You can leave this page and return later. If this stays queued, ask your administrator to check the queue worker.</p> : null}
               {job.status === "running" ? <p>Deleting the selected data. This may take several minutes. You can leave this page and return later.</p> : null}
               {job.status === "completed" ? <p>Database deletion completed. Uploaded-file cleanup runs separately and may still be in progress.</p> : null}
+              {job.status === "cancelled" ? <p>Deletion cancelled. No database changes were committed.</p> : null}
+              {active ? (
+                <div className="space-y-2">
+                  <Button type="button" variant="outline" onClick={cancelDeletion} disabled={cancelling || job.cancel_requested}>
+                    {cancelling ? "Requesting cancellation…" : job.cancel_requested ? "Cancellation requested" : "Cancel deletion"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {job.cancel_requested
+                      ? "Waiting for the worker to stop and roll back. This may take time while the current data type finishes."
+                      : "Cancellation stops at the next safe checkpoint and rolls back pending changes. It cannot undo a deletion that has already committed."}
+                  </p>
+                </div>
+              ) : null}
               {job.error_message ? <p className="text-destructive" role="alert">{job.error_message}</p> : null}
               <p className="text-sm text-muted-foreground">Requested: {new Date(job.created_at).toLocaleString()}</p>
               {job.started_at ? <p className="text-sm text-muted-foreground">Started: {new Date(job.started_at).toLocaleString()}</p> : null}

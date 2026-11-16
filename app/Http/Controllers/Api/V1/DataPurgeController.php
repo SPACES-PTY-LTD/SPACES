@@ -121,4 +121,20 @@ class DataPurgeController extends Controller
 
         return ApiResponse::success($purge?->toStatus());
     }
+
+    public function cancel(Request $request, string $merchant_uuid, string $purge_uuid)
+    {
+        $merchant = Merchant::where('uuid', $merchant_uuid)->firstOrFail();
+        if (! $request->user() || (int) $merchant->account?->owner_user_id !== (int) $request->user()->id) {
+            return ApiResponse::error('FORBIDDEN', 'Only the account owner can cancel deletion.', [], Response::HTTP_FORBIDDEN);
+        }
+        $purge = DataPurge::where('merchant_id', $merchant->id)->where('uuid', $purge_uuid)->firstOrFail();
+        if (in_array($purge->status, ['queued', 'running'], true)) {
+            app(\App\Services\DataPurgeCancellation::class)->request($purge->uuid);
+        }
+
+        // A request is not confirmation of cancellation: the worker may have
+        // passed its last checkpoint. Return the actual persisted outcome.
+        return ApiResponse::success($purge->fresh()->toStatus());
+    }
 }

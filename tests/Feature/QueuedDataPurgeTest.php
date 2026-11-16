@@ -158,4 +158,51 @@ class QueuedDataPurgeTest extends TestCase
         $purge->update(['status' => 'completed']);
         $this->getJson($this->endpoint())->assertJsonPath('data.progress', null);
     }
+
+    public function test_cancelling_queued_job_skips_deletion_and_releases_slot(): void
+    {
+        $this->submit()->assertAccepted();
+        $purge = DataPurge::firstOrFail();
+        $this->postJson($this->endpoint()."/{$purge->uuid}/cancel")
+            ->assertOk()->assertJsonPath('data.cancel_requested', true);
+        $service = $this->mock(DataPurgeService::class);
+        $service->shouldNotReceive('purge');
+        (new PurgeMerchantDataJob($purge->id))->handle($service);
+        $this->getJson($this->endpoint())->assertJsonPath('data.status', 'cancelled')
+            ->assertJsonPath('data.progress', null)->assertJsonPath('data.cancel_requested', false);
+        $this->assertNull($purge->fresh()->active_merchant_id);
+        $this->postJson($this->endpoint()."/{$purge->uuid}/cancel")->assertJsonPath('data.status', 'cancelled');
+    }
+
+    public function test_running_cancellation_rolls_back_changes_at_final_checkpoint(): void
+    {
+        $this->submit()->assertAccepted();
+        $purge = DataPurge::firstOrFail();
+        $service = $this->mock(DataPurgeService::class);
+        $service->shouldReceive('purge')->once()->andReturnUsing(function () use ($purge) {
+            $this->merchant->update(['name' => 'must roll back']);
+            app(\App\Services\DataPurgeCancellation::class)->request($purge->uuid);
+
+            return [];
+        });
+        (new PurgeMerchantDataJob($purge->id))->handle($service);
+        $this->assertNotSame('must roll back', $this->merchant->fresh()->name);
+        $this->assertSame('cancelled', $purge->fresh()->status);
+        $this->assertNull($purge->fresh()->result);
+    }
+
+    public function test_cancel_is_owner_and_merchant_scoped_and_cannot_undo_completion(): void
+    {
+        $this->submit()->assertAccepted();
+        $purge = DataPurge::firstOrFail();
+        (new PurgeMerchantDataJob($purge->id))->handle(app(DataPurgeService::class));
+        $this->postJson($this->endpoint()."/{$purge->uuid}/cancel")
+            ->assertOk()->assertJsonPath('data.status', 'completed')->assertJsonPath('data.cancel_requested', false);
+        $this->assertDatabaseCount('data_purge_cancellations', 0);
+        $otherMerchant = Merchant::factory()->create(['account_id' => $this->merchant->account_id]);
+        $this->postJson("/api/v1/merchants/{$otherMerchant->uuid}/purge-data/{$purge->uuid}/cancel")->assertNotFound();
+        $otherUser = User::factory()->create(['account_id' => $this->merchant->account_id]);
+        $this->withToken($otherUser->createToken('test')->plainTextToken);
+        $this->postJson($this->endpoint()."/{$purge->uuid}/cancel")->assertForbidden();
+    }
 }

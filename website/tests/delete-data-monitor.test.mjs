@@ -42,6 +42,7 @@ function harness(initialStatus = null) {
       if (name === '@/lib/api/client') return { isApiErrorResponse: r => r?.error === true };
       if (name === '@/lib/api/delete-data') return {
         purgeDataTypes: ['shipments'],
+        cancelPurge: async () => envelope({ ...operation('running'), cancel_requested: true }),
         getPurgeStatus: async () => nextStatus,
         purgeMerchantData: async (_merchant, payload) => { lastPayload = payload; return nextPost; },
       };
@@ -140,5 +141,23 @@ test('checklist follows server execution order and distinguishes done, current a
   app.setStatus(envelope({ ...operation('failed'), requested_types: progress.ordered_types }));
   await app.tick();
   assert.match(app.text, /Shipments Not completed Runs Not completed Vehicles Not completed/);
+  app.unmount();
+});
+
+
+test('cancel requests remain monitored until the worker confirms rollback', async () => {
+  const app = harness(operation('running')); await app.settle();
+  await app.find(n => n.type === 'Button' && n.props.children === 'Cancel deletion').props.onClick();
+  app.setStatus(envelope({ ...operation('running'), cancel_requested: true }));
+  app.render(); await app.settle();
+  assert.match(app.text, /Cancellation requested/);
+  assert.equal(app.find(n => n.type === 'Button' && n.props.children === 'Cancellation requested').props.disabled, true);
+  assert.equal(app.disabled, true);
+  assert.equal(app.timers, 1);
+  app.setStatus(envelope(operation('cancelled'))); await app.tick();
+  assert.match(app.text, /Deletion cancelled. No database changes were committed/);
+  assert.match(app.text, /Shipments Not completed/);
+  assert.equal(app.timers, 0);
+  assert.equal(app.disabled, false);
   app.unmount();
 });

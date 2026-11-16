@@ -44,22 +44,33 @@ class PurgeMerchantDataJob implements ShouldQueue
             // repeat completed work, even if the worker died before acknowledging it.
             DB::transaction(function () use ($service) {
                 $purge = DataPurge::lockForUpdate()->findOrFail($this->purgeId);
-                if (in_array($purge->status, ['completed', 'failed'], true)) {
+                if (in_array($purge->status, ['completed', 'failed', 'cancelled'], true)) {
                     return;
                 }
+                $cancellation = app(\App\Services\DataPurgeCancellation::class);
+                $cancellation->check($purge->uuid);
                 $merchant = Merchant::findOrFail($purge->merchant_id);
                 $user = User::findOrFail($purge->user_id);
                 if ((int) $merchant->account?->owner_user_id !== (int) $user->id) {
                     throw ValidationException::withMessages(['owner' => 'The requesting user is no longer the account owner.']);
                 }
                 $result = $service->purge($user, $merchant, $purge->types,
-                    fn (int $done, int $total, ?string $type, array $orderedTypes) => app(\App\Services\DataPurgeProgress::class)->write($purge->uuid, $done, $total, $type, $orderedTypes)
+                    function (int $done, int $total, ?string $type, array $orderedTypes) use ($purge, $cancellation) {
+                        $cancellation->check($purge->uuid);
+                        app(\App\Services\DataPurgeProgress::class)->write($purge->uuid, $done, $total, $type, $orderedTypes);
+                    }
                 );
+                $cancellation->check($purge->uuid);
                 $purge->update([
                     'status' => 'completed', 'result' => $result,
                     'finished_at' => now(), 'active_merchant_id' => null,
                 ]);
             }, 3);
+        } catch (\App\Exceptions\DataPurgeCancelled $e) {
+            DataPurge::whereKey($this->purgeId)->where('status', 'running')->update([
+                'status' => 'cancelled', 'finished_at' => now(), 'active_merchant_id' => null,
+                'result' => null, 'error_message' => null,
+            ]);
         } catch (Throwable $e) {
             // After-commit file dispatch errors must not claim committed data rolled back.
             if (DataPurge::find($this->purgeId)?->status === 'completed') {

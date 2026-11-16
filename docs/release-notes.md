@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-11-16 | Version: cancel-merchant-data-purge
+- Summary: Allow account owners to request cancellation of queued or running data deletions from the status card.
+- API Changes: Add owner/merchant-scoped POST /api/v1/merchants/{merchant_uuid}/purge-data/{job_id}/cancel, cancel_requested status flag and cancelled terminal status. Repeated cancellation is safe; completed operations remain completed.
+- Database Changes: Add data_purge_cancellations to persist requests independently of the operation row held by the worker transaction. Migrate before deploying; restart workers.
+- Behavior Changes: Show Cancel deletion and a pending-cancellation message while retaining five-second monitoring. Workers check before deleting, between types and before completion, then roll back, release the active slot and record cancelled. The cancellation signal uses a separate primary-database connection on MySQL for visibility during deletion. Clear completed checklist markers on cancellation. No forced SQL interruption; cancellation may wait for the current type, and requests after the last checkpoint cannot undo committed deletion or file cleanup.
+- Breaking Changes: Clients must accept the new cancelled terminal state. Queued cancellation requires an available worker to acknowledge it.
+- Verification: PHP 8.4 suites passed (32 tests, 185 assertions), including queued cancellation, running rollback, ownership/isolation, duplicate cancellation and completed-job protection; six frontend monitoring tests passed. `npm run build` passed compilation, lint/type checks and 113-page generation on Node 26.12.1 with existing non-blocking warnings. Pint and git diff --check passed. No production migration, deployment or deletion performed; MySQL cross-process cancellation timing is not exercised by SQLite tests.
+
 ## 2026-11-16 | Version: deletion-status-checklist
 - Summary: Show completed, current and outstanding data types directly in the deletion status card.
 - API Changes: Running progress adds ordered_types and processed_types arrays from the server execution order, avoiding incorrect assumptions about selection order.

@@ -23,6 +23,7 @@ class DataPurge extends Model
         return [
             'job_id' => $this->uuid,
             'status' => $this->status,
+            'cancel_requested' => in_array($this->status, ['queued', 'running'], true) && app(\App\Services\DataPurgeCancellation::class)->requested($this->uuid),
             'progress' => $this->status === 'running' ? app(\App\Services\DataPurgeProgress::class)->read($this->uuid) : null,
             'requested_types' => $this->types,
             'created_at' => $this->created_at?->toIso8601String(),
