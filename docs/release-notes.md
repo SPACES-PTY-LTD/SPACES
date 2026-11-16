@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-11-16 | Version: purge-activity-last-and-indexes
+- Summary: Process the vehicle activity data type last and add missing cleanup lookup indexes confirmed against production schema.
+- API Changes: Progress ordered_types and processed_types place vehicle_activity last when selected; endpoints are unchanged.
+- Database Changes: Add vehicle_activity indexes on vehicle_id and location_id, vehicle_location_history on (merchant_id, vehicle_id, observed_at, last_seen_at), and vehicle_location_receipts on (vehicle_id, observed_at). Existing merchant-leading activity indexes are retained without duplication.
+- Behavior Changes: New worker executions process the vehicle activity/GPS stage after other selected types. Related activity/GPS cleanup still occurs earlier when required by run, vehicle or location deletion. All changes still commit together; this does not shorten the transaction or change cancellation checkpoints.
+- Breaking Changes: None. Apply migration and restart workers; already-running jobs retain their original order. Index creation on large GPS tables can take time and should be scheduled outside active purges.
+- Verification: PHP 8.4 purge, cleanup and merchant-deletion suites passed (32 tests, 185 assertions) with the new migration. Production indexes inspected read-only in Navicat; new indexes have not been applied or benchmarked in production. No frontend changes.
+
 ## 2026-11-16 | Version: cancel-merchant-data-purge
 - Summary: Allow account owners to request cancellation of queued or running data deletions from the status card.
 - API Changes: Add owner/merchant-scoped POST /api/v1/merchants/{merchant_uuid}/purge-data/{job_id}/cancel, cancel_requested status flag and cancelled terminal status. Repeated cancellation is safe; completed operations remain completed.

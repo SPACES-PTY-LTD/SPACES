@@ -4,6 +4,8 @@ The delete-data settings page submits an authenticated, password-confirmed reque
 
 ## Deployment
 
+The `2026_11_16_170000_add_data_purge_lookup_indexes` migration adds vehicle/location activity lookups, merchant-first GPS history interval lookups, and vehicle/time receipt lookups. Schedule index creation outside active purges on large production tables. Restart workers to use the revised order: the vehicle activity stage runs last, while dependency cleanup inside run/vehicle/location deletion still runs where needed. This is not a change to the all-or-nothing transaction or the five-minute worker limit.
+
 1. Run `php artisan migrate --force` to create `data_purges` before deploying the frontend.
 2. Use a persistent `QUEUE_CONNECTION` (`database`, `redis`, `sqs`, or `beanstalkd`). Sync/deferred/background/failover drivers are rejected for this destructive operation to prevent inline execution or silent drops.
 3. Run a queue worker for that connection's default queue. The job has a 300-second timeout and one queue attempt, with three database transaction attempts for transient lock errors. Keep `retry_after` (or SQS visibility timeout) greater than 300 seconds; the application's database/Redis/Beanstalk defaults are at least 330. Ensure the worker process manager permits at least 330 seconds for graceful shutdown and PHP CLI has PCNTL timeout support. Restart workers with the release. An example is `php artisan queue:work --timeout=300 --tries=1`; job settings also apply when existing workers use other defaults.

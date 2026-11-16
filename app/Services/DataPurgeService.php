@@ -19,7 +19,6 @@ class DataPurgeService
     private const EXECUTION_ORDER = [
         'shipments',
         'runs',
-        'vehicle_activity',
         'routes',
         'drivers',
         'vehicles',
@@ -31,6 +30,7 @@ class DataPurgeService
         'idempotency_keys',
         'merchant_invites',
         'activity_logs',
+        'vehicle_activity',
     ];
 
     public function __construct(private ActivityLogService $activityLogService) {}
