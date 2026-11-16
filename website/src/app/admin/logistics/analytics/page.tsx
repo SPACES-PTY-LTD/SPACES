@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
 import { ChartArea } from "lucide-react"
 import { isApiErrorResponse } from "@/lib/api/client"
-import { listLocations } from "@/lib/api/locations"
-import { getDashboardStats, getShipmentsFullReport } from "@/lib/api/reports"
+import { getDashboardStats, getAnalyticsShipmentSample } from "@/lib/api/reports"
 import { listVehicleActivities } from "@/lib/api/vehicle-activities"
 import { requireAuth } from "@/lib/auth"
 import { AdminLinks, AdminRoute, withAdminQuery } from "@/lib/routes/admin"
@@ -89,18 +88,11 @@ export default async function LogisticsAnalyticsPage() {
   const merchantId = session.selected_merchant?.merchant_id ?? undefined
   const canLoadMerchantScopedData = Boolean(merchantId)
 
-  const [statsResponse, locationsResponse, activitiesResponse, shipmentReportResponse] =
+  const [statsResponse, activitiesResponse, shipmentReportResponse] =
     await Promise.all([
       canLoadMerchantScopedData
         ? getDashboardStats(session.accessToken, {
             merchant_id: merchantId,
-          })
-        : null,
-      canLoadMerchantScopedData
-        ? listLocations(session.accessToken, {
-            merchant_id: merchantId,
-            page: 1,
-            per_page: 1,
           })
         : null,
       canLoadMerchantScopedData
@@ -110,15 +102,8 @@ export default async function LogisticsAnalyticsPage() {
             per_page: 200,
           })
         : null,
-      canLoadMerchantScopedData
-        ? getShipmentsFullReport(
-            {
-              merchant_id: merchantId,
-              page: 1,
-              per_page: 200,
-            },
-            session.accessToken
-          )
+      merchantId
+        ? getAnalyticsShipmentSample(merchantId, session.accessToken)
         : null,
     ])
 
@@ -148,10 +133,7 @@ export default async function LogisticsAnalyticsPage() {
         drivers_count: 0,
       }
 
-  const locationCount =
-    locationsResponse && !isApiErrorResponse(locationsResponse)
-      ? Number(locationsResponse.meta?.total ?? locationsResponse.data?.length ?? 0)
-      : 0
+  const locationCount = stats.locations_count
   const activities =
     activitiesResponse && !isApiErrorResponse(activitiesResponse)
       ? activitiesResponse.data ?? []

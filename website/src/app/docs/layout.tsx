@@ -1,3 +1,4 @@
+import { requireDocumentationAccess } from "@/lib/documentation/require-access"
 import Link from "next/link"
 import { Menu } from "lucide-react"
 import { DocsSidebar } from "@/components/docs/docs-sidebar"
@@ -11,14 +12,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { API_BASE_URL } from "@/lib/docs/api-reference"
+import { API_BASE_URL, apiReferenceCategories } from "@/lib/docs/api-reference"
 
-export default function DocsLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = "force-dynamic"
+export const metadata = { robots: { index: false, follow: false } }
+
+export default async function DocsLayout({ children }: { children: React.ReactNode }) {
+  await requireDocumentationAccess("/docs")
   return (
     <div className="min-h-screen bg-zinc-50/60 [--font-docs-sans:Inter,ui-sans-serif,system-ui,sans-serif] [--font-docs-mono:'SFMono-Regular',Menlo,Monaco,Consolas,'Liberation_Mono','Courier_New',monospace] [font-family:var(--font-docs-sans)]">
       <div className="mx-auto grid max-w-[1380px] md:grid-cols-[280px_minmax(0,1fr)]">
         <div className="hidden border-r border-zinc-200/80 md:block">
-          <DocsSidebar />
+          <DocsSidebar apiReferenceCategories={apiReferenceCategories} />
         </div>
 
         <div className="min-h-screen">
@@ -41,7 +46,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
                       <SheetTitle>Documentation navigation</SheetTitle>
                       <SheetDescription>Browse documentation sections and API endpoints.</SheetDescription>
                     </SheetHeader>
-                    <DocsSidebar className="static h-full px-3 py-4" closeOnNavigate />
+                    <DocsSidebar apiReferenceCategories={apiReferenceCategories} className="static h-full px-3 py-4" closeOnNavigate />
                   </SheetContent>
                 </Sheet>
                 <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-900">
@@ -51,7 +56,7 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
               </div>
               <div className="flex items-center gap-3">
                 <div className="hidden sm:block">
-                  <DocsSearch />
+                  <DocsSearch apiReferenceCategories={apiReferenceCategories} />
                 </div>
                 <span className="hidden rounded-md border border-zinc-200 bg-zinc-100 px-2 py-1 text-xs text-zinc-700 [font-family:var(--font-docs-mono)] lg:inline-flex">
                   {API_BASE_URL}

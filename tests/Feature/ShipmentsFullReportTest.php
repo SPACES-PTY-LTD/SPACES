@@ -16,6 +16,71 @@ class ShipmentsFullReportTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_analytics_sample_matches_full_report_without_detail_queries(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+        $location = $this->createLocation($account->id, $merchant->id, 'Depot', 'DEPOT', 'Cape Town');
+        $this->createShipment($account->id, $merchant->id, 'SAMPLE', $location, $location);
+        $headers = $this->authHeaders($user);
+        $full = $this->withHeaders($headers)
+            ->getJson('/api/v1/reports/shipments_full_report?merchant_id='.$merchant->uuid)
+            ->assertOk()->json('data.0');
+
+        DB::enableQueryLog();
+        try {
+            $sample = $this->withHeaders($headers)
+                ->getJson('/api/v1/reports/analytics-shipment-sample?merchant_id='.$merchant->uuid)
+                ->assertOk()->assertJsonCount(1, 'data')->json('data.0');
+            $this->assertSame($full['shipment_id'], $sample['shipment_id']);
+            $this->assertSame($full['shipment_status'], $sample['shipment_status']);
+            foreach (['from_location', 'to_location'] as $key) {
+                $this->assertSame(
+                    array_intersect_key($full[$key], array_flip(['location_id', 'name', 'code', 'company'])),
+                    $sample[$key]
+                );
+            }
+            foreach (DB::getQueryLog() as $query) {
+                foreach (['vehicle_activities', 'run_shipments', 'shipment_parcels', 'bookings'] as $table) {
+                    $this->assertStringNotContainsString($table, $query['query']);
+                }
+            }
+            $this->assertArrayNotHasKey('speeding_alerts', $sample);
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+    }
+
+    public function test_analytics_sample_is_bounded_ordered_and_merchant_scoped(): void
+    {
+        [$user, $merchant, $account] = $this->createMerchantContext();
+        $location = $this->createLocation($account->id, $merchant->id, 'Depot', 'DEPOT', 'Cape Town');
+        Carbon::setTestNow('2026-11-16 08:00:00');
+        try {
+            $ids = [];
+            for ($i = 0; $i < 201; $i++) {
+                $ids[] = $this->createShipment($account->id, $merchant->id, 'SAMPLE-'.$i, $location, $location);
+            }
+            $deleted = $this->createShipment($account->id, $merchant->id, 'DELETED', $location, $location);
+            DB::table('shipments')->where('uuid', $deleted)->update(['deleted_at' => now()]);
+            [$otherUser, $otherMerchant, $otherAccount] = $this->createMerchantContext();
+            $otherLocation = $this->createLocation($otherAccount->id, $otherMerchant->id, 'Other', 'OTHER', 'Cape Town');
+            $this->createShipment($otherAccount->id, $otherMerchant->id, 'OTHER', $otherLocation, $otherLocation);
+            $headers = $this->authHeaders($user);
+            $this->withHeaders($headers)
+                ->getJson('/api/v1/reports/analytics-shipment-sample?merchant_id='.$merchant->uuid)
+                ->assertOk()->assertJsonCount(200, 'data')
+                ->assertJsonPath('data.0.shipment_id', $ids[200])
+                ->assertJsonPath('data.199.shipment_id', $ids[1]);
+            $this->withHeaders($headers)
+                ->getJson('/api/v1/reports/analytics-shipment-sample?merchant_id='.$otherMerchant->uuid)
+                ->assertOk()->assertJsonCount(0, 'data');
+            $this->withHeaders($headers)->getJson('/api/v1/reports/analytics-shipment-sample')->assertStatus(422);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_default_report_paginates_without_global_aggregate_joins(): void
     {
         [$user, $merchant, $account] = $this->createMerchantContext();

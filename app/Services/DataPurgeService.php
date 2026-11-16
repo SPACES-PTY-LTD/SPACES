@@ -75,7 +75,7 @@ class DataPurgeService
             }
 
             return $results;
-        });
+        }, attempts: 3);
 
         return [
             'merchant_uuid' => $merchant->uuid,
@@ -143,7 +143,7 @@ class DataPurgeService
             ->all();
 
         $tables = [];
-        $tables['tracking_events'] = DB::table('tracking_events')->whereIn('shipment_id', $shipmentIds)->delete();
+        $tables['tracking_events'] = $this->purgeShipmentTrackingEvents($shipmentIds);
         $tables['run_shipments'] = DB::table('run_shipments')->whereIn('shipment_id', $shipmentIds)->delete();
         $tables['booking_pods'] = empty($bookingIds) ? 0 : DB::table('booking_pods')->whereIn('booking_id', $bookingIds)->delete();
         $tables['bookings'] = DB::table('bookings')->whereIn('shipment_id', $shipmentIds)->delete();
@@ -153,6 +153,26 @@ class DataPurgeService
         $tables['shipments'] = DB::table('shipments')->whereIn('id', $shipmentIds)->delete();
 
         return ['deleted_rows' => array_sum($tables), 'tables' => $tables];
+    }
+
+    private function purgeShipmentTrackingEvents(array $shipmentIds): int
+    {
+        $deleted = 0;
+
+        // Large secondary-index DELETE ranges can lock unrelated rows when MySQL
+        // chooses a table scan. Read matching IDs, then delete bounded primary keys.
+        foreach (array_chunk($shipmentIds, 250) as $shipmentBatch) {
+            DB::table('tracking_events')
+                ->whereIn('shipment_id', $shipmentBatch)
+                ->select('id')
+                ->chunkById(250, function ($events) use (&$deleted) {
+                    $deleted += DB::table('tracking_events')
+                        ->whereIn('id', $events->pluck('id')->all())
+                        ->delete();
+                });
+        }
+
+        return $deleted;
     }
 
     private function purgeRuns(Merchant $merchant): array

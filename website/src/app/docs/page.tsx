@@ -1,3 +1,4 @@
+import { requireDocumentationAccess } from "@/lib/documentation/require-access"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -24,11 +25,13 @@ const highlights = [
   },
 ]
 
-export default function DocsHomePage() {
+export default async function DocsHomePage() {
+  await requireDocumentationAccess("/docs")
   const firstEndpointPath = getFirstApiEndpointPath()
 
   return (
     <div className="space-y-9">
+      <p><Link className="underline" href="/docs/website-platform">Website, demo booking and support API documentation ↗</Link></p>
       <section className="space-y-4">
         <Badge className="bg-zinc-900 text-zinc-50 hover:bg-zinc-900">Public Merchant API</Badge>
         <h1 className="max-w-3xl text-[36px] font-semibold leading-tight tracking-tight text-zinc-900">

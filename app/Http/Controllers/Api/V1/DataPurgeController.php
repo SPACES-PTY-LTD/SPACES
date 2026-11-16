@@ -7,6 +7,7 @@ use App\Http\Requests\DataPurgeRequest;
 use App\Models\Merchant;
 use App\Services\DataPurgeService;
 use App\Support\ApiResponse;
+use Illuminate\Database\ConcurrencyErrorDetector;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
@@ -59,6 +60,15 @@ class DataPurgeController extends Controller
                 'merchant_uuid' => $merchant_uuid,
                 'error' => $e->getMessage(),
             ]);
+
+            if ((new ConcurrencyErrorDetector)->causedByConcurrencyError($e)) {
+                return ApiResponse::error(
+                    'MERCHANT_DATA_PURGE_BUSY',
+                    'Data is currently being updated by another process. Please try again shortly.',
+                    [],
+                    Response::HTTP_CONFLICT
+                );
+            }
 
             return $this->apiError($e, 'MERCHANT_DATA_PURGE_FAILED', 'Unable to purge merchant data.');
         }

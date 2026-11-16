@@ -6,18 +6,18 @@ import { ScheduleBoard } from "@/components/schedule/schedule-board"
 import type { ScheduleData, ScheduleRun, ScheduleShipment } from "@/lib/api/schedule"
 
 const location = (id: string, name: string) => ({ location_id: id, name })
-const depot = location("11111111-1111-4111-8111-111111111111", "Engen Isando")
-const mine = location("22222222-2222-4222-8222-222222222222", "Tharisa Mine")
+const depot = location("11111111-1111-4111-8111-111111111111", "Demo depot")
+const mine = location("22222222-2222-4222-8222-222222222222", "Demo delivery site")
 const shipment = (id: string, runId: string | null = null): ScheduleShipment => ({ shipment_id: id, reference: `DN-${id}`, status: "draft", source_run_id: runId, collection_date: "2026-10-12T06:00:00Z", pickup: depot, dropoff: mine })
 const run = (id: string, status: string, hour: string): ScheduleRun => ({ run_id: id, status, schedule_managed: true, planned_start_at: `2026-10-12T${hour}:00:00Z`, started_at: status === "in_progress" ? "2026-10-11T06:00:00Z" : null, overdue: false,
   can_assign_driver: status !== "in_progress", can_add_shipment: true, waiting_reason: status === "draft" ? "Waiting for an earlier run or an occupied driver/truck." : null,
-  origin: depot, destination: mine, driver: status === "in_progress" ? { driver_id: "driver-1", name: "Alex Mokoena" } : null, shipments: [shipment(id, id)] })
+  origin: depot, destination: mine, driver: status === "in_progress" ? { driver_id: "driver-1", name: "Demo driver 01" } : null, shipments: [shipment(id, id)] })
 const page = { current_page: 1, last_page: 1, total: 3 }
 const initial: ScheduleData = { environments: [{ environment_id: "sandbox", name: "Sandbox" }], timezone: "Africa/Johannesburg", can_manage: true,
-  drivers: [{ driver_id: "driver-1", name: "Alex Mokoena", phone: "071 000 0001", assigned: true }, { driver_id: "driver-2", name: "Zolani Ntantiso", phone: "071 000 0002", assigned: false }, { driver_id: "driver-3", name: "Yandisa Tenenengu", assigned: false }],
-  trucks: [{ vehicle_id: "truck-1", plate_number: "694HJSGP", is_active: true, available: false, can_create: true, runs: [run("run-1", "in_progress", "06"), run("run-2", "draft", "12")] },
-    { vehicle_id: "truck-2", plate_number: "700HJSGP", is_active: true, available: true, can_create: true, runs: [] },
-    { vehicle_id: "truck-3", plate_number: "701HJSGP", is_active: true, available: false, can_create: true, runs: [{ ...run("run-3", "draft", "08"), overdue: true }] }],
+  drivers: [{ driver_id: "driver-1", name: "Demo driver 01", phone: "071 000 0001", assigned: true }, { driver_id: "driver-2", name: "Demo driver 02", phone: "071 000 0002", assigned: false }, { driver_id: "driver-3", name: "Demo driver 03", assigned: false }],
+  trucks: [{ vehicle_id: "truck-1", plate_number: "DEMO 01", is_active: true, available: false, can_create: true, runs: [run("run-1", "in_progress", "06"), run("run-2", "draft", "12")] },
+    { vehicle_id: "truck-2", plate_number: "DEMO 02", is_active: true, available: true, can_create: true, runs: [] },
+    { vehicle_id: "truck-3", plate_number: "DEMO 03", is_active: true, available: false, can_create: true, runs: [{ ...run("run-3", "draft", "08"), overdue: true }] }],
   shipments: [shipment("1042"), shipment("1043"), shipment("1044")], pagination: { trucks: page, drivers: page, shipments: page } }
 
 export default function SchedulePreview() {

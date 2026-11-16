@@ -1,0 +1,266 @@
+[
+  {
+    "slug": "platform/scheduling",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Scheduling & run management",
+      "description": "Keep shipments, vehicles and driver assignments connected.",
+      "body": "<h2>Build an operational plan</h2><p>Organise shipments into runs and assign the vehicles and drivers responsible for the work. Keep the collection and delivery locations attached to the shipment so dispatchers can follow the same operational record.</p><h2>Follow the run</h2><p>Review run status and shipment progress from the administration workspace. Use recorded events to investigate delays and exceptions instead of relying on a separate spreadsheet.</p><h2>Route planning</h2><p>Review planned routes and stop order. Keep a clear view of the intended journey and use the run record to follow operational progress.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "platform/tracking",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Fleet tracking & visibility",
+      "description": "Bring vehicle positions and recorded journeys into your operational workflow.",
+      "body": "<h2>See the operational context</h2><p>Review vehicle positions alongside runs, shipments and locations. Position availability and freshness depend on the configured tracking source and its connection.</p><h2>Review recorded journeys</h2><p>Use recorded GPS history and run information to understand what happened along a journey. Missing location data should remain visible as missing data, rather than being interpreted as a stopped vehicle.</p><h2>Choose your tracking setup</h2><p>Discuss your current telematics provider and the vehicles you need to connect during your demo. Integration availability and production configuration must be confirmed for your account.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "platform/driver-app",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "A clearer working day for drivers",
+      "description": "Connect the driver’s assigned work with the operations team.",
+      "body": "<h2>Work from the assigned run</h2><p>Give drivers a mobile view of their run and shipment information. Keep the operational record connected to the office instead of spreading it across unrelated messages.</p><h2>Bring delivery notes into the workflow</h2><p>Drivers can upload delivery-note documents and review extracted shipment information before confirming it. Document reading can require correction; the review step keeps the driver in control.</p><h2>Discuss your devices</h2><p>Use the demo to check the mobile workflow, device permissions and location requirements for your fleet. Native device behaviour and connectivity should be verified during onboarding.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "platform/documents",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Delivery documents, connected to the work",
+      "description": "Keep delivery notes and shipment records together.",
+      "body": "<h2>Capture and review</h2><p>Upload delivery notes, review the extracted information and associate the documents with the relevant shipments and runs. Human review remains part of the import workflow.</p><h2>Find gaps before they become follow-up work</h2><p>Use document coverage, missing-document and expiry reports to identify records that need attention. Keep file types aligned with the documents your operation actually requires.</p><h2>Be precise about proof</h2><p>An uploaded delivery document is a stored record. It should not be confused with independently verified signature capture or a guarantee that a handover took place.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "platform/automation",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Location-based operational automation",
+      "description": "Connect recorded arrivals and departures with supported operational actions.",
+      "body": "<h2>Start with your locations</h2><p>Define the locations and geofences relevant to your work, such as depots and delivery sites. Accurate coordinates and a reliable position source are essential.</p><h2>Configure supported rules</h2><p>Use the available location-automation settings to connect supported entry and exit conditions with operational actions. Review the conditions with your team before enabling rules.</p><h2>Understand what happened</h2><p>Inspect recorded stop events and available automation explanations when investigating a journey. A location event alone is not proof that a shipment was delivered.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "platform/reporting",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Reports that support operational decisions",
+      "description": "Understand shipments, stops, vehicles and document completeness.",
+      "body": "<h2>Find the work that needs attention</h2><p>Review shipment reports, missing documents and document-expiry information. Use filters to move from an overall picture to the records requiring follow-up.</p><h2>Understand time on the road</h2><p>Explore route waiting times, stop analysis, speeding reports and vehicle daily indicators using the available recorded data.</p><h2>Make comparisons carefully</h2><p>Reports depend on the completeness of shipment records and tracking data. Review data gaps and time periods before comparing teams or drawing conclusions.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "platform/integrations",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Connect your operational systems",
+      "description": "Explore telematics connections and the merchant API.",
+      "body": "<h2>Build on your tracking investment</h2><p>Explore integration options for MiX/Powerfleet and Fleetboard. Confirm the supported provider, credentials and account setup with us before relying on a production connection.</p><h2>Use the merchant API</h2><p>Developer documentation covers authentication and available shipment, quote, booking and webhook interfaces. Review the documented endpoints against your intended workflow.</p><h2>Plan integration onboarding</h2><p>Start with a clearly defined source of truth, required fields and a test workflow. Confirm the provider connection and required data during onboarding.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "industries/road-freight",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Road freight",
+      "description": "Keep dispatch, vehicles and delivery paperwork in one operational flow.",
+      "body": "<h2>The operational challenge</h2><p>Transport teams need to coordinate runs across collection points, depots and delivery locations. Disconnected tracking and paperwork can make exceptions harder to investigate.</p><h2>A connected workflow</h2><p>Use scheduling, vehicle visibility, recorded journeys and delivery-document workflows to keep the work connected.</p><h2>Explore your operation</h2><p>Book a demo using a typical delivery journey from your business. We will walk through the relevant features and confirm integration requirements.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "industries/wholesale-distribution",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Wholesale distribution",
+      "description": "Connect warehouse departures with delivery progress.",
+      "body": "<h2>The operational challenge</h2><p>Distributors need to understand which shipments left, where their vehicles are and which documents still need to return. Missing records can create avoidable reconciliation work.</p><h2>A connected workflow</h2><p>Use shipment runs, location records and document-coverage reports to organise dispatch and follow up on incomplete records.</p><h2>Explore your operation</h2><p>Book a demo using a typical delivery journey from your business. We will walk through the relevant features and confirm integration requirements.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "industries/courier-operations",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Courier operations",
+      "description": "Give dispatchers and drivers a shared operational picture.",
+      "body": "<h2>The operational challenge</h2><p>Courier teams manage changing assignments and repeated collection and delivery tasks. Operational visibility depends on keeping the shipment and driver records current.</p><h2>A connected workflow</h2><p>Use run management, the driver app and shipment reporting to coordinate work and investigate exceptions.</p><h2>Explore your operation</h2><p>Book a demo using a typical delivery journey from your business. We will walk through the relevant features and confirm integration requirements.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "industries/retail-delivery",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Retail delivery",
+      "description": "Bring the delivery operation closer to the order record.",
+      "body": "<h2>The operational challenge</h2><p>Retail delivery teams need a clear picture of assigned work and delivery documentation. Information spread across separate tools makes customer enquiries harder to resolve.</p><h2>A connected workflow</h2><p>Use shipment records, assigned runs and delivery-note capture to help staff find the operational information they need.</p><h2>Explore your operation</h2><p>Book a demo using a typical delivery journey from your business. We will walk through the relevant features and confirm integration requirements.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "security",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Security built around access and accountability",
+      "description": "Understand the controls behind your operational workspace.",
+      "body": "<h2>Control who can access your work</h2><p>The application uses authenticated accounts and role-based permissions. Merchant access checks restrict operational resources to the merchants a user is authorised to access.</p><h2>Protect credentials</h2><p>Account passwords are stored using password hashing. Integration settings use application-level encryption. Integration access can be reviewed as part of your onboarding requirements.</p><h2>Keep changes accountable</h2><p>Activity records help administrators review supported operational and administrative actions. Website publishing is restricted to super admins.</p><h2>Discuss your security requirements</h2><p>Ask us about the hosting, backup, retention and access requirements for your deployment. Our team can discuss the supporting information needed for your procurement review.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "about",
+    "kind": "page",
+    "publish": true,
+    "draft": {
+      "title": "Operations deserve a connected view",
+      "description": "Spaces Digital brings logistics workflows into one workspace.",
+      "body": "<h2>Our focus</h2><p>We are building tools for the people coordinating shipments, vehicles, drivers and delivery documents. Our website focuses on workflows that can be demonstrated and explained.</p><h2>Built around operational detail</h2><p>Runs, locations, document completeness and recorded events all matter when a dispatcher needs to understand what happened. Our product brings those records together.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "blog/delivery-document-completeness",
+    "kind": "blog",
+    "publish": false,
+    "draft": {
+      "title": "A practical delivery-document checklist",
+      "description": "Make missing paperwork easier to identify.",
+      "body": "<h2>A working approach</h2><p>Define the documents required for each shipment type. Check that files are associated with the correct shipment. Review missing documents regularly and assign a person to follow up. Separate a stored document from confirmation that the delivery details have been checked.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "blog/reducing-waiting-time",
+    "kind": "blog",
+    "publish": false,
+    "draft": {
+      "title": "Understand waiting time before changing your routes",
+      "description": "Use stop records to ask better operational questions.",
+      "body": "<h2>A working approach</h2><p>Choose a consistent reporting period. Review waiting time by location and investigate repeat delays. Check whether GPS gaps or location boundaries affect the recorded visit. Discuss the findings with dispatchers and drivers before changing operating procedures.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "blog/operational-exceptions",
+    "kind": "blog",
+    "publish": false,
+    "draft": {
+      "title": "Build a routine for operational exceptions",
+      "description": "Turn incomplete records into clear follow-up actions.",
+      "body": "<h2>A working approach</h2><p>Decide which exceptions need a daily review. Start with missing documents, unexpected stops and incomplete shipments. Assign an owner and record the action taken. Review recurring issues separately from isolated incidents.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "support/getting-started",
+    "kind": "help",
+    "publish": true,
+    "draft": {
+      "title": "Getting started with your workspace",
+      "description": "Sign in to the administration website and select the merchant you work with.",
+      "body": "<h2>Guide</h2><p>Sign in to the administration website and select the merchant you work with. Check your assigned access and confirm that the relevant vehicles, drivers and locations are available. Ask your administrator if a record or action is missing.</p>",
+      "category": "Getting started"
+    }
+  },
+  {
+    "slug": "support/administrators",
+    "kind": "help",
+    "publish": true,
+    "draft": {
+      "title": "Understand user access",
+      "description": "Account holders and members can manage users where permitted.",
+      "body": "<h2>Guide</h2><p>Account holders and members can manage users where permitted. Resource access depends on the selected merchant and assigned role. Website publishing is available only to super admins.</p>",
+      "category": "Administrators"
+    }
+  },
+  {
+    "slug": "support/dispatchers",
+    "kind": "help",
+    "publish": true,
+    "draft": {
+      "title": "Review a run before dispatch",
+      "description": "Check the assigned vehicle and driver, shipment locations and planned work in the schedule.",
+      "body": "<h2>Guide</h2><p>Check the assigned vehicle and driver, shipment locations and planned work in the schedule. Review readiness and any missing operational information before progressing the run.</p>",
+      "category": "Dispatchers"
+    }
+  },
+  {
+    "slug": "support/drivers",
+    "kind": "help",
+    "publish": true,
+    "draft": {
+      "title": "Review delivery-note imports",
+      "description": "Upload the delivery note through the driver workflow.",
+      "body": "<h2>Guide</h2><p>Upload the delivery note through the driver workflow. Check the extracted shipment information and locations before confirming. Correct information that was not read accurately.</p>",
+      "category": "Drivers"
+    }
+  },
+  {
+    "slug": "support/billing",
+    "kind": "help",
+    "publish": true,
+    "draft": {
+      "title": "Understand published pricing",
+      "description": "Published plans show monthly rand pricing, included vehicles, additional-vehicle charges and VAT wording.",
+      "body": "<h2>Guide</h2><p>Published plans show monthly rand pricing, included vehicles, additional-vehicle charges and VAT wording. Your account billing details remain available to users with billing access.</p>",
+      "category": "Billing"
+    }
+  },
+  {
+    "slug": "support/integrations",
+    "kind": "help",
+    "publish": true,
+    "draft": {
+      "title": "Prepare an integration enquiry",
+      "description": "Provide the provider name and intended workflow when discussing an integration.",
+      "body": "<h2>Guide</h2><p>Provide the provider name and intended workflow when discussing an integration. Never paste passwords or API tokens into a support ticket. Use the developer documentation to review available interfaces.</p>",
+      "category": "Integrations"
+    }
+  },
+  {
+    "slug": "privacy",
+    "kind": "page",
+    "publish": false,
+    "draft": {
+      "title": "Privacy policy",
+      "description": "Company-approved policy pending publication.",
+      "body": "<h2>Publication required</h2><p>Replace this draft with the company-approved policy before publishing.</p>",
+      "category": null
+    }
+  },
+  {
+    "slug": "terms",
+    "kind": "page",
+    "publish": false,
+    "draft": {
+      "title": "Terms of service",
+      "description": "Company-approved policy pending publication.",
+      "body": "<h2>Publication required</h2><p>Replace this draft with the company-approved policy before publishing.</p>",
+      "category": null
+    }
+  }
+]

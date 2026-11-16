@@ -93,3 +93,12 @@ Schedule::call(function () {
             fn ($merchantId) => app(\App\Services\RunReadinessService::class)->reconcile($merchantId)
         );
 })->name('runs:reconcile-schedule')->everyMinute()->withoutOverlapping();
+
+// The database outbox survives worker/mail failures without losing appointments or tickets.
+Schedule::call(function () {
+    \App\Models\Website\OutboundMail::where('status','sending')->where('attempted_at','<',now()->subMinutes(10))->update(['status'=>'failed']);
+    \App\Models\Website\OutboundMail::whereIn('status',['pending','failed'])->where('attempts','<',5)
+        ->where(fn ($q) => $q->whereNull('attempted_at')->orWhere('attempted_at','<',now()->subMinutes(5)))
+        ->limit(100)->pluck('id')->each(fn ($id) => \App\Jobs\DeliverWebsiteMail::dispatch($id));
+    app(\App\Services\Website\DemoService::class)->remindDue();
+})->name('website:notifications')->everyMinute()->withoutOverlapping();

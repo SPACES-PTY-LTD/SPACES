@@ -1,5 +1,458 @@
 # Release Notes
 
+## 2026-11-16 | Version: merchant-purge-lock-contention
+- Summary: Reduce the tracking-event delete lock footprint after the production shipment purge failed with MySQL error 1205.
+- API Changes: POST /api/v1/merchants/{merchant_uuid}/purge-data returns HTTP 409 with MERCHANT_DATA_PURGE_BUSY and retry guidance when database lock contention persists.
+- Database Changes: None.
+- Behavior Changes: Read tracking-event IDs in bounded shipment groups and delete batches of at most 250 primary keys, including soft-deleted events. Retain the existing all-or-nothing purge transaction and retry transient concurrency failures up to three attempts. Ownership checks and selected data types remain unchanged.
+- Breaking Changes: None; clients should handle the new 409 error through the existing error envelope.
+- Verification: PHP 8.4 purge and merchant-deletion suites passed (12 tests, 67 assertions), including 501-event batching, exact deletion counts, soft-deleted events, merchant isolation and the busy response. Whitespace checks passed. Production logs confirm the original tracking_events lock timeout; MySQL concurrency/load behaviour has not been reproduced locally and the fix is not deployed.
+
+## 2026-11-16 | Version: analytics-overview-loading
+- Summary: Remove full shipment-report enrichment from the analytics overview's loading path.
+- API Changes: Add authenticated GET /api/v1/reports/analytics-shipment-sample, requiring merchant_id unless a merchant environment is provided. Return only shipment ID/status and pickup/dropoff label fields for the latest 200 shipments, ordered by creation time and ID descending, using existing shipment authorization/environment scopes.
+- Database Changes: None.
+- Behavior Changes: The analytics overview uses the lightweight sample instead of resolving shipment visits, runs, drivers, parcels and speeding history. Reuse dashboard_stats.locations_count instead of making a separate location-list request, reducing initial server requests from four to three. Preserve existing sample size, rankings, status percentages and links; the full shipment report remains unchanged.
+- Breaking Changes: None. Deploy the API endpoint before or together with the frontend.
+- Verification: PHP 8.4 shipment-report suite passed (14 tests, 382 assertions), including sample/full-report equivalence, merchant isolation, deleted-row exclusion, deterministic order, 200-row cap and absence of detail-table queries. TypeScript check and git diff --check passed. Live production latency and authenticated browser rendering have not been measured.
+
+## 2026-11-09 | Version: homepage-card-navigation-cleanup
+- Summary: Simplify homepage navigation and remove the two marked promotional sections.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Make each animated benefit panel a single keyboard-accessible link to its relevant page; remove separate Explore links. Rename the industries heading to “Works for different industries”. Remove Getting started and the subscription/support card section, plus navigation and footer links to the removed anchor.
+- Breaking Changes: The homepage getting-started anchor is removed.
+- Verification: TypeScript and whitespace checks passed; confirmed no remaining source links to the removed anchor and reviewed card destinations.
+
+## 2026-11-09 | Version: demo-button-hover-motion
+- Summary: Make header and closing demo buttons more inviting on interaction.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Add a subtle lift, purple shadow and directional arrow movement on pointer hover and keyboard focus. Preserve focus outlines, touch behaviour and reduced-motion support.
+- Breaking Changes: None.
+- Verification: Reviewed scoped CSS selectors and reduced-motion overrides; whitespace check passed.
+
+## 2026-11-09 | Version: remove-solution-animation-control
+- Summary: Remove the visible animation control from the homepage benefit panels.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Remove pause/play button, unused state, icons and styles; retain automatic animation, offscreen pausing and reduced-motion support.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks passed; confirmed button removal in source.
+
+## 2026-11-09 | Version: animated-solution-scenes
+- Summary: Replace static benefit artwork with three bespoke animated product scenes.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Animate fleet connections, shipment assignment and reporting graphics using lightweight CSS and Lucide icons. Add pause/resume, pause offscreen, and disable scene motion for reduced-motion preferences. Keep panel expansion, visible copy and feature links.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks passed. Inspected desktop and 390px mobile rendering without horizontal overflow; verified pause/resume changes animation state. Reviewed reduced-motion styles.
+
+## 2026-11-09 | Version: expanding-solution-panels
+- Summary: Replace the homepage benefit text columns with three illustrated, expanding panels inspired by the supplied Shopify reference.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Panels expand on desktop hover or keyboard focus, retain all descriptions, and link to platform, scheduling and reporting pages. Stack on mobile and respect reduced motion. Reuse existing artwork and remove obsolete card styles.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks passed. Reviewed desktop rendering and keyboard expansion; verified mobile stacking at 390px without horizontal overflow.
+
+## 2026-11-09 | Version: homepage-detail-cleanup
+- Summary: Simplify homepage reporting and integration content and reduce the shared demo heading size.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Reduce the demo CTA heading by 40% across responsive sizes. Remove homepage provider badges, the connection setup note, and reporting and integration footnotes.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks passed; confirmed removed content and responsive font values.
+
+## 2026-11-09 | Version: shipments-management-heading
+- Summary: Update the homepage operations heading.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace “Easy shipments planning” with “Easy shipments management”.
+- Breaking Changes: None.
+- Verification: Confirmed the exact replacement; whitespace check passed.
+
+## 2026-11-09 | Version: homepage-solution-benefits
+- Summary: Reframe the homepage introduction around reasons to choose Spaces Digital.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Use “Our solution” and the requested fleet-management heading; remove the old introductory paragraph. Explain Scalable solution, Streamline fleet management and Useful Reporting with existing vehicle, role, dispatch, tracking and reporting capabilities.
+- Breaking Changes: None.
+- Verification: Reviewed copy against existing capabilities and confirmed replacements; whitespace check passed.
+
+## 2026-11-09 | Version: demo-invitation-heading
+- Summary: Apply the requested demo invitation heading.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Use the supplied copy “Join thousands of satisfied customers using Spaces Digital” in the shared marketing CTA. Customer-count and satisfaction wording is user-provided, not independently verified.
+- Breaking Changes: None.
+- Verification: Confirmed shared heading replacement and whitespace check.
+
+## 2026-11-09 | Version: operations-section-heading
+- Summary: Update homepage workflow section wording from browser feedback.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Set the section label to “Operations” and heading to “Easy shipments planning”.
+- Breaking Changes: None.
+- Verification: Confirmed both replacements; whitespace check passed.
+
+## 2026-11-09 | Version: homepage-requested-headings
+- Summary: Update four homepage headings from browser feedback.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Use shipment-focused hero copy, “Track vehicle location”, “Track vehicle location and Shipment Documents”, and “Upload and extract delivery note data using AI”. Correct the supplied spelling errors.
+- Breaking Changes: None.
+- Verification: Checked heading replacements and whitespace; confirmed delivery-note extraction uses the existing OpenAI integration.
+
+## 2026-11-02 | Version: documentation-password-gate
+- Summary: Protect integrations and API documentation with a server-validated eight-character password.
+- API Changes: Add POST /api/documentation/access for same-origin password checks and one-hour signed HTTP-only sessions. Exclude protected documentation slugs from the anonymous Laravel content feed.
+- Database Changes: None.
+- Behavior Changes: Gate /platform/integrations and all /docs routes using DOCUMENTATION_PASSWORD, with shadcn-style Input OTP, eight masked slots and paste support. Fail closed when unset or invalid, reject unsafe return URLs, limit attempts and request size, invalidate sessions on password rotation, and exclude protected routes from sitemap/indexing. Keep API reference data out of public browser bundles. Add scoped middleware under src alongside server-rendering checks; preserve existing admin routing.
+- Breaking Changes: Documentation now requires the shared password. Public CMS documentation overrides are withheld; protected built-in pages remain available after unlocking. Configure exactly eight printable characters without spaces and restart the website.
+- Verification: All 22 frontend tests, including eight access tests, and Laravel public-feed exclusion test (four assertions) pass. Direct HTML/RSC requests redirect to the gate; valid test sessions open documentation. Browser paste, wrong-password feedback, successful unlock and 320px mobile layout verified. TypeScript and whitespace checks. Deployment requires HTTPS, no CDN caching of protected pages and shared ingress rate limiting for multiple instances; local limiter is per process. No production password set, commit or deployment.
+
+## 2026-11-02 | Version: related-features-heading
+- Summary: Simplify the related-features heading.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Use “Explore more features” on platform feature landing pages.
+- Breaking Changes: None.
+- Verification: Confirmed replacement in the shared component; whitespace check passed.
+
+## 2026-11-02 | Version: industry-photo-mosaic
+- Summary: Redesign the homepage industries as an open photo mosaic.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Show two wide industry tiles above three smaller tiles, with always-visible titles and explanations over dark image gradients. Make each tile a direct link; retain all five industries and anchor IDs. Adapt to two columns on tablet and one on mobile without hiding content.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; reviewed responsive rules, focus states and destinations.
+
+## 2026-10-30 | Version: visible-industry-directory
+- Summary: Keep all five homepage industries visible without interaction.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace the industry selector and hidden panels with open image-and-text rows. Each industry has a photograph, description and linked heading; preserve anchor IDs and detail destinations. Remove client selection state and tab styling; stack rows on small screens.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; reviewed all five rendered entries, semantic links and responsive styles.
+
+## 2026-10-30 | Version: integration-options-redesign
+- Summary: Replace the integration definition list with two clear connection options.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Present API and vehicle tracking in open icon-led columns, with a documentation link, provider tags and a separate setup note. Remove the purple side rule and table-like alignment; stack options on mobile.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; reviewed responsive styling and documentation destination.
+
+## 2026-10-30 | Version: industry-selector-redesign
+- Summary: Replace the homepage industry card grid with a focused selector.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Show five industry choices beside one large photograph, concise explanation and detail link. Support click, arrow keys, Home/End and visible focus without automatic rotation. Stack choices and content on mobile; retain industry anchor IDs and all five destinations.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; reviewed tab semantics, mobile styles and destinations.
+
+## 2026-10-30 | Version: integration-guide-layout
+- Summary: Give homepage integration benefits a clear labelled guide layout.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace narrow arrow columns with a definition list for Developer API, Tracking providers and Before connecting. Use a restrained purple side rule, aligned labels and wide descriptions; stack labels on smaller screens. Preserve integration claims and links.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; reviewed responsive styles and definition-list semantics.
+
+## 2026-10-30 | Version: reporting-benefit-cards
+- Summary: Present homepage reporting benefits as distinct icon cards.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace the reporting arrow columns with Documents, Time & stops and Vehicle activity cards, Lucide icons and concise explanations. Stack cards in constrained layouts and preserve existing report links.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; reviewed responsive card layout and decorative icon semantics.
+
+## 2026-10-30 | Version: dispatch-step-layout
+- Summary: Give the homepage planning benefits a distinct numbered layout.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace planning benefit columns with a vertical three-step sequence, outlined numbers, connecting lines and concise headings. Keep explanatory text readable across screen sizes and preserve other feature layouts.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; reviewed list semantics and responsive sizing.
+
+## 2026-10-30 | Version: polish-workflow-benefits
+- Summary: Make homepage workflow benefits easier to scan.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace narrow three-column arrow lists with full-width stacked rows, subtle backgrounds and Lucide check icons. Isolate workflow list styles from landing-page benefit grids. Preserve tab interactions and text.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; reviewed responsive list styles and preserved tab controls.
+
+## 2026-10-30 | Version: complete-homepage-copy-review
+- Summary: Complete the plain-language homepage copy review using competitor messaging as inspiration.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Clarify feature benefits, team roles, industry summaries, security controls, onboarding, subscriptions, support, resource fallbacks and FAQs. Replace repetitive industry descriptions with one useful paragraph per card. Preserve existing layouts, links, verified feature limits and the simple demo CTA.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; reviewed OrderGrid homepage, Powerfleet Europe and CtrlFleet FAQ. Claims checked against existing product descriptions; no new capability or performance claims.
+
+## 2026-10-30 | Version: clarify-homepage-messaging
+- Summary: Rewrite homepage titles and explanations around concrete transport workflows.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Clarify product purpose, audience, dispatch, tracking, delivery documents, reporting, integrations, security and support. Update workflow tab headings and homepage metadata. Use competitor positioning as inspiration without copying claims or promising unverified capabilities; remove outdated Billing guide mentions. Preserve layout, links and anchors.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; copy reviewed against existing feature descriptions. Competitor sources: OrderGrid homepage, Powerfleet Europe and CtrlFleet FAQ; UK Telematics could not be fetched (403).
+
+## 2026-10-30 | Version: simplify-demo-cta
+- Summary: Simplify the shared demo invitation to match the centred reference layout.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace the lavender card and nested booking panel with a full-width navy section, subtle decorative grid, concise centred message and one white demo button. Preserve the booking destination and responsive layout.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; source review of mobile styles, focus treatment and booking link.
+
+## 2026-10-30 | Version: simplify-home-execution
+- Summary: Simplify homepage fleet visibility and delivery-document explanations.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace dense side-by-side text and three-column benefit lists with two spacious image-and-copy rows. Use direct headings, short summaries and one feature link per row. Retain tracking-provider context, existing images and section anchors; stack each row on mobile.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; responsive CSS and destination review.
+
+## 2026-10-30 | Version: remove-billing-help-category
+- Summary: Remove the public Billing help category page and links.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Remove Billing help from the footer and Billing from support category navigation. Existing Billing category URLs redirect to the support centre. Preserve help records and private support functionality.
+- Breaking Changes: The public Billing category view is no longer available.
+- Verification: TypeScript and whitespace checks; source review of category links and redirect.
+
+## 2026-10-30 | Version: withdraw-product-updates
+- Summary: Remove Product updates from the public website.
+- API Changes: None; CMS records and management remain intact.
+- Database Changes: None.
+- Behavior Changes: Remove updates navigation, footer, resources links and sitemap entry. Exclude update content from public frontend reads and article previews. Redirect /updates to /resources so old links remain useful.
+- Breaking Changes: Product update pages are no longer publicly surfaced on the website.
+- Verification: TypeScript, whitespace and public-link source checks passed. Live redirect verification was unavailable because the local preview could not be reached. No data deletion, commit or deployment.
+
+## 2026-10-30 | Version: stronger-demo-invitation
+- Summary: Redesign the shared closing demo invitation with clearer value and a stronger booking action.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace the sparse banner with a spacious lavender layout, three concrete workflow benefits and a white booking card. Add a prominent purple Book your demo button, calendar icon and 30-minute walkthrough detail. Stack content cleanly on mobile; preserve the existing booking destination.
+- Breaking Changes: None.
+- Verification: TypeScript, whitespace and desktop/mobile visual checks. Presentation only; no booking, dashboard, commit or deployment changes.
+
+## 2026-10-30 | Version: marketing-smooth-section-scroll
+- Summary: Smoothly scroll marketing section links to their destinations.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Enable native smooth document scrolling on marketing pages, including platform Why it matters, Capabilities, How it works and FAQs links. Retain URL hashes and existing section offsets. Use immediate scrolling when reduced motion is requested; admin pages and the gallery scroller are unaffected.
+- Breaking Changes: None.
+- Verification: Whitespace check and browser verification of tracking section navigation and computed scroll behaviour. CSS-only change.
+
+## 2026-10-30 | Version: public-faq-library
+- Summary: Add a dedicated searchable FAQ page with 21 product-specific answers across five topics.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Add /faq with topic navigation, keyboard-accessible expandable answers, live search, result announcements, empty/reset state and relevant product/support links. Connect Resources navigation, homepage FAQ invitation, footer, support centre and sitemap. Built-in answers remain available independently of CMS; private tickets remain separate.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks pass. Browser verified search, zero results/reset, keyboard expansion, topic navigation and desktop/mobile layout. No backend, booking, email, dashboard, commit or deployment changes.
+
+## 2026-10-30 | Version: simplify-marketing-dropdowns
+- Summary: Reduce visual clutter in the main navigation dropdowns.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Remove heading/footer divider lines, header inset rule and icon boxes/shadows. Use unboxed purple Lucide icons and spacing. Hide redundant section headings in flat menus while retaining Platform group headings. Remove mobile item borders. Preserve descriptions, destinations and menu interactions.
+- Breaking Changes: None.
+- Verification: Whitespace check and desktop/mobile visual checks; presentation-only change with existing navigation behaviour preserved.
+
+## 2026-10-30 | Version: remove-visible-image-captions
+- Summary: Remove visible image captions and illustration notices from the marketing website at the user's request.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Remove captions from shared feature artwork, platform/industry pages, homepage gallery, blog covers and company imagery. Remove the shared caption option. Preserve descriptive image alt text and generation provenance in internal documentation.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks; source search confirms no rendered figcaption or image-disclosure labels remain in marketing components. No booking or dashboard behaviour changes.
+
+## 2026-10-30 | Version: shadcn-demo-date-picker
+- Summary: Replace the native demo date input with a shadcn calendar popover.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Reuse existing shadcn Button, Popover and Calendar components for booking and rescheduling. Disable dates outside the existing SAST booking window, show a readable selected date, close on selection and preserve civil date values without UTC shifts. Keep server availability validation and existing booking rules.
+- Breaking Changes: None.
+- Verification: TypeScript, eight existing booking/catalogue tests and whitespace checks pass. Browser checked keyboard date selection, month navigation, disabled dates, mobile fit and availability error feedback. Local backend remains unavailable; no booking or email sent.
+
+## 2026-10-30 | Version: demo-progress-text-size
+- Summary: Enlarge the demo booking progress labels for easier reading.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Increase Choose a time, Your details and Confirmation labels from 12px to 16px, with 30px numbered circles and comfortable line spacing. Preserve the stacked mobile step layout and current-step indication.
+- Breaking Changes: None.
+- Verification: CSS-only change; whitespace check and desktop/mobile browser layout checks. Booking behaviour unchanged.
+
+## 2026-10-30 | Version: unique-platform-hero-artwork
+- Summary: Give all seven platform landing pages distinct feature-specific hero illustrations.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Add dedicated transparent PNGs for scheduling, tracking, driver app, delivery documents, geofences, reporting and integrations. Use them in landing headers and fallback social previews, with descriptive alternative text and illustrative captions. Retain supporting-section artwork and CSS-controlled backgrounds. Record exact generation prompts and source provenance.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks pass. All seven source PNGs visually inspected; alpha channels and unique page image destinations checked. Desktop/mobile landing artwork checked in-browser. No backend, dashboard, commit or deployment changes.
+
+## 2026-10-30 | Version: company-page-navigation
+- Summary: Add a Company landing page and a Company dropdown to the main menu.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Add a built-in /company page with a photographic introduction, purpose, product principles, industry focus and careers/blog/contact links. Reuse labelled illustrative artwork with alternating navy, light and lavender sections. Add About Spaces, Careers and Contact destinations with Lucide icons to desktop/mobile navigation; connect footer and sitemap. Keep pricing withdrawn.
+- Breaking Changes: None.
+- Verification: TypeScript and three navigation tests pass. Desktop page and keyboard Company dropdown checked; links resolve to existing routes. Mobile layout and menu checked without horizontal overflow. No backend, dashboard, commit or deployment changes.
+
+## 2026-10-30 | Version: withdraw-public-pricing
+- Summary: Remove the public pricing page for now.
+- API Changes: None; existing pricing approval and billing APIs remain available.
+- Database Changes: None.
+- Behavior Changes: Remove Pricing from desktop/mobile navigation, footer and sitemap (including CMS-supplied pricing entries). Redirect old /pricing links to Contact. Update homepage subscription copy and link to invite a conversation without referring to published prices.
+- Breaking Changes: /pricing no longer displays plans; visitors are redirected to /contact.
+- Verification: TypeScript and whitespace checks pass; public pricing links checked in source. Browser confirms /pricing redirects to Contact and navigation/footer omit Pricing. No billing, dashboard or database changes, commit or deployment.
+
+## 2026-10-30 | Version: practical-blog-library
+- Summary: Add ten practical product and logistics guides with ten distinct generated editorial cover images.
+- API Changes: None.
+- Database Changes: None; no CMS seeding or publication writes.
+- Behavior Changes: Add image-led blog and resources cards, readable article pages with contents links, author credit, reading time, related guides and product destinations. Include articles in homepage previews, social metadata and the sitemap. Built-in guides remain available during CMS outages; published CMS records can override matching slugs without exposing drafts. Earlier editorial edition dates are shown separately from the actual library publication date. Record generated-image provenance and optimise delivery assets as WebP.
+- Breaking Changes: Built-in article routes remain available after a CMS override is unpublished; removing a built-in guide requires a code change.
+- Verification: TypeScript and fourteen frontend tests pass, including article completeness/assets, honest date metadata, CMS override deduplication and unavailable-service fallback. All ten article routes render four distinct sections without desktop overflow; contents navigation and cover loading checked in-browser. Desktop and mobile layouts inspected. No live emails, database changes, commit or deployment.
+
+## 2026-10-30 | Version: industry-landing-pages-fuel-depots
+- Summary: Add five detailed industry landing pages, including Fuel depots, with photographic introductions and relevant product workflows.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Make road freight, wholesale distribution, courier operations, retail delivery and fuel depots available as built-in pages. Reuse the detailed landing template with industry-specific benefits, three capability chapters, workflow steps, FAQs and related platform links. Connect all industry destinations through a shared catalogue in the menu, overview, homepage, footer and sitemap. Include a generated fuel-depot image with recorded provenance and an illustrative label. Published CMS additions remain supported; drafts are never rendered.
+- Breaking Changes: No API changes; recognised industry routes remain publicly available independently of CMS publication state, matching the requested built-in landing-page approach.
+- Verification: TypeScript and eleven frontend tests pass. All five routes loaded with distinct headings and three capability chapters. Desktop hero and 390px mobile fuel-depot layout checked without horizontal overflow; generated image loads and keyboard FAQ expansion works. Existing platform pages use the same shared content template. No live data, migrations, publication actions, commit or deployment.
+
+## 2026-10-30 | Version: platform-feature-landing-pages
+- Summary: Expand all seven platform features into informative built-in landing pages, as explicitly selected by the user.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Add distinct feature introductions, large existing transparent artwork, alternating capability sections, benefits, three-step workflows, keyboard-accessible FAQs, related features and demo invitations. Menu, overview, homepage and footer links now lead directly to built-in feature routes; sitemap and metadata include them. Published CMS details/SEO can supplement these pages; drafts stay private. Unpublishing CMS additions does not hide built-in pages. Industry publication rules remain unchanged.
+- Breaking Changes: None to APIs; known platform routes now remain public independently of CMS publication status by explicit user choice.
+- Verification: TypeScript and ten frontend tests pass. All seven routes loaded in-browser with unique headings and three FAQs each, with no desktop horizontal overflow. Desktop capability layout and 390px mobile FAQ keyboard interaction checked; no mobile overflow. Existing CMS outage does not prevent feature-page rendering. No database changes, publication actions, commit or deployment.
+
+## 2026-10-30 | Version: reference-white-mega-menu
+- Summary: Match the reference navigation with a white full-width mega menu and more spacious header links.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Desktop pointer hover opens grouped feature columns; moving between trigger and panel retains the menu. Header changes to white with dark branding/text and a purple demo CTA on hover/open. Add ruled group headings, compact bordered Lucide icon tiles and muted descriptions. Keep mobile click accordions, Escape/outside dismissal, ArrowDown focus access and publication-aware destinations.
+- Breaking Changes: None.
+- Verification: Three navigation interaction tests and TypeScript pass. Reference menu inspected live. Desktop white mega menu and 390px mobile accordion visually verified, with no mobile horizontal overflow; Escape closes the dropdown and restores trigger focus. Stalled local preview restarted with explicit user approval and left running. No commit or deployment.
+
+## 2026-10-30 | Version: feature-discovery-demo-polish
+- Summary: Make feature discovery useful without CMS availability and present a polished time-first demo journey.
+- API Changes: No endpoint changes. The frontend website request helper now retains response status and field errors for booking recovery.
+- Database Changes: None.
+- Behavior Changes: Always offer Platform and Industries dropdowns backed by verified summaries; prefer published detail pages and fall back to anchored overview sections. Add illustrated planning/execution/oversight overview and four photographic industry cards. Redesign demo booking with an agenda, light panel, time/details/confirmation states, preserved inputs, inline validation, duplicate-submit guard, refreshed availability after slot conflicts and server-confirmed appointment time. Style private rescheduling/cancellation consistently. Use installed Lucide icons for navigation and appointment UI.
+- Breaking Changes: None.
+- Verification: TypeScript and six frontend component/catalogue tests pass; 17 Laravel website tests pass (86 assertions, isolated in-memory DB and mail). Browser checked desktop, 820px tablet and 390px mobile layouts, dropdowns/Escape, feature anchor destinations, industry image loading, native date interaction and connection-error feedback. No horizontal overflow in checked views. Successful submission/conflict/cancellation paths exercised with controlled component responses; live submission remains blocked by local database configuration. No live email, migrations, publishing, commit or deployment.
+- Local environment limitation: spaces.test resolves outside the restricted runner, but Laravel returns HTTP 500 because its configured MAMP MySQL socket is absent. The active /tmp/mysql.sock rejects the existing credentials (1045). Credentials and database contents were left unchanged; a valid local database connection is required for live CMS/booking verification.
+
+## 2026-10-30 | Version: editorial-dark-homepage
+- Summary: Bring the marketing homepage closer to the approved dark editorial reference.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Unify dark navigation/hero and white pill CTAs, alternating light problem, execution, industry and resource sections with dark platform chapters; add manual keyboard-accessible Plan/Follow/Capture/Review tabs; regroup detailed feature content into planning, execution and oversight chapters. Add four generated industry photo cards, image-led resource previews with available authors/publication dates, and useful empty-content fallbacks. Retain the looping ten-image gallery and section anchors. Remove the repeated footer demo invitation.
+- Internal Changes: Add shared typography/spacing/colour tokens and remove superseded same-selector CSS declarations. Record generated artwork provenance and prompts.
+- Breaking Changes: None.
+- Verification: TypeScript passes. Desktop, 820px tablet and 390px mobile layouts checked without horizontal overflow; tab arrows/Home/End, mobile tab selection, dropdown Escape behaviour, industry image loading, resource fallbacks and footer anchor targets checked. Existing reduced-motion gallery logic retained. Published article rendering is implemented but local preview currently has no published articles. No backend/dashboard changes or deployment.
+
+## 2026-10-30 | Version: expanded-site-footer
+- Summary: Add a substantial shared footer with a five-column site directory and demo invitation.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Group platform, industry, resource, support and company links. Prefer published detail pages with relevant homepage anchors as fallbacks; add industry/security anchor targets. Include category-filtered help links, authenticated support access, published legal links and back-to-top navigation. Stack the directory into two columns on mobile.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks pass. Desktop and 390px mobile footer visually checked with no page overflow; all homepage footer anchor targets exist and road-freight navigation reaches its section. No deployment.
+
+## 2026-10-30 | Version: expanded-editorial-gallery
+- Summary: Expand the continuous image strip from six to ten distinct visuals and refine landing typography to the reference.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Include driver-app, connected-fleet, reporting and API illustrations; derive the counter from the image count. Use a lighter 72px maximum desktop headline, 16px body text, wider column spacing and more vertical space. Keep mobile content stacked.
+- Breaking Changes: None.
+- Verification: TypeScript passes; browser confirms ten unique slides with repeated copies and responsive layout checked. No deployment.
+
+## 2026-10-30 | Version: continuous-gallery-loop
+- Summary: Make the landing image gallery autoplay continuously and repeat seamlessly.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Replace five-second steps with steady animation and repeated image sets. Normalize scroll position between identical copies for continuous looping in either direction; preserve manual browsing, pause controls and reduced-motion preference. Hide duplicate slide groups from assistive technology.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks pass. Browser confirmed autoplay movement and six successive next actions returning to the same loop position with manual playback paused. No deployment.
+
+## 2026-10-30 | Version: full-width-logistics-gallery
+- Summary: Rework the landing carousel into an OrderGrid-inspired full-width editorial image strip.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Place a large split headline/introduction above six horizontally scrolling thumbnails. Mix newly generated driver and dispatch photos with existing product and logistics illustrations. Preserve CSS backgrounds for transparent UI artwork, native swipe, arrow-key browsing, auto-advance and pause/reduced-motion controls. Identify generated scenes without implying customer endorsements.
+- Breaking Changes: None.
+- Verification: TypeScript and whitespace checks pass. Desktop multi-card layout and mobile 390px layout verified, including arrow-key scrolling and no page overflow. New WebP images inspected in the page. No deployment.
+
+## 2026-10-30 | Version: landing-workflow-carousel
+- Summary: Add a four-slide illustrated workflow carousel to the homepage hero.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Cycle through planning, visibility, driver app and document workflows. Add arrows, slide selectors, touch swipe and play/pause; pause on focus/hover and manual navigation, disable initial autoplay for reduced motion. Use transparent PNG artwork over CSS-controlled backgrounds, including a new generated driver illustration.
+- Breaking Changes: None.
+- Verification: TypeScript passes. Desktop slide selection, next-slide and keyboard navigation verified. Mobile layout checked at 390px with no horizontal overflow; generated PNG alpha verified. No deployment.
+
+## 2026-10-30 | Version: informative-homepage
+- Summary: Expand the homepage into a detailed logistics product guide inspired by the depth of OrderGrid’s homepage.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Add operational problems, a four-step connected workflow, five illustrated feature explanations, role-specific uses, industry workflows, access/security guidance, onboarding steps, pricing/support guidance, published resources and six expandable FAQs. Add in-page navigation. Feature/industry links use published pages only and fall back to a demo; articles remain published-only. No customer logos, unsupported metrics, certification claims or invented prices added.
+- Breaking Changes: None.
+- Verification: TypeScript and diff whitespace checks pass. Desktop and 390px mobile layouts, in-page navigation and keyboard-operated FAQs verified in the browser; no horizontal overflow on mobile. Local published-content fallback verified. No deployment.
+
+## 2026-10-30 | Version: transparent-feature-artwork
+- Summary: Use transparent PNG cutouts for the five feature UI illustrations and CSS-controlled backgrounds.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Feature graphics blend with configurable visual backgrounds derived from the marketing accent. Card surfaces and internal illustration colours remain part of the raster artwork; changing them requires separate artwork edits.
+- Internal Changes: Retain prior artwork and document transparent export provenance and CSS theme variables.
+- Breaking Changes: None.
+- Verification: All five generated assets have real alpha channels with transparent pixels. TypeScript and diff whitespace checks pass; scheduling PNG visually verified over its CSS background in the local browser. No deployment.
+
+## 2026-10-30 | Version: focused-feature-illustrations
+- Summary: Replace full-screen marketing captures with focused generated UI illustrations for run assignment, tracking, document review, reports and API connections.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Marketing visuals show the central feature interaction, with explicit illustrative-interface captions and descriptive alt text. Reporting gains its own visual. CMS image overrides remain unchanged; original assets are retained.
+- Internal Changes: Record generation prompts and optimized asset paths.
+- Breaking Changes: None.
+- Verification: TypeScript and diff whitespace checks pass. Generated labels visually inspected; homepage scheduling artwork checked at desktop and 390px mobile widths with no horizontal overflow. The local published-content API remains unavailable, limiting live feature-page verification. No deployment.
+
+## 2026-10-30 | Version: marketing-product-visuals
+- Summary: Add three original logistics illustrations and real scheduling/fleet-monitor screenshots to make the marketing site more visual.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Homepage, feature and industry pages use relevant visual assets; uploaded CMS images retain priority. Screenshots are labelled as sample data and illustrations as concepts. Use responsive images and compressed WebP illustrations.
+- Internal Changes: Replace personal/company-style labels in development screenshot fixtures with explicit demo labels; dashboard behavior is unchanged. Record asset provenance and generation prompts.
+- Breaking Changes: None.
+- Verification: TypeScript and diff whitespace checks pass. Real screenshots inspected; homepage imagery checked at 1280px and 390px, with no horizontal overflow or browser errors. The configured local content API did not return published content, limiting live feature/industry-page verification. No deployment.
+
+## 2026-10-30 | Version: marketing-navigation-refresh
+- Summary: Refresh the public website with an Onfleet-inspired purple header, blue actions, spacious feature layouts and dropdown navigation.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Platform and Industries dropdowns list published content only; Resources links to public learning destinations. Menus support keyboard activation, Escape, outside-click dismissal and mobile expansion. Platform/industry pages gain workflow anchors and related published features; existing content remains the source of truth.
+- Breaking Changes: None.
+- Verification: TypeScript passes. Browser checks pass for desktop dropdowns, Enter/Escape controls, navigation to the reporting page and mobile industry expansion at 390px. No deployment.
+
+## 2026-10-30 | Version: website-publishing-support-demo
+- Summary: Expand the public site with logistics feature/industry pages, security information, paid pricing, resources, careers and support; add super-admin publishing and an internal demo scheduler.
+- API Changes: Add public website content/pricing/contact/availability endpoints, rate-limited booking and private management actions, super-admin content/pricing/calendar/mail management, and authenticated merchant-scoped support tickets/replies/downloads. See `docs/website-api.md`.
+- Database Changes: Add website content draft/published snapshots, settings, demo bookings, support tickets/replies/private attachments and encrypted mail outbox; extend pricing plans with public approval hash, timestamp, VAT wording and order. Requires migration and idempotent WebsiteContentSeeder.
+- Behavior Changes: Remove unsupported homepage testimonials/customer names/performance metrics and automatic optimisation claims. Published prices require explicit approval of current values. Demo booking uses a shared Johannesburg calendar, database-serialized reservations, confirmation/calendar mail and private rescheduling/cancellation. All web-admin customer roles can use merchant tickets; drivers cannot. Only super admins publish content and manage the shared support queue.
+- Breaking Changes: None to existing API routes or billing/free-plan behavior. New features require migration, seed content, configured mail/worker/scheduler, verified contacts, approved pricing/policies and configured working hours before launch.
+- Verification: 17 focused Laravel tests pass (86 assertions); independent concurrent booking processes reserve only one overlapping slot. TypeScript and Next.js production build pass on Node 22.23.4 (existing lint/workspace-root warnings remain). Local browser checks cover publishing, pricing approval, demo submission, support creation/replies, help search and desktop/mobile layouts. PHP formatting and diff whitespace checks pass. Tests use an isolated local database and simulated mail; production mail delivery and operational claims still require launch verification. No production deployment or real outbound mail performed.
+
 ## 2026-10-23 | Version: node-22-23-4-security-runtime
 - Summary: Pin Spaces tooling and builds to the October 21 Node.js 22.23.4 LTS security release.
 - API Changes: None.

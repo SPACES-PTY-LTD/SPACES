@@ -1,3 +1,4 @@
+import "server-only"
 export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE"
 
 export type EndpointField = {

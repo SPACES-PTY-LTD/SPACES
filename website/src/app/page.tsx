@@ -1,563 +1,603 @@
-import type { CSSProperties } from "react"
-import type { Metadata } from "next"
-import Link from "next/link"
-import {
-  ArrowRight,
-  BarChart3,
-  BadgeCheck,
-  Clock3,
-  MapPinned,
-  Navigation,
-  Route,
-  Sparkles,
-  Truck,
-  Upload,
-  Users,
-} from "lucide-react"
-import styles from "./homepage.module.css"
+import { withBlogLibrary } from "@/lib/website/blog-posts";
+import { features as platformFeatures, industries as industryCatalogue } from "@/lib/website/catalogue";
+import type { Metadata } from "next";
+import { FileSearch, Timer, Truck, CodeXml, Radio } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { IndustryExplorer } from "@/components/marketing/industry-explorer";
+import { SolutionPanels } from "@/components/marketing/solution-panels";
+import { WorkflowTabs } from "@/components/marketing/workflow-tabs";
+import { HeroCarousel } from "@/components/marketing/hero-carousel";
+import { MarketingVisual } from "@/components/marketing/visual";
+import { MarketingShell, DemoCTA } from "@/components/marketing/shell";
+import { publishedContent } from "@/lib/website/public";
 
 export const metadata: Metadata = {
-  title: "Spaces Digital | Dispatch And Delivery Platform",
-  description:
-    "Plan smarter routes, track drivers live, and manage delivery operations from one platform.",
-}
-
-const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Spaces Digital"
-
-const navItems = ["Product", "Solutions", "Customers", "Resources"]
-
-const trustedBy = ["SwiftCart", "UrbanSend", "ParcelLoop", "Northstar", "CargoFlow"]
-
-const painPoints = [
-  "Inefficient routing wastes driver hours and fuel every day.",
-  "Teams lose visibility the moment orders leave the warehouse.",
-  "Dispatchers juggle calls, spreadsheets, and status updates manually.",
-]
-
-const features = [
-  {
-    icon: Route,
-    title: "Route Optimization",
+    title: "Spaces Digital | Transport & delivery management software",
     description:
-      "Build balanced runs around time windows, traffic, and stop density in seconds.",
-  },
-  {
-    icon: MapPinned,
-    title: "Real-time Tracking",
-    description:
-      "See every active vehicle on one live map with status, ETA, and route progress.",
-  },
-  {
-    icon: Users,
-    title: "Driver Management",
-    description:
-      "Assign work clearly, monitor completion, and surface exceptions before they cascade.",
-  },
-  {
-    icon: Clock3,
-    title: "ETA Predictions",
-    description:
-      "Keep customers and dispatchers aligned with delivery windows that stay current.",
-  },
-  {
-    icon: BadgeCheck,
-    title: "Proof of Delivery",
-    description:
-      "Capture signatures, photos, and handoff confirmations directly from the field.",
-  },
-  {
-    icon: BarChart3,
-    title: "Analytics Dashboard",
-    description:
-      "Track route efficiency, on-time performance, and driver productivity from one view.",
-  },
-]
+        "Connect shipment planning, dispatch, vehicle visibility, drivers and delivery documents. Explore logistics software for South African transport and delivery teams.",
+};
 
-const showcaseItems = [
-  {
-    eyebrow: "Plan routes in seconds",
-    title: "Turn a stop list into an optimized dispatch plan without spreadsheet work.",
-    description:
-      "Group stops intelligently, balance workloads, and publish clean routes from a single planner.",
-    points: ["Driver stop list interface", "Capacity-aware assignments", "Drag-to-adjust route order"],
-  },
-  {
-    eyebrow: "Track drivers live",
-    title: "Give operations one current picture of the entire fleet.",
-    description:
-      "Monitor motion, delays, completed drops, and route deviations in real time without constant check-ins.",
-    points: ["Map with moving driver icons", "Live delay alerts", "Route progress timeline"],
-  },
-  {
-    eyebrow: "Keep customers informed",
-    title: "Deliver better updates without adding more manual communication.",
-    description:
-      "Share accurate ETAs, delivery progress, and proof of delivery through a clean tracking experience.",
-    points: ["Mobile delivery tracking screen", "Branded ETA updates", "Delivery completion confirmation"],
-  },
-]
+const workflows = [
+    {
+        id: "planning",
+        eyebrow: "01 / Plan & dispatch",
+        title: "Plan runs. Assign drivers. Keep dispatch organised.",
+        description:
+            "Build each run around its shipments, stops, driver and vehicle. Review assignments in one scheduling workspace so dispatchers can see what is planned and what still needs attention.",
+        points: [
+            "See assigned runs and shipments waiting for dispatch.",
+            "Keep collection and delivery stops with each run.",
+            "Check run status before making the next assignment.",
+        ],
+        note: "Route planning helps you review the intended journey and stop order.",
+        visual: "schedule",
+        slug: "platform/scheduling",
+        link: "Explore scheduling & runs",
+    },
+    {
+        id: "visibility",
+        eyebrow: "02 / Follow the operation",
+        title: "Know where to look when the plan changes.",
+        description:
+            "Bring vehicle activity, locations and run information together. Move from an operational overview to a recorded journey when a delay or exception needs a closer look.",
+        points: [
+            "Review vehicle positions with their operational context.",
+            "Explore recorded GPS history and stop events.",
+            "Use geofences and supported arrival or departure rules around your locations.",
+        ],
+        note: "Position availability and freshness depend on the connected tracking source. Confirm supported integrations during onboarding.",
+        visual: "monitor",
+        slug: "platform/tracking",
+        link: "Explore fleet visibility",
+    },
+    {
+        id: "documents",
+        eyebrow: "03 / Drivers & delivery documents",
+        title: "Bring the delivery record back into the workflow.",
+        description:
+            "Connect the driver’s assigned work with the office. Drivers can upload delivery notes, review extracted shipment details and confirm the information before it becomes part of the operational record.",
+        points: [
+            "Give drivers a mobile view of assigned runs and shipments.",
+            "Capture and import delivery documents with a review step.",
+            "Associate documents with shipments and find records that need follow-up.",
+        ],
+        note: "Document capture stores the uploaded record; it does not independently verify a signature or prove that a handover took place.",
+        visual: "documents",
+        slug: "platform/documents",
+        link: "Explore delivery documents",
+    },
+    {
+        id: "reporting",
+        eyebrow: "04 / Review & improve",
+        title: "Spot missing documents, waiting time and exceptions.",
+        description:
+            "Review shipment records, time spent at locations and vehicle activity. Use document and operational reports to identify what needs follow-up.",
+        points: [
+            "Find missing delivery documents and records approaching expiry.",
+            "Review waiting-time, stop-analysis and speeding reports.",
+            "Check shipment activity and daily vehicle records.",
+        ],
+        note: "",
+        visual: "reporting",
+        slug: "platform/reporting",
+        link: "Explore reporting & analytics",
+    },
+    {
+        id: "integrations",
+        eyebrow: "05 / Connect your systems",
+        title: "Connect your tracking provider and business systems.",
+        description:
+            "Bring tracking data into Spaces through supported provider connections. Use the documented API to build integrations around shipment, quote and booking records.",
+        points: [
+            "Access shipment, quote, booking and webhook documentation.",
+            "Explore MiX/Powerfleet and Fleetboard connection options.",
+            "Check account access and required data before connecting.",
+        ],
+        note: "",
+        visual: "api",
+        slug: "platform/integrations",
+        link: "Explore integrations & API",
+    },
+];
+const industrySummaries: Record<(typeof industryCatalogue)[number]["id"], string> = {
+    "road-freight": "Assign drivers and vehicles to freight runs, review recorded journeys and keep delivery notes with each shipment.",
+    "wholesale-distribution": "Organise depot shipments into delivery runs and give the office a place to review customer delivery documents.",
+    "courier-operations": "Keep daily run assignments, driver uploads and shipment records together so dispatch can follow up on missing information.",
+    "retail-delivery": "Plan store and customer deliveries, assign vehicles and review the delivery records returned by drivers.",
+    "fuel-depots": "Coordinate tanker runs, review connected vehicle journeys and organise delivery documents for depot follow-up.",
+};
+const industries = industryCatalogue.map(industry => ({ title: industry.title, slug: industry.id, text: industrySummaries[industry.id] }));
+const faqs = [
+    [
+        "What can we manage in Spaces?",
+        "Manage shipments, plan runs, assign drivers and vehicles, review connected tracking data and keep delivery documents with each shipment. Reports help your team follow up on missing records and operational exceptions.",
+    ],
+    [
+        "Can we use our existing vehicle tracking provider?",
+        "Spaces has MiX/Powerfleet and Fleetboard connection options. Our team will confirm whether your provider account supplies the required access and data. Vehicle positions and journey history depend on that connection.",
+    ],
+    [
+        "Does route planning include automatic optimisation?",
+        "Spaces supports route planning and reviewing stop order. Automatic route optimisation is not currently a verified capability. Bring a typical run to your demo to see the planning tools available.",
+    ],
+    [
+        "What can drivers do in the mobile app?",
+        "Drivers can view their assigned runs and shipments, upload delivery notes and review extracted shipment details before confirming them. The mobile workflow requires the appropriate device permissions and connectivity.",
+    ],
+    [
+        "How do we discuss subscription options?",
+        "Spaces is a paid subscription service. Contact the team to discuss your fleet size, operational requirements and subscription options.",
+    ],
+    [
+        "Where does our team get help?",
+        "Browse the FAQs and available support guides. Customer users with web-admin access can sign in to create and follow private tickets for their organisation. Driver accounts cannot create tickets.",
+    ],
+];
 
-const steps = [
-  {
-    icon: Upload,
-    title: "Upload orders",
-    description: "Import orders from commerce systems, internal tools, or CSV files.",
-  },
-  {
-    icon: Sparkles,
-    title: "Optimize routes",
-    description: "Generate efficient runs based on zones, capacity, and service windows.",
-  },
-  {
-    icon: Navigation,
-    title: "Dispatch & track",
-    description: "Push work to drivers, follow execution live, and resolve exceptions fast.",
-  },
-]
-
-const metrics = [
-  { value: "60+", label: "minutes saved per dispatcher each day" },
-  { value: "30%", label: "lower delivery time across active routes" },
-  { value: "18%", label: "higher fleet efficiency from balanced runs" },
-]
-
-const testimonials = [
-  {
-    name: "Amina Dube",
-    role: "Operations Director",
-    company: "SwiftCart",
-    quote:
-      "This platform transformed how we manage deliveries. Dispatch is faster, drivers have clearer routes, and customers trust our ETAs again.",
-  },
-  {
-    name: "Daniel Moyo",
-    role: "Head of Logistics",
-    company: "ParcelLoop",
-    quote:
-      "We replaced manual planning with one live control surface. It gave the team immediate visibility across every active route.",
-  },
-  {
-    name: "Lerato Khan",
-    role: "COO",
-    company: "UrbanSend",
-    quote:
-      "The product looks simple, but it handles the operational detail we need to scale without adding dispatch overhead.",
-  },
-]
-
-const footerGroups = [
-  {
-    title: "Product",
-    links: ["Route Planning", "Live Tracking", "Driver App", "Analytics"],
-  },
-  {
-    title: "Company",
-    links: ["About", "Customers", "Careers", "Contact"],
-  },
-  {
-    title: "Resources",
-    links: ["Documentation", "API", "Guides", "Status"],
-  },
-  {
-    title: "Legal",
-    links: ["Privacy", "Terms", "Security", "Compliance"],
-  },
-]
-
-function SectionIntro({
-  eyebrow,
-  title,
-  description,
-}: {
-  eyebrow: string
-  title: string
-  description: string
-}) {
-  return (
-    <div className={styles.sectionIntro}>
-      <p className={styles.eyebrow}>{eyebrow}</p>
-      <h2>{title}</h2>
-      <p>{description}</p>
-    </div>
-  )
-}
-
-export default function LandingPage() {
-  return (
-    <div className={styles.page}>
-      <div className={styles.pageGlow} aria-hidden="true" />
-
-      <header className={styles.header}>
-        <div className={styles.container}>
-          <div className={styles.headerRow}>
-            <Link href="/" className={styles.brand} aria-label={`${appName} home`}>
-              <span className={styles.brandMark}>
-                <Truck size={16} />
-              </span>
-              <span>{appName}</span>
-            </Link>
-
-            <nav className={styles.nav} aria-label="Primary navigation">
-              {navItems.map((item) => (
-                <Link key={item} href="/" className={styles.navLink}>
-                  {item}
-                </Link>
-              ))}
-            </nav>
-
-            <div className={styles.headerActions}>
-              <Link href="/auth/login" className={styles.ghostButton}>
-                Sign in
-              </Link>
-              <Link href="#cta" className={styles.primaryButton}>
-                Book Demo
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main>
-        <section className={styles.heroSection}>
-          <div className={styles.container}>
-            <div className={styles.heroGrid}>
-              <div className={styles.heroCopy}>
-                <p className={styles.eyebrow}>Delivery Operations Platform</p>
-                <h1>Plan smarter routes. Deliver faster. Scale your operations.</h1>
-                <p className={styles.heroText}>
-                  Optimize delivery routes, track drivers in real-time, and manage
-                  dispatch from a single platform built for modern logistics teams.
-                </p>
-                <div className={styles.heroActions}>
-                  <Link href="#cta" className={styles.primaryButton}>
-                    Start Free Trial
-                  </Link>
-                  <Link href="#cta" className={styles.secondaryButton}>
-                    Book Demo
-                  </Link>
-                </div>
-                <div className={styles.heroMeta}>
-                  <span>Live tracking</span>
-                  <span>Route planning</span>
-                  <span>Delivery management</span>
-                </div>
-              </div>
-
-              <div className={styles.heroVisual} aria-label="Logistics dashboard with map, delivery routes, driver pins">
-                <div className={styles.dashboardShell}>
-                  <div className={styles.dashboardTopbar}>
-                    <div className={styles.windowDots}>
-                      <span />
-                      <span />
-                      <span />
-                    </div>
-                    <div className={styles.dashboardBadge}>Dispatch board</div>
-                  </div>
-
-                  <div className={styles.dashboardContent}>
-                    <div className={styles.routeListCard}>
-                      <div className={styles.cardHeader}>
-                        <strong>Route planner</strong>
-                        <span>18 stops</span>
-                      </div>
-                      <div className={styles.stopList}>
-                        {["Sandton", "Midrand", "Rosebank", "Fourways"].map((stop) => (
-                          <div key={stop} className={styles.stopRow}>
-                            <span className={styles.stopDot} />
-                            <div>
-                              <strong>{stop}</strong>
-                              <small>Driver stop list interface</small>
-                            </div>
-                          </div>
+export default async function Home() {
+    const content = (await publishedContent()) ?? [];
+    const published = new Set(content.map((p) => p.slug));
+    const featureHref = (slug: string) =>
+        (published.has(slug) || platformFeatures.some(feature => slug === `platform/${feature.id}`) || industryCatalogue.some(industry => slug === `industries/${industry.id}`)) ? `/${slug}` : "/book-demo";
+    const articles = withBlogLibrary(content)
+        .filter((p) => p.kind === "blog")
+        .sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at))
+        .slice(0, 3);
+    function featureCopy(item: (typeof workflows)[number]) {
+        return (
+            <>
+                <p className="eyebrow">{item.eyebrow}</p>
+                <h3 className="feature-heading">{item.title}</h3>
+                <p className="lede">{item.description}</p>
+                {item.id === "planning" ? (
+                    <ol className="dispatch-steps" aria-label="Planning a run">
+                        {[
+                            ["Review the work", "See assigned runs and shipments waiting for dispatch."],
+                            ["Organise the stops", "Keep collection and delivery stops with each run."],
+                            ["Check before assigning", "Review run status before making the next assignment."],
+                        ].map(([title, text], index) => (
+                            <li key={title}>
+                                <span className="dispatch-step-number" aria-hidden="true">0{index + 1}</span>
+                                <div><h4>{title}</h4><p>{text}</p></div>
+                            </li>
                         ))}
-                      </div>
+                    </ol>
+                ) : item.id === "reporting" ? (
+                    <ul className="reporting-highlights" aria-label="Available operational reports">
+                        {[
+                            { title: "Documents", text: "Find missing delivery notes and records nearing expiry.", Icon: FileSearch },
+                            { title: "Time & stops", text: "Review waiting time, stop analysis and speeding reports.", Icon: Timer },
+                            { title: "Vehicle activity", text: "Check shipment activity and daily vehicle records.", Icon: Truck },
+                        ].map(({ title, text, Icon }) => (
+                            <li key={title}>
+                                <Icon size={24} strokeWidth={1.5} aria-hidden="true" />
+                                <h4>{title}</h4>
+                                <p>{text}</p>
+                            </li>
+                        ))}
+                    </ul>
+                ) : item.id === "integrations" ? (
+                    <div className="integration-options">
+                        <div className="integration-options-grid">
+                            <div className="integration-option">
+                                <CodeXml size={28} strokeWidth={1.5} aria-hidden="true" />
+                                <h4>Build with the API</h4>
+                                <p>Connect shipment, quote and booking records using documented interfaces and webhooks.</p>
+                                <Link href="/docs">Developer documentation <span aria-hidden="true">↗</span></Link>
+                            </div>
+                            <div className="integration-option">
+                                <Radio size={28} strokeWidth={1.5} aria-hidden="true" />
+                                <h4>Connect vehicle tracking</h4>
+                                <p>Explore supported provider connections for your fleet.</p>
+                            </div>
+                        </div>
                     </div>
+                ) : (
+                    <ul className="feature-benefits">
+                        {item.points.map((point) => (
+                            <li key={point}>{point}</li>
+                        ))}
+                    </ul>
+                )}
+                <Link className="home-text-link" href={featureHref(item.slug)}>
+                    {(published.has(item.slug) || platformFeatures.some(feature => item.slug === `platform/${feature.id}`))
+                        ? item.link
+                        : "See this workflow in a demo"}{" "}
+                    →
+                </Link>
+                {item.note && <p className="feature-context">{item.note}</p>}
+            </>
+        );
+    }
+    return (
+        <MarketingShell home>
+            <section className="hero hero-wide">
+                <div>
+                    <p className="eyebrow">
+                        Transport & delivery management software
+                    </p>
+                    <h1>
+                        Plan, Track &amp; manage
+                        <br />
+                        your shipments
+                    </h1>
+                </div>
+                <div>
+                    <p className="lede">
+                        Spaces connects shipment planning, driver assignments,
+                        vehicle tracking and delivery documents. Give your office
+                        and drivers a shared record of the work, from dispatch
+                        to delivery-note review.
+                    </p>
+                    <div className="hero-actions">
+                        <Link className="cta" href="/book-demo">
+                            Book a demo ↗
+                        </Link>
+                        <Link className="cta secondary" href="#how-it-works">
+                            See how it works ↓
+                        </Link>
+                    </div>
+                    <p className="hero-audience">
+                        For South African transport operators, distributors,
+                        couriers, retail delivery teams and fuel depots.
+                    </p>
+                </div>
+            </section>
+            <HeroCarousel />
+            <nav className="home-jump-links" aria-label="Explore this page">
+                <span>Explore Spaces</span>
+                <a href="#how-it-works">How it works</a>
+                <a href="#capabilities">Capabilities</a>
+                <a href="#industries">Industries</a>
+                <a href="#questions">FAQs</a>
+            </nav>
+            <section className="section-wrap home-problems light-section">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">Our solution</p>
+                        <h2>Why choose Spaces Digital fleet management software?</h2>
+                    </div>
+                </div>
+                <SolutionPanels />
+            </section>
+            <section className="home-platform-band" id="how-it-works">
+                <div className="section-wrap">
+                    <p className="eyebrow">Operations</p>
+                    <h2>Easy shipments management</h2>
+                    <p className="lede">
+                        Assign the work, follow the journey, collect delivery
+                        documents and review exceptions. See how each step
+                        connects in Spaces.
+                    </p>
+                    <WorkflowTabs />
+                    <Link className="home-text-link" href="/platform">
+                        Explore the platform overview →
+                    </Link>
+                </div>
+            </section>
+            <section
+                className="section-wrap home-section-intro"
+                id="capabilities"
+            >
+                <p className="eyebrow">Inside the platform</p>
+                <h2>Tools for every stage of your delivery operation.</h2>
+                <p className="lede">
+                    Explore the workflows your team can use from planning
+                    through to document review and reporting.
+                </p>
+            </section>
+            <section
+                className="section-wrap feature-chapter planning-chapter"
+                id="planning"
+            >
+                <div className="chapter-copy">{featureCopy(workflows[0])}</div>
+                <div className="chapter-composition">
+                    <Image
+                        src="/images/marketing/carousel-dispatch-photo.webp"
+                        alt="Generated scene of dispatchers reviewing the working day."
+                        width={1200}
+                        height={800}
+                        sizes="(max-width:760px) 90vw, 50vw"
+                        className="chapter-photo"
+                    />
+                    <MarketingVisual name="schedule" />
 
-                    <div className={styles.mapCard}>
-                      <div className={styles.mapLabel}>Map UI with delivery routes and pins</div>
-                      <div className={styles.mapGrid} />
-                      <div className={styles.routeStrokePrimary} />
-                      <div className={styles.routeStrokeSecondary} />
-                      <div className={styles.routeStrokeTertiary} />
-                      {[
-                        { top: "18%", left: "20%" },
-                        { top: "32%", left: "68%" },
-                        { top: "56%", left: "38%" },
-                        { top: "70%", left: "78%" },
-                      ].map((pin, index) => (
-                        <span
-                          key={`${pin.top}-${pin.left}`}
-                          className={styles.mapPin}
-                          style={
+                </div>
+            </section>
+            <section className="execution-chapter light-section">
+                <div className="section-wrap">
+                    <p className="eyebrow">Execution</p>
+                    <h2>Track vehicle location and Shipment Documents</h2>
+                    <div className="execution-grid">
+                        {[
                             {
-                              "--pin-top": pin.top,
-                              "--pin-left": pin.left,
-                              "--pin-delay": `${index * 0.45}s`,
-                            } as CSSProperties
-                          }
-                        />
-                      ))}
-                      <div className={styles.floatingPanel}>
-                        <p>Driver tracking dashboard</p>
-                        <strong>12 active drivers</strong>
-                        <span>3 routes ahead of schedule</span>
-                      </div>
+                                ...workflows[1],
+                                heading: "Track vehicle location",
+                                summary: "Check vehicle positions and recorded journeys to understand delays and follow up with your team.",
+                                detail: "Tracking availability and freshness depend on your connected provider.",
+                                label: "Explore fleet tracking",
+                            },
+                            {
+                                ...workflows[2],
+                                heading: "Upload and extract delivery note data using AI",
+                                summary: "Drivers upload delivery notes. Your team reviews the details and links each document to the right shipment.",
+                                detail: "Uploaded documents remain available for review and follow-up.",
+                                label: "Explore delivery documents",
+                            },
+                        ].map((item) => (
+                            <article className="execution-feature" id={item.id} key={item.id}>
+                                <MarketingVisual name={item.visual} />
+                                <div className="execution-copy">
+                                    <h3>{item.heading}</h3>
+                                    <p>{item.summary}</p>
+                                    <p className="execution-detail">{item.detail}</p>
+                                    <Link className="home-text-link" href={featureHref(item.slug)}>
+                                        {item.label} <span aria-hidden="true">→</span>
+                                    </Link>
+                                </div>
+                            </article>
+                        ))}
                     </div>
-                  </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.trustSection}>
-          <div className={styles.container}>
-            <p className={styles.trustLabel}>Trusted by logistics, courier, and delivery teams</p>
-            <div className={styles.logoRow}>
-              {trustedBy.map((name) => (
-                <div key={name} className={styles.logoItem}>
-                  {name}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.problemSection}>
-          <div className={styles.container}>
-            <div className={styles.problemGrid}>
-              <div>
-                <SectionIntro
-                  eyebrow="Problem"
-                  title="Manual dispatch is slowing you down"
-                  description="When planning, tracking, and communication live in different places, delivery performance becomes hard to control."
-                />
-                <div className={styles.problemList}>
-                  {painPoints.map((item) => (
-                    <div key={item} className={styles.problemItem}>
-                      <span className={styles.checkMark}>+</span>
-                      <p>{item}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className={styles.beforeAfterCard}>
-                <div className={styles.compareHeader}>
-                  <strong>Before vs after route optimization map</strong>
-                  <span>Messy routes reorganized into clean runs</span>
-                </div>
-                <div className={styles.compareMaps}>
-                  <div className={styles.beforeMap}>
-                    <div className={styles.compareLabel}>Before</div>
-                    <span className={styles.messyRouteOne} />
-                    <span className={styles.messyRouteTwo} />
-                    <span className={styles.messyRouteThree} />
-                  </div>
-                  <div className={styles.afterMap}>
-                    <div className={styles.compareLabel}>After</div>
-                    <span className={styles.cleanRouteOne} />
-                    <span className={styles.cleanRouteTwo} />
-                    <span className={styles.cleanRouteThree} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.featuresSection}>
-          <div className={styles.container}>
-            <SectionIntro
-              eyebrow="Capabilities"
-              title="Everything dispatch teams need in one clean workflow"
-              description="A product-first platform for planning routes, coordinating drivers, and delivering reliable customer updates."
-            />
-            <div className={styles.featuresGrid}>
-              {features.map((feature) => {
-                const Icon = feature.icon
-                return (
-                  <article key={feature.title} className={styles.featureCard}>
-                    <span className={styles.featureIcon}>
-                      <Icon size={18} />
-                    </span>
-                    <h3>{feature.title}</h3>
-                    <p>{feature.description}</p>
-                  </article>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.showcaseSection}>
-          <div className={styles.container}>
-            <SectionIntro
-              eyebrow="Product Showcase"
-              title="A logistics workspace that stays easy to read under pressure"
-              description="Each surface is designed to lower cognitive load while keeping the most important route and delivery signals visible."
-            />
-            <div className={styles.showcaseStack}>
-              {showcaseItems.map((item, index) => (
-                <article key={item.title} className={styles.showcaseCard}>
-                  <div className={styles.showcaseContent}>
-                    <p className={styles.showcaseEyebrow}>{item.eyebrow}</p>
-                    <h3>{item.title}</h3>
-                    <p>{item.description}</p>
-                    <div className={styles.showcasePoints}>
-                      {item.points.map((point) => (
-                        <span key={point}>{point}</span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className={styles.showcaseVisual}>
-                    <div className={styles.showcaseWindow}>
-                      <div className={styles.showcaseWindowBar} />
-                      <div className={styles.showcaseCanvas}>
-                        <div className={styles.showcaseMockLabel}>{item.points[0]}</div>
-                        <div className={styles.showcaseSidebar}>
-                          <span />
-                          <span />
-                          <span />
-                        </div>
-                        <div
-                          className={index === 1 ? styles.showcaseMapVisual : styles.showcaseChartVisual}
-                        >
-                          <i />
-                          <i />
-                          <i />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.stepsSection}>
-          <div className={styles.container}>
-            <SectionIntro
-              eyebrow="How It Works"
-              title="Start with orders and finish with a controlled delivery day"
-              description="A simple three-step operating loop for dispatchers, fleet managers, and customer teams."
-            />
-            <div className={styles.stepsGrid}>
-              {steps.map((step, index) => {
-                const Icon = step.icon
-                return (
-                  <article key={step.title} className={styles.stepCard}>
-                    <div className={styles.stepTop}>
-                      <span className={styles.stepIndex}>{index + 1}</span>
-                      <span className={styles.stepIcon}>
-                        <Icon size={18} />
-                      </span>
-                    </div>
-                    <h3>{step.title}</h3>
-                    <p>{step.description}</p>
-                  </article>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.metricsSection}>
-          <div className={styles.container}>
-            <div className={styles.metricsCard}>
-              {metrics.map((metric) => (
-                <div key={metric.label} className={styles.metricItem}>
-                  <strong>{metric.value}</strong>
-                  <p>{metric.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className={styles.testimonialsSection}>
-          <div className={styles.container}>
-            <SectionIntro
-              eyebrow="Testimonials"
-              title="Operational teams adopt it quickly because it feels obvious"
-              description="Clear surfaces, reliable route logic, and live delivery visibility make the product easier to trust day-to-day."
-            />
-            <div className={styles.testimonialGrid}>
-              {testimonials.map((item) => (
-                <article key={item.name} className={styles.testimonialCard}>
-                  <div className={styles.avatar}>{item.name.slice(0, 1)}</div>
-                  <p className={styles.quote}>&ldquo;{item.quote}&rdquo;</p>
-                  <div className={styles.personBlock}>
-                    <strong>{item.name}</strong>
-                    <span>
-                      {item.role}, {item.company}
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section id="cta" className={styles.ctaSection}>
-          <div className={styles.container}>
-            <div className={styles.ctaCard}>
-              <p className={styles.eyebrow}>Ready to optimize your deliveries?</p>
-              <h2>Launch a more efficient dispatch operation with one modern platform.</h2>
-              <p>
-                Replace manual planning, fragmented tracking, and reactive delivery
-                management with a cleaner operating system for logistics teams.
-              </p>
-              <div className={styles.ctaActions}>
-                <Link href="/" className={styles.primaryButton}>
-                  Start Free Trial
-                </Link>
-                <Link href="/" className={styles.secondaryButton}>
-                  Book Demo
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer className={styles.footer}>
-        <div className={styles.container}>
-          <div className={styles.footerGrid}>
-            <div className={styles.footerBrand}>
-              <Link href="/" className={styles.brand}>
-                <span className={styles.brandMark}>
-                  <Truck size={16} />
-                </span>
-                <span>{appName}</span>
-              </Link>
-              <p>
-                Product-centric dispatch software for route planning, live fleet
-                visibility, and delivery management.
-              </p>
-            </div>
-
-            {footerGroups.map((group) => (
-              <div key={group.title} className={styles.footerColumn}>
-                <h3>{group.title}</h3>
-                {group.links.map((link) => (
-                  <Link key={link} href="/" className={styles.footerLink}>
-                    {link}
-                  </Link>
+            </section>
+            <section className="section-wrap oversight-chapter">
+                <p className="eyebrow">Oversight & connections</p>
+                <h2>Turn operational data into clear next steps.</h2>
+                {[workflows[3], workflows[4]].map((item) => (
+                    <article
+                        className="oversight-row"
+                        id={item.id}
+                        key={item.id}
+                    >
+                        <MarketingVisual name={item.visual} />
+                        <div>{featureCopy(item)}</div>
+                    </article>
                 ))}
-              </div>
-            ))}
-          </div>
-          <div className={styles.footerBottom}>
-            <span>© 2026 {appName}. All rights reserved.</span>
-            <Link href="/docs" className={styles.footerDocs}>
-              View documentation <ArrowRight size={14} />
-            </Link>
-          </div>
-        </div>
-      </footer>
-    </div>
-  )
+            </section>
+            <section className="home-role-band">
+                <div className="section-wrap">
+                    <p className="eyebrow">
+                        Tools for your team
+                    </p>
+                    <h2>Give each team the tools for its role.</h2>
+                    <div className="home-three-grid">
+                        {[
+                            [
+                                "Dispatchers",
+                                "Keep dispatch organised.",
+                                "Assign shipments to runs, choose drivers and vehicles, and check which work still needs an assignment.",
+                            ],
+                            [
+                                "Drivers",
+                                "View runs and upload delivery notes.",
+                                "Open assigned runs and shipment details on mobile, then upload delivery notes for review.",
+                            ],
+                            [
+                                "Administrators & managers",
+                                "Manage access and review performance.",
+                                "Manage user access and operational settings. Review shipment, vehicle and document reports to identify follow-up work.",
+                            ],
+                        ].map(([role, title, text]) => (
+                            <article className="marketing-card" key={role}>
+                                <p className="eyebrow">{role}</p>
+                                <h3>{title}</h3>
+                                <p>{text}</p>
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            </section>
+            <section className="section-wrap light-section" id="industries">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">
+                            Industries we serve
+                        </p>
+                        <h2>Works for different industries</h2>
+                    </div>
+                    <Link className="home-text-link" href="/industries">
+                        Explore industries →
+                    </Link>
+                </div>
+                <IndustryExplorer industries={industries} />
+            </section>
+            <section className="section-wrap trust-section" id="security">
+                <div>
+                    <p className="eyebrow">Security & access</p>
+                    <h2>
+                        Control who can access
+                        <br />
+                        your operational data.
+                    </h2>
+                    <p className="lede">
+                        Use role-based permissions and organisation access
+                        restrictions to control who can work with your records.
+                        Review security requirements with our team before rollout.
+                    </p>
+                    <Link
+                        className="cta secondary"
+                        href={
+                            published.has("security") ? "/security" : "/contact"
+                        }
+                    >
+                        {published.has("security")
+                            ? "Read about security"
+                            : "Discuss security with us"}{" "}
+                        →
+                    </Link>
+                </div>
+                <div className="trust-list">
+                    <article>
+                        <h3>Role-based access</h3>
+                        <p>
+                            User roles control access to administrative functions.
+                            Organisation restrictions limit which business
+                            records each user can access.
+                        </p>
+                    </article>
+                    <article>
+                        <h3>Protected credentials</h3>
+                        <p>
+                            Passwords are stored as hashes, and integration
+                            settings are encrypted in storage.
+                        </p>
+                    </article>
+                    <article>
+                        <h3>Private support conversations</h3>
+                        <p>
+                            Support tickets and attachments require sign-in and
+                            access to the relevant organisation. They are not
+                            part of the public help centre.
+                        </p>
+                    </article>
+                </div>
+            </section>
+            <section className="section-wrap home-resources light-section">
+                <div className="section-head">
+                    <div>
+                        <p className="eyebrow">Insights & guides</p>
+                        <h2>Practical guides for transport and delivery teams.</h2>
+                    </div>
+                    <Link className="home-text-link" href="/resources">
+                        Explore resources →
+                    </Link>
+                </div>
+                <div className="home-three-grid">
+                    {articles.length
+                        ? articles.map((article) => (
+                              <Link
+                                  className="marketing-card resource-preview"
+                                  href={`/${article.slug}`}
+                                  key={article.id}
+                              >
+                                  <div className="resource-cover">
+                                      {article.content.image ? (
+                                          <img
+                                              src={article.content.image}
+                                              alt={
+                                                  article.content.image_alt ??
+                                                  ""
+                                              }
+                                              loading="lazy"
+                                          />
+                                      ) : (
+                                          <Image
+                                              src="/images/marketing/carousel-dispatch-photo.webp"
+                                              alt=""
+                                              fill
+                                              sizes="(max-width:760px) 90vw, 33vw"
+                                          />
+                                      )}
+                                  </div>
+                                  <div className="resource-copy">
+                                      <p className="eyebrow">
+                                          {article.kind === "blog"
+                                              ? "Article"
+                                              : "Product update"}
+                                      </p>
+                                      <h3>{article.content.title}</h3>
+                                      <p>{article.content.description}</p>
+                                      <p className="resource-meta">
+                                          {article.content.author && (
+                                              <span>
+                                                  {article.content.author}{" "}
+                                                  ·{" "}
+                                              </span>
+                                          )}
+                                          <time dateTime={article.published_at}>
+                                              {new Intl.DateTimeFormat(
+                                                  "en-ZA",
+                                                  {
+                                                      day: "numeric",
+                                                      month: "short",
+                                                      year: "numeric",
+                                                      timeZone:
+                                                          "Africa/Johannesburg",
+                                                  },
+                                              ).format(
+                                                  new Date(
+                                                      article.published_at,
+                                                  ),
+                                              )}
+                                          </time>
+                                      </p>
+                                      <span className="arrow">Read more →</span>
+                                  </div>
+                              </Link>
+                          ))
+                        : [
+                              [
+                                  "Practical help",
+                                  "Find setup and product guidance",
+                                  "Browse FAQs and available guides for account setup, dispatch and driver workflows.",
+                                  "/support",
+                              ],
+                              [
+                                  "Developer documentation",
+                                  "Explore the API documentation",
+                                  "Review authentication and available merchant API interfaces before building an integration.",
+                                  "/docs",
+                              ],
+                              [
+                                  "Talk to the team",
+                                  "Discuss your requirements",
+                                  "Discuss your tracking setup, document requirements or how a typical run should work.",
+                                  "/contact",
+                              ],
+                          ].map(([eyebrow, title, text, href], index) => (
+                              <Link
+                                  className="marketing-card resource-preview"
+                                  href={href}
+                                  key={href}
+                              >
+                                  <div className="resource-cover">
+                                      <Image
+                                          src={`/images/marketing/${["carousel-driver-photo.webp", "feature-api-transparent.png", "carousel-dispatch-photo.webp"][index]}`}
+                                          alt=""
+                                          fill
+                                          sizes="(max-width:760px) 90vw, 33vw"
+                                      />
+                                  </div>
+                                  <div className="resource-copy">
+                                      <p className="eyebrow">{eyebrow}</p>
+                                      <h3>{title}</h3>
+                                      <p>{text}</p>
+                                      <span className="arrow">Explore →</span>
+                                  </div>
+                              </Link>
+                          ))}
+                </div>
+            </section>
+            <section className="section-wrap faq-section" id="questions">
+                <div>
+                    <p className="eyebrow">Frequently asked questions</p>
+                    <h2>
+                        What to know
+                        <br />
+                        before you get started.
+                    </h2>
+                    <p className="lede">
+                        Find out how tracking connections, driver workflows,
+                        subscriptions and support work in Spaces.
+                    </p>
+                    <Link className="home-text-link" href="/faq">
+                        View all FAQs →
+                    </Link>
+                </div>
+                <div className="faq-list">
+                    {faqs.map(([question, answer]) => (
+                        <details key={question}>
+                            <summary>
+                                {question}
+                                <span aria-hidden>+</span>
+                            </summary>
+                            <p>{answer}</p>
+                        </details>
+                    ))}
+                </div>
+            </section>
+            <DemoCTA />
+        </MarketingShell>
+    );
 }

@@ -179,6 +179,7 @@ Route::prefix('v1')->group(function () {
         Route::get('reports/vehicles-daily-kpi', [ReportController::class, 'vehiclesDailyKpi']);
         Route::get('reports/vehicles-daily-kpi/entries', [ReportController::class, 'vehiclesDailyKpiEntries']);
         Route::get('reports/shipments_full_report', [ReportController::class, 'shipmentsFullReport']);
+        Route::get('reports/analytics-shipment-sample', [ReportController::class, 'analyticsShipmentSample']);
 
         Route::get('quotes', [QuoteController::class, 'index'])->middleware('merchant.context');
         Route::post('quotes', [QuoteController::class, 'store']);
@@ -440,3 +441,5 @@ Route::prefix('v1')->group(function () {
         });
     });
 });
+
+require __DIR__.'/website.php';

@@ -44,6 +44,10 @@ export type NavGroup = {
 }
 
 export const adminNavGroups: NavGroup[] = [
+  { id: "website-support", title: "Website & support", items: [
+    { title: "Website", href: "/admin/website", icon: Globe, roles: ["super_admin"] },
+    { title: "Support tickets", href: "/admin/support", icon: MessageSquareText, roles: ["user", "super_admin"] },
+  ] },
   
   
   {

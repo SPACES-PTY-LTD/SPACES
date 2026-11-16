@@ -14,7 +14,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command"
-import { apiReferenceCategories } from "@/lib/docs/api-reference"
+import type { apiReferenceCategories as ReferenceCategories } from "@/lib/docs/api-reference"
 
 type SearchEntry = {
   id: string
@@ -24,7 +24,7 @@ type SearchEntry = {
   keywords: string
 }
 
-export function DocsSearch() {
+export function DocsSearch({ apiReferenceCategories }: { apiReferenceCategories: typeof ReferenceCategories }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
 
@@ -57,7 +57,7 @@ export function DocsSearch() {
     )
 
     return [...baseEntries, ...endpointEntries]
-  }, [])
+  }, [apiReferenceCategories])
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {

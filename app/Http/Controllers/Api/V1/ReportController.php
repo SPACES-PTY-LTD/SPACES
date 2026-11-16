@@ -128,6 +128,59 @@ class ReportController extends Controller
         }
     }
 
+    /**
+     * The analytics overview uses only status and route labels from the newest
+     * 200 shipments. Avoid resolving visits, runs and telemetry for this sample.
+     */
+    public function analyticsShipmentSample(DashboardStatsReportRequest $request)
+    {
+        try {
+            $environment = $request->attributes->get('merchant_environment');
+            $merchantUuid = $request->validated()['merchant_id'] ?? null;
+            if (! $merchantUuid && ! $environment) {
+                throw ValidationException::withMessages([
+                    'merchant_id' => 'The merchant_id field is required.',
+                ]);
+            }
+
+            $merchantId = $merchantUuid
+                ? Merchant::query()->where('uuid', $merchantUuid)->value('id')
+                : $environment->merchant_id;
+            $shipments = $this->applyShipmentScope(Shipment::query(), $environment, $request->user())
+                ->where('merchant_id', $merchantId ?? 0)
+                ->select(['id', 'uuid', 'status', 'pickup_location_id', 'dropoff_location_id'])
+                ->with([
+                    'pickupLocation:id,uuid,name,code,company',
+                    'dropoffLocation:id,uuid,name,code,company',
+                ])
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->limit(200)
+                ->get();
+
+            $locationLabel = static fn (?Location $location) => $location ? [
+                'location_id' => $location->uuid,
+                'name' => $location->name,
+                'code' => $location->code,
+                'company' => $location->company,
+            ] : null;
+
+            return ApiResponse::success($shipments->map(fn (Shipment $shipment) => [
+                'shipment_id' => $shipment->uuid,
+                'shipment_status' => $shipment->status,
+                'from_location' => $locationLabel($shipment->pickupLocation),
+                'to_location' => $locationLabel($shipment->dropoffLocation),
+            ])->values());
+        } catch (Throwable $e) {
+            Log::error('Reports analytics shipment sample failed', [
+                'request_id' => ApiResponse::requestId(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->apiError($e, 'REPORTS_FAILED', 'Unable to generate report.');
+        }
+    }
+
     public function shipmentsFullReport(Request $request, ShipmentVisitIntervalService $visitIntervalService)
     {
         try {

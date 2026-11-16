@@ -3,11 +3,12 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { apiReferenceCategories } from "@/lib/docs/api-reference"
+import type { apiReferenceCategories as ReferenceCategories } from "@/lib/docs/api-reference"
 import { ApiMethodBadge } from "@/components/docs/api-method-badge"
 import { SheetClose } from "@/components/ui/sheet"
 
 type DocsSidebarProps = {
+  apiReferenceCategories: typeof ReferenceCategories
   className?: string
   closeOnNavigate?: boolean
 }
@@ -40,7 +41,7 @@ function DocsNavLink({
   )
 }
 
-export function DocsSidebar({ className, closeOnNavigate = false }: DocsSidebarProps) {
+export function DocsSidebar({ className, closeOnNavigate = false, apiReferenceCategories }: DocsSidebarProps) {
   const pathname = usePathname()
 
   return (

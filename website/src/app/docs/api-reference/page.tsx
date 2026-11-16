@@ -1,10 +1,12 @@
+import { requireDocumentationAccess } from "@/lib/documentation/require-access"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ApiMethodBadge } from "@/components/docs/api-method-badge"
 import { apiReferenceCategories } from "@/lib/docs/api-reference"
 
-export default function ApiReferenceIndexPage() {
+export default async function ApiReferenceIndexPage() {
+  await requireDocumentationAccess("/docs")
   return (
     <div className="space-y-8">
       <div className="space-y-1">

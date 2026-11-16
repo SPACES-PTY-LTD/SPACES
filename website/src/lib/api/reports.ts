@@ -451,6 +451,24 @@ export async function getMappedBookings(
   })
 }
 
+export async function getAnalyticsShipmentSample(
+  merchantId: string,
+  token?: string | null
+) {
+  return apiFetch<{
+    success: boolean
+    data: Array<{
+      shipment_id: string
+      shipment_status: string
+      from_location: Pick<Location, "location_id" | "name" | "code" | "company"> | null
+      to_location: Pick<Location, "location_id" | "name" | "code" | "company"> | null
+    }>
+  }>("/api/v1/reports/analytics-shipment-sample", {
+    token,
+    params: { merchant_id: merchantId },
+  })
+}
+
 export async function getShipmentsFullReport(
   params?: ShipmentsFullReportParams,
   token?: string | null

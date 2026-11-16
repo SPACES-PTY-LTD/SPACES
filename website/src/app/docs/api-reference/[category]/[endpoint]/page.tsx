@@ -1,3 +1,4 @@
+import { requireDocumentationAccess } from "@/lib/documentation/require-access"
 import { notFound } from "next/navigation"
 import { ApiMethodBadge } from "@/components/docs/api-method-badge"
 import { CodeExampleTabs } from "@/components/docs/code-example-tabs"
@@ -75,6 +76,7 @@ export default async function ApiEndpointPage({
   params: Promise<{ category: string; endpoint: string }>
 }) {
   const { category, endpoint } = await params
+  await requireDocumentationAccess(`/docs/api-reference/${category}/${endpoint}`)
   const selectedEndpoint = getApiEndpoint(category, endpoint)
 
   if (!selectedEndpoint) {
