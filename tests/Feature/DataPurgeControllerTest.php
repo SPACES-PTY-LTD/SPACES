@@ -4,18 +4,42 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Merchant;
+use App\Models\Shipment;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleActivity;
-use App\Models\Shipment;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class DataPurgeControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['queue.default' => 'database']);
+        \Illuminate\Support\Facades\Queue::fake();
+    }
+
+    private function queueAndRun(User $user, Merchant $merchant, array $types)
+    {
+        $response = $this->withToken($user->createToken('test-suite')->plainTextToken)
+            ->postJson("/api/v1/merchants/{$merchant->uuid}/purge-data", [
+                'merchant_id' => $merchant->uuid, 'password' => 'password', 'types' => $types,
+            ])->assertAccepted()->assertJsonPath('data.status', 'queued');
+        $purge = \App\Models\DataPurge::where('uuid', $response->json('data.job_id'))->firstOrFail();
+        $job = new \App\Jobs\PurgeMerchantDataJob($purge->id);
+        try {
+            $job->handle(app(\App\Services\DataPurgeService::class));
+        } catch (\Throwable $e) {
+            $job->failed($e);
+        }
+
+        return $this->getJson("/api/v1/merchants/{$merchant->uuid}/purge-data/{$purge->uuid}");
+    }
 
     public function test_shipment_purge_deletes_tracking_events_in_bounded_primary_key_batches(): void
     {
@@ -55,15 +79,10 @@ class DataPurgeControllerTest extends TestCase
             }
         });
 
-        $this->withToken($user->createToken('test-suite')->plainTextToken)
-            ->postJson("/api/v1/merchants/{$merchant->uuid}/purge-data", [
-                'merchant_id' => $merchant->uuid,
-                'password' => 'password',
-                'types' => ['shipments'],
-            ])
+        $this->queueAndRun($user, $merchant, ['shipments'])
             ->assertOk()
-            ->assertJsonPath('data.results.shipments.tables.tracking_events', 501)
-            ->assertJsonPath('data.results.shipments.tables.shipments', 1);
+            ->assertJsonPath('data.result.results.shipments.tables.tracking_events', 501)
+            ->assertJsonPath('data.result.results.shipments.tables.shipments', 1);
 
         $this->assertCount(3, $deletes);
         foreach ($deletes as $query) {
@@ -75,7 +94,7 @@ class DataPurgeControllerTest extends TestCase
         $this->assertSame(501, DB::table('tracking_events')->where('merchant_id', $otherMerchant->id)->count());
     }
 
-    public function test_exhausted_lock_retries_return_an_actionable_conflict(): void
+    public function test_exhausted_lock_retries_are_reported_by_job_status(): void
     {
         $user = User::factory()->create(['password' => 'password']);
         $account = Account::create(['owner_user_id' => $user->id]);
@@ -85,15 +104,10 @@ class DataPurgeControllerTest extends TestCase
             ->shouldReceive('purge')->once()
             ->andThrow(new \RuntimeException('Lock wait timeout exceeded; try restarting transaction'));
 
-        $this->withToken($user->createToken('test-suite')->plainTextToken)
-            ->postJson("/api/v1/merchants/{$merchant->uuid}/purge-data", [
-                'merchant_id' => $merchant->uuid,
-                'password' => 'password',
-                'types' => ['shipments'],
-            ])
-            ->assertStatus(409)
-            ->assertJsonPath('error.code', 'MERCHANT_DATA_PURGE_BUSY')
-            ->assertJsonPath('error.message', 'Data is currently being updated by another process. Please try again shortly.');
+        $this->queueAndRun($user, $merchant, ['shipments'])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.error_message', 'Deletion could not acquire database locks. No database changes were committed. Try again when other updates have finished.');
     }
 
     public function test_it_can_purge_vehicle_activity_without_deleting_vehicles(): void
@@ -146,16 +160,11 @@ class DataPurgeControllerTest extends TestCase
             'occurred_at' => now(),
         ]);
 
-        $response = $this->withToken($user->createToken('test-suite')->plainTextToken)
-            ->postJson("/api/v1/merchants/{$merchant->uuid}/purge-data", [
-                'merchant_id' => $merchant->uuid,
-                'password' => 'password',
-                'types' => ['vehicle_activity'],
-            ]);
+        $response = $this->queueAndRun($user, $merchant, ['vehicle_activity']);
 
         $response->assertOk()
-            ->assertJsonPath('data.processed_types.0', 'vehicle_activity')
-            ->assertJsonPath('data.results.vehicle_activity.tables.vehicle_activity', 1);
+            ->assertJsonPath('data.result.processed_types.0', 'vehicle_activity')
+            ->assertJsonPath('data.result.results.vehicle_activity.tables.vehicle_activity', 1);
 
         $this->assertDatabaseMissing('vehicle_activity', ['id' => $merchantActivity->id]);
         $this->assertDatabaseHas('vehicle_activity', ['id' => $otherMerchantActivity->id]);
@@ -198,16 +207,11 @@ class DataPurgeControllerTest extends TestCase
             'plate_number' => 'GP 654 321',
         ]);
 
-        $response = $this->withToken($user->createToken('test-suite')->plainTextToken)
-            ->postJson("/api/v1/merchants/{$merchant->uuid}/purge-data", [
-                'merchant_id' => $merchant->uuid,
-                'password' => 'password',
-                'types' => ['vehicles'],
-            ]);
+        $response = $this->queueAndRun($user, $merchant, ['vehicles']);
 
         $response->assertOk()
-            ->assertJsonPath('data.processed_types.0', 'vehicles')
-            ->assertJsonPath('data.results.vehicles.tables.vehicles', 1);
+            ->assertJsonPath('data.result.processed_types.0', 'vehicles')
+            ->assertJsonPath('data.result.results.vehicles.tables.vehicles', 1);
 
         $this->assertDatabaseMissing('vehicles', ['id' => $vehicle->id]);
         $this->assertDatabaseHas('vehicles', ['id' => $otherVehicle->id]);

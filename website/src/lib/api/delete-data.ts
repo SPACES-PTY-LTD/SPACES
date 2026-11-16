@@ -40,7 +40,7 @@ export async function purgeMerchantData(
   payload: PurgeDataPayload,
   token?: string | null
 ) {
-  const response = await apiFetch<ApiEnvelope<PurgeDataResponse>>(
+  const response = await apiFetch<ApiEnvelope<PurgeJobStatus>>(
     `/api/v1/merchants/${merchantUuid}/purge-data`,
     {
       method: "POST",
@@ -54,4 +54,22 @@ export async function purgeMerchantData(
   }
 
   return response
+}
+
+export type PurgeJobStatus = {
+  job_id: string
+  status: "queued" | "running" | "completed" | "failed"
+  requested_types: string[]
+  created_at: string
+  started_at: string | null
+  finished_at: string | null
+  result: PurgeDataResponse | null
+  error_message: string | null
+}
+
+export function getPurgeStatus(merchantUuid: string, token?: string | null, signal?: AbortSignal) {
+  return apiFetch<ApiEnvelope<PurgeJobStatus | null>>(
+    `/api/v1/merchants/${merchantUuid}/purge-data`,
+    { token, signal }
+  )
 }

@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-11-16 | Version: queued-merchant-data-purge
+- Summary: Move password-confirmed merchant data deletion out of HTTP requests to prevent gateway timeouts, with persistent monitoring on the settings page.
+- API Changes: POST /api/v1/merchants/{merchant_uuid}/purge-data now returns HTTP 202 and a job status instead of synchronous deletion results. Add owner-only GET endpoints at the same path for the latest operation and /{job_id} for a specific merchant-scoped operation. Reject nonpersistent queue configurations with HTTP 503.
+- Database Changes: Add data_purges with requested types, lifecycle status, result/error, timestamps, and a nullable unique active-merchant slot. Run the migration before deploying the updated frontend.
+- Behavior Changes: Queue only the operation ID, never credentials. Recheck ownership in the worker, prevent concurrent active requests per merchant, claim jobs once, and atomically commit deletion, its audit record and completion results. Preserve transaction retries and separate after-commit uploaded-file cleanup. Poll every three seconds, resume monitoring after refresh, isolate merchant switches, suppress stale polls, block repeat submissions while active/status is unknown, and show queued/running/completed/failed status with timestamps and results. Preserve password whitespace when submitting.
+- Breaking Changes: POST response shape and success status change; deploy API and frontend together. Requires a running persistent queue worker, a 300-second job timeout, and visibility/retry_after greater than 300 seconds (existing non-SQS defaults are 330). See docs/data-purge-jobs.md for deployment and recovery. Database deadlocks, integration writes and the worker time limit remain possible; completed status covers database deletion, not separate storage cleanup.
+- Verification: PHP 8.4 purge/cleanup/merchant-deletion suites passed (28 tests, 155 assertions). Website production build passed compilation, lint/type checks, 113-page generation and tracing on Node 26.12.1; existing non-blocking warnings remain. Frontend monitoring regression tests cover restored status, failure/reconnection, stale polls and merchant remounts. No production migration, deployment or deletion performed.
+
 ## 2026-11-16 | Version: website-production-build-fixes
 - Summary: Fix the two marketing-component lint errors that blocked the website deployment build.
 - API Changes: None.

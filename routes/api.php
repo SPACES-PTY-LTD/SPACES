@@ -101,6 +101,8 @@ Route::prefix('v1')->group(function () {
         Route::get('merchants/{merchant_uuid}/location-automation', [MerchantController::class, 'showLocationAutomation']);
         Route::patch('merchants/{merchant_uuid}/location-automation', [MerchantController::class, 'updateLocationAutomation']);
         Route::delete('merchants/{merchant_uuid}', [MerchantController::class, 'destroy']);
+        Route::get('merchants/{merchant_uuid}/purge-data/{purge_uuid?}', [DataPurgeController::class, 'status'])
+            ->middleware('role:user,super_admin');
         Route::post('merchants/{merchant_uuid}/purge-data', [DataPurgeController::class, 'purge'])
             ->middleware('role:user,super_admin');
 

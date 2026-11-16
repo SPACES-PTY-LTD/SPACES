@@ -4,7 +4,7 @@ import * as React from "react"
 import { Loader2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/layout/page-header"
-import { purgeMerchantData, purgeDataTypes, type PurgeDataResponse, type PurgeDataType } from "@/lib/api/delete-data"
+import { purgeMerchantData, getPurgeStatus, purgeDataTypes, type PurgeJobStatus, type PurgeDataType } from "@/lib/api/delete-data"
 import { isApiErrorResponse } from "@/lib/api/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -47,7 +47,7 @@ function formatTypeLabel(value: string) {
     .join(" ")
 }
 
-export function DeleteDataManager({
+function MerchantDeleteDataManager({
   accessToken,
   merchantId,
 }: {
@@ -57,10 +57,46 @@ export function DeleteDataManager({
   const [selectedTypes, setSelectedTypes] = React.useState<PurgeDataType[]>([])
   const [password, setPassword] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
-  const [result, setResult] = React.useState<PurgeDataResponse | null>(null)
+  const [job, setJob] = React.useState<PurgeJobStatus | null>(null)
+  const [monitoringError, setMonitoringError] = React.useState<string | null>(null)
+  const [checkingStatus, setCheckingStatus] = React.useState(true)
+  const requestInFlight = React.useRef(false)
+  const requestVersion = React.useRef(0)
+  const result = job?.result ?? null
+  const active = job?.status === "queued" || job?.status === "running"
+  const busy = submitting || active || checkingStatus || Boolean(monitoringError)
   const [confirmOpen, setConfirmOpen] = React.useState(false)
 
   const merchantMissing = !merchantId
+
+  React.useEffect(() => {
+    if (!merchantId) return
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout>
+    async function poll() {
+      const version = requestVersion.current
+      try {
+        const response = await getPurgeStatus(merchantId!, accessToken, controller.signal)
+        if (controller.signal.aborted) return
+        // Do not let a status request started before POST overwrite its response.
+        if (!requestInFlight.current && version === requestVersion.current) {
+          if (isApiErrorResponse(response)) {
+            setMonitoringError("Unable to check deletion status. Reconnecting…")
+          } else {
+            setJob(response.data)
+            setMonitoringError(null)
+          }
+          setCheckingStatus(false)
+        }
+      } catch {
+        if (!controller.signal.aborted) setMonitoringError("Unable to check deletion status. Reconnecting…")
+      } finally {
+        if (!controller.signal.aborted) timer = setTimeout(poll, 3000)
+      }
+    }
+    void poll()
+    return () => { controller.abort(); clearTimeout(timer) }
+  }, [merchantId, accessToken])
 
   function toggleType(type: PurgeDataType) {
     setSelectedTypes((current) =>
@@ -100,39 +136,34 @@ export function DeleteDataManager({
   }
 
   async function confirmDelete() {
-    if (!merchantId || !validateForm()) {
-      return
-    }
-
+    if (!merchantId || busy || !validateForm()) return
+    requestVersion.current++
+    requestInFlight.current = true
     setSubmitting(true)
-
-    const response = await purgeMerchantData(
-      merchantId,
-      {
+    try {
+      const response = await purgeMerchantData(merchantId, {
         merchant_id: merchantId,
-        password: password.trim(),
+        password,
         types: selectedTypes,
-      },
-      accessToken
-    )
-
-    if (isApiErrorResponse(response)) {
-      toast.error(response.message || "Failed to delete data.")
+      }, accessToken)
+      if (isApiErrorResponse(response)) {
+        toast.error(response.message || "Unable to queue deletion.")
+        // A lost response may still have queued work. Recheck before allowing another request.
+        setCheckingStatus(true)
+        return
+      }
+      setJob(response.data)
+      setConfirmOpen(false)
+      setPassword("")
+      setMonitoringError(null)
+      toast.success("Deletion queued. You can leave this page and return to check its status.")
+    } catch {
+      toast.error("Unable to confirm deletion status. Checking the server…")
+      setCheckingStatus(true)
+    } finally {
+      requestInFlight.current = false
       setSubmitting(false)
-      return
     }
-
-    if (!response.success) {
-      toast.error("The delete data request was not accepted.")
-      setSubmitting(false)
-      return
-    }
-
-    setResult(response.data)
-    setConfirmOpen(false)
-    setPassword("")
-    toast.success("Data deletion request completed.")
-    setSubmitting(false)
   }
 
   return (
@@ -141,6 +172,29 @@ export function DeleteDataManager({
         title="Permanent data deletion"
         description="Delete selected merchant data in bulk. This action is destructive and requires your password."
       />
+
+      <div aria-live="polite" className="space-y-2">
+        {checkingStatus && merchantId ? <p>Checking previous deletion status…</p> : null}
+        {monitoringError ? <p className="text-destructive" role="alert">{monitoringError} Deletion may still be running.</p> : null}
+        {job ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Deletion {job.status}</CardTitle>
+              <CardDescription>Request {job.job_id}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p>{job.requested_types.map(formatTypeLabel).join(", ")}</p>
+              {job.status === "queued" ? <p>Waiting for a background worker. You can leave this page and return later. If this stays queued, ask your administrator to check the queue worker.</p> : null}
+              {job.status === "running" ? <p>Deleting the selected data. This may take several minutes. You can leave this page and return later.</p> : null}
+              {job.status === "completed" ? <p>Database deletion completed. Uploaded-file cleanup runs separately and may still be in progress.</p> : null}
+              {job.error_message ? <p className="text-destructive" role="alert">{job.error_message}</p> : null}
+              <p className="text-sm text-muted-foreground">Requested: {new Date(job.created_at).toLocaleString()}</p>
+              {job.started_at ? <p className="text-sm text-muted-foreground">Started: {new Date(job.started_at).toLocaleString()}</p> : null}
+              {job.finished_at ? <p className="text-sm text-muted-foreground">Finished: {new Date(job.finished_at).toLocaleString()}</p> : null}
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
 
       <Card>
         <CardHeader>
@@ -168,13 +222,13 @@ export function DeleteDataManager({
                         checked
                           ? "border-destructive bg-destructive/5"
                           : "border-border hover:bg-muted/30",
-                        merchantMissing || submitting ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+                        merchantMissing || busy ? "cursor-not-allowed opacity-60" : "cursor-pointer",
                       ].join(" ")}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
-                        disabled={merchantMissing || submitting}
+                        disabled={merchantMissing || busy}
                         onChange={() => toggleType(type)}
                         className="mt-0.5 h-4 w-4 rounded border-input text-destructive focus:ring-destructive"
                       />
@@ -193,7 +247,7 @@ export function DeleteDataManager({
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                disabled={merchantMissing || submitting}
+                disabled={merchantMissing || busy}
                 placeholder="Enter your password"
               />
             </div>
@@ -207,7 +261,7 @@ export function DeleteDataManager({
             <Button
               type="submit"
               variant="destructive"
-              disabled={merchantMissing || submitting}
+              disabled={merchantMissing || busy}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               Delete selected data
@@ -249,7 +303,7 @@ export function DeleteDataManager({
               type="button"
               variant="outline"
               onClick={() => setConfirmOpen(false)}
-              disabled={submitting}
+              disabled={busy}
             >
               Cancel
             </Button>
@@ -257,7 +311,7 @@ export function DeleteDataManager({
               type="button"
               variant="destructive"
               onClick={confirmDelete}
-              disabled={submitting}
+              disabled={busy}
             >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               Confirm delete
@@ -342,4 +396,9 @@ export function DeleteDataManager({
       ) : null}
     </div>
   )
+}
+
+// Remount when the merchant changes so requests and results cannot cross contexts.
+export function DeleteDataManager(props: { accessToken?: string; merchantId?: string | null }) {
+  return <MerchantDeleteDataManager key={props.merchantId ?? "none"} {...props} />
 }
