@@ -62,6 +62,7 @@ function MerchantDeleteDataManager({
   const [checkingStatus, setCheckingStatus] = React.useState(true)
   const requestInFlight = React.useRef(false)
   const requestVersion = React.useRef(0)
+  const [monitorVersion, setMonitorVersion] = React.useState(0)
   const result = job?.result ?? null
   const active = job?.status === "queued" || job?.status === "running"
   const busy = submitting || active || checkingStatus || Boolean(monitoringError)
@@ -75,6 +76,7 @@ function MerchantDeleteDataManager({
     let timer: ReturnType<typeof setTimeout>
     async function poll() {
       const version = requestVersion.current
+      let keepPolling = true
       try {
         const response = await getPurgeStatus(merchantId!, accessToken, controller.signal)
         if (controller.signal.aborted) return
@@ -85,18 +87,19 @@ function MerchantDeleteDataManager({
           } else {
             setJob(response.data)
             setMonitoringError(null)
+            keepPolling = response.data?.status === "queued" || response.data?.status === "running"
           }
           setCheckingStatus(false)
         }
       } catch {
         if (!controller.signal.aborted) setMonitoringError("Unable to check deletion status. Reconnecting…")
       } finally {
-        if (!controller.signal.aborted) timer = setTimeout(poll, 3000)
+        if (!controller.signal.aborted && keepPolling) timer = setTimeout(poll, 5000)
       }
     }
     void poll()
     return () => { controller.abort(); clearTimeout(timer) }
-  }, [merchantId, accessToken])
+  }, [merchantId, accessToken, monitorVersion])
 
   function toggleType(type: PurgeDataType) {
     setSelectedTypes((current) =>
@@ -163,6 +166,7 @@ function MerchantDeleteDataManager({
     } finally {
       requestInFlight.current = false
       setSubmitting(false)
+      setMonitorVersion((value) => value + 1)
     }
   }
 
@@ -177,13 +181,41 @@ function MerchantDeleteDataManager({
         {checkingStatus && merchantId ? <p>Checking previous deletion status…</p> : null}
         {monitoringError ? <p className="text-destructive" role="alert">{monitoringError} Deletion may still be running.</p> : null}
         {job ? (
-          <Card>
+          <Card className={job.status === "completed"
+            ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+            : job.status === "failed"
+              ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
+              : "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"}>
             <CardHeader>
-              <CardTitle>Deletion {job.status}</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                {active ? <Loader2 className="h-5 w-5 animate-spin text-blue-600 motion-reduce:animate-none" aria-hidden="true" /> : null}
+                Deletion {job.status}
+              </CardTitle>
               <CardDescription>Request {job.job_id}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <p>{job.requested_types.map(formatTypeLabel).join(", ")}</p>
+              {job.status !== "failed" ? (
+                <div className="space-y-2">
+                  <div role="progressbar" aria-label="Deletion progress" aria-valuemin={0} aria-valuemax={100}
+                    aria-valuenow={job.status === "completed" ? 100 : job.status === "queued" ? 0 : job.progress?.percent}
+                    className="h-3 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900">
+                    <div className={`h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none ${job.status === "completed" ? "bg-emerald-600" : "bg-blue-600"} ${job.status === "running" && !job.progress ? "animate-pulse motion-reduce:animate-none" : ""}`}
+                      style={{ width: `${job.status === "completed" ? 100 : job.status === "queued" ? 0 : job.progress?.percent ?? 25}%` }} />
+                  </div>
+                  <p className="text-sm font-medium">
+                    {job.status === "completed" ? "100% — database deletion complete"
+                      : job.status === "queued" ? "Waiting to start"
+                        : job.progress ? `${job.progress.percent}% — ${job.progress.completed_types} of ${job.progress.total_types} data types processed`
+                          : "Preparing deletion…"}
+                  </p>
+                  {job.status === "running" && job.progress ? <p className="text-sm">
+                    {job.progress.current_type ? `Deleting ${formatTypeLabel(job.progress.current_type)}…` : "Finalizing deletion…"}
+                    {" "}Progress is based on data types, not rows or time. Changes are final once deletion completes.
+                  </p> : null}
+                  {active ? <p className="text-xs text-muted-foreground">Checking progress every 5 seconds.</p> : null}
+                </div>
+              ) : null}
               {job.status === "queued" ? <p>Waiting for a background worker. You can leave this page and return later. If this stays queued, ask your administrator to check the queue worker.</p> : null}
               {job.status === "running" ? <p>Deleting the selected data. This may take several minutes. You can leave this page and return later.</p> : null}
               {job.status === "completed" ? <p>Database deletion completed. Uploaded-file cleanup runs separately and may still be in progress.</p> : null}

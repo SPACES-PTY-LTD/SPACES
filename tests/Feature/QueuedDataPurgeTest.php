@@ -135,4 +135,25 @@ class QueuedDataPurgeTest extends TestCase
         $job->failed(new \RuntimeException('late failure'));
         $this->assertSame('completed', $purge->fresh()->status);
     }
+
+    public function test_progress_reports_processed_types_but_only_completion_reaches_the_end(): void
+    {
+        $this->submit()->assertAccepted();
+        $purge = DataPurge::firstOrFail();
+        $purge->update(['status' => 'running']);
+        $seen = [];
+        app(DataPurgeService::class)->purge($this->owner, $this->merchant, ['activity_logs', 'api_call_logs'],
+            function ($done, $total, $current) use ($purge, &$seen) {
+                app(\App\Services\DataPurgeProgress::class)->write($purge->uuid, $done, $total, $current);
+                $seen[] = $purge->toStatus()['progress'];
+            });
+        $this->assertSame([0, 1, 2], array_column($seen, 'completed_types'));
+        $this->assertSame(['api_call_logs', 'activity_logs', null], array_column($seen, 'current_type'));
+        $this->assertSame([0, 33, 66], array_column($seen, 'percent'));
+        $this->getJson($this->endpoint())->assertJsonPath('data.progress.completed_types', 2);
+        $purge->update(['status' => 'failed']);
+        $this->getJson($this->endpoint())->assertJsonPath('data.progress', null);
+        $purge->update(['status' => 'completed']);
+        $this->getJson($this->endpoint())->assertJsonPath('data.progress', null);
+    }
 }

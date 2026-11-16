@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-11-16 | Version: deletion-progress-monitor
+- Summary: Make active deletion visible with a blue status card, spinner and measured data-type progress; use green for completion and red for failure.
+- API Changes: Job status adds nullable progress with completed_types, total_types, current_type and percent while running. Reserve the final step for audit/commit and use committed status for 100% completion.
+- Database Changes: None. Database-backed progress cache uses an independent connection to publish progress outside the deletion transaction; requires the existing cache table and a shared cache across web/worker instances.
+- Behavior Changes: Poll every five seconds while queued/running or reconnecting, stop on terminal status or no operation, and restart monitoring after a new submission. Report the current data type and processed count rather than estimating rows/time. Cache outages fall back to indeterminate progress; failed operations hide rolled-back progress. Support dark mode, accessible progress values and reduced motion.
+- Breaking Changes: None. Existing workers without progress support show indeterminate progress until restarted with this release.
+- Verification: PHP 8.4 purge/cleanup/merchant-deletion suites passed (29 tests, 162 assertions); four frontend monitoring tests passed, covering five-second intervals, stop/restart, progress values and state colours. `npm run build` passed compilation, lint/type checks and all 113 generated pages on Node 26.12.1; existing non-blocking warnings remain. Pint and git diff --check passed. No deployment or live deletion performed.
+
 ## 2026-11-16 | Version: queued-merchant-data-purge
 - Summary: Move password-confirmed merchant data deletion out of HTTP requests to prevent gateway timeouts, with persistent monitoring on the settings page.
 - API Changes: POST /api/v1/merchants/{merchant_uuid}/purge-data now returns HTTP 202 and a job status instead of synchronous deletion results. Add owner-only GET endpoints at the same path for the latest operation and /{job_id} for a specific merchant-scoped operation. Reject nonpersistent queue configurations with HTTP 503.

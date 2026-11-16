@@ -18,7 +18,14 @@ function harness(initialStatus = null) {
       return [slots[i], value => { slots[i] = typeof value === 'function' ? value(slots[i]) : value; }];
     },
     useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial }; },
-    useEffect(effect) { const i = cursor++; if (!(i in slots)) { slots[i] = true; effects.push(effect); } },
+    useEffect(effect, deps) {
+      const i = cursor++;
+      if (!(i in slots) || deps.some((v, n) => v !== slots[i].deps[n])) {
+        slots[i]?.cleanup?.();
+        slots[i] = { deps };
+        effects.push(() => { slots[i].cleanup = effect(); return slots[i].cleanup; });
+      }
+    },
   };
   const jsx = (type, props, key) => ({ type, props, key });
   const exports = {};
@@ -26,7 +33,7 @@ function harness(initialStatus = null) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
   }).outputText, {
     exports, AbortController, Date,
-    setTimeout(fn) { timers.set(++timerId, fn); return timerId; },
+    setTimeout(fn, delay) { assert.equal(delay, 5000); timers.set(++timerId, fn); return timerId; },
     clearTimeout(id) { timers.delete(id); },
     require(name) {
       if (name === 'react') return react;
@@ -44,10 +51,9 @@ function harness(initialStatus = null) {
   const wrapper = exports.DeleteDataManager({ merchantId: 'merchant-1', accessToken: 'token' });
   const nodes = n => Array.isArray(n) ? n.flatMap(nodes) : n && typeof n === 'object' ? [n, ...nodes(n.props?.children)] : [];
   const text = n => Array.isArray(n) ? n.map(text).join(' ') : n && typeof n === 'object' ? text(n.props?.children) : String(n ?? '');
-  function render() { cursor = 0; tree = wrapper.type(wrapper.props); }
+  function render() { cursor = 0; tree = wrapper.type(wrapper.props); for (const effect of effects.splice(0)) cleanups.push(effect()); }
   function find(predicate) { const node = nodes(tree).find(predicate); assert.ok(node); return node; }
   render();
-  for (const effect of effects) cleanups.push(effect());
   return {
     render, find, get text() { return text(tree).replace(/\s+/g, ' '); }, get payload() { return lastPayload; },
     get disabled() { return find(n => n.type === 'Button' && text(n).includes('Delete selected')).props.disabled; },
@@ -78,12 +84,14 @@ test('restores persisted operation on mount and monitors terminal success', asyn
   assert.match(app.text, /Database deletion completed/);
   assert.match(app.text, /cleanup runs separately/);
   assert.equal(app.disabled, false);
+  assert.equal(app.timers, 0);
+  assert.equal(app.find(n => n.props?.role === 'progressbar').props['aria-valuenow'], 100);
   assert.notEqual(app.merchantKey('merchant-1'), app.merchantKey('merchant-2'));
   app.unmount(); assert.equal(app.timers, 0);
 });
 
 test('monitoring failure does not imply deletion failed and blocks resubmission until recovered', async () => {
-  const app = harness(); await app.settle();
+  const app = harness(operation('running')); await app.settle();
   app.setStatus({ error: true, message: 'network failed' }); await app.tick();
   assert.match(app.text, /Deletion may still be running/);
   assert.equal(app.disabled, true);
@@ -93,16 +101,27 @@ test('monitoring failure does not imply deletion failed and blocks resubmission 
   app.unmount();
 });
 
-test('queues deletion without trimming password and ignores a stale pre-submit poll', async () => {
+test('new deletion restarts polling after the initial idle check stops', async () => {
   const app = harness(); await app.settle(); app.prepare();
-  let resolve;
-  app.setStatus(new Promise(r => { resolve = r; }));
-  const pendingPoll = app.tick();
-  await app.confirm(); app.render();
+  assert.equal(app.timers, 0);
+  app.setStatus(envelope(operation('queued')));
+  await app.confirm(); app.render(); await app.settle();
   assert.equal(app.payload.password, ' password ');
   assert.match(app.text, /Deletion queued/);
-  resolve(envelope(null)); await pendingPoll;
-  assert.match(app.text, /Deletion queued/);
   assert.equal(app.disabled, true);
+  assert.equal(app.timers, 1);
+  app.unmount();
+});
+
+test('running progress is accessible and terminal failure stops polling', async () => {
+  const app = harness({ ...operation('running'), progress: { completed_types: 2, total_types: 4, current_type: 'vehicles', percent: 40 } });
+  await app.settle();
+  assert.equal(app.find(n => n.props?.role === 'progressbar').props['aria-valuenow'], 40);
+  assert.match(app.text, /2 of 4 data types processed/);
+  assert.match(app.text, /Deleting Vehicles/);
+  assert.ok(app.find(n => n.type === 'Card' && n.props.className?.includes('bg-blue-50')));
+  app.setStatus(envelope(operation('failed'))); await app.tick();
+  assert.equal(app.timers, 0);
+  assert.ok(app.find(n => n.type === 'Card' && n.props.className?.includes('bg-red-50')));
   app.unmount();
 });

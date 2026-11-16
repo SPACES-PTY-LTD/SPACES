@@ -59,6 +59,7 @@ export async function purgeMerchantData(
 export type PurgeJobStatus = {
   job_id: string
   status: "queued" | "running" | "completed" | "failed"
+  progress?: { completed_types: number; total_types: number; current_type: string | null; percent: number } | null
   requested_types: string[]
   created_at: string
   started_at: string | null

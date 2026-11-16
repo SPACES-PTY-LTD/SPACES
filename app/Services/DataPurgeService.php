@@ -40,9 +40,9 @@ class DataPurgeService
         return self::EXECUTION_ORDER;
     }
 
-    public function purge(User $user, Merchant $merchant, array $types): array
+    public function purge(User $user, Merchant $merchant, array $types, ?callable $progress = null): array
     {
-        $result = $this->purgeWithoutActivityLog($merchant, $types);
+        $result = $this->purgeWithoutActivityLog($merchant, $types, $progress);
 
         $this->activityLogService->log(
             action: 'purged',
@@ -67,19 +67,21 @@ class DataPurgeService
         return $this->purgeWithoutActivityLog($merchant, self::allowedTypes());
     }
 
-    public function purgeWithoutActivityLog(Merchant $merchant, array $types): array
+    public function purgeWithoutActivityLog(Merchant $merchant, array $types, ?callable $progress = null): array
     {
         $requestedTypes = array_values(array_unique($types));
         $orderedTypes = array_values(array_intersect(self::EXECUTION_ORDER, $requestedTypes));
 
         $this->assertPreconditions($merchant, $requestedTypes);
 
-        $results = DB::transaction(function () use ($merchant, $orderedTypes) {
+        $results = DB::transaction(function () use ($merchant, $orderedTypes, $progress) {
             $resourceIds = $this->resourceIdsForMerchant($merchant);
             $results = [];
             foreach ($orderedTypes as $type) {
+                $progress && $progress(count($results), count($orderedTypes), $type);
                 $results[$type] = $this->purgeByType($merchant, $type, $resourceIds);
             }
+            $progress && $progress(count($results), count($orderedTypes), null);
 
             return $results;
         }, attempts: 3);

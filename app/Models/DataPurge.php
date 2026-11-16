@@ -23,6 +23,7 @@ class DataPurge extends Model
         return [
             'job_id' => $this->uuid,
             'status' => $this->status,
+            'progress' => $this->status === 'running' ? app(\App\Services\DataPurgeProgress::class)->read($this->uuid) : null,
             'requested_types' => $this->types,
             'created_at' => $this->created_at?->toIso8601String(),
             'started_at' => $this->started_at?->toIso8601String(),
