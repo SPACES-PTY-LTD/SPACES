@@ -48,7 +48,7 @@ class QueuedDataPurgeTest extends TestCase
 
     public function test_request_queues_without_running_and_duplicate_returns_same_operation(): void
     {
-        $this->mock(DataPurgeService::class)->shouldNotReceive('purge');
+        $this->mock(DataPurgeService::class)->shouldNotReceive('purgeIncrementally');
         $response = $this->submit()->assertAccepted()->assertJsonPath('data.status', 'queued');
         $uuid = $response->json('data.job_id');
         $this->submit()->assertAccepted()->assertJsonPath('data.job_id', $uuid);
@@ -72,19 +72,19 @@ class QueuedDataPurgeTest extends TestCase
             ->assertJsonPath('data.result.processed_types.0', 'activity_logs');
         $this->assertNull($purge->fresh()->active_merchant_id);
         $service = $this->mock(DataPurgeService::class);
-        $service->shouldNotReceive('purge');
+        $service->shouldNotReceive('purgeIncrementally');
         $job->handle($service);
         // A fresh request is allowed after completion.
         $this->submit()->assertAccepted();
         $this->assertDatabaseCount('data_purges', 2);
     }
 
-    public function test_worker_rolls_back_partial_changes_and_exposes_safe_failure(): void
+    public function test_worker_preserves_committed_changes_and_exposes_safe_failure(): void
     {
         $this->submit()->assertAccepted();
         $purge = DataPurge::firstOrFail();
         $service = $this->mock(DataPurgeService::class);
-        $service->shouldReceive('purge')->once()->andReturnUsing(function () {
+        $service->shouldReceive('purgeIncrementally')->once()->andReturnUsing(function () {
             $this->merchant->update(['name' => 'must roll back']);
             throw new \RuntimeException('private database details');
         });
@@ -95,7 +95,7 @@ class QueuedDataPurgeTest extends TestCase
         } catch (\RuntimeException $e) {
             $job->failed($e);
         }
-        $this->assertNotSame('must roll back', $this->merchant->fresh()->name);
+        $this->assertSame('must roll back', $this->merchant->fresh()->name);
         $this->getJson($this->endpoint())->assertOk()->assertJsonPath('data.status', 'failed')
             ->assertDontSee('private database details');
         $this->assertNull($purge->fresh()->active_merchant_id);
@@ -166,7 +166,7 @@ class QueuedDataPurgeTest extends TestCase
         $this->postJson($this->endpoint()."/{$purge->uuid}/cancel")
             ->assertOk()->assertJsonPath('data.cancel_requested', true);
         $service = $this->mock(DataPurgeService::class);
-        $service->shouldNotReceive('purge');
+        $service->shouldNotReceive('purgeIncrementally');
         (new PurgeMerchantDataJob($purge->id))->handle($service);
         $this->getJson($this->endpoint())->assertJsonPath('data.status', 'cancelled')
             ->assertJsonPath('data.progress', null)->assertJsonPath('data.cancel_requested', false);
@@ -174,19 +174,19 @@ class QueuedDataPurgeTest extends TestCase
         $this->postJson($this->endpoint()."/{$purge->uuid}/cancel")->assertJsonPath('data.status', 'cancelled');
     }
 
-    public function test_running_cancellation_rolls_back_changes_at_final_checkpoint(): void
+    public function test_running_cancellation_preserves_committed_changes_at_final_checkpoint(): void
     {
         $this->submit()->assertAccepted();
         $purge = DataPurge::firstOrFail();
         $service = $this->mock(DataPurgeService::class);
-        $service->shouldReceive('purge')->once()->andReturnUsing(function () use ($purge) {
+        $service->shouldReceive('purgeIncrementally')->once()->andReturnUsing(function () use ($purge) {
             $this->merchant->update(['name' => 'must roll back']);
             app(\App\Services\DataPurgeCancellation::class)->request($purge->uuid);
 
             return [];
         });
         (new PurgeMerchantDataJob($purge->id))->handle($service);
-        $this->assertNotSame('must roll back', $this->merchant->fresh()->name);
+        $this->assertSame('must roll back', $this->merchant->fresh()->name);
         $this->assertSame('cancelled', $purge->fresh()->status);
         $this->assertNull($purge->fresh()->result);
     }

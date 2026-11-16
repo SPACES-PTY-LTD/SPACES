@@ -12,7 +12,6 @@ use Illuminate\Database\ConcurrencyErrorDetector;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -40,36 +39,30 @@ class PurgeMerchantDataJob implements ShouldQueue
         }
 
         try {
-            // Commit the results and audit entry with deletion. A redelivery cannot
-            // repeat completed work, even if the worker died before acknowledging it.
-            DB::transaction(function () use ($service) {
-                $purge = DataPurge::lockForUpdate()->findOrFail($this->purgeId);
-                if (in_array($purge->status, ['completed', 'failed', 'cancelled'], true)) {
-                    return;
-                }
-                $cancellation = app(\App\Services\DataPurgeCancellation::class);
-                $cancellation->check($purge->uuid);
-                $merchant = Merchant::findOrFail($purge->merchant_id);
-                $user = User::findOrFail($purge->user_id);
-                if ((int) $merchant->account?->owner_user_id !== (int) $user->id) {
-                    throw ValidationException::withMessages(['owner' => 'The requesting user is no longer the account owner.']);
-                }
-                $result = $service->purge($user, $merchant, $purge->types,
-                    function (int $done, int $total, ?string $type, array $orderedTypes) use ($purge, $cancellation) {
-                        $cancellation->check($purge->uuid);
-                        app(\App\Services\DataPurgeProgress::class)->write($purge->uuid, $done, $total, $type, $orderedTypes);
-                    }
-                );
-                $cancellation->check($purge->uuid);
-                $purge->update([
-                    'status' => 'completed', 'result' => $result,
-                    'finished_at' => now(), 'active_merchant_id' => null,
-                ]);
-            }, 3);
+            $purge = DataPurge::findOrFail($this->purgeId);
+            $cancellation = app(\App\Services\DataPurgeCancellation::class);
+            $cancellation->check($purge->uuid);
+            $merchant = Merchant::findOrFail($purge->merchant_id);
+            $user = User::findOrFail($purge->user_id);
+            if ((int) $merchant->account?->owner_user_id !== (int) $user->id) {
+                throw ValidationException::withMessages(['owner' => 'The requesting user is no longer the account owner.']);
+            }
+            $result = $service->purgeIncrementally($user, $merchant, $purge->types,
+                function (int $done, int $total, ?string $type, array $orderedTypes, int $rows) use ($purge, $cancellation) {
+                    app(\App\Services\DataPurgeProgress::class)->write($purge->uuid, $done, $total, $type, $orderedTypes, $rows);
+                    $cancellation->check($purge->uuid);
+                },
+                fn (array $result) => $purge->update(['result' => $result]),
+            );
+            $cancellation->check($purge->uuid);
+            $purge->update([
+                'status' => 'completed', 'result' => $result,
+                'finished_at' => now(), 'active_merchant_id' => null,
+            ]);
         } catch (\App\Exceptions\DataPurgeCancelled $e) {
             DataPurge::whereKey($this->purgeId)->where('status', 'running')->update([
                 'status' => 'cancelled', 'finished_at' => now(), 'active_merchant_id' => null,
-                'result' => null, 'error_message' => null,
+                'error_message' => null,
             ]);
         } catch (Throwable $e) {
             // After-commit file dispatch errors must not claim committed data rolled back.
@@ -84,13 +77,13 @@ class PurgeMerchantDataJob implements ShouldQueue
 
     public function failed(?Throwable $exception): void
     {
-        $message = 'Deletion failed. No database changes were committed. You can submit a new request.';
+        $message = 'Deletion failed. Previously committed deletions cannot be undone. You can submit a new request.';
         if ($exception && (new ConcurrencyErrorDetector)->causedByConcurrencyError($exception)) {
-            $message = 'Deletion could not acquire database locks. No database changes were committed. Try again when other updates have finished.';
+            $message = 'Deletion could not acquire database locks. Previously committed deletions cannot be undone. Try again when other updates have finished.';
         } elseif ($exception instanceof ValidationException) {
             $message = collect($exception->errors())->flatten()->first() ?? $message;
         } elseif ($exception instanceof \Illuminate\Queue\TimeoutExceededException) {
-            $message = 'Deletion exceeded the worker time limit. No database changes were committed. Try fewer data types or contact support.';
+            $message = 'Deletion exceeded the worker time limit. Previously committed deletions cannot be undone. Try fewer data types or contact support.';
         }
         DataPurge::whereKey($this->purgeId)->whereIn('status', ['queued', 'running'])->update([
             'status' => 'failed', 'error_message' => $message,

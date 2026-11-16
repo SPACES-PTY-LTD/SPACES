@@ -145,7 +145,7 @@ test('checklist follows server execution order and distinguishes done, current a
 });
 
 
-test('cancel requests remain monitored until the worker confirms rollback', async () => {
+test('cancel requests remain monitored until the worker confirms cancellation', async () => {
   const app = harness(operation('running')); await app.settle();
   await app.find(n => n.type === 'Button' && n.props.children === 'Cancel deletion').props.onClick();
   app.setStatus(envelope({ ...operation('running'), cancel_requested: true }));
@@ -155,7 +155,7 @@ test('cancel requests remain monitored until the worker confirms rollback', asyn
   assert.equal(app.disabled, true);
   assert.equal(app.timers, 1);
   app.setStatus(envelope(operation('cancelled'))); await app.tick();
-  assert.match(app.text, /Deletion cancelled. No database changes were committed/);
+  assert.match(app.text, /Deletion cancelled. Previously completed deletions remain permanent/);
   assert.match(app.text, /Shipments Not completed/);
   assert.equal(app.timers, 0);
   assert.equal(app.disabled, false);

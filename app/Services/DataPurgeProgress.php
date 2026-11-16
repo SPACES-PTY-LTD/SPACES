@@ -25,11 +25,12 @@ class DataPurgeProgress
         return Cache::store($name);
     }
 
-    public function write(string $uuid, int $done, int $total, ?string $type, array $orderedTypes = []): void
+    public function write(string $uuid, int $done, int $total, ?string $type, array $orderedTypes = [], int $rows = 0): void
     {
         try {
             $this->store()->put('data-purge-progress:'.$uuid, [
                 'completed_types' => $done,
+                'current_type_deleted_rows' => $rows,
                 'total_types' => $total,
                 'current_type' => $type,
                 'ordered_types' => $orderedTypes,

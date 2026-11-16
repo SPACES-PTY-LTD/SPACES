@@ -60,7 +60,7 @@ export type PurgeJobStatus = {
   job_id: string
   status: "queued" | "running" | "completed" | "failed" | "cancelled"
   cancel_requested?: boolean
-  progress?: { completed_types: number; total_types: number; current_type: string | null; percent: number; ordered_types?: string[]; processed_types?: string[] } | null
+  progress?: { current_type_deleted_rows?: number; completed_types: number; total_types: number; current_type: string | null; percent: number; ordered_types?: string[]; processed_types?: string[] } | null
   requested_types: string[]
   created_at: string
   started_at: string | null

@@ -220,8 +220,8 @@ function MerchantDeleteDataManager({
             <CardContent className="space-y-3">
               <ul aria-label="Deletion checklist" className="grid gap-2 sm:grid-cols-2">
                 {(job.progress?.ordered_types?.length ? job.progress.ordered_types : job.requested_types).map((type) => {
-                  const done = job.status === "completed"
-                    ? Boolean(job.result?.processed_types.includes(type))
+                  const done = job.result?.processed_types.includes(type)
+                    ? true
                     : job.status === "running" && Boolean(job.progress?.processed_types?.includes(type))
                   const current = job.status === "running" && job.progress?.current_type === type
                   const state = done ? "Done" : current ? "Deleting…"
@@ -240,7 +240,7 @@ function MerchantDeleteDataManager({
                   )
                 })}
               </ul>
-              {job.status === "running" ? <p className="text-xs text-muted-foreground">Done items have been processed. All changes are saved together when deletion completes.</p> : null}
+              {job.status === "running" ? <p className="text-xs text-muted-foreground">Done items are committed. Vehicle activity and GPS cleanup commit in batches; completed deletions cannot be undone.</p> : null}
               {job.status !== "failed" && job.status !== "cancelled" ? (
                 <div className="space-y-2">
                   <div role="progressbar" aria-label="Deletion progress" aria-valuemin={0} aria-valuemax={100}
@@ -257,15 +257,16 @@ function MerchantDeleteDataManager({
                   </p>
                   {job.status === "running" && job.progress ? <p className="text-sm">
                     {job.progress.current_type ? `Deleting ${formatTypeLabel(job.progress.current_type)}…` : "Finalizing deletion…"}
-                    {" "}Progress is based on data types, not rows or time. Changes are final once deletion completes.
+                    {" "}Progress is based on data types, not rows or time. Completed batches are permanent.
                   </p> : null}
+                  {job.progress?.current_type_deleted_rows !== undefined ? <p className="text-xs text-muted-foreground">{job.progress.current_type_deleted_rows.toLocaleString()} rows deleted in this data type. Counts may reset if its transaction retries.</p> : null}
                   {active ? <p className="text-xs text-muted-foreground">Checking progress every 5 seconds.</p> : null}
                 </div>
               ) : null}
               {job.status === "queued" ? <p>Waiting for a background worker. You can leave this page and return later. If this stays queued, ask your administrator to check the queue worker.</p> : null}
               {job.status === "running" ? <p>Deleting the selected data. This may take several minutes. You can leave this page and return later.</p> : null}
               {job.status === "completed" ? <p>Database deletion completed. Uploaded-file cleanup runs separately and may still be in progress.</p> : null}
-              {job.status === "cancelled" ? <p>Deletion cancelled. No database changes were committed.</p> : null}
+              {job.status === "cancelled" ? <p>Deletion cancelled. Previously completed deletions remain permanent.</p> : null}
               {active ? (
                 <div className="space-y-2">
                   <Button type="button" variant="outline" onClick={cancelDeletion} disabled={cancelling || job.cancel_requested}>
@@ -273,8 +274,8 @@ function MerchantDeleteDataManager({
                   </Button>
                   <p className="text-xs text-muted-foreground">
                     {job.cancel_requested
-                      ? "Waiting for the worker to stop and roll back. This may take time while the current data type finishes."
-                      : "Cancellation stops at the next safe checkpoint and rolls back pending changes. It cannot undo a deletion that has already committed."}
+                      ? "Waiting for the worker to stop at the next checkpoint. Completed batches cannot be undone."
+                      : "Cancellation stops remaining work at the next safe checkpoint. Completed deletions and uploaded-file cleanup cannot be undone."}
                   </p>
                 </div>
               ) : null}
@@ -295,7 +296,7 @@ function MerchantDeleteDataManager({
         </CardHeader>
         <CardContent>
           <div className="mb-6 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            Deleted records cannot be recovered from this screen. Review the selected types carefully before you continue.
+            Deletion commits in stages and batches. Cancellation or failure does not restore completed deletions. Deleted records cannot be recovered from this screen. Review the selected types carefully before you continue.
           </div>
 
           <form className="space-y-6" onSubmit={handleSubmit}>
