@@ -45,6 +45,9 @@ class VehicleLocationHistoryTest extends TestCase
         $record('08:01:00', -30.00001, 1);
         $this->assertSame(1, VehicleLocationHistory::count());
         $this->assertSame(2, $first->fresh()->sample_count);
+        $this->assertSame(2, DB::table('vehicle_location_receipts')
+            ->where('merchant_id', $integration->merchant_id)
+            ->where('vehicle_location_history_id', $first->id)->count());
         $this->assertEquals(-30, $first->fresh()->latitude);
         $record('08:01:00', -30.00001, 1);
         $record('08:00:00', -30, 0);

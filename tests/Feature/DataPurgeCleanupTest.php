@@ -108,12 +108,14 @@ class DataPurgeCleanupTest extends TestCase
             ]);
         }
         $queries = [];
-        DB::listen(function ($query) use (&$queries) { $queries[] = $query->sql; });
+        DB::listen(function ($query) use (&$queries) {
+            $queries[] = $query->sql;
+        });
         $result = app(DataPurgeService::class)->purgeWithoutActivityLog($merchant, ['vehicle_activity']);
         $this->assertSame(300, $result['results']['vehicle_activity']['tables']['vehicle_location_receipts']);
         $this->assertDatabaseCount('vehicle_location_receipts', 304);
         $this->assertDatabaseHas('vehicle_location_history', ['merchant_id' => $other->id]);
-        $this->assertEmpty(array_filter($queries, fn ($sql) => str_contains($sql, 'max("sample_key")')));
+        $this->assertEmpty(array_filter($queries, fn ($sql) => str_contains($sql, 'max("sample_key")') && str_contains($sql, 'exists')));
         $this->assertEmpty(array_filter($queries, fn ($sql) => str_contains($sql, 'not in (select')));
     }
 
@@ -129,7 +131,9 @@ class DataPurgeCleanupTest extends TestCase
             ]);
         }
         $queries = [];
-        DB::listen(function ($query) use (&$queries) { $queries[] = $query->sql; });
+        DB::listen(function ($query) use (&$queries) {
+            $queries[] = $query->sql;
+        });
         try {
             app(DataPurgeService::class)->purgeIncrementally(User::findOrFail($merchant->owner_user_id), $merchant, ['vehicle_activity'],
                 function ($done, $total, $type, $ordered, $rows) {
@@ -147,6 +151,83 @@ class DataPurgeCleanupTest extends TestCase
         $this->assertStringNotContainsString('last_seen_at', implode(' ', $receiptDeletes));
         $this->assertDatabaseCount('vehicle_location_receipts', 52);
         $this->assertDatabaseCount('vehicle_location_history', 1);
+    }
+
+    public function test_history_only_invalidates_runs_in_each_deleted_batch(): void
+    {
+        $merchant = $this->merchant();
+        $vehicle = $this->vehicle($merchant);
+        $runIds = [];
+        for ($r = 0; $r < 3; $r++) {
+            $run = Run::create(['merchant_id' => $merchant->id, 'account_id' => $merchant->account_id, 'vehicle_id' => $vehicle->id]);
+            $runIds[] = $run->id;
+            $this->history($merchant, $vehicle, $run, 'run-'.$r);
+            $template = DB::table('vehicle_location_history')->where('run_id', $run->id)->first();
+            $rows = [];
+            for ($i = 0; $i < 249; $i++) {
+                $row = (array) $template;
+                unset($row['id']);
+                $row['first_sample_key'] = "run-{$r}-sample-{$i}";
+                $rows[] = $row;
+            }
+            DB::table('vehicle_location_history')->insert($rows);
+        }
+        $cache = \Illuminate\Support\Facades\Cache::partialMock();
+        foreach ($runIds as $runId) {
+            $cache->shouldReceive('put')->once()->with('run-track-version:'.$runId, \Mockery::type('string'), \Mockery::any())->andReturnTrue();
+        }
+        app(DataPurgeService::class)->purgeWithoutActivityLog($merchant, ['vehicle_activity']);
+        $this->assertDatabaseCount('vehicle_location_history', 0);
+    }
+
+    public function test_owned_receipts_use_direct_merchant_deletion_and_preserve_other_owners(): void
+    {
+        $merchant = $this->merchant();
+        $other = $this->merchant();
+        $vehicle = $this->vehicle($merchant);
+        // Ownership remains authoritative even if the history row is already gone.
+        DB::table('vehicle_location_receipts')->insert([
+            ['sample_key' => 'owned', 'vehicle_id' => $vehicle->id, 'observed_at' => now(), 'merchant_id' => $merchant->id],
+            ['sample_key' => 'other', 'vehicle_id' => $vehicle->id, 'observed_at' => now(), 'merchant_id' => $other->id],
+        ]);
+        $queries = [];
+        DB::listen(function ($query) use (&$queries) {
+            $queries[] = $query->sql;
+        });
+        $result = app(DataPurgeService::class)->purgeWithoutActivityLog($merchant, ['vehicle_activity']);
+        $this->assertSame(1, $result['results']['vehicle_activity']['tables']['vehicle_location_receipts']);
+        $this->assertDatabaseHas('vehicle_location_receipts', ['sample_key' => 'other']);
+        $deletes = array_filter($queries, fn ($sql) => str_starts_with($sql, 'delete from "vehicle_location_receipts"'));
+        $this->assertCount(1, $deletes);
+        $this->assertStringNotContainsString('exists', implode(' ', $deletes));
+        $this->assertEmpty(array_filter($queries, fn ($sql) => str_contains($sql, 'from "drivers"') || str_contains($sql, 'from "driver_vehicles"')));
+    }
+
+    public function test_run_purge_uses_exact_receipt_history_ownership(): void
+    {
+        $merchant = $this->merchant();
+        $vehicle = $this->vehicle($merchant);
+        $run = Run::create(['merchant_id' => $merchant->id, 'account_id' => $merchant->account_id, 'vehicle_id' => $vehicle->id]);
+        $this->history($merchant, $vehicle, $run, 'selected');
+        $this->history($merchant, $vehicle, null, 'retained');
+        foreach (['selected', 'retained'] as $key) {
+            $historyId = DB::table('vehicle_location_history')->where('first_sample_key', $key)->value('id');
+            DB::table('vehicle_location_receipts')->whereIn('sample_key', [$key.'0', $key.'1'])
+                ->update(['merchant_id' => $merchant->id, 'vehicle_location_history_id' => $historyId]);
+        }
+        app(DataPurgeService::class)->purgeWithoutActivityLog($merchant, ['runs']);
+        $this->assertDatabaseCount('vehicle_location_receipts', 2);
+        $this->assertDatabaseHas('vehicle_location_receipts', ['sample_key' => 'retained0']);
+        $this->assertDatabaseMissing('vehicle_location_receipts', ['sample_key' => 'selected0']);
+    }
+
+    public function test_purge_index_migration_can_be_run_again(): void
+    {
+        $migration = require database_path('migrations/2026_11_17_100000_add_gps_receipt_ownership_and_purge_indexes.php');
+        $migration->up();
+        $this->assertTrue(\Illuminate\Support\Facades\Schema::hasIndex('vehicle_location_history', 'vlh_purge_merchant_id'));
+        $this->assertTrue(\Illuminate\Support\Facades\Schema::hasIndex('vehicle_location_history', 'vlh_vehicle_merchant'));
+        $this->assertTrue(\Illuminate\Support\Facades\Schema::hasIndex('vehicle_location_receipts', 'vlr_merchant'));
     }
 
     private function attachment(Merchant $merchant, Vehicle $vehicle, string $path): EntityFile

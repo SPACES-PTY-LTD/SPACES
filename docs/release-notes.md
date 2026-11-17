@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-11-16 | Version: support-navigation-after-billing
+- Summary: Move the Website & support navigation section below Billing.
+- API Changes: None.
+- Database Changes: None.
+- Behavior Changes: Support tickets appears after Billing for users; existing role permissions and destinations are preserved.
+- Breaking Changes: None.
+- Verification: Targeted navigation ESLint and git diff --check passed. Browser appearance not verified.
+
 ## 2026-11-16 | Version: purge-activity-last-and-indexes
 - Summary: Process the vehicle activity data type last and add missing cleanup lookup indexes confirmed against production schema.
 - API Changes: Progress ordered_types and processed_types place vehicle_activity last when selected; endpoints are unchanged.

@@ -42,7 +42,8 @@ class DataPurgeService
     {
         $this->assertPreconditions($merchant, $types);
         $ordered = array_values(array_intersect(self::EXECUTION_ORDER, $types));
-        $resources = $this->resourceIdsForMerchant($merchant);
+        $resources = array_intersect($types, ['drivers', 'vehicles'])
+            ? $this->resourceIdsForMerchant($merchant) : ['drivers' => [], 'vehicles' => []];
         $result = ['merchant_uuid' => $merchant->uuid, 'requested_types' => $types, 'processed_types' => [], 'results' => []];
         try {
             foreach ($ordered as $type) {
@@ -74,24 +75,23 @@ class DataPurgeService
     }
 
     /** Select without write locks, then delete only a bounded set of primary keys. */
-    private function deleteInBatches(Builder $query, string $key = 'id', ?callable $afterBatch = null): int
+    private function deleteInBatches(Builder $query, string $key = 'id', ?callable $afterBatch = null, array $columns = []): int
     {
         $deleted = 0;
         $upper = (clone $query)->max($key);
         if ($upper === null) {
             return 0;
         }
-        (clone $query)->where($key, '<=', $upper)->select($key)->chunkById(250, function ($rows) use ($query, $key, &$deleted, $afterBatch) {
+        (clone $query)->where($key, '<=', $upper)->select(array_merge([$key], $columns))->chunkById(250, function ($rows) use ($query, $key, &$deleted, $afterBatch) {
             $this->batchProgress && ($this->batchProgress)();
             $count = DB::transaction(fn () => (clone $query)->whereIn($key, $rows->pluck($key)->all())->delete(), 3);
             $deleted += $count;
-            $afterBatch && $afterBatch();
+            $afterBatch && $afterBatch($rows);
             $this->batchProgress && ($this->batchProgress)($count);
         }, $key);
 
         return $deleted;
     }
-
 
     public static function allowedTypes(): array
     {
@@ -133,7 +133,8 @@ class DataPurgeService
         $this->assertPreconditions($merchant, $requestedTypes);
 
         $results = DB::transaction(function () use ($merchant, $orderedTypes, $progress) {
-            $resourceIds = $this->resourceIdsForMerchant($merchant);
+            $resourceIds = array_intersect($orderedTypes, ['drivers', 'vehicles'])
+                ? $this->resourceIdsForMerchant($merchant) : ['drivers' => [], 'vehicles' => []];
             $results = [];
             foreach ($orderedTypes as $type) {
                 $progress && $progress(count($results), count($orderedTypes), $type, $orderedTypes);
@@ -457,7 +458,7 @@ class DataPurgeService
     /** Walk the vehicle/time index once; only evaluate ownership for a bounded batch. */
     private function deleteGpsReceipts(Builder $eligible, int $vehicleId, ?string $from = null, ?string $until = null): int
     {
-        $scan = DB::table('vehicle_location_receipts')->where('vehicle_id', $vehicleId);
+        $scan = DB::table('vehicle_location_receipts')->whereNull('merchant_id')->where('vehicle_id', $vehicleId);
         if ($from !== null) {
             $scan->where('observed_at', '>=', $from);
         }
@@ -497,10 +498,15 @@ class DataPurgeService
 
     private function purgeGpsHistory(Merchant $merchant, Builder $history, bool $allMerchantHistory = false): array
     {
-        $runIds = (clone $history)->whereNotNull('run_id')->distinct()->pluck('run_id')->all();
+
         // Receipts include merged stationary samples, not just first_sample_key.
         // Keep ambiguous receipts if retained history covers the same vehicle/time.
-        $receipts = 0;
+        $ownedReceipts = DB::table('vehicle_location_receipts')->where('merchant_id', $merchant->id);
+        if (! $allMerchantHistory) {
+            $ownedReceipts->whereIn('vehicle_location_history_id', (clone $history)->select('id'));
+        }
+        $receipts = $this->deleteInBatches($ownedReceipts, 'sample_key');
+        // Legacy receipts have no recorded owner and retain conservative checks.
         // Start from selected vehicles, never a DELETE scanning every receipt.
         $vehicleIds = (clone $history)->distinct()->pluck('vehicle_id')->all();
         foreach ($vehicleIds as $vehicleId) {
@@ -517,7 +523,7 @@ class DataPurgeService
                 && DB::table('vehicles')->where('id', $vehicleId)->where('merchant_id', $merchant->id)->exists()
                 && ! (clone $retained)->exists()) {
                 $receipts += $this->deleteGpsReceipts(
-                    DB::table('vehicle_location_receipts')->where('vehicle_id', $vehicleId)
+                    DB::table('vehicle_location_receipts')->whereNull('merchant_id')->where('vehicle_id', $vehicleId)
                         ->whereNotExists((clone $retained)->selectRaw('1')),
                     $vehicleId,
                 );
@@ -526,7 +532,7 @@ class DataPurgeService
             }
             $from = (clone $selected)->min('observed_at');
             $until = (clone $selected)->max('last_seen_at');
-            $receiptQuery = DB::table('vehicle_location_receipts')->where('vehicle_id', $vehicleId)
+            $receiptQuery = DB::table('vehicle_location_receipts')->whereNull('merchant_id')->where('vehicle_id', $vehicleId)
                 ->whereBetween('observed_at', [$from, $until])
                 ->whereExists((clone $selected)->selectRaw('1')
                     ->whereColumn('vehicle_location_history.observed_at', '<=', 'vehicle_location_receipts.observed_at')
@@ -536,23 +542,22 @@ class DataPurgeService
                     ->whereColumn('vehicle_location_history.last_seen_at', '>=', 'vehicle_location_receipts.observed_at'));
             $receipts += $this->deleteGpsReceipts($receiptQuery, $vehicleId, $from, $until);
         }
-        $deleted = $this->deleteInBatches($history, 'id', function () use ($runIds) {
-            foreach ($runIds as $runId) {
+        $deleted = $this->deleteInBatches($history, 'id', function ($rows) {
+            // Only invalidate runs touched by this committed batch. A run may
+            // appear in later batches, so invalidate again when its data changes.
+            foreach ($rows->pluck('run_id')->filter()->unique() as $runId) {
                 DB::afterCommit(fn () => Cache::put('run-track-version:'.$runId, (string) Str::uuid(), now()->addYears(10)));
             }
-        });
+        }, ['run_id']);
         if ($allMerchantHistory) {
             $ownedVehicleIds = DB::table('vehicles')->where('merchant_id', $merchant->id)->pluck('id');
             foreach ($ownedVehicleIds as $vehicleId) {
                 if (! DB::table('vehicle_location_history')->where('vehicle_id', $vehicleId)->exists()) {
-                    $receipts += $this->deleteGpsReceipts(DB::table('vehicle_location_receipts')
+                    $receipts += $this->deleteGpsReceipts(DB::table('vehicle_location_receipts')->whereNull('merchant_id')
                         ->where('vehicle_id', $vehicleId)
                         ->whereNotExists(DB::table('vehicle_location_history')->selectRaw('1')->where('vehicle_id', $vehicleId)), $vehicleId);
                 }
             }
-        }
-        foreach ($runIds as $runId) {
-            DB::afterCommit(fn () => Cache::put('run-track-version:'.$runId, (string) Str::uuid(), now()->addYears(10)));
         }
 
         return ['vehicle_location_history' => $deleted, 'vehicle_location_receipts' => $receipts];

@@ -39,7 +39,7 @@ class VehicleLocationHistoryService
 
         return DB::transaction(function () use ($vehicle, $integration, $at, $lat, $lng, $speed, $odometer, $sourceTimeKnown, $key) {
             $this->lockVehicle($vehicle->id);
-            $inserted = DB::table('vehicle_location_receipts')->insertOrIgnore(['sample_key' => $key, 'vehicle_id' => $vehicle->id, 'observed_at' => $at]);
+            $inserted = DB::table('vehicle_location_receipts')->insertOrIgnore(['sample_key' => $key, 'vehicle_id' => $vehicle->id, 'observed_at' => $at, 'merchant_id' => $integration->merchant_id]);
             $runs = Run::where('account_id', $vehicle->account_id)->where('merchant_id', $integration->merchant_id)
                 ->where(fn ($q) => $q->where('status', '!=', Run::STATUS_CANCELLED)->orWhereNotNull('completed_at'))
                 ->where('vehicle_id', $vehicle->id)->whereNotNull('started_at')->where('started_at', '<=', $at)
@@ -78,6 +78,11 @@ class VehicleLocationHistoryService
                     'source_time_known' => $sourceTimeKnown, 'first_sample_key' => $key,
                 ]);
             }
+
+            // Both the first and merged samples point to their exact history row.
+            // This update commits atomically with receipt insertion and history.
+            DB::table('vehicle_location_receipts')->where('sample_key', $key)
+                ->update(['vehicle_location_history_id' => $record->id]);
 
             return $record;
         }, 3);
