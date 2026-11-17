@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-11-17 | Version: location-import-queue-recovery
+- Summary: Recover abandoned location import flags and check that the matching database queue job actually exists before blocking a new import.
+- API Changes: Existing import responses are unchanged; imports_stats includes a nullable location_import_token used to match job ownership.
+- Database Changes: No migration. Use the existing jobs queue index and merchant imports_stats JSON; read the configured database queue connection/table.
+- Behavior Changes: Allow 60 seconds for dispatch, then recover a missing location import job on the next import attempt. Pending, delayed and reserved jobs on imports keep the flag active. Match the merchant and job token; support legacy jobs without tokens. Queue lookup errors retain the lock to avoid duplicates. Non-database queues retain a 24-hour stale fallback. Jobs renew their timestamp on start, use a 300-second timeout and clear matching flags on dispatch/worker failure; superseded jobs cannot clear newer imports.
+- Breaking Changes: None. Deploy API and restart imports workers. Queue retry_after/visibility must exceed 300 seconds (repository defaults are 330). Existing workers must be restarted for ownership guards to apply. Queue existence recovery does not restart workers or remove genuinely queued jobs.
+- Verification: PHP 8.4 location/driver import regression tests cover missing jobs, dispatch grace, queued/reserved jobs, legacy jobs, ownership, queue lookup failures, failure cleanup and successful imports. Vehicle import tests are blocked by an existing fixture omitting required users.uuid before import code runs. Production stale SESFIGILE location flag was cleared and verified; code is not deployed. No live import was started.
+
 ## 2026-11-16 | Version: support-navigation-after-billing
 - Summary: Move the Website & support navigation section below Billing.
 - API Changes: None.

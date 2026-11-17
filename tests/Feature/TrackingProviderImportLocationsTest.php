@@ -178,6 +178,82 @@ class TrackingProviderImportLocationsTest extends TestCase
         Queue::assertPushed(ImportProviderLocationsJob::class, fn ($job) => $job->importToken === $token && $job->queue === 'imports');
     }
 
+    public function test_missing_database_job_is_recovered_after_dispatch_grace(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        config(['queue.default' => 'database']);
+        $service = app(MerchantIntegrationService::class);
+        $first = $service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid);
+        \Illuminate\Support\Facades\DB::table('jobs')->delete();
+        $this->assertTrue($service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid)['already_in_progress']);
+        $this->travel(61)->seconds();
+        $second = $service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid);
+        $this->assertTrue($second['queued']);
+        $this->assertNotSame($first['stats']['location_import_token'], $second['stats']['location_import_token']);
+        $this->assertDatabaseCount('jobs', 1);
+    }
+
+    public function test_existing_database_job_blocks_duplicates_even_when_old_or_reserved(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        config(['queue.default' => 'database']);
+        $service = app(MerchantIntegrationService::class);
+        $service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid);
+        $this->travel(2)->days();
+        $this->assertTrue($service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid)['already_in_progress']);
+        \Illuminate\Support\Facades\DB::table('jobs')->update(['reserved_at' => now()->timestamp]);
+        $this->assertTrue($service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid)['already_in_progress']);
+        $this->assertDatabaseCount('jobs', 1);
+    }
+
+    public function test_legacy_database_job_is_detected_without_a_token(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        config(['queue.default' => 'database']);
+        $merchant->update(['imports_stats' => ['inprogress' => ['locations' => now()->subDays(2)->toDateTimeString()]]]);
+        ImportProviderLocationsJob::dispatch($user->id, $merchant->id, $merchant->uuid, $provider->uuid);
+        $this->assertTrue(app(MerchantIntegrationService::class)->queueProviderLocationsImport(
+            $user, $provider->uuid, $merchant->uuid
+        )['already_in_progress']);
+    }
+
+    public function test_an_old_job_does_not_keep_a_new_missing_job_locked(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        config(['queue.default' => 'database']);
+        $service = app(MerchantIntegrationService::class);
+        $service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid);
+        $stats = $merchant->fresh()->imports_stats;
+        $stats['location_import_token'] = (string) Str::uuid();
+        $merchant->update(['imports_stats' => $stats]);
+        $this->travel(61)->seconds();
+        $this->assertTrue($service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid)['queued']);
+    }
+
+    public function test_queue_lookup_failure_does_not_start_duplicate_import(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        config(['queue.default' => 'database']);
+        $service = app(MerchantIntegrationService::class);
+        $first = $service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid);
+        $this->travel(61)->seconds();
+        config(['queue.connections.database.table' => 'unavailable_jobs']);
+        $this->assertTrue($service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid)['already_in_progress']);
+        $this->assertSame($first['stats']['location_import_token'], $merchant->fresh()->imports_stats['location_import_token']);
+    }
+
+    public function test_another_merchants_job_does_not_block_recovery(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        [, $otherMerchant] = $this->createUserMerchantAccount();
+        config(['queue.default' => 'database']);
+        $merchant->update(['imports_stats' => ['inprogress' => ['locations' => now()->subMinutes(2)->toDateTimeString()]]]);
+        ImportProviderLocationsJob::dispatch($user->id, $otherMerchant->id, $otherMerchant->uuid, $provider->uuid);
+        $this->assertTrue(app(MerchantIntegrationService::class)->queueProviderLocationsImport(
+            $user, $provider->uuid, $merchant->uuid
+        )['queued']);
+    }
+
     public function test_invalid_legacy_timestamp_can_be_recovered(): void
     {
         [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();

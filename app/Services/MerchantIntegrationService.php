@@ -1416,13 +1416,43 @@ class MerchantIntegrationService
         });
     }
 
-    private function locationImportIsStale(string $startedAt): bool
+    private function locationImportIsStale(int $merchantId, array $stats): bool
     {
         try {
-            return Carbon::parse($startedAt)->lte(now()->subDay());
+            $startedAt = Carbon::parse($stats['inprogress']['locations']);
         } catch (\Throwable) {
-            // Invalid legacy timestamps must not block imports permanently.
-            return true;
+            $startedAt = now()->subDays(2);
+        }
+
+        // The flag is saved before dispatch; allow that request time to enqueue.
+        if ($startedAt->gt(now()->subMinute())) {
+            return false;
+        }
+
+        $connection = config('queue.connections.'.config('queue.default'), []);
+        if (($connection['driver'] ?? null) !== 'database') {
+            return $startedAt->lte(now()->subDay());
+        }
+
+        try {
+            $jobs = DB::connection($connection['connection'] ?? null)
+                ->table($connection['table'] ?? 'jobs')
+                ->where('queue', 'imports')
+                ->where('payload->displayName', ImportProviderLocationsJob::class)
+                ->where('payload->data->command', 'like', '%s:10:"merchantId";i:'.$merchantId.';%');
+            if ($stats['location_import_token'] !== null) {
+                $jobs->where('payload->data->command', 'like', '%'.$stats['location_import_token'].'%');
+            }
+
+            // Reserved (running) and delayed jobs both count. Failed jobs do not.
+            return !$jobs->exists();
+        } catch (\Throwable $exception) {
+            // Do not start a duplicate when queue availability is unknown.
+            Log::warning('Unable to verify location import queue state.', [
+                'merchant_id' => $merchantId,
+                'error' => $exception->getMessage(),
+            ]);
+            return false;
         }
     }
 
@@ -1440,7 +1470,7 @@ class MerchantIntegrationService
             $stats = $this->normalizeImportStats($merchant->imports_stats);
 
             if (!empty($stats['inprogress'][$type])
-                && !($type === 'locations' && $this->locationImportIsStale($stats['inprogress'][$type]))) {
+                && !($type === 'locations' && $this->locationImportIsStale($merchantId, $stats))) {
                 return [
                     'started' => false,
                     'stats' => $stats,
