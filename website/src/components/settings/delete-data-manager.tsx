@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 const labels: Record<PurgeDataType, string> = {
@@ -199,94 +198,6 @@ function MerchantDeleteDataManager({
         description="Delete selected merchant data in bulk. This action is destructive and requires your password."
       />
 
-      <div aria-live="polite" className="space-y-2">
-        {checkingStatus && merchantId ? <p>Checking previous deletion status…</p> : null}
-        {monitoringError ? <p className="text-destructive" role="alert">{monitoringError} Deletion may still be running.</p> : null}
-        {job ? (
-          <Card className={job.status === "completed"
-            ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
-            : job.status === "cancelled"
-              ? "border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900"
-            : job.status === "failed"
-              ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
-              : "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {active ? <Loader2 className="h-5 w-5 animate-spin text-blue-600 motion-reduce:animate-none" aria-hidden="true" /> : null}
-                {job.cancel_requested ? "Cancellation requested" : `Deletion ${job.status}`}
-              </CardTitle>
-              <CardDescription>Request {job.job_id}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <ul aria-label="Deletion checklist" className="grid gap-2 sm:grid-cols-2">
-                {(job.progress?.ordered_types?.length ? job.progress.ordered_types : job.requested_types).map((type) => {
-                  const done = job.result?.processed_types.includes(type)
-                    ? true
-                    : job.status === "running" && Boolean(job.progress?.processed_types?.includes(type))
-                  const current = job.status === "running" && job.progress?.current_type === type
-                  const state = done ? "Done" : current ? "Deleting…"
-                    : job.status === "failed" || job.status === "cancelled" ? "Not completed"
-                      : job.status === "running" && !job.progress?.ordered_types?.length ? "Awaiting progress" : "Waiting"
-                  return (
-                    <li key={type} className="flex items-center justify-between gap-3 rounded-md border border-current/10 bg-background/60 px-3 py-2 text-sm">
-                      <span className="flex items-center gap-2">
-                        {done ? <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-emerald-600" />
-                          : current ? <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin text-blue-600 motion-reduce:animate-none" />
-                            : <Circle aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                        {formatTypeLabel(type)}
-                      </span>
-                      <span className={done ? "font-medium text-emerald-700 dark:text-emerald-400" : current ? "font-medium text-blue-700 dark:text-blue-300" : "text-muted-foreground"}>{state}</span>
-                    </li>
-                  )
-                })}
-              </ul>
-              {job.status === "running" ? <p className="text-xs text-muted-foreground">Done items are committed. Vehicle activity and GPS cleanup commit in batches; completed deletions cannot be undone.</p> : null}
-              {job.status !== "failed" && job.status !== "cancelled" ? (
-                <div className="space-y-2">
-                  <div role="progressbar" aria-label="Deletion progress" aria-valuemin={0} aria-valuemax={100}
-                    aria-valuenow={job.status === "completed" ? 100 : job.status === "queued" ? 0 : job.progress?.percent}
-                    className="h-3 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900">
-                    <div className={`h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none ${job.status === "completed" ? "bg-emerald-600" : "bg-blue-600"} ${job.status === "running" && !job.progress ? "animate-pulse motion-reduce:animate-none" : ""}`}
-                      style={{ width: `${job.status === "completed" ? 100 : job.status === "queued" ? 0 : job.progress?.percent ?? 25}%` }} />
-                  </div>
-                  <p className="text-sm font-medium">
-                    {job.status === "completed" ? "100% — database deletion complete"
-                      : job.status === "queued" ? "Waiting to start"
-                        : job.progress ? `${job.progress.percent}% — ${job.progress.completed_types} of ${job.progress.total_types} data types processed`
-                          : "Preparing deletion…"}
-                  </p>
-                  {job.status === "running" && job.progress ? <p className="text-sm">
-                    {job.progress.current_type ? `Deleting ${formatTypeLabel(job.progress.current_type)}…` : "Finalizing deletion…"}
-                    {" "}Progress is based on data types, not rows or time. Completed batches are permanent.
-                  </p> : null}
-                  {job.progress?.current_type_deleted_rows !== undefined ? <p className="text-xs text-muted-foreground">{job.progress.current_type_deleted_rows.toLocaleString()} rows deleted in this data type. Counts may reset if its transaction retries.</p> : null}
-                  {active ? <p className="text-xs text-muted-foreground">Checking progress every 5 seconds.</p> : null}
-                </div>
-              ) : null}
-              {job.status === "queued" ? <p>Waiting for a background worker. You can leave this page and return later. If this stays queued, ask your administrator to check the queue worker.</p> : null}
-              {job.status === "running" ? <p>Deleting the selected data. This may take several minutes. You can leave this page and return later.</p> : null}
-              {job.status === "completed" ? <p>Database deletion completed. Uploaded-file cleanup runs separately and may still be in progress.</p> : null}
-              {job.status === "cancelled" ? <p>Deletion cancelled. Previously completed deletions remain permanent.</p> : null}
-              {active ? (
-                <div className="space-y-2">
-                  <Button type="button" variant="outline" onClick={cancelDeletion} disabled={cancelling || job.cancel_requested}>
-                    {cancelling ? "Requesting cancellation…" : job.cancel_requested ? "Cancellation requested" : "Cancel deletion"}
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    {job.cancel_requested
-                      ? "Waiting for the worker to stop at the next checkpoint. Completed batches cannot be undone."
-                      : "Cancellation stops remaining work at the next safe checkpoint. Completed deletions and uploaded-file cleanup cannot be undone."}
-                  </p>
-                </div>
-              ) : null}
-              {job.error_message ? <p className="text-destructive" role="alert">{job.error_message}</p> : null}
-              <p className="text-sm text-muted-foreground">Requested: {new Date(job.created_at).toLocaleString()}</p>
-              {job.started_at ? <p className="text-sm text-muted-foreground">Started: {new Date(job.started_at).toLocaleString()}</p> : null}
-              {job.finished_at ? <p className="text-sm text-muted-foreground">Finished: {new Date(job.finished_at).toLocaleString()}</p> : null}
-            </CardContent>
-          </Card>
-        ) : null}
-      </div>
 
       <Card>
         <CardHeader>
@@ -295,10 +206,6 @@ function MerchantDeleteDataManager({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-6 rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            Deletion commits in stages and batches. Cancellation or failure does not restore completed deletions. Deleted records cannot be recovered from this screen. Review the selected types carefully before you continue.
-          </div>
-
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-3">
               <Label>Data types</Label>
@@ -412,77 +319,127 @@ function MerchantDeleteDataManager({
         </DialogContent>
       </Dialog>
 
+      <div aria-live="polite" className="space-y-2">
+        {checkingStatus && merchantId ? <p>Checking previous deletion status…</p> : null}
+        {monitoringError ? <p className="text-destructive" role="alert">{monitoringError} Deletion may still be running.</p> : null}
+        {job ? (
+          <Card className={job.status === "completed"
+            ? "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
+            : job.status === "cancelled"
+              ? "border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900"
+            : job.status === "failed"
+              ? "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
+              : "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                {active ? <Loader2 className="h-5 w-5 animate-spin text-blue-600 motion-reduce:animate-none" aria-hidden="true" /> : null}
+                {job.cancel_requested ? "Cancellation requested" : `Deletion ${job.status}`}
+              </CardTitle>
+              <CardDescription>Request {job.job_id}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <ul aria-label="Deletion checklist" className="grid gap-2 sm:grid-cols-2">
+                {(job.progress?.ordered_types?.length ? job.progress.ordered_types : job.requested_types).map((type) => {
+                  const done = job.result?.processed_types.includes(type)
+                    ? true
+                    : job.status === "running" && Boolean(job.progress?.processed_types?.includes(type))
+                  const current = job.status === "running" && job.progress?.current_type === type
+                  const state = done ? "Done" : current ? "Deleting…"
+                    : job.status === "failed" || job.status === "cancelled" ? "Not completed"
+                      : job.status === "running" && !job.progress?.ordered_types?.length ? "Awaiting progress" : "Waiting"
+                  return (
+                    <li key={type} className="flex items-center justify-between gap-3 rounded-md border border-current/10 bg-background/60 px-3 py-2 text-sm">
+                      <span className="flex items-center gap-2">
+                        {done ? <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-emerald-600" />
+                          : current ? <Loader2 aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin text-blue-600 motion-reduce:animate-none" />
+                            : <Circle aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                        {formatTypeLabel(type)}
+                      </span>
+                      <span className={done ? "font-medium text-emerald-700 dark:text-emerald-400" : current ? "font-medium text-blue-700 dark:text-blue-300" : "text-muted-foreground"}>{state}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+              {job.status === "running" ? <p className="text-xs text-muted-foreground">Done items are committed. Vehicle activity and GPS cleanup commit in batches; completed deletions cannot be undone.</p> : null}
+              {job.status !== "failed" && job.status !== "cancelled" ? (
+                <div className="space-y-2">
+                  <div role="progressbar" aria-label="Deletion progress" aria-valuemin={0} aria-valuemax={100}
+                    aria-valuenow={job.status === "completed" ? 100 : job.status === "queued" ? 0 : job.progress?.percent}
+                    className="h-3 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900">
+                    <div className={`h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none ${job.status === "completed" ? "bg-emerald-600" : "bg-blue-600"} ${job.status === "running" && !job.progress ? "animate-pulse motion-reduce:animate-none" : ""}`}
+                      style={{ width: `${job.status === "completed" ? 100 : job.status === "queued" ? 0 : job.progress?.percent ?? 25}%` }} />
+                  </div>
+                  <p className="text-sm font-medium">
+                    {job.status === "completed" ? "100% — database deletion complete"
+                      : job.status === "queued" ? "Waiting to start"
+                        : job.progress ? `${job.progress.percent}% — ${job.progress.completed_types} of ${job.progress.total_types} data types processed`
+                          : "Preparing deletion…"}
+                  </p>
+                  {job.status === "running" && job.progress ? <p className="text-sm">
+                    {job.progress.current_type ? `Deleting ${formatTypeLabel(job.progress.current_type)}…` : "Finalizing deletion…"}
+                    {" "}Progress is based on data types, not rows or time. Completed batches are permanent.
+                  </p> : null}
+                  {job.progress?.current_type_deleted_rows !== undefined ? <p className="text-xs text-muted-foreground">{job.progress.current_type_deleted_rows.toLocaleString()} rows deleted in this data type. Counts may reset if its transaction retries.</p> : null}
+                  {active ? <p className="text-xs text-muted-foreground">Checking progress every 5 seconds.</p> : null}
+                </div>
+              ) : null}
+              {job.status === "queued" ? <p>Waiting for a background worker. You can leave this page and return later. If this stays queued, ask your administrator to check the queue worker.</p> : null}
+              {job.status === "running" ? <p>Deleting the selected data. This may take several minutes. You can leave this page and return later.</p> : null}
+              {job.status === "completed" ? <p>Database deletion completed. Uploaded-file cleanup runs separately and may still be in progress.</p> : null}
+              {job.status === "cancelled" ? <p>Deletion cancelled. Previously completed deletions remain permanent.</p> : null}
+              {active ? (
+                <div className="space-y-2">
+                  <Button type="button" variant="outline" onClick={cancelDeletion} disabled={cancelling || job.cancel_requested}>
+                    {cancelling ? "Requesting cancellation…" : job.cancel_requested ? "Cancellation requested" : "Cancel deletion"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {job.cancel_requested
+                      ? "Waiting for the worker to stop at the next checkpoint. Completed batches cannot be undone."
+                      : "Cancellation stops remaining work at the next safe checkpoint. Completed deletions and uploaded-file cleanup cannot be undone."}
+                  </p>
+                </div>
+              ) : null}
+              {job.error_message ? <p className="text-destructive" role="alert">{job.error_message}</p> : null}
+              <p className="text-sm text-muted-foreground">Requested: {new Date(job.created_at).toLocaleString()}</p>
+              {job.started_at ? <p className="text-sm text-muted-foreground">Started: {new Date(job.started_at).toLocaleString()}</p> : null}
+              {job.finished_at ? <p className="text-sm text-muted-foreground">Finished: {new Date(job.finished_at).toLocaleString()}</p> : null}
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
+
       {result ? (
         <Card>
           <CardHeader>
-            <CardTitle>Deletion results</CardTitle>
+            <CardTitle>Last Deletion results</CardTitle>
             <CardDescription>
               Merchant <span className="font-mono text-xs">{result.merchant_uuid}</span>
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex flex-wrap gap-2">
-              {result.requested_types.map((type) => (
-                <Badge key={`requested-${type}`} variant="outline">
-                  {formatTypeLabel(type)}
-                </Badge>
-              ))}
-            </div>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Data type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Deleted rows</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from(new Set([...result.requested_types, ...result.processed_types, ...Object.keys(result.results)])).map((type) => {
+                  const processed = result.processed_types.includes(type)
+                  const count = result.results[type]?.deleted_rows
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-lg border p-4">
-                <div className="text-sm font-medium">Requested types</div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {result.requested_types.join(", ") || "None"}
-                </div>
-              </div>
-              <div className="rounded-lg border p-4">
-                <div className="text-sm font-medium">Processed types</div>
-                <div className="mt-2 text-sm text-muted-foreground">
-                  {result.processed_types.join(", ") || "None"}
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-4">
-              {Object.entries(result.results).map(([type, details]) => (
-                <div key={type} className="rounded-lg border">
-                  <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
-                    <div className="font-medium">{formatTypeLabel(type)}</div>
-                    <Badge variant="secondary">
-                      {details.deleted_rows ?? 0} rows deleted
-                    </Badge>
-                  </div>
-                  <div className="p-4">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Table</TableHead>
-                          <TableHead className="text-right">Deleted rows</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {Object.entries(details.tables ?? {}).map(([tableName, count]) => (
-                          <TableRow key={tableName}>
-                            <TableCell className="font-mono text-xs">{tableName}</TableCell>
-                            <TableCell className="text-right">{count}</TableCell>
-                          </TableRow>
-                        ))}
-                        {Object.keys(details.tables ?? {}).length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={2} className="text-sm text-muted-foreground">
-                              No table-level details returned.
-                            </TableCell>
-                          </TableRow>
-                        ) : null}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  return (
+                    <TableRow key={type}>
+                      <TableCell className="font-medium">{formatTypeLabel(type)}</TableCell>
+                      <TableCell>{processed ? "Completed" : "Not completed"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{count == null ? "—" : count.toLocaleString()}</TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       ) : null}
