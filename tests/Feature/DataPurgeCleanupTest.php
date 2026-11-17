@@ -91,6 +91,64 @@ class DataPurgeCleanupTest extends TestCase
         $this->assertDatabaseCount('vehicle_location_history', 1);
     }
 
+    public function test_activity_receipts_page_through_retained_samples_with_identical_timestamps(): void
+    {
+        $merchant = $this->merchant();
+        $other = $this->merchant();
+        $vehicle = $this->vehicle($merchant);
+        $this->history($merchant, $vehicle, null, 'selected');
+        $this->history($other, $vehicle, null, 'retained');
+        // The first 300 candidates are protected by the other merchant's history.
+        // The next 300 only belong to the selected merchant's extended interval.
+        DB::table('vehicle_location_history')->where('merchant_id', $merchant->id)->update(['last_seen_at' => '2026-11-16 10:10:00']);
+        for ($i = 0; $i < 600; $i++) {
+            DB::table('vehicle_location_receipts')->insert([
+                'sample_key' => sprintf('batch-%04d', $i), 'vehicle_id' => $vehicle->id,
+                'observed_at' => $i < 300 ? '2026-11-16 10:03:00.000000' : '2026-11-16 10:08:00.000000',
+            ]);
+        }
+        $queries = [];
+        DB::listen(function ($query) use (&$queries) { $queries[] = $query->sql; });
+        $result = app(DataPurgeService::class)->purgeWithoutActivityLog($merchant, ['vehicle_activity']);
+        $this->assertSame(300, $result['results']['vehicle_activity']['tables']['vehicle_location_receipts']);
+        $this->assertDatabaseCount('vehicle_location_receipts', 304);
+        $this->assertDatabaseHas('vehicle_location_history', ['merchant_id' => $other->id]);
+        $this->assertEmpty(array_filter($queries, fn ($sql) => str_contains($sql, 'max("sample_key")')));
+        $this->assertEmpty(array_filter($queries, fn ($sql) => str_contains($sql, 'not in (select')));
+    }
+
+    public function test_activity_cancellation_keeps_committed_receipt_batches(): void
+    {
+        $merchant = $this->merchant();
+        $vehicle = $this->vehicle($merchant);
+        $this->history($merchant, $vehicle, null, 'selected');
+        for ($i = 0; $i < 300; $i++) {
+            DB::table('vehicle_location_receipts')->insert([
+                'sample_key' => sprintf('batch-%04d', $i), 'vehicle_id' => $vehicle->id,
+                'observed_at' => '2026-11-16 10:03:00.000000',
+            ]);
+        }
+        $queries = [];
+        DB::listen(function ($query) use (&$queries) { $queries[] = $query->sql; });
+        try {
+            app(DataPurgeService::class)->purgeIncrementally(User::findOrFail($merchant->owner_user_id), $merchant, ['vehicle_activity'],
+                function ($done, $total, $type, $ordered, $rows) {
+                    if ($rows >= 250) {
+                        $this->assertSame(0, DB::transactionLevel());
+                        throw new \RuntimeException('Stop after batch');
+                    }
+                }, fn () => null);
+            $this->fail('Expected cancellation checkpoint.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Stop after batch', $exception->getMessage());
+        }
+        $receiptDeletes = array_filter($queries, fn ($sql) => str_starts_with($sql, 'delete from "vehicle_location_receipts"'));
+        $this->assertCount(1, $receiptDeletes);
+        $this->assertStringNotContainsString('last_seen_at', implode(' ', $receiptDeletes));
+        $this->assertDatabaseCount('vehicle_location_receipts', 52);
+        $this->assertDatabaseCount('vehicle_location_history', 1);
+    }
+
     private function attachment(Merchant $merchant, Vehicle $vehicle, string $path): EntityFile
     {
         $type = FileType::create(['account_id' => $merchant->account_id, 'merchant_id' => $merchant->id, 'entity_type' => 'vehicle', 'name' => 'Document', 'slug' => 'doc']);

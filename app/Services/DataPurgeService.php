@@ -454,27 +454,87 @@ class DataPurgeService
         return $deleted;
     }
 
+    /** Walk the vehicle/time index once; only evaluate ownership for a bounded batch. */
+    private function deleteGpsReceipts(Builder $eligible, int $vehicleId, ?string $from = null, ?string $until = null): int
+    {
+        $scan = DB::table('vehicle_location_receipts')->where('vehicle_id', $vehicleId);
+        if ($from !== null) {
+            $scan->where('observed_at', '>=', $from);
+        }
+        $until ??= (clone $scan)->max('observed_at');
+        if ($until === null) {
+            return 0;
+        }
+        $scan->where('observed_at', '<=', $until);
+        $lastTime = null;
+        $lastKey = null;
+        $deleted = 0;
+        do {
+            $this->batchProgress && ($this->batchProgress)();
+            $page = clone $scan;
+            if ($lastTime !== null) {
+                $page->where(function (Builder $query) use ($lastTime, $lastKey) {
+                    $query->where('observed_at', '>', $lastTime)
+                        ->orWhere(fn (Builder $sameTime) => $sameTime->where('observed_at', $lastTime)->where('sample_key', '>', $lastKey));
+                });
+            }
+            $rows = $page->orderBy('observed_at')->orderBy('sample_key')->limit(250)->get(['sample_key', 'observed_at']);
+            if ($rows->isEmpty()) {
+                break;
+            }
+            // Keep eligibility predicates on the DELETE too: shared history may
+            // have changed since the unlocked candidate read.
+            $count = DB::transaction(fn () => (clone $eligible)
+                ->whereIn('sample_key', $rows->pluck('sample_key')->all())->delete(), 3);
+            $deleted += $count;
+            $lastTime = $rows->last()->observed_at;
+            $lastKey = $rows->last()->sample_key;
+            $this->batchProgress && ($this->batchProgress)($count);
+        } while ($rows->count() === 250);
+
+        return $deleted;
+    }
+
     private function purgeGpsHistory(Merchant $merchant, Builder $history, bool $allMerchantHistory = false): array
     {
         $runIds = (clone $history)->whereNotNull('run_id')->distinct()->pluck('run_id')->all();
         // Receipts include merged stationary samples, not just first_sample_key.
         // Keep ambiguous receipts if retained history covers the same vehicle/time.
-        $selectedIds = (clone $history)->select('id');
         $receipts = 0;
         // Start from selected vehicles, never a DELETE scanning every receipt.
         $vehicleIds = (clone $history)->distinct()->pluck('vehicle_id')->all();
         foreach ($vehicleIds as $vehicleId) {
             $selected = (clone $history)->where('vehicle_id', $vehicleId);
+            $retained = DB::table('vehicle_location_history')->where('vehicle_id', $vehicleId);
+            if ($allMerchantHistory) {
+                $retained->where('merchant_id', '!=', $merchant->id);
+            } else {
+                $retained->whereNotIn('id', (clone $selected)->select('id'));
+            }
+            // For an exclusively owned vehicle, a full activity purge needs no
+            // interval matching at all. Recheck retained history on each DELETE.
+            if ($allMerchantHistory
+                && DB::table('vehicles')->where('id', $vehicleId)->where('merchant_id', $merchant->id)->exists()
+                && ! (clone $retained)->exists()) {
+                $receipts += $this->deleteGpsReceipts(
+                    DB::table('vehicle_location_receipts')->where('vehicle_id', $vehicleId)
+                        ->whereNotExists((clone $retained)->selectRaw('1')),
+                    $vehicleId,
+                );
+
+                continue;
+            }
+            $from = (clone $selected)->min('observed_at');
+            $until = (clone $selected)->max('last_seen_at');
             $receiptQuery = DB::table('vehicle_location_receipts')->where('vehicle_id', $vehicleId)
-                ->whereBetween('observed_at', [(clone $selected)->min('observed_at'), (clone $selected)->max('last_seen_at')])
+                ->whereBetween('observed_at', [$from, $until])
                 ->whereExists((clone $selected)->selectRaw('1')
                     ->whereColumn('vehicle_location_history.observed_at', '<=', 'vehicle_location_receipts.observed_at')
                     ->whereColumn('vehicle_location_history.last_seen_at', '>=', 'vehicle_location_receipts.observed_at'))
-                ->whereNotExists(DB::table('vehicle_location_history')->selectRaw('1')
-                    ->where('vehicle_id', $vehicleId)->whereNotIn('id', $selectedIds)
+                ->whereNotExists((clone $retained)->selectRaw('1')
                     ->whereColumn('vehicle_location_history.observed_at', '<=', 'vehicle_location_receipts.observed_at')
                     ->whereColumn('vehicle_location_history.last_seen_at', '>=', 'vehicle_location_receipts.observed_at'));
-            $receipts += $this->deleteInBatches($receiptQuery, 'sample_key');
+            $receipts += $this->deleteGpsReceipts($receiptQuery, $vehicleId, $from, $until);
         }
         $deleted = $this->deleteInBatches($history, 'id', function () use ($runIds) {
             foreach ($runIds as $runId) {
@@ -485,9 +545,9 @@ class DataPurgeService
             $ownedVehicleIds = DB::table('vehicles')->where('merchant_id', $merchant->id)->pluck('id');
             foreach ($ownedVehicleIds as $vehicleId) {
                 if (! DB::table('vehicle_location_history')->where('vehicle_id', $vehicleId)->exists()) {
-                    $receipts += $this->deleteInBatches(DB::table('vehicle_location_receipts')
+                    $receipts += $this->deleteGpsReceipts(DB::table('vehicle_location_receipts')
                         ->where('vehicle_id', $vehicleId)
-                        ->whereNotExists(DB::table('vehicle_location_history')->selectRaw('1')->where('vehicle_id', $vehicleId)), 'sample_key');
+                        ->whereNotExists(DB::table('vehicle_location_history')->selectRaw('1')->where('vehicle_id', $vehicleId)), $vehicleId);
                 }
             }
         }

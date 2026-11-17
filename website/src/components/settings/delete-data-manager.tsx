@@ -280,7 +280,7 @@ function MerchantDeleteDataManager({
 
           <div className="space-y-4">
             <div className="text-sm text-destructive">
-              This action cannot be undone. Runs and vehicles include their GPS history. Uploaded attachments for deleted records will also be removed; file cleanup may finish in the background.
+              This action cannot be undone.
             </div>
 
             <div className="space-y-2">
