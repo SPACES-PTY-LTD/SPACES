@@ -16,6 +16,7 @@ use App\Models\VehicleType;
 use App\Models\User;
 use App\Services\Mixtelematics\MixIntegrateService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -301,14 +302,23 @@ class MerchantIntegrationService
             'only_with_geofences' => $onlyWithGeofences,
             'selected_location_count' => count($normalizedLocations),
         ]);
-        ImportProviderLocationsJob::dispatch(
-            $user->id,
-            $merchant->id,
-            $merchant->uuid,
-            $providerUuid,
-            $onlyWithGeofences,
-            $normalizedLocations
-        );
+        try {
+            ImportProviderLocationsJob::dispatch(
+                $user->id,
+                $merchant->id,
+                $merchant->uuid,
+                $providerUuid,
+                $onlyWithGeofences,
+                $normalizedLocations,
+                $start['stats']['location_import_token']
+            );
+        } catch (\Throwable $exception) {
+            $this->completeImportByMerchantId(
+                $merchant->id, 'locations', null, $exception->getMessage(),
+                $start['stats']['location_import_token']
+            );
+            throw $exception;
+        }
         Log::info('After dispatching ImportProviderLocationsJob', [
             'user_id' => $user->id,
             'merchant_id' => $merchant->id,
@@ -448,19 +458,26 @@ class MerchantIntegrationService
         return $this->normalizePowerfleetGroupDetails($payload);
     }
 
-    public function completeImportByMerchantId(int $merchantId, string $type, ?int $count = null, ?string $error = null): void
+    public function completeImportByMerchantId(int $merchantId, string $type, ?int $count = null, ?string $error = null, ?string $token = null): void
     {
         if (!in_array($type, self::IMPORT_TYPES, true)) {
             return;
         }
 
-        DB::transaction(function () use ($merchantId, $type, $count, $error): void {
+        DB::transaction(function () use ($merchantId, $type, $count, $error, $token): void {
             $merchant = Merchant::query()->whereKey($merchantId)->lockForUpdate()->first();
             if (!$merchant) {
                 return;
             }
 
             $stats = $this->normalizeImportStats($merchant->imports_stats);
+            // A failed or superseded job must not release a newer import's lock.
+            if ($type === 'locations' && $stats['location_import_token'] !== $token) {
+                return;
+            }
+            if ($type === 'locations') {
+                $stats['location_import_token'] = null;
+            }
             $stats['inprogress'][$type] = null;
             if ($count !== null) {
                 $stats['last_import_counts'][$type] = max(0, $count);
@@ -1376,6 +1393,39 @@ class MerchantIntegrationService
         }
     }
 
+    public function claimLocationImport(int $merchantId, ?string $token): bool
+    {
+        return DB::transaction(function () use ($merchantId, $token): bool {
+            $merchant = Merchant::query()->whereKey($merchantId)->lockForUpdate()->first();
+            if (!$merchant) {
+                return false;
+            }
+            $stats = $this->normalizeImportStats($merchant->imports_stats);
+            if ($stats['location_import_token'] !== $token
+                || empty($stats['inprogress']['locations'])) {
+                return false;
+            }
+
+            // Renew when a queued job starts, so time spent waiting does not
+            // cause recovery to replace an actively executing job.
+            $stats['inprogress']['locations'] = now()->format('Y-m-d H:i:s');
+            $merchant->imports_stats = $stats;
+            $merchant->save();
+
+            return true;
+        });
+    }
+
+    private function locationImportIsStale(string $startedAt): bool
+    {
+        try {
+            return Carbon::parse($startedAt)->lte(now()->subDay());
+        } catch (\Throwable) {
+            // Invalid legacy timestamps must not block imports permanently.
+            return true;
+        }
+    }
+
     private function startImportInProgress(int $merchantId, string $type): array
     {
         if (!in_array($type, self::IMPORT_TYPES, true)) {
@@ -1389,13 +1439,17 @@ class MerchantIntegrationService
             $merchant = Merchant::query()->whereKey($merchantId)->lockForUpdate()->firstOrFail();
             $stats = $this->normalizeImportStats($merchant->imports_stats);
 
-            if (!empty($stats['inprogress'][$type])) {
+            if (!empty($stats['inprogress'][$type])
+                && !($type === 'locations' && $this->locationImportIsStale($stats['inprogress'][$type]))) {
                 return [
                     'started' => false,
                     'stats' => $stats,
                 ];
             }
 
+            if ($type === 'locations') {
+                $stats['location_import_token'] = (string) Str::uuid();
+            }
             $stats['inprogress'][$type] = now()->format('Y-m-d H:i:s');
             $stats['last_import_errors'][$type] = null;
             $merchant->imports_stats = $stats;
@@ -1411,6 +1465,7 @@ class MerchantIntegrationService
     private function normalizeImportStats(mixed $stats): array
     {
         $normalized = [
+            'location_import_token' => null,
             'inprogress' => [
                 'locations' => null,
                 'drivers' => null,
@@ -1431,6 +1486,9 @@ class MerchantIntegrationService
         if (!is_array($stats)) {
             return $normalized;
         }
+
+        $normalized['location_import_token'] = is_string($stats['location_import_token'] ?? null)
+            ? $stats['location_import_token'] : null;
 
         foreach (self::IMPORT_TYPES as $type) {
             $inprogress = $stats['inprogress'][$type] ?? null;

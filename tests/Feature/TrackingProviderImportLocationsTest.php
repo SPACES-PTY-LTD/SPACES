@@ -81,6 +81,7 @@ class TrackingProviderImportLocationsTest extends TestCase
         );
 
         $service = Mockery::mock(MerchantIntegrationService::class);
+        $service->shouldReceive('claimLocationImport')->once()->with($merchant->id, null)->andReturn(true);
         $service->shouldReceive('importProviderLocations')
             ->once()
             ->with(
@@ -93,7 +94,7 @@ class TrackingProviderImportLocationsTest extends TestCase
             ->andReturn(['imported_count' => 1]);
         $service->shouldReceive('completeImportByMerchantId')
             ->once()
-            ->with($merchant->id, 'locations', 1, null);
+            ->with($merchant->id, 'locations', 1, null, null);
 
         $job->handle($service);
     }
@@ -154,6 +155,118 @@ class TrackingProviderImportLocationsTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonPath('error.code', 'VALIDATION_ERROR');
+    }
+
+    public function test_stale_location_import_is_replaced_but_recent_import_is_not(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        Queue::fake();
+        $merchant->update(['imports_stats' => [
+            'inprogress' => ['locations' => now()->subDays(2)->format('Y-m-d H:i:s')],
+            'last_import_counts' => ['locations' => 3155, 'drivers' => 333],
+        ]]);
+        $service = app(MerchantIntegrationService::class);
+        $result = $service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid, null, [['provider_location_id' => 'loc-001']]);
+        $this->assertTrue($result['queued']);
+        $token = $result['stats']['location_import_token'];
+        $this->assertNotEmpty($token);
+        $this->assertSame(3155, $result['stats']['last_import_counts']['locations']);
+        $this->assertSame(333, $result['stats']['last_import_counts']['drivers']);
+        $second = $service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid);
+        $this->assertTrue($second['already_in_progress']);
+        Queue::assertPushed(ImportProviderLocationsJob::class, 1);
+        Queue::assertPushed(ImportProviderLocationsJob::class, fn ($job) => $job->importToken === $token && $job->queue === 'imports');
+    }
+
+    public function test_invalid_legacy_timestamp_can_be_recovered(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        Queue::fake();
+        $merchant->update(['imports_stats' => ['inprogress' => ['locations' => 'invalid timestamp']]]);
+        $this->assertTrue(app(MerchantIntegrationService::class)->queueProviderLocationsImport(
+            $user, $provider->uuid, $merchant->uuid
+        )['queued']);
+    }
+
+    public function test_legacy_job_cannot_claim_a_new_or_completed_import(): void
+    {
+        [, $merchant] = $this->createActivatedLocationImportProvider();
+        $service = app(MerchantIntegrationService::class);
+        $this->assertFalse($service->claimLocationImport($merchant->id, null));
+        $merchant->update(['imports_stats' => [
+            'inprogress' => ['locations' => now()->toDateTimeString()],
+            'location_import_token' => 'new-token',
+        ]]);
+        $this->assertFalse($service->claimLocationImport($merchant->id, null));
+        $service->completeImportByMerchantId($merchant->id, 'locations', null, 'Legacy failure');
+        $this->assertSame('new-token', $merchant->fresh()->imports_stats['location_import_token']);
+    }
+
+    public function test_superseded_job_cannot_run_or_clear_new_import(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        $merchant->update(['imports_stats' => [
+            'inprogress' => ['locations' => now()->toDateTimeString()],
+            'location_import_token' => 'new-token',
+        ]]);
+        $service = app(MerchantIntegrationService::class);
+        $job = new ImportProviderLocationsJob($user->id, $merchant->id, $merchant->uuid, $provider->uuid, null, [], 'old-token');
+        $job->handle($service);
+        $job->failed(new \RuntimeException('Old failure'));
+        $service->completeImportByMerchantId($merchant->id, 'locations', 99, null, 'old-token');
+        $this->assertSame('new-token', $merchant->fresh()->imports_stats['location_import_token']);
+        $this->assertDatabaseCount('locations', 0);
+    }
+
+    public function test_worker_failure_releases_matching_lock_and_records_error(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        Queue::fake();
+        $service = app(MerchantIntegrationService::class);
+        $result = $service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid);
+        $job = new ImportProviderLocationsJob($user->id, $merchant->id, $merchant->uuid, $provider->uuid, null, [], $result['stats']['location_import_token']);
+        $job->failed(new \RuntimeException('Import timed out'));
+        $stats = $merchant->fresh()->imports_stats;
+        $this->assertNull($stats['inprogress']['locations']);
+        $this->assertNull($stats['location_import_token']);
+        $this->assertSame('Import timed out', $stats['last_import_errors']['locations']);
+        $this->assertTrue($job->failOnTimeout);
+        $this->assertSame(300, $job->timeout);
+    }
+
+    public function test_dispatch_failure_releases_location_import_lock(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        \Illuminate\Support\Facades\Bus::shouldReceive('dispatch')->once()->andThrow(new \RuntimeException('Queue unavailable'));
+        try {
+            app(MerchantIntegrationService::class)->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid);
+            $this->fail('Expected queue failure');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Queue unavailable', $exception->getMessage());
+        }
+        $stats = $merchant->fresh()->imports_stats;
+        $this->assertNull($stats['inprogress']['locations']);
+        $this->assertSame('Queue unavailable', $stats['last_import_errors']['locations']);
+    }
+
+    public function test_claim_renews_lock_and_success_clears_it(): void
+    {
+        [$user, $merchant, $provider] = $this->createActivatedLocationImportProvider();
+        Queue::fake();
+        $service = app(MerchantIntegrationService::class);
+        $result = $service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid, null, [['provider_location_id' => 'loc-001']]);
+        $token = $result['stats']['location_import_token'];
+        $this->travel(23)->hours();
+        $this->assertTrue($service->claimLocationImport($merchant->id, $token));
+        $this->travel(2)->hours();
+        $this->assertTrue($service->queueProviderLocationsImport($user, $provider->uuid, $merchant->uuid)['already_in_progress']);
+        $job = new ImportProviderLocationsJob($user->id, $merchant->id, $merchant->uuid, $provider->uuid, null, [['provider_location_id' => 'loc-001']], $token);
+        $job->handle($service);
+        $stats = $merchant->fresh()->imports_stats;
+        $this->assertNull($stats['inprogress']['locations']);
+        $this->assertSame(1, $stats['last_import_counts']['locations']);
+        $job->failed(new \RuntimeException('Late failure'));
+        $this->assertNull($merchant->fresh()->imports_stats['last_import_errors']['locations']);
     }
 
     private function createActivatedLocationImportProvider(): array

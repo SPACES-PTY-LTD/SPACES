@@ -17,19 +17,32 @@ class ImportProviderLocationsJob implements ShouldQueue
 
     public int $tries = 1;
 
+    public int $timeout = 300;
+
+    public bool $failOnTimeout = true;
+
+    // A default property also supports jobs serialized before tokens existed.
+    public ?string $importToken = null;
+
     public function __construct(
         public int $userId,
         public int $merchantId,
         public string $merchantUuid,
         public string $providerUuid,
         public ?bool $onlyWithGeofences = null,
-        public array $locations = []
+        public array $locations = [],
+        ?string $importToken = null
     ) {
+        $this->importToken = $importToken;
         $this->onQueue('imports');
     }
 
     public function handle(MerchantIntegrationService $service): void
     {
+        if (!$service->claimLocationImport($this->merchantId, $this->importToken)) {
+            return;
+        }
+
         $context = [
             'job' => self::class,
             'attempt' => $this->attempts(),
@@ -51,7 +64,7 @@ class ImportProviderLocationsJob implements ShouldQueue
                     ...$context,
                 ]);
 
-                $service->completeImportByMerchantId($this->merchantId, 'locations', 0, 'Import user not found.');
+                $service->completeImportByMerchantId($this->merchantId, 'locations', 0, 'Import user not found.', $this->importToken);
                 Log::info('Provider locations import job completed with skip (missing user).', $context);
                 return;
             }
@@ -68,10 +81,11 @@ class ImportProviderLocationsJob implements ShouldQueue
                 $this->merchantId,
                 'locations',
                 (int) ($result['imported_count'] ?? 0),
-                null
+                null,
+                $this->importToken
             );
         } catch (\Throwable $exception) {
-            $service->completeImportByMerchantId($this->merchantId, 'locations', null, $exception->getMessage());
+            $service->completeImportByMerchantId($this->merchantId, 'locations', null, $exception->getMessage(), $this->importToken);
             Log::error('Provider locations import job failed.', [
                 ...$context,
                 'error' => $exception->getMessage(),
@@ -81,4 +95,16 @@ class ImportProviderLocationsJob implements ShouldQueue
             throw $exception;
         }
     }
+
+    public function failed(?\Throwable $exception): void
+    {
+        app(MerchantIntegrationService::class)->completeImportByMerchantId(
+            $this->merchantId,
+            'locations',
+            null,
+            $exception?->getMessage() ?? 'Location import failed.',
+            $this->importToken
+        );
+    }
+
 }
